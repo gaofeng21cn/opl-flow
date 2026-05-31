@@ -63,7 +63,7 @@ The profile routes work by shape:
 
 ## Relationship To OPL Doc
 
-OPL Flow is the generic workflow layer. OPL Doc Governance is a domain skill that governs OPL-family developer documentation lifecycle. OPL Doc can use OPL Flow's Durable writeback, subagent contract, and verifier gates, but the two should stay separate.
+OPL Flow is the generic workflow layer. OPL Doc is the domain skill that governs OPL-family developer documentation lifecycle. The older `opl-doc-governance` skill name is only a compatibility entry. OPL Doc can use OPL Flow's Durable writeback, subagent contract, and verifier gates, but the two should stay separate.
 
 ## Development
 
