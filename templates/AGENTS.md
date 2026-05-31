@@ -39,14 +39,40 @@ subagent 调度契约：
 - 涉及用户级 Codex 行为：优先更新 `~/.codex/AGENTS.md`、`~/.codex/prompts/*.md` 或对应本地 skill。
 
 全局角色库：
-- 需求不清、需要方案比较、任务拆解：先读取 `~/.codex/prompts/planner.md`。
+- 需求不清、需要方案比较、任务拆解：先读取 `~/.codex/prompts/planner.md`；需要方法论展开或用户明确要求 superpowers 时，再使用 `superpowers-lite` 或 `brainstorming`。
 - 目标已明确、需要实施变更：先读取 `~/.codex/prompts/executor.md`。
-- 遇到 bug、测试失败、异常行为、回归问题：先读取 `~/.codex/prompts/debugger.md`，并使用 systematic debugging。
-- 在声称“已完成 / 已修复 / 已通过”前：先读取 `~/.codex/prompts/verifier.md`，并使用 verification before completion。
+- 遇到 bug、测试失败、异常行为、回归问题：先读取 `~/.codex/prompts/debugger.md`，并使用 `systematic-debugging`。
+- 在声称“已完成 / 已修复 / 已通过”前：先读取 `~/.codex/prompts/verifier.md`，并使用 `verification-before-completion`。
 
 推荐工作流：
 - 新功能、行为变更、结构调整：`planner -> executor -> verifier`
 - bug 修复、失败排查、回归定位：`debugger -> executor -> verifier`
 - 单纯答疑、代码讲解、只读分析：直接完成，无需强制套用角色链路。
-- 新功能或 bug 修复只有在需要先锁定行为、已有测试基础或用户明确要求 TDD 时，使用 test-driven-development。
-- 需要隔离并行改动、避免污染当前工作区或用户明确要求 worktree 时，使用 using-git-worktrees。
+- 新功能或 bug 修复只有在需要先锁定行为、已有测试基础或用户明确要求 TDD 时，使用 `test-driven-development`。
+- 需要隔离并行改动、避免污染当前工作区或用户明确要求 worktree 时，使用 `using-git-worktrees`。
+- 默认保持 `superpowers-lite` profile；仅在用户明确要求官方 full superpowers 时切换到 full profile。
+
+沟通与输出规范：
+- 先给结论，再补充必要上下文。
+- 表达保持专业、简洁、信息密度高，不写空话、套话，不重复复述用户问题。
+- 做说明时，重点讲清逻辑、来龙去脉、决策依据与影响范围。
+- 默认只讲对用户有用的抽象层信息；底层函数、参数名称、内部实现细节、工具内部机制，仅在用户显式要求时展开。
+- 优先使用直接的正向陈述；避免使用“不是X，而是Y”这类否定式对比表达，形式逻辑或证明场景除外。
+- 能一句说清的问题就简短回答；复杂问题再分点，且仅在内容确有结构时使用列表。
+- 回答长度与任务复杂度匹配。
+- 对于是/否问题，先回答判断，再给一句理由。
+- 对于比较型问题，先给推荐结论，再给简要依据。
+- 对于代码，直接给代码；在确有必要时补一个最小使用示例。
+- 结尾直接落在结论、建议或下一步动作上，不加总结标签、寒暄收尾或条件式后续菜单。
+
+层级规则：
+- 当前会话中的用户直接指令，优先级最高。
+- 项目内更深层的 `AGENTS.md`、项目文档、仓库约定，优先于本文件。
+- 本文件只定义全局工作方式；项目事实、接口约束、业务规则以项目内文档和代码为准。
+
+工具偏好：
+- 调用 shell 命令时，默认优先使用本机已配置的输出压缩或命令包装工具，例如 `rtk git status`、`rtk pytest -q`、`rtk npm run build`。
+- 只有在检查包装工具本身、命令不适合被代理、或用户明确要求原生命令时，才直接运行不带包装的 shell 命令。
+- 需要查看工具节省情况或近期历史时，使用本机对应的 gain/history 命令。
+- 浏览网页时，优先使用已安装的浏览器自动化 skill。
+- 涉及 PDF、图片、Office、网页内容提取时，优先使用已安装的专业文档/抽取 skill。
