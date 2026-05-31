@@ -1,0 +1,32 @@
+{
+  "name": "opl-flow",
+  "version": "0.1.0",
+  "description": "OPL Flow is a pragmatic Codex workflow profile for direct answers, inline execution, durable evidence, subagent boundaries, and verification gates.",
+  "author": {
+    "name": "Gaofeng"
+  },
+  "skills": "./skills/",
+  "interface": {
+    "displayName": "OPL Flow",
+    "shortDescription": "Pragmatic Codex workflow profile",
+    "longDescription": "OPL Flow packages a reusable Codex-first workflow inspired by Trellis and Superpowers: Direct/Inline/Durable task tiers, planner/executor/debugger/verifier role prompts, subagent dispatch contracts, durable writeback rules, and completion verification.",
+    "developerName": "Gaofeng",
+    "category": "Developer Tools",
+    "capabilities": [
+      "workflow",
+      "planning",
+      "verification",
+      "subagents"
+    ],
+    "defaultPrompt": "Use OPL Flow to classify this task, choose the right role path, execute with live evidence, and verify before claiming completion."
+  },
+  "homepage": "https://github.com/gaofeng21cn/opl-flow",
+  "repository": "https://github.com/gaofeng21cn/opl-flow",
+  "license": "MIT",
+  "keywords": [
+    "codex",
+    "workflow",
+    "opl",
+    "agents"
+  ]
+}
