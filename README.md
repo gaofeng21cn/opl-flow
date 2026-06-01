@@ -37,13 +37,13 @@ Existing user profile files are backed up before replacement unless their conten
 
 Restart Codex after installation.
 
-For a complete new-machine setup that also installs OPL Doc, One Person Lab App, the OPL Framework CLI, and the OPL family agent surfaces, use the [New Machine Codex Setup](docs/new-machine-codex-setup.md) guide.
+For a complete new-machine setup that installs the OPL runtime, One Person Lab App, MAS/MAG/RCA/OMA agent surfaces, OPL Flow, OPL Doc, and companion tools, use the [One Person Lab new-machine Codex bootstrap guide](https://github.com/gaofeng21cn/one-person-lab/blob/main/docs/references/current-support/opl-new-machine-codex-bootstrap.md).
 
 You can paste this into Codex on the new machine:
 
 ```text
-请按 OPL Flow 帮我完成这台新机器的 OPL 全家桶安装配置。
-Source of truth: https://github.com/gaofeng21cn/opl-flow/blob/main/docs/new-machine-codex-setup.md
+请按 One Person Lab 官方新机器指南，帮我完成这台机器的 OPL 智能体运行环境和 Codex 工作流全家桶安装配置。
+Source of truth: https://github.com/gaofeng21cn/one-person-lab/blob/main/docs/references/current-support/opl-new-machine-codex-bootstrap.md
 ```
 
 ## Install Plugin Only

@@ -69,7 +69,7 @@ That installs the local plugin into `~/plugins/opl-flow`, registers it in the pe
 
 Use `python3 scripts/install_local_plugin.py --no-profile` to install only the plugin without touching user-level Codex prompts.
 
-For a complete OPL-family bootstrap that also covers OPL Doc, One Person Lab App, OPL Framework, and family agent surfaces, follow `docs/new-machine-codex-setup.md` in this plugin checkout.
+For a complete OPL-family bootstrap that also covers OPL runtime, One Person Lab App, MAS/MAG/RCA/OMA agent surfaces, OPL Doc, and companion tools, follow the One Person Lab guide at `https://github.com/gaofeng21cn/one-person-lab/blob/main/docs/references/current-support/opl-new-machine-codex-bootstrap.md`.
 
 ## Verification
 
