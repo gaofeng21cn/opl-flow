@@ -13,6 +13,7 @@ from typing import Any
 
 
 PLUGIN_NAME = "opl-flow"
+PROFILE_NAMES = ("AGENTS.md", "TASTE.md")
 PROMPT_NAMES = ("planner.md", "executor.md", "debugger.md", "verifier.md")
 
 
@@ -76,8 +77,9 @@ def install_profile(repo_root: Path, codex_home: Path) -> dict[str, Any]:
     backup_root = codex_home / "backups" / PLUGIN_NAME / timestamp
     changed: list[str] = []
 
-    if backup_and_copy(templates / "AGENTS.md", codex_home / "AGENTS.md", backup_root):
-        changed.append(str(codex_home / "AGENTS.md"))
+    for name in PROFILE_NAMES:
+        if backup_and_copy(templates / name, codex_home / name, backup_root):
+            changed.append(str(codex_home / name))
     prompts_dir = codex_home / "prompts"
     for name in PROMPT_NAMES:
         if backup_and_copy(templates / "prompts" / name, prompts_dir / name, backup_root):
@@ -113,6 +115,7 @@ def verify(repo_root: Path, plugins_dir: Path, marketplace_path: Path, codex_hom
         ".codex-plugin/plugin.json",
         "skills/opl-flow/SKILL.md",
         "templates/AGENTS.md",
+        "templates/TASTE.md",
         "templates/prompts/planner.md",
         "templates/prompts/executor.md",
         "templates/prompts/debugger.md",
@@ -127,7 +130,7 @@ def verify(repo_root: Path, plugins_dir: Path, marketplace_path: Path, codex_hom
 
     profile_mismatches: list[str] = []
     if profile:
-        checks = [(repo_root / "templates" / "AGENTS.md", codex_home / "AGENTS.md")]
+        checks = [(repo_root / "templates" / name, codex_home / name) for name in PROFILE_NAMES]
         checks.extend((repo_root / "templates" / "prompts" / name, codex_home / "prompts" / name) for name in PROMPT_NAMES)
         for source, target in checks:
             if not target.exists() or not filecmp.cmp(source, target, shallow=False):

@@ -17,6 +17,7 @@ REQUIRED_FILES = (
     "skills/opl-flow/SKILL.md",
     "skills/opl-flow/agents/openai.yaml",
     "templates/AGENTS.md",
+    "templates/TASTE.md",
     "templates/prompts/planner.md",
     "templates/prompts/executor.md",
     "templates/prompts/debugger.md",

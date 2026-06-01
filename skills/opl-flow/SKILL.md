@@ -15,6 +15,8 @@ Use it to choose the smallest reliable path:
 
 ## Core Route
 
+- For repo work, read the target repo's `TASTE.md` when present before using the user-level fallback at `~/.codex/TASTE.md`.
+- Treat `TASTE.md` as maintenance preference, not as project fact or machine truth.
 - Requirements unclear, solution comparison, task decomposition: use Planner.
 - Goal clear and implementation needed: use Executor.
 - Bug, test failure, regression, unexpected behavior: use Debugger first.
@@ -57,6 +59,7 @@ python3 scripts/install_local_plugin.py
 That installs the local plugin into `~/plugins/opl-flow`, registers it in the personal marketplace at `~/.agents/plugins/marketplace.json`, and syncs the OPL Flow user profile into:
 
 - `~/.codex/AGENTS.md`
+- `~/.codex/TASTE.md`
 - `~/.codex/prompts/planner.md`
 - `~/.codex/prompts/executor.md`
 - `~/.codex/prompts/debugger.md`

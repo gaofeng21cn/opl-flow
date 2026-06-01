@@ -25,12 +25,15 @@ This installs:
 - personal marketplace entry: `~/.agents/plugins/marketplace.json`
 - Codex workflow profile:
   - `~/.codex/AGENTS.md`
+  - `~/.codex/TASTE.md`
   - `~/.codex/prompts/planner.md`
   - `~/.codex/prompts/executor.md`
   - `~/.codex/prompts/debugger.md`
   - `~/.codex/prompts/verifier.md`
 
 Existing user profile files are backed up before replacement unless their content already matches the template.
+
+`TASTE.md` carries default maintenance preferences. A repo-local `TASTE.md` remains stronger for that repo; the user-level file is the fallback when a target repo has no local taste document.
 
 Restart Codex after installation.
 
@@ -60,6 +63,8 @@ The profile routes work by shape:
 - Direct: answer directly with minimal reads.
 - Inline: main session implements and verifies.
 - Durable: persist plan, evidence, decision, or runbook in the right file.
+
+The profile reads preferences by scope: repo-local `TASTE.md` first, then `~/.codex/TASTE.md` when no repo-local file exists. `TASTE.md` never overrides code, contracts, docs, runtime output, or direct user instructions.
 
 ## Relationship To OPL Doc
 
