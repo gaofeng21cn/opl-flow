@@ -14,7 +14,7 @@ It is inspired by Trellis and Superpowers, but stays Codex-first:
 ## Install On A New Machine
 
 ```bash
-git clone git@github.com:gaofeng21cn/opl-flow.git
+git clone https://github.com/gaofeng21cn/opl-flow.git
 cd opl-flow
 python3 scripts/install_local_plugin.py
 ```
@@ -36,6 +36,15 @@ Existing user profile files are backed up before replacement unless their conten
 `TASTE.md` carries default maintenance preferences. A repo-local `TASTE.md` remains stronger for that repo; the user-level file is the fallback when a target repo has no local taste document.
 
 Restart Codex after installation.
+
+For a complete new-machine setup that also installs OPL Doc, One Person Lab App, the OPL Framework CLI, and the OPL family agent surfaces, use the [New Machine Codex Setup](docs/new-machine-codex-setup.md) guide.
+
+You can paste this into Codex on the new machine:
+
+```text
+请按 OPL Flow 帮我完成这台新机器的 OPL 全家桶安装配置。
+Source of truth: https://github.com/gaofeng21cn/opl-flow/blob/main/docs/new-machine-codex-setup.md
+```
 
 ## Install Plugin Only
 

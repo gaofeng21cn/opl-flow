@@ -53,6 +53,8 @@ Write reusable lessons to the right owner:
 For a new machine, clone this repository and run:
 
 ```bash
+git clone https://github.com/gaofeng21cn/opl-flow.git
+cd opl-flow
 python3 scripts/install_local_plugin.py
 ```
 
@@ -66,6 +68,8 @@ That installs the local plugin into `~/plugins/opl-flow`, registers it in the pe
 - `~/.codex/prompts/verifier.md`
 
 Use `python3 scripts/install_local_plugin.py --no-profile` to install only the plugin without touching user-level Codex prompts.
+
+For a complete OPL-family bootstrap that also covers OPL Doc, One Person Lab App, OPL Framework, and family agent surfaces, follow `docs/new-machine-codex-setup.md` in this plugin checkout.
 
 ## Verification
 

@@ -13,6 +13,7 @@ from pathlib import Path
 REQUIRED_FILES = (
     ".codex-plugin/plugin.json",
     "README.md",
+    "docs/new-machine-codex-setup.md",
     "LICENSE",
     "skills/opl-flow/SKILL.md",
     "skills/opl-flow/agents/openai.yaml",
