@@ -24,6 +24,7 @@ REQUIRED_FILES = (
     "templates/prompts/debugger.md",
     "templates/prompts/verifier.md",
     "scripts/install_local_plugin.py",
+    "scripts/repo_profile.py",
 )
 
 
@@ -67,12 +68,43 @@ def check_install(repo_root: Path) -> list[str]:
     return errors
 
 
+def check_repo_profile(repo_root: Path) -> list[str]:
+    errors: list[str] = []
+    with tempfile.TemporaryDirectory() as tmp:
+        tmp_path = Path(tmp)
+        repo = tmp_path / "target-repo"
+        repo.mkdir()
+        (repo / "AGENTS.md").write_text("# Target\n\nLocal rule.\n", encoding="utf-8")
+        (repo / "TASTE.md").write_text("# Taste\n\nLocal preference.\n", encoding="utf-8")
+        cmd = [
+            sys.executable,
+            str(repo_root / "scripts" / "repo_profile.py"),
+            "sync",
+            "--repo-root",
+            str(repo),
+            "--apply",
+        ]
+        subprocess.run(cmd, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+        check_cmd = [
+            sys.executable,
+            str(repo_root / "scripts" / "repo_profile.py"),
+            "check",
+            "--repo-root",
+            str(repo),
+        ]
+        result = subprocess.run(check_cmd, check=False, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+        if result.returncode != 0:
+            errors.append(f"repo profile check failed: {result.stdout} {result.stderr}".strip())
+    return errors
+
+
 def main() -> int:
     repo_root = Path(__file__).resolve().parents[1]
     errors: list[str] = []
     errors.extend(f"missing {rel}" for rel in check_required_files(repo_root))
     errors.extend(check_plugin_json(repo_root))
     errors.extend(check_install(repo_root))
+    errors.extend(check_repo_profile(repo_root))
     if errors:
         for error in errors:
             print(f"ERROR: {error}", file=sys.stderr)

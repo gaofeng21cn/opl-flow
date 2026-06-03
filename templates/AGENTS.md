@@ -17,6 +17,8 @@
 并行与 subagent 规则：
 - 对于彼此独立、无冲突、可并行的任务，优先考虑使用 subagent 提高效率。
 - 仅在确有收益时启用 subagent；任务完成后及时关闭，避免占用席位。
+- 未明确要求独立 Codex thread / background task 时，subagent 默认指当前对话内子代理。
+- 若使用独立 Codex thread，主会话必须完成读结果、吸收或废弃、清理 worktree、归档 thread。
 
 任务分级：
 - Direct：纯问答、解释、状态阅读、小范围只读核查，直接完成；最多读取少量必要上下文，不创建计划或额外任务文件。

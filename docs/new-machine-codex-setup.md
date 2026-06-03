@@ -64,6 +64,20 @@ python3 ~/opl-flow/scripts/verify.py
 
 If checkout paths differ, use the actual clone location in place of `~/opl-flow`.
 
+## Optional Repo-Native Sync
+
+After the user-level profile is installed, a target OPL-compatible repository
+can declare that it follows OPL Flow:
+
+```bash
+python3 ~/opl-flow/scripts/repo_profile.py check --repo-root /path/to/repo
+python3 ~/opl-flow/scripts/repo_profile.py sync --repo-root /path/to/repo --apply
+```
+
+This writes only the workflow profile declaration and managed AGENTS/TASTE
+blocks. It does not install OPL runtime modules, mutate domain contracts, or
+replace repo-specific rules.
+
 ## Where This Fits
 
 `opl-flow` configures Codex behavior on a new machine. It does not own OPL runtime, App installation, MAS/MAG/RCA domain agents, or OPL companion skills.

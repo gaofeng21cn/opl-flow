@@ -10,6 +10,7 @@ It is inspired by Trellis and Superpowers, but stays Codex-first:
 - Subagent dispatch contract for scoped parallel work.
 - Durable evidence and lesson writeback.
 - Verification before completion.
+- Repo-local workflow profile check/sync for OPL-native development directories.
 
 ## Install On A New Machine
 
@@ -59,6 +60,22 @@ python3 scripts/install_local_plugin.py --verify-only
 python3 scripts/verify.py
 ```
 
+## Repo Profile Sync
+
+OPL Flow can check or write the workflow portion of an OPL-native repo profile:
+
+```bash
+python3 scripts/repo_profile.py check --repo-root /path/to/repo
+python3 scripts/repo_profile.py sync --repo-root /path/to/repo
+python3 scripts/repo_profile.py sync --repo-root /path/to/repo --apply
+```
+
+`sync` is a dry-run unless `--apply` is present. Apply mode preserves
+repo-specific prose and only updates `contracts/opl-native-profile.json` plus
+managed blocks in `AGENTS.md` and `TASTE.md`. Those managed blocks point to the
+profile and do not own contracts, source, tests, runtime output, or project
+truth.
+
 ## Usage
 
 Ask Codex:
@@ -78,6 +95,10 @@ The profile reads preferences by scope: repo-local `TASTE.md` first, then `~/.co
 ## Relationship To OPL Doc
 
 OPL Flow is the generic workflow layer. OPL Doc is the domain skill that governs OPL-family developer documentation lifecycle. The older `opl-doc-governance` skill name is only a compatibility entry. OPL Doc can use OPL Flow's Durable writeback, subagent contract, and verifier gates, but the two should stay separate.
+
+For plugin-native repos, OPL Flow owns the workflow managed block while OPL Doc
+owns documentation lifecycle profile checks. The shared machine pointer is
+`contracts/opl-native-profile.json`.
 
 ## Development
 

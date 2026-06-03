@@ -13,6 +13,9 @@ Use it to choose the smallest reliable path:
 - **Inline**: clear implementation, fix, config, or documentation work done in the main Codex session.
 - **Durable**: cross-session, cross-repo, release/CI/runtime-authority, or evidence-sensitive work that must write plans, decisions, evidence, or runbooks to files.
 
+Use repo profile sync when the task is to make a development checkout
+OPL-native to this workflow layer.
+
 ## Core Route
 
 - For repo work, read the target repo's `TASTE.md` when present before using the user-level fallback at `~/.codex/TASTE.md`.
@@ -27,6 +30,10 @@ Do not force heavy process on Direct work. Do not leave Durable work only in cha
 ## Subagent Contract
 
 Default to Codex inline execution. Use subagents only for independent read-only audits, parallel exploration, isolated verification, or clearly separable implementation lanes.
+
+Unless the user explicitly asks for an independent Codex thread / background task, "subagent" means an in-conversation subagent.
+
+If an independent Codex thread is used, the main session must read its result, absorb or discard its diff, remove its worktree, and archive the thread.
 
 Subagent prompt first line:
 
@@ -80,3 +87,19 @@ python3 scripts/install_local_plugin.py --verify-only
 ```
 
 Then restart Codex so plugin and prompt discovery refresh.
+
+## Repo Profile Sync
+
+Check or sync a repo-local OPL Flow profile:
+
+```bash
+python3 <opl-flow-checkout>/scripts/repo_profile.py check --repo-root <repo-root>
+python3 <opl-flow-checkout>/scripts/repo_profile.py sync --repo-root <repo-root>
+python3 <opl-flow-checkout>/scripts/repo_profile.py sync --repo-root <repo-root> --apply
+```
+
+`sync` is dry-run unless `--apply` is passed. Apply mode may update
+`contracts/opl-native-profile.json` and OPL Flow managed blocks in `AGENTS.md`
+and `TASTE.md`; it must preserve repo-specific guidance outside those managed
+blocks and must not edit contracts, source, tests, runtime outputs, or project
+truth.
