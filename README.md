@@ -57,7 +57,7 @@ python3 scripts/install_local_plugin.py --no-profile
 
 ```bash
 python3 scripts/install_local_plugin.py --verify-only
-python3 scripts/verify.py
+scripts/verify.sh
 ```
 
 ## Repo Profile Sync
@@ -108,6 +108,6 @@ as a self-check for this repository.
 ## Development
 
 ```bash
-python3 scripts/verify.py
+scripts/verify.sh
 python3 /Users/gaofeng/.codex/skills/.system/plugin-creator/scripts/validate_plugin.py .
 ```
