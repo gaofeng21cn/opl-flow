@@ -100,6 +100,11 @@ For plugin-native repos, OPL Flow owns the workflow managed block while OPL Doc
 owns documentation lifecycle profile checks. The shared machine pointer is
 `contracts/opl-native-profile.json`.
 
+`opl-flow` itself is the source repository for that profile and is intentionally
+self-hosted without a repo-local `contracts/opl-native-profile.json`, `AGENTS.md`,
+or `TASTE.md`. Run `repo_profile.py check` against consumer OPL-native repos, not
+as a self-check for this repository.
+
 ## Development
 
 ```bash
