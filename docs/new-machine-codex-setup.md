@@ -33,7 +33,7 @@ Source of truth:
 
 ### 1. OPL Flow
 
-OPL Flow owns the Codex-side working profile: user-level `AGENTS.md`, `TASTE.md`, role prompts, subagent contract, Durable writeback, and completion verification.
+OPL Flow owns the Codex-side working profile: user-level `AGENTS.md`, `TASTE.md`, role prompts, risk-based evidence routing, high-risk Codex ops routing, subagent/worktree lane contracts, Durable writeback, and completion verification.
 
 ```bash
 git clone https://github.com/gaofeng21cn/opl-flow.git
@@ -47,11 +47,54 @@ If the machine already uses SSH keys for GitHub, the clone URL can be `git@githu
 
 Restart Codex after installation so plugin and skill discovery refresh.
 
+If this machine was installed through One Person Lab App Full, the Superpowers execution surface and common companion skills are normally already packaged. OPL Flow is compatible with that setup and should not duplicate or replace those skills.
+
+For the full OPL Flow profile semantics, confirm the remaining OPL Flow-native guardrails are installed and discoverable:
+
+- `risk-based-development-flow`
+- `codex-ops-kit`
+
+OPL App Full / Superpowers normally covers:
+
+- `systematic-debugging`
+- `verification-before-completion`
+- `using-git-worktrees`
+- `test-driven-development`
+- `mineru-document-extractor`
+
+Optional machine-level enhancements:
+
+- `agent-browser`
+- RTK
+- CodeGraph MCP/index
+
+OPL Flow installs routing and profile files; it does not vendor those skills or machine tools.
+
+Check the current machine with:
+
+```bash
+python3 scripts/check_companion_skills.py
+```
+
 ## What Gets Installed
 
 | Layer | Entry | Installs or refreshes |
 | --- | --- | --- |
 | Codex workflow | `opl-flow` | `~/plugins/opl-flow`, `~/.agents/plugins/marketplace.json`, `~/.codex/AGENTS.md`, `~/.codex/TASTE.md`, and role prompts |
+
+Key behavior after install:
+
+- Chinese, direct, evidence-oriented communication.
+- Direct / Inline / Durable task classification.
+- Planner / Executor / Debugger / Verifier prompt routing.
+- Risk-based verification and TDD selection.
+- High-risk Codex ops routing to `codex-ops-kit`.
+- Fresh evidence boundaries for runtime truth, readiness, currentness, release, CI, and owner-route claims.
+- Chinese "完成度审计" for target-state delivery, anchored to the original target or plan rather than the completed slice.
+- Subagent/worktree lane prompting, verification, absorption, and cleanup discipline.
+- Durable writeback routing for reusable workflow lessons.
+- CodeGraph marker block preservation and RTK shell preference when available.
+- Compatibility with OPL App Full / Superpowers: OPL Flow routes to the execution surface already packaged by Full install and separately reports missing OPL Flow-native guardrails.
 
 ## Completion Checks
 
@@ -60,6 +103,7 @@ Codex should not report the setup complete until it has run the checks that appl
 ```bash
 python3 ~/opl-flow/scripts/install_local_plugin.py --verify-only
 python3 ~/opl-flow/scripts/verify.py
+python3 ~/opl-flow/scripts/check_companion_skills.py
 ```
 
 If checkout paths differ, use the actual clone location in place of `~/opl-flow`.
@@ -80,6 +124,6 @@ replace repo-specific rules.
 
 ## Where This Fits
 
-`opl-flow` configures Codex behavior on a new machine. It does not own OPL runtime, App installation, MAS/MAG/RCA domain agents, or OPL companion skills.
+`opl-flow` configures Codex behavior on a new machine. It does not own OPL runtime, App installation, MAS/MAG/RCA domain agents, OPL App Full packaged Superpowers, or common companion skills.
 
 `one-person-lab` is the canonical complete bootstrap owner. `one-person-lab-app` is the product and first-install owner. `opl-doc` is a domain skill for developer-document lifecycle governance.

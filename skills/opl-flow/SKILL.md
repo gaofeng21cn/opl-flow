@@ -1,11 +1,13 @@
 ---
 name: "opl-flow"
-description: "Use when a Codex task needs the OPL Flow workflow profile: Direct/Inline/Durable task classification, planner/executor/debugger/verifier routing, subagent dispatch contracts, durable evidence writeback, or verification-before-completion discipline. Also use when installing or syncing this workflow profile on a new machine."
+description: "Use when a Codex task needs the OPL Flow workflow profile: Direct/Inline/Durable task classification, planner/executor/debugger/verifier routing, risk-based development flow, high-risk Codex ops routing, subagent/worktree lane contracts, durable evidence writeback, or completion-audit/verification-before-completion discipline. Also use when installing or syncing this workflow profile on a new machine."
 ---
 
 # OPL Flow
 
-OPL Flow is a lightweight Codex-first workflow profile inspired by Trellis and Superpowers, adapted for pragmatic local engineering work.
+OPL Flow is a lightweight Codex-first workflow profile inspired by Trellis and Superpowers, adapted for pragmatic local engineering work. It installs a thin global `AGENTS.md` plus role prompts; detailed procedures stay in triggered skills such as `codex-ops-kit`, `risk-based-development-flow`, `systematic-debugging`, and `verification-before-completion`.
+
+It is compatible with One Person Lab App Full installs. Full installs normally provide Superpowers and common companion skills; OPL Flow should route to that execution surface rather than duplicate or replace it.
 
 Use it to choose the smallest reliable path:
 
@@ -24,8 +26,18 @@ OPL-native to this workflow layer.
 - Goal clear and implementation needed: use Executor.
 - Bug, test failure, regression, unexpected behavior: use Debugger first.
 - Before saying complete/fixed/passing: use Verifier.
+- Code, tests, TDD, release/currentness/readiness, or evidence-strength decisions: use `risk-based-development-flow`.
+- Worktree/subagent lane start, resume, absorb, merge, delete, closeout, RHO/session-history audit, broad manifest drift, generated/runtime config drift, release/currentness claims, secret/cache freshness, or long ops evidence: use `codex-ops-kit`.
 
 Do not force heavy process on Direct work. Do not leave Durable work only in chat.
+
+## Completion Audits
+
+When the user asks for "全部落地", "一步到位", "彻底解决", "持续推进直到完成", or similar target-state delivery, Verifier must output **完成度审计** by default.
+
+The audit object must come from the user's latest target, the original plan, a persisted plan/runbook/contract, or lane goals. Do not replace the full plan with the slice that happened to be implemented. For each item, report `done / partial / not_started / blocked`, percent complete, fresh evidence, gaps, and next action.
+
+Only mark `100%` when fresh executable evidence supports the target-state claim. Docs, plans, contracts, refs-only read models, focused tests, or commits do not by themselves prove runtime/readiness/release/owner acceptance.
 
 ## Subagent Contract
 
@@ -47,7 +59,7 @@ The main session must verify subagent output before trusting it: inspect diff, e
 
 ## Durable Writeback
 
-Write reusable lessons to the right owner:
+Route reusable lessons to the right owner. For high-risk Codex ops, first use `codex-ops-kit` and its relevant reference playbook.
 
 - Project/repo long-term rules: nearest-scope `AGENTS.md` or docs/runbook.
 - Release, CI, runtime authority, owner-route, currentness decisions: docs/status, docs/decisions, closeout/attempt records, or evidence ledgers.
@@ -75,6 +87,16 @@ That installs the local plugin into `~/plugins/opl-flow`, registers it in the pe
 - `~/.codex/prompts/verifier.md`
 
 Use `python3 scripts/install_local_plugin.py --no-profile` to install only the plugin without touching user-level Codex prompts.
+
+The install profile assumes companion skills such as `risk-based-development-flow`, `codex-ops-kit`, `systematic-debugging`, and `verification-before-completion` are available. If a target machine lacks them, install or sync those skills before expecting the full behavior envelope.
+
+When the target machine was installed through OPL App Full, Superpowers normally covers `systematic-debugging`, `verification-before-completion`, `using-git-worktrees`, and `test-driven-development`, and App companion payloads cover common document/tool skills such as `mineru-document-extractor`. OPL Flow still needs `risk-based-development-flow` and `codex-ops-kit` for its full profile semantics.
+
+Check compatibility:
+
+```bash
+python3 scripts/check_companion_skills.py
+```
 
 For a complete OPL-family bootstrap that also covers OPL runtime, One Person Lab App, MAS/MAG/RCA/OMA agent surfaces, OPL Doc, and companion tools, follow the One Person Lab guide at `https://github.com/gaofeng21cn/one-person-lab/blob/main/docs/references/current-support/opl-new-machine-codex-bootstrap.md`.
 

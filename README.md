@@ -6,10 +6,15 @@ It is inspired by Trellis and Superpowers, but stays Codex-first:
 
 - Direct / Inline / Durable task tiers.
 - Planner / Executor / Debugger / Verifier role prompts.
+- Risk-based development flow for verification budget, test additions, TDD selection, and completion evidence, when `risk-based-development-flow` is installed.
+- High-risk Codex ops routing into `codex-ops-kit` for worktree/subagent lanes, RHO/session-history audit, manifest drift, release/currentness claims, secret/cache freshness, and long evidence chains, when `codex-ops-kit` is installed.
 - Codex inline execution by default.
-- Subagent dispatch contract for scoped parallel work.
+- Subagent/worktree lane contract for scoped parallel work.
 - Durable evidence and lesson writeback.
-- Verification before completion.
+- Verification before completion, including Chinese "完成度审计" for target-state delivery.
+- Fresh evidence boundaries for runtime truth, readiness, currentness, release, CI, and owner-route claims.
+- CodeGraph marker block preservation for projects that rely on CodeGraph injection.
+- RTK shell preference for compact command output when available.
 - Repo-local workflow profile check/sync for OPL-native development directories.
 
 ## Install On A New Machine
@@ -35,6 +40,14 @@ This installs:
 Existing user profile files are backed up before replacement unless their content already matches the template.
 
 `TASTE.md` carries default maintenance preferences. A repo-local `TASTE.md` remains stronger for that repo; the user-level file is the fallback when a target repo has no local taste document.
+
+The profile routes to companion skills by name. OPL App Full installs the Superpowers execution surface and common companion skills, so it normally satisfies `systematic-debugging`, `verification-before-completion`, `using-git-worktrees`, `test-driven-development`, `mineru-document-extractor`, PDF, OfficeCLI, and UI/UX helper coverage. OPL Flow does not vendor companion skills; for the full profile semantics, make sure `risk-based-development-flow` and `codex-ops-kit` are also installed and discoverable. `agent-browser`, RTK, and CodeGraph remain optional machine-level enhancements.
+
+Check a machine with:
+
+```bash
+python3 scripts/check_companion_skills.py
+```
 
 Restart Codex after installation.
 
@@ -90,7 +103,23 @@ The profile routes work by shape:
 - Inline: main session implements and verifies.
 - Durable: persist plan, evidence, decision, or runbook in the right file.
 
+It also routes evidence-sensitive work:
+
+- Risk-based verification: classify the risk, choose a verification budget, and avoid TDD/test bloat unless it proves a concrete regression.
+- High-risk Codex ops: use `codex-ops-kit` before lane start/absorb/closeout, broad manifest drift, RHO/session-history audits, release/currentness claims, generated/runtime config drift, secret/cache freshness, or long evidence chains.
+- Completion audits: for "全部落地 / 一步到位 / 彻底解决" style goals, verify against the original target plan and report Chinese "完成度审计" with status, percent, fresh evidence, gaps, and next actions.
+
 The profile reads preferences by scope: repo-local `TASTE.md` first, then `~/.codex/TASTE.md` when no repo-local file exists. `TASTE.md` never overrides code, contracts, docs, runtime output, or direct user instructions.
+
+## Compatibility With OPL App Full
+
+OPL Flow is compatible with the One Person Lab App Full first-install payload. Treat the layers separately:
+
+- OPL App Full packages Superpowers and common companion skills.
+- OPL Flow installs the user-level workflow profile and `opl-flow` plugin.
+- OPL Flow should not overwrite user-owned `AGENTS.md` without backup, and OPL App session context should respect existing user profile files.
+- Full Superpowers should remain the execution surface for its official skills; OPL Flow only routes to those skills.
+- `risk-based-development-flow` and `codex-ops-kit` are OPL Flow profile-native guardrails. If they are absent, install them or expect degraded risk/evidence and high-risk ops behavior.
 
 ## Relationship To OPL Doc
 

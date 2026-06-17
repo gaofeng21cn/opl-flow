@@ -1,7 +1,7 @@
 {
   "name": "opl-flow",
-  "version": "0.1.0",
-  "description": "OPL Flow is a pragmatic Codex workflow profile for direct answers, inline execution, durable evidence, subagent boundaries, and verification gates.",
+  "version": "0.1.2",
+  "description": "OPL Flow is a pragmatic Codex workflow profile for direct answers, inline execution, durable evidence, risk-based verification, subagent boundaries, completion audits, and OPL App Full/Superpowers compatibility.",
   "author": {
     "name": "Gaofeng"
   },
@@ -9,16 +9,18 @@
   "interface": {
     "displayName": "OPL Flow",
     "shortDescription": "Pragmatic Codex workflow profile",
-    "longDescription": "OPL Flow packages a reusable Codex-first workflow inspired by Trellis and Superpowers: Direct/Inline/Durable task tiers, planner/executor/debugger/verifier role prompts, subagent dispatch contracts, durable writeback rules, and completion verification.",
+    "longDescription": "OPL Flow packages a reusable Codex-first workflow compatible with OPL App Full and Superpowers: Direct/Inline/Durable task tiers, planner/executor/debugger/verifier role prompts, risk-based evidence selection, high-risk Codex ops routing, subagent dispatch contracts, durable writeback rules, and completion audits.",
     "developerName": "Gaofeng",
     "category": "Developer Tools",
     "capabilities": [
       "workflow",
       "planning",
       "verification",
+      "risk-based-development",
+      "superpowers-compatible",
       "subagents"
     ],
-    "defaultPrompt": "Use OPL Flow to classify this task, choose the right role path, execute with live evidence, and verify before claiming completion."
+    "defaultPrompt": "Use OPL Flow to route Direct/Inline/Durable, use risk-based evidence, and verify before completion."
   },
   "homepage": "https://github.com/gaofeng21cn/opl-flow",
   "repository": "https://github.com/gaofeng21cn/opl-flow",

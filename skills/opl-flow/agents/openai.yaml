@@ -1,4 +1,4 @@
 interface:
   display_name: "OPL Flow"
-  short_description: "Pragmatic Codex workflow"
-  default_prompt: "Use OPL Flow to classify this task as Direct, Inline, or Durable, route to the right role, and verify before claiming completion."
+  short_description: "Codex workflow for OPL App"
+  default_prompt: "Use OPL Flow to route Direct/Inline/Durable, use risk-based evidence, and verify before completion."
