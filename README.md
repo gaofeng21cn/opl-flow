@@ -127,6 +127,8 @@ OPL Flow is compatible with the One Person Lab App Full first-install payload. T
 - Full Superpowers should remain the execution surface for its official skills; OPL Flow only routes to those skills.
 - OPL Flow does not own OPL App/runtime readiness. Temporal family runtime provider, native helpers, domain module health, GUI shell, App first-run state, and Full readiness belong to One Person Lab App / OPL Framework surfaces and should be checked there, not treated as OPL Flow profile gaps.
 
+See [docs/compatibility.md](docs/compatibility.md) for the positioning matrix against Codex customization, Superpowers, Trellis, Claude Code skills/subagents/memory, and GitHub Agentic Workflows.
+
 ## Relationship To OPL Doc
 
 OPL Flow is the generic workflow layer. OPL Doc is the domain skill that governs OPL-family developer documentation lifecycle. OPL Doc can use OPL Flow's Durable writeback, subagent contract, and verifier gates, but the two should stay separate.

@@ -134,4 +134,6 @@ replace repo-specific rules.
 
 `opl-flow` configures Codex behavior on a new machine. It owns the workflow profile, risk-based development flow, and high-risk Codex ops guardrails. It does not own OPL runtime, App installation, MAS/MAG/RCA domain agents, OPL App Full packaged Superpowers, common companion skills, Temporal family runtime provider, native helpers, domain module health, GUI shell, App first-run state, or Full readiness. Those belong to One Person Lab App / OPL Framework surfaces.
 
+See `docs/compatibility.md` for the positioning matrix against Codex customization, Superpowers, Trellis, Claude Code skills/subagents/memory, and GitHub Agentic Workflows.
+
 `one-person-lab` is the canonical complete bootstrap owner. `one-person-lab-app` is the product and first-install owner. `opl-doc` is a domain skill for developer-document lifecycle governance.

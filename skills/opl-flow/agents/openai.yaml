@@ -1,4 +1,4 @@
 interface:
   display_name: "OPL Flow"
   short_description: "Codex workflow for OPL App"
-  default_prompt: "Use OPL Flow to route Direct/Inline/Durable, use risk-based evidence, and verify before completion."
+  default_prompt: "Use $opl-flow to route Direct/Inline/Durable, use risk-based evidence, and verify before completion."

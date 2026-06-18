@@ -13,6 +13,7 @@ from pathlib import Path
 REQUIRED_FILES = (
     ".codex-plugin/plugin.json",
     "README.md",
+    "docs/compatibility.md",
     "docs/new-machine-codex-setup.md",
     "LICENSE",
     "skills/opl-flow/SKILL.md",
@@ -61,6 +62,24 @@ def check_plugin_json(repo_root: Path) -> list[str]:
     return errors
 
 
+def check_skill_metadata(repo_root: Path) -> list[str]:
+    errors: list[str] = []
+    for skill_id in ("opl-flow", "risk-based-development-flow", "codex-ops-kit"):
+        metadata_path = repo_root / "skills" / skill_id / "agents" / "openai.yaml"
+        text = metadata_path.read_text(encoding="utf-8")
+        required = (
+            "interface:",
+            "display_name:",
+            "short_description:",
+            "default_prompt:",
+            f"${skill_id}",
+        )
+        for needle in required:
+            if needle not in text:
+                errors.append(f"{metadata_path.relative_to(repo_root)} must contain {needle}")
+    return errors
+
+
 def check_profile_templates(repo_root: Path) -> list[str]:
     errors: list[str] = []
     agents = (repo_root / "templates" / "AGENTS.md").read_text(encoding="utf-8")
@@ -86,6 +105,7 @@ def check_docs_describe_compatibility(repo_root: Path) -> list[str]:
     errors: list[str] = []
     readme = (repo_root / "README.md").read_text(encoding="utf-8")
     setup = (repo_root / "docs" / "new-machine-codex-setup.md").read_text(encoding="utf-8")
+    compatibility = (repo_root / "docs" / "compatibility.md").read_text(encoding="utf-8")
     skill = (repo_root / "skills" / "opl-flow" / "SKILL.md").read_text(encoding="utf-8")
     required_pairs = (
         (readme, "Compatibility With OPL App Full", "README must document OPL App Full compatibility"),
@@ -95,6 +115,11 @@ def check_docs_describe_compatibility(repo_root: Path) -> list[str]:
         (skill, "compatible with One Person Lab App Full installs", "skill must describe OPL App Full compatibility"),
         (skill, "risk-based-development-flow", "skill must name risk-based-development-flow as profile-native"),
         (skill, "codex-ops-kit", "skill must name codex-ops-kit as profile-native"),
+        (compatibility, "Codex AGENTS.md / skills", "compatibility doc must cover Codex customization boundary"),
+        (compatibility, "Superpowers", "compatibility doc must cover Superpowers boundary"),
+        (compatibility, "Trellis", "compatibility doc must cover Trellis boundary"),
+        (compatibility, "Claude Code", "compatibility doc must cover Claude Code practices"),
+        (compatibility, "GitHub Agentic Workflows", "compatibility doc must cover GitHub Agentic Workflows practices"),
     )
     for text, needle, message in required_pairs:
         if needle not in text:
@@ -122,6 +147,12 @@ def check_companion_script(repo_root: Path) -> list[str]:
         errors.append(f"companion skill check default mode must allow core profile compatibility: {result.stdout} {result.stderr}".strip())
     if payload.get("blocking_missing") != []:
         errors.append(f"companion skill check missing set is unexpected: {payload.get('blocking_missing')}")
+    for skill_id in ("risk-based-development-flow", "codex-ops-kit"):
+        status = payload.get("skills", {}).get(skill_id, {})
+        if "bundled_repo" not in status.get("sources", []):
+            errors.append(f"companion skill check must classify {skill_id} as bundled_repo: {status}")
+        if not status.get("match_details"):
+            errors.append(f"companion skill check must include match_details for {skill_id}: {status}")
     compatibility = payload.get("compatibility", {})
     if compatibility.get("opl_flow_profile_ready") is not True:
         errors.append(f"companion skill check must keep core profile ready by default: {compatibility}")
@@ -174,6 +205,19 @@ def check_install(repo_root: Path) -> list[str]:
         result = subprocess.run(verify_cmd, check=False, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
         if result.returncode != 0:
             errors.append(f"install verify failed: {result.stdout} {result.stderr}".strip())
+        payload = json.loads(result.stdout)
+        required_files = payload.get("required_files", [])
+        for suffix in (
+            "skills/risk-based-development-flow/SKILL.md",
+            "skills/risk-based-development-flow/agents/openai.yaml",
+            "skills/codex-ops-kit/SKILL.md",
+            "skills/codex-ops-kit/agents/openai.yaml",
+        ):
+            if suffix not in required_files:
+                errors.append(f"install verify required_files must include guardrail artifact: {suffix}")
+            expected = str(tmp_path / "plugins" / "opl-flow" / suffix)
+            if expected in payload.get("missing", []):
+                errors.append(f"install verify must include guardrail artifact: {expected}")
     return errors
 
 
@@ -212,6 +256,7 @@ def main() -> int:
     errors: list[str] = []
     errors.extend(f"missing {rel}" for rel in check_required_files(repo_root))
     errors.extend(check_plugin_json(repo_root))
+    errors.extend(check_skill_metadata(repo_root))
     errors.extend(check_profile_templates(repo_root))
     errors.extend(check_docs_describe_compatibility(repo_root))
     errors.extend(check_companion_script(repo_root))

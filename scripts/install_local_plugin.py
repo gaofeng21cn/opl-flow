@@ -15,6 +15,24 @@ from typing import Any
 PLUGIN_NAME = "opl-flow"
 PROFILE_NAMES = ("AGENTS.md", "TASTE.md")
 PROMPT_NAMES = ("planner.md", "executor.md", "debugger.md", "verifier.md")
+PLUGIN_REQUIRED_FILES = (
+    ".codex-plugin/plugin.json",
+    "skills/opl-flow/SKILL.md",
+    "skills/opl-flow/agents/openai.yaml",
+    "skills/risk-based-development-flow/SKILL.md",
+    "skills/risk-based-development-flow/agents/openai.yaml",
+    "skills/codex-ops-kit/SKILL.md",
+    "skills/codex-ops-kit/agents/openai.yaml",
+    "skills/codex-ops-kit/scripts/codex_ops_gate.py",
+    "skills/codex-ops-kit/scripts/rho_wrapper.py",
+    "skills/codex-ops-kit/references/lane-closeout.md",
+    "templates/AGENTS.md",
+    "templates/TASTE.md",
+    "templates/prompts/planner.md",
+    "templates/prompts/executor.md",
+    "templates/prompts/debugger.md",
+    "templates/prompts/verifier.md",
+)
 
 
 def load_json(path: Path) -> dict[str, Any]:
@@ -35,7 +53,7 @@ def copy_tree(repo_root: Path, plugins_dir: Path) -> Path:
     target = plugins_dir / PLUGIN_NAME
     if target.exists():
         shutil.rmtree(target)
-    ignore = shutil.ignore_patterns(".git", ".pytest_cache", "__pycache__", ".DS_Store")
+    ignore = shutil.ignore_patterns(".git", ".worktrees", ".pytest_cache", "__pycache__", ".DS_Store")
     shutil.copytree(repo_root, target, ignore=ignore)
     return target
 
@@ -111,16 +129,7 @@ def install(
 def verify(repo_root: Path, plugins_dir: Path, marketplace_path: Path, codex_home: Path, profile: bool) -> dict[str, Any]:
     plugin_path = plugins_dir / PLUGIN_NAME
     missing: list[str] = []
-    for rel in (
-        ".codex-plugin/plugin.json",
-        "skills/opl-flow/SKILL.md",
-        "templates/AGENTS.md",
-        "templates/TASTE.md",
-        "templates/prompts/planner.md",
-        "templates/prompts/executor.md",
-        "templates/prompts/debugger.md",
-        "templates/prompts/verifier.md",
-    ):
+    for rel in PLUGIN_REQUIRED_FILES:
         if not (plugin_path / rel).exists():
             missing.append(str(plugin_path / rel))
 
@@ -140,6 +149,7 @@ def verify(repo_root: Path, plugins_dir: Path, marketplace_path: Path, codex_hom
     return {
         "ok": ok,
         "plugin_path": str(plugin_path),
+        "required_files": list(PLUGIN_REQUIRED_FILES),
         "marketplace_ok": marketplace_ok,
         "missing": missing,
         "profile_mismatches": profile_mismatches,
