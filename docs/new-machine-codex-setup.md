@@ -49,7 +49,7 @@ Restart Codex after installation so plugin and skill discovery refresh.
 
 If this machine was installed through One Person Lab App Full, the Superpowers execution surface and common companion skills are normally already packaged. OPL Flow is compatible with that setup and should not duplicate or replace those skills.
 
-For the full OPL Flow profile semantics, confirm the remaining OPL Flow-native guardrails are installed and discoverable:
+For the full OPL Flow guardrail envelope, confirm the remaining OPL Flow-native guardrails are installed and discoverable:
 
 - `risk-based-development-flow`
 - `codex-ops-kit`
@@ -76,6 +76,12 @@ Check the current machine with:
 python3 scripts/check_companion_skills.py
 ```
 
+The default checker separates core profile compatibility from full guardrail readiness. Missing `risk-based-development-flow` or `codex-ops-kit` means degraded full guardrails, not a failed OPL Flow install. Use strict mode only when a task needs to gate on the full guardrail envelope:
+
+```bash
+python3 scripts/check_companion_skills.py --strict
+```
+
 ## What Gets Installed
 
 | Layer | Entry | Installs or refreshes |
@@ -94,7 +100,7 @@ Key behavior after install:
 - Subagent/worktree lane prompting, verification, absorption, and cleanup discipline.
 - Durable writeback routing for reusable workflow lessons.
 - CodeGraph marker block preservation and RTK shell preference when available.
-- Compatibility with OPL App Full / Superpowers: OPL Flow routes to the execution surface already packaged by Full install and separately reports missing OPL Flow-native guardrails.
+- Compatibility with OPL App Full / Superpowers: OPL Flow routes to the execution surface already packaged by Full install and separately reports missing OPL Flow-native guardrails without failing the core profile check.
 
 ## Completion Checks
 
@@ -105,6 +111,8 @@ python3 ~/opl-flow/scripts/install_local_plugin.py --verify-only
 python3 ~/opl-flow/scripts/verify.py
 python3 ~/opl-flow/scripts/check_companion_skills.py
 ```
+
+Use `python3 ~/opl-flow/scripts/check_companion_skills.py --strict` only when claiming full guardrail readiness.
 
 If checkout paths differ, use the actual clone location in place of `~/opl-flow`.
 

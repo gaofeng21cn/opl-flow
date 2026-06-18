@@ -107,10 +107,26 @@ def check_companion_script(repo_root: Path) -> list[str]:
     except json.JSONDecodeError as exc:
         errors.append(f"companion skill check must emit JSON: {exc}: {result.stdout} {result.stderr}".strip())
         return errors
-    if result.returncode == 0:
-        errors.append("companion skill check must fail when required companion skills are absent")
+    if result.returncode != 0:
+        errors.append(f"companion skill check default mode must allow core profile compatibility: {result.stdout} {result.stderr}".strip())
     if payload.get("blocking_missing") != ["risk-based-development-flow", "codex-ops-kit"]:
         errors.append(f"companion skill check missing set is unexpected: {payload.get('blocking_missing')}")
+    compatibility = payload.get("compatibility", {})
+    if compatibility.get("opl_flow_profile_ready") is not True:
+        errors.append(f"companion skill check must keep core profile ready by default: {compatibility}")
+    if compatibility.get("opl_flow_full_guardrails_ready") is not False:
+        errors.append(f"companion skill check must report degraded full guardrails: {compatibility}")
+
+    strict_result = subprocess.run(cmd + ["--strict"], check=False, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+    try:
+        strict_payload = json.loads(strict_result.stdout)
+    except json.JSONDecodeError as exc:
+        errors.append(f"strict companion skill check must emit JSON: {exc}: {strict_result.stdout} {strict_result.stderr}".strip())
+        return errors
+    if strict_result.returncode == 0:
+        errors.append("strict companion skill check must fail when OPL Flow-native guardrails are absent")
+    if strict_payload.get("blocking_missing") != ["risk-based-development-flow", "codex-ops-kit"]:
+        errors.append(f"strict companion skill check missing set is unexpected: {strict_payload.get('blocking_missing')}")
     return errors
 
 

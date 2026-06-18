@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 from pathlib import Path
 from typing import Any
 
@@ -26,6 +27,35 @@ OPTIONAL_SKILLS = (
     "agent-browser",
     "mineru-document-extractor",
 )
+
+
+def default_skill_roots(home: Path, codex_home: Path, plugins_dir: Path) -> list[Path]:
+    roots = [
+        codex_home / "skills",
+        home / ".agents" / "skills",
+        home / ".skills-manager" / "skills",
+    ]
+    packaged_skills_root = os.environ.get("OPL_PACKAGED_SKILLS_ROOT", "").strip()
+    if packaged_skills_root:
+        roots.append(Path(packaged_skills_root).expanduser())
+    full_runtime_home = os.environ.get("OPL_FULL_RUNTIME_HOME", "").strip()
+    if full_runtime_home:
+        roots.append(Path(full_runtime_home).expanduser() / "skills")
+    plugins_root = plugins_dir.expanduser()
+    if plugins_root.exists():
+        roots.extend(plugin / "skills" for plugin in sorted(plugins_root.iterdir()) if plugin.is_dir())
+    plugin_cache = codex_home / "plugins" / "cache"
+    if plugin_cache.exists():
+        roots.extend(sorted(path for path in plugin_cache.glob("*/*/*/skills") if path.is_dir()))
+    seen: set[Path] = set()
+    unique_roots: list[Path] = []
+    for root in roots:
+        normalized = root.expanduser()
+        if normalized in seen:
+            continue
+        seen.add(normalized)
+        unique_roots.append(normalized)
+    return unique_roots
 
 
 def skill_exists(root: Path, skill_id: str) -> bool:
@@ -78,8 +108,13 @@ def check(args: argparse.Namespace) -> dict[str, Any]:
         if not skill_status[skill_id]["ok"]
     ]
 
+    core_ready = True
+    full_guardrails_ready = not blocking_missing
+    ok = full_guardrails_ready if args.strict else core_ready
+
     return {
-        "ok": not blocking_missing,
+        "ok": ok,
+        "strict": args.strict,
         "codex_home": str(codex_home),
         "skill_roots": [str(root) for root in skill_roots],
         "superpowers": superpowers,
@@ -88,10 +123,14 @@ def check(args: argparse.Namespace) -> dict[str, Any]:
         "optional_missing": optional_missing,
         "compatibility": {
             "opl_app_full_superpowers_compatible": superpowers["ok"],
-            "opl_flow_profile_ready": not blocking_missing,
+            "opl_flow_core_ready": core_ready,
+            "opl_flow_full_guardrails_ready": full_guardrails_ready,
+            "opl_flow_profile_ready": core_ready,
+            "degraded_guardrails": blocking_missing,
             "notes": [
                 "OPL App Full Superpowers satisfies the Superpowers execution surface when superpowers.ok is true.",
-                "OPL Flow still expects risk-based-development-flow and codex-ops-kit for the full profile semantics.",
+                "OPL Flow core profile remains usable when OPL Flow-native guardrails are absent, but risk/evidence and high-risk ops behavior is degraded.",
+                "Use --strict when this check is gating a full guardrail installation rather than core profile compatibility.",
                 "Optional skills improve browser/document workflows but are not required for the core profile.",
             ],
         },
@@ -101,7 +140,9 @@ def check(args: argparse.Namespace) -> dict[str, Any]:
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Check OPL Flow companion skill compatibility")
     home = Path.home()
-    parser.add_argument("--codex-home", default=str(home / ".codex"))
+    codex_home = os.environ.get("CODEX_HOME", "").strip() or str(home / ".codex")
+    parser.add_argument("--codex-home", default=codex_home)
+    parser.add_argument("--plugins-dir", default=str(home / "plugins"))
     parser.add_argument(
         "--skill-root",
         action="append",
@@ -109,6 +150,11 @@ def parse_args() -> argparse.Namespace:
         help="Skill root to scan. Can be repeated.",
     )
     parser.add_argument("--superpowers-root", default=str(home / ".codex" / "superpowers"))
+    parser.add_argument(
+        "--strict",
+        action="store_true",
+        help="Return non-zero unless OPL Flow-native guardrail skills are discoverable.",
+    )
     return parser.parse_args()
 
 
@@ -116,11 +162,9 @@ def main() -> int:
     args = parse_args()
     if args.skill_root is None:
         home = Path.home()
-        args.skill_root = [
-            str(home / ".codex" / "skills"),
-            str(home / ".agents" / "skills"),
-            str(home / ".skills-manager" / "skills"),
-        ]
+        codex_home = Path(args.codex_home).expanduser()
+        plugins_dir = Path(args.plugins_dir).expanduser()
+        args.skill_root = [str(root) for root in default_skill_roots(home, codex_home, plugins_dir)]
     result = check(args)
     print(json.dumps(result, indent=2, sort_keys=True))
     return 0 if result["ok"] else 1

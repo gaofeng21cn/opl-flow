@@ -1,6 +1,6 @@
 {
   "name": "opl-flow",
-  "version": "0.1.2",
+  "version": "0.1.3",
   "description": "OPL Flow is a pragmatic Codex workflow profile for direct answers, inline execution, durable evidence, risk-based verification, subagent boundaries, completion audits, and OPL App Full/Superpowers compatibility.",
   "author": {
     "name": "Gaofeng"

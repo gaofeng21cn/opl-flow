@@ -88,7 +88,7 @@ That installs the local plugin into `~/plugins/opl-flow`, registers it in the pe
 
 Use `python3 scripts/install_local_plugin.py --no-profile` to install only the plugin without touching user-level Codex prompts.
 
-The install profile assumes companion skills such as `risk-based-development-flow`, `codex-ops-kit`, `systematic-debugging`, and `verification-before-completion` are available. If a target machine lacks them, install or sync those skills before expecting the full behavior envelope.
+The install profile routes to companion skills such as `risk-based-development-flow`, `codex-ops-kit`, `systematic-debugging`, and `verification-before-completion` when they are available. If a target machine lacks OPL Flow-native guardrails, the core profile remains usable but the full behavior envelope is degraded.
 
 When the target machine was installed through OPL App Full, Superpowers normally covers `systematic-debugging`, `verification-before-completion`, `using-git-worktrees`, and `test-driven-development`, and App companion payloads cover common document/tool skills such as `mineru-document-extractor`. OPL Flow still needs `risk-based-development-flow` and `codex-ops-kit` for its full profile semantics.
 
@@ -96,6 +96,12 @@ Check compatibility:
 
 ```bash
 python3 scripts/check_companion_skills.py
+```
+
+Use strict mode only when gating a complete guardrail installation:
+
+```bash
+python3 scripts/check_companion_skills.py --strict
 ```
 
 For a complete OPL-family bootstrap that also covers OPL runtime, One Person Lab App, MAS/MAG/RCA/OMA agent surfaces, OPL Doc, and companion tools, follow the One Person Lab guide at `https://github.com/gaofeng21cn/one-person-lab/blob/main/docs/references/current-support/opl-new-machine-codex-bootstrap.md`.

@@ -41,12 +41,18 @@ Existing user profile files are backed up before replacement unless their conten
 
 `TASTE.md` carries default maintenance preferences. A repo-local `TASTE.md` remains stronger for that repo; the user-level file is the fallback when a target repo has no local taste document.
 
-The profile routes to companion skills by name. OPL App Full installs the Superpowers execution surface and common companion skills, so it normally satisfies `systematic-debugging`, `verification-before-completion`, `using-git-worktrees`, `test-driven-development`, `mineru-document-extractor`, PDF, OfficeCLI, and UI/UX helper coverage. OPL Flow does not vendor companion skills; for the full profile semantics, make sure `risk-based-development-flow` and `codex-ops-kit` are also installed and discoverable. `agent-browser`, RTK, and CodeGraph remain optional machine-level enhancements.
+The profile routes to companion skills by name. OPL App Full installs the Superpowers execution surface and common companion skills, so it normally satisfies `systematic-debugging`, `verification-before-completion`, `using-git-worktrees`, `test-driven-development`, `mineru-document-extractor`, PDF, OfficeCLI, and UI/UX helper coverage. OPL Flow does not vendor companion skills; if `risk-based-development-flow` or `codex-ops-kit` are missing, the core profile remains usable but full risk/evidence and high-risk ops guardrails are degraded. `agent-browser`, RTK, and CodeGraph remain optional machine-level enhancements.
 
 Check a machine with:
 
 ```bash
 python3 scripts/check_companion_skills.py
+```
+
+Use strict mode only when gating a complete guardrail installation:
+
+```bash
+python3 scripts/check_companion_skills.py --strict
 ```
 
 Restart Codex after installation.
@@ -119,7 +125,7 @@ OPL Flow is compatible with the One Person Lab App Full first-install payload. T
 - OPL Flow installs the user-level workflow profile and `opl-flow` plugin.
 - OPL Flow should not overwrite user-owned `AGENTS.md` without backup, and OPL App session context should respect existing user profile files.
 - Full Superpowers should remain the execution surface for its official skills; OPL Flow only routes to those skills.
-- `risk-based-development-flow` and `codex-ops-kit` are OPL Flow profile-native guardrails. If they are absent, install them or expect degraded risk/evidence and high-risk ops behavior.
+- `risk-based-development-flow` and `codex-ops-kit` are OPL Flow profile-native guardrails. If they are absent, the core OPL Flow profile is still installed and usable, but risk/evidence selection and high-risk ops handling are degraded until those skills are installed or exposed through a managed skill source.
 
 ## Relationship To OPL Doc
 
