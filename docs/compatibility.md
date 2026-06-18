@@ -27,14 +27,14 @@ OPL Flow is a Codex-first workflow profile and guardrail layer. It is not a seco
 | High-risk ops guardrail | OPL Flow | `skills/codex-ops-kit` |
 | Debugging / verification execution | Superpowers / companion skills | Not vendored by OPL Flow; routed to when installed |
 | OPL runtime and App readiness | One Person Lab / OPL App | Not owned by OPL Flow |
-| MAS/MAG/RCA/OMA domain agents | Domain repos and plugins | Not owned by OPL Flow |
+| MAS/MAG/RCA/OMA/BookForge domain agents | Domain repos and plugins | Not owned by OPL Flow |
 
 ## Readiness Claims
 
 - `scripts/check_companion_skills.py` default mode checks core profile compatibility and reports optional companion coverage.
 - `scripts/check_companion_skills.py --strict` fails closed unless the OPL Flow-owned guardrails are discoverable.
 - `match_details` and `sources` identify whether a skill came from the source checkout, installed plugin, user skill root, skills manager, plugin cache, or custom root.
-- Runtime, release, latest/currentness, OPL App Full, MAS/MAG/RCA, and owner-route readiness require their own live artifacts or owner receipts. OPL Flow tests cannot prove those surfaces ready.
+- Runtime, release, latest/currentness, OPL App Full, MAS/MAG/RCA/BookForge, and owner-route readiness require their own live artifacts or owner receipts. OPL Flow tests cannot prove those surfaces ready.
 
 ## Canonical External References
 

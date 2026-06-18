@@ -32,7 +32,7 @@ For repos with runtime status, attempt ledgers, owner receipts, controller decis
 
 ## OPL Family Closeout
 
-Use this profile when asked to close out OPL-family root checkouts, absorb eligible worktrees, clean stale lanes, or prove multi-repo currentness across `one-person-lab`, `med-autoscience`, `med-autogrant`, `redcube-ai`, `opl-meta-agent`, and `one-person-lab-app`.
+Use this profile when asked to close out OPL-family root checkouts, absorb eligible worktrees, clean stale lanes, or prove multi-repo currentness across `one-person-lab`, `med-autoscience`, `med-autogrant`, `redcube-ai`, `opl-meta-agent`, `opl-bookforge`, and `one-person-lab-app`.
 
 Fresh evidence order:
 

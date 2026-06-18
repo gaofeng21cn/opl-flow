@@ -132,7 +132,7 @@ replace repo-specific rules.
 
 ## Where This Fits
 
-`opl-flow` configures Codex behavior on a new machine. It owns the workflow profile, risk-based development flow, and high-risk Codex ops guardrails. It does not own OPL runtime, App installation, MAS/MAG/RCA domain agents, OPL App Full packaged Superpowers, common companion skills, Temporal family runtime provider, native helpers, domain module health, GUI shell, App first-run state, or Full readiness. Those belong to One Person Lab App / OPL Framework surfaces.
+`opl-flow` configures Codex behavior on a new machine. It owns the workflow profile, risk-based development flow, and high-risk Codex ops guardrails. It does not own OPL runtime, App installation, MAS/MAG/RCA/BookForge domain agents, OPL App Full packaged Superpowers, common companion skills, Temporal family runtime provider, native helpers, domain module health, GUI shell, App first-run state, or Full readiness. BookForge default visibility belongs to later One Person Lab App / OPL Framework admission evidence, not OPL Flow checks.
 
 See `docs/compatibility.md` for the positioning matrix against Codex customization, Superpowers, Trellis, Claude Code skills/subagents/memory, and GitHub Agentic Workflows.
 
