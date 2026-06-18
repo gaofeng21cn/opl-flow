@@ -17,6 +17,13 @@ REQUIRED_FILES = (
     "LICENSE",
     "skills/opl-flow/SKILL.md",
     "skills/opl-flow/agents/openai.yaml",
+    "skills/risk-based-development-flow/SKILL.md",
+    "skills/risk-based-development-flow/agents/openai.yaml",
+    "skills/codex-ops-kit/SKILL.md",
+    "skills/codex-ops-kit/agents/openai.yaml",
+    "skills/codex-ops-kit/scripts/codex_ops_gate.py",
+    "skills/codex-ops-kit/scripts/rho_wrapper.py",
+    "skills/codex-ops-kit/references/lane-closeout.md",
     "templates/AGENTS.md",
     "templates/TASTE.md",
     "templates/prompts/planner.md",
@@ -40,6 +47,12 @@ def check_plugin_json(repo_root: Path) -> list[str]:
         errors.append("plugin name must be opl-flow")
     if manifest.get("skills") != "./skills/":
         errors.append("plugin skills path must be ./skills/")
+    description = manifest.get("description")
+    if not isinstance(description, str) or "bundled risk and ops guardrails" not in description:
+        errors.append("plugin description must advertise bundled risk and ops guardrails")
+    long_description = manifest.get("interface", {}).get("longDescription")
+    if not isinstance(long_description, str) or "bundled high-risk Codex ops routing" not in long_description:
+        errors.append("interface.longDescription must advertise bundled high-risk Codex ops routing")
     default_prompt = manifest.get("interface", {}).get("defaultPrompt")
     if not default_prompt:
         errors.append("interface.defaultPrompt is required")
@@ -96,8 +109,6 @@ def check_companion_script(repo_root: Path) -> list[str]:
         str(repo_root / "scripts" / "check_companion_skills.py"),
         "--codex-home",
         str(repo_root / ".tmp-codex-home"),
-        "--skill-root",
-        str(repo_root / ".tmp-codex-home" / "skills"),
         "--superpowers-root",
         str(repo_root / ".tmp-codex-home" / "superpowers"),
     ]
@@ -109,13 +120,13 @@ def check_companion_script(repo_root: Path) -> list[str]:
         return errors
     if result.returncode != 0:
         errors.append(f"companion skill check default mode must allow core profile compatibility: {result.stdout} {result.stderr}".strip())
-    if payload.get("blocking_missing") != ["risk-based-development-flow", "codex-ops-kit"]:
+    if payload.get("blocking_missing") != []:
         errors.append(f"companion skill check missing set is unexpected: {payload.get('blocking_missing')}")
     compatibility = payload.get("compatibility", {})
     if compatibility.get("opl_flow_profile_ready") is not True:
         errors.append(f"companion skill check must keep core profile ready by default: {compatibility}")
-    if compatibility.get("opl_flow_full_guardrails_ready") is not False:
-        errors.append(f"companion skill check must report degraded full guardrails: {compatibility}")
+    if compatibility.get("opl_flow_full_guardrails_ready") is not True:
+        errors.append(f"companion skill check must report bundled full guardrails: {compatibility}")
 
     strict_result = subprocess.run(cmd + ["--strict"], check=False, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
     try:
@@ -123,10 +134,22 @@ def check_companion_script(repo_root: Path) -> list[str]:
     except json.JSONDecodeError as exc:
         errors.append(f"strict companion skill check must emit JSON: {exc}: {strict_result.stdout} {strict_result.stderr}".strip())
         return errors
-    if strict_result.returncode == 0:
-        errors.append("strict companion skill check must fail when OPL Flow-native guardrails are absent")
-    if strict_payload.get("blocking_missing") != ["risk-based-development-flow", "codex-ops-kit"]:
+    if strict_result.returncode != 0:
+        errors.append(f"strict companion skill check must pass with bundled OPL Flow-native guardrails: {strict_result.stdout} {strict_result.stderr}".strip())
+    if strict_payload.get("blocking_missing") != []:
         errors.append(f"strict companion skill check missing set is unexpected: {strict_payload.get('blocking_missing')}")
+
+    empty_root_cmd = cmd + ["--skill-root", str(repo_root / ".tmp-codex-home" / "skills"), "--strict"]
+    empty_root_result = subprocess.run(empty_root_cmd, check=False, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+    try:
+        empty_root_payload = json.loads(empty_root_result.stdout)
+    except json.JSONDecodeError as exc:
+        errors.append(f"empty-root strict companion skill check must emit JSON: {exc}: {empty_root_result.stdout} {empty_root_result.stderr}".strip())
+        return errors
+    if empty_root_result.returncode == 0:
+        errors.append("empty-root strict companion skill check must fail when OPL Flow-native guardrails are not discoverable")
+    if empty_root_payload.get("blocking_missing") != ["risk-based-development-flow", "codex-ops-kit"]:
+        errors.append(f"empty-root strict companion skill check missing set is unexpected: {empty_root_payload.get('blocking_missing')}")
     return errors
 
 

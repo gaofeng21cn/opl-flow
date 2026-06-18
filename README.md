@@ -6,8 +6,8 @@ It is inspired by Trellis and Superpowers, but stays Codex-first:
 
 - Direct / Inline / Durable task tiers.
 - Planner / Executor / Debugger / Verifier role prompts.
-- Risk-based development flow for verification budget, test additions, TDD selection, and completion evidence, when `risk-based-development-flow` is installed.
-- High-risk Codex ops routing into `codex-ops-kit` for worktree/subagent lanes, RHO/session-history audit, manifest drift, release/currentness claims, secret/cache freshness, and long evidence chains, when `codex-ops-kit` is installed.
+- Bundled risk-based development flow for verification budget, test additions, TDD selection, and completion evidence.
+- Bundled high-risk Codex ops routing into `codex-ops-kit` for worktree/subagent lanes, RHO/session-history audit, manifest drift, release/currentness claims, secret/cache freshness, and long evidence chains.
 - Codex inline execution by default.
 - Subagent/worktree lane contract for scoped parallel work.
 - Durable evidence and lesson writeback.
@@ -41,7 +41,7 @@ Existing user profile files are backed up before replacement unless their conten
 
 `TASTE.md` carries default maintenance preferences. A repo-local `TASTE.md` remains stronger for that repo; the user-level file is the fallback when a target repo has no local taste document.
 
-The profile routes to companion skills by name. OPL App Full installs the Superpowers execution surface and common companion skills, so it normally satisfies `systematic-debugging`, `verification-before-completion`, `using-git-worktrees`, `test-driven-development`, `mineru-document-extractor`, PDF, OfficeCLI, and UI/UX helper coverage. OPL Flow does not vendor companion skills; if `risk-based-development-flow` or `codex-ops-kit` are missing, the core profile remains usable but full risk/evidence and high-risk ops guardrails are degraded. `agent-browser`, RTK, and CodeGraph remain optional machine-level enhancements.
+The profile routes to companion skills by name. OPL Flow bundles the profile-native guardrails `risk-based-development-flow` and `codex-ops-kit` so a fresh install raises Codex's behavioral floor without a separate local skill copy. OPL App Full installs the Superpowers execution surface and common companion skills, so it normally satisfies `systematic-debugging`, `verification-before-completion`, `using-git-worktrees`, `test-driven-development`, `mineru-document-extractor`, PDF, OfficeCLI, and UI/UX helper coverage. `agent-browser`, RTK, and CodeGraph remain optional machine-level enhancements.
 
 Check a machine with:
 
@@ -49,7 +49,7 @@ Check a machine with:
 python3 scripts/check_companion_skills.py
 ```
 
-Use strict mode only when gating a complete guardrail installation:
+Use strict mode when checking that the OPL Flow-owned guardrail payload is discoverable:
 
 ```bash
 python3 scripts/check_companion_skills.py --strict
@@ -122,10 +122,10 @@ The profile reads preferences by scope: repo-local `TASTE.md` first, then `~/.co
 OPL Flow is compatible with the One Person Lab App Full first-install payload. Treat the layers separately:
 
 - OPL App Full packages Superpowers and common companion skills.
-- OPL Flow installs the user-level workflow profile and `opl-flow` plugin.
+- OPL Flow installs the user-level workflow profile, the `opl-flow` plugin, and the OPL Flow-owned guardrails `risk-based-development-flow` and `codex-ops-kit`.
 - OPL Flow should not overwrite user-owned `AGENTS.md` without backup, and OPL App session context should respect existing user profile files.
 - Full Superpowers should remain the execution surface for its official skills; OPL Flow only routes to those skills.
-- `risk-based-development-flow` and `codex-ops-kit` are OPL Flow profile-native guardrails. If they are absent, the core OPL Flow profile is still installed and usable, but risk/evidence selection and high-risk ops handling are degraded until those skills are installed or exposed through a managed skill source.
+- OPL Flow does not own OPL App/runtime readiness. Temporal family runtime provider, native helpers, domain module health, GUI shell, App first-run state, and Full readiness belong to One Person Lab App / OPL Framework surfaces and should be checked there, not treated as OPL Flow profile gaps.
 
 ## Relationship To OPL Doc
 

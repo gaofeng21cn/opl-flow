@@ -49,7 +49,7 @@ Restart Codex after installation so plugin and skill discovery refresh.
 
 If this machine was installed through One Person Lab App Full, the Superpowers execution surface and common companion skills are normally already packaged. OPL Flow is compatible with that setup and should not duplicate or replace those skills.
 
-For the full OPL Flow guardrail envelope, confirm the remaining OPL Flow-native guardrails are installed and discoverable:
+OPL Flow bundles its profile-native guardrails:
 
 - `risk-based-development-flow`
 - `codex-ops-kit`
@@ -68,7 +68,7 @@ Optional machine-level enhancements:
 - RTK
 - CodeGraph MCP/index
 
-OPL Flow installs routing and profile files; it does not vendor those skills or machine tools.
+OPL Flow installs routing/profile files and its own Codex behavior guardrails. It does not vendor Superpowers, domain agent skills, or machine tools.
 
 Check the current machine with:
 
@@ -76,7 +76,7 @@ Check the current machine with:
 python3 scripts/check_companion_skills.py
 ```
 
-The default checker separates core profile compatibility from full guardrail readiness. Missing `risk-based-development-flow` or `codex-ops-kit` means degraded full guardrails, not a failed OPL Flow install. Use strict mode only when a task needs to gate on the full guardrail envelope:
+The default checker verifies the OPL Flow-owned guardrails and reports optional companion coverage. Use strict mode when a task needs to fail closed if the bundled guardrail payload is not discoverable:
 
 ```bash
 python3 scripts/check_companion_skills.py --strict
@@ -86,7 +86,7 @@ python3 scripts/check_companion_skills.py --strict
 
 | Layer | Entry | Installs or refreshes |
 | --- | --- | --- |
-| Codex workflow | `opl-flow` | `~/plugins/opl-flow`, `~/.agents/plugins/marketplace.json`, `~/.codex/AGENTS.md`, `~/.codex/TASTE.md`, and role prompts |
+| Codex workflow | `opl-flow` | `~/plugins/opl-flow`, `~/.agents/plugins/marketplace.json`, `~/.codex/AGENTS.md`, `~/.codex/TASTE.md`, role prompts, `risk-based-development-flow`, and `codex-ops-kit` |
 
 Key behavior after install:
 
@@ -100,7 +100,7 @@ Key behavior after install:
 - Subagent/worktree lane prompting, verification, absorption, and cleanup discipline.
 - Durable writeback routing for reusable workflow lessons.
 - CodeGraph marker block preservation and RTK shell preference when available.
-- Compatibility with OPL App Full / Superpowers: OPL Flow routes to the execution surface already packaged by Full install and separately reports missing OPL Flow-native guardrails without failing the core profile check.
+- Compatibility with OPL App Full / Superpowers: OPL Flow routes to the execution surface already packaged by Full install and owns only the Codex workflow / guardrail layer.
 
 ## Completion Checks
 
@@ -112,7 +112,7 @@ python3 ~/opl-flow/scripts/verify.py
 python3 ~/opl-flow/scripts/check_companion_skills.py
 ```
 
-Use `python3 ~/opl-flow/scripts/check_companion_skills.py --strict` only when claiming full guardrail readiness.
+Use `python3 ~/opl-flow/scripts/check_companion_skills.py --strict` when claiming the bundled OPL Flow guardrails are discoverable.
 
 If checkout paths differ, use the actual clone location in place of `~/opl-flow`.
 
@@ -132,6 +132,6 @@ replace repo-specific rules.
 
 ## Where This Fits
 
-`opl-flow` configures Codex behavior on a new machine. It does not own OPL runtime, App installation, MAS/MAG/RCA domain agents, OPL App Full packaged Superpowers, or common companion skills.
+`opl-flow` configures Codex behavior on a new machine. It owns the workflow profile, risk-based development flow, and high-risk Codex ops guardrails. It does not own OPL runtime, App installation, MAS/MAG/RCA domain agents, OPL App Full packaged Superpowers, common companion skills, Temporal family runtime provider, native helpers, domain module health, GUI shell, App first-run state, or Full readiness. Those belong to One Person Lab App / OPL Framework surfaces.
 
 `one-person-lab` is the canonical complete bootstrap owner. `one-person-lab-app` is the product and first-install owner. `opl-doc` is a domain skill for developer-document lifecycle governance.

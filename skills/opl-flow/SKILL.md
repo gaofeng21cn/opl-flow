@@ -5,7 +5,7 @@ description: "Use when a Codex task needs the OPL Flow workflow profile: Direct/
 
 # OPL Flow
 
-OPL Flow is a lightweight Codex-first workflow profile inspired by Trellis and Superpowers, adapted for pragmatic local engineering work. It installs a thin global `AGENTS.md` plus role prompts; detailed procedures stay in triggered skills such as `codex-ops-kit`, `risk-based-development-flow`, `systematic-debugging`, and `verification-before-completion`.
+OPL Flow is a lightweight Codex-first workflow profile inspired by Trellis and Superpowers, adapted for pragmatic local engineering work. It installs a thin global `AGENTS.md`, role prompts, and the OPL Flow-owned guardrail skills `codex-ops-kit` and `risk-based-development-flow`; detailed debugging and verification execution still routes to external skills such as `systematic-debugging` and `verification-before-completion` when available.
 
 It is compatible with One Person Lab App Full installs. Full installs normally provide Superpowers and common companion skills; OPL Flow should route to that execution surface rather than duplicate or replace it.
 
@@ -88,9 +88,9 @@ That installs the local plugin into `~/plugins/opl-flow`, registers it in the pe
 
 Use `python3 scripts/install_local_plugin.py --no-profile` to install only the plugin without touching user-level Codex prompts.
 
-The install profile routes to companion skills such as `risk-based-development-flow`, `codex-ops-kit`, `systematic-debugging`, and `verification-before-completion` when they are available. If a target machine lacks OPL Flow-native guardrails, the core profile remains usable but the full behavior envelope is degraded.
+The install profile includes OPL Flow-native guardrails `risk-based-development-flow` and `codex-ops-kit`. It routes to companion skills such as `systematic-debugging` and `verification-before-completion` when they are available.
 
-When the target machine was installed through OPL App Full, Superpowers normally covers `systematic-debugging`, `verification-before-completion`, `using-git-worktrees`, and `test-driven-development`, and App companion payloads cover common document/tool skills such as `mineru-document-extractor`. OPL Flow still needs `risk-based-development-flow` and `codex-ops-kit` for its full profile semantics.
+When the target machine was installed through OPL App Full, Superpowers normally covers `systematic-debugging`, `verification-before-completion`, `using-git-worktrees`, and `test-driven-development`, and App companion payloads cover common document/tool skills such as `mineru-document-extractor`. OPL Flow should not duplicate or replace those execution surfaces.
 
 Check compatibility:
 
@@ -98,13 +98,15 @@ Check compatibility:
 python3 scripts/check_companion_skills.py
 ```
 
-Use strict mode only when gating a complete guardrail installation:
+Use strict mode when checking that the bundled OPL Flow guardrails are discoverable:
 
 ```bash
 python3 scripts/check_companion_skills.py --strict
 ```
 
 For a complete OPL-family bootstrap that also covers OPL runtime, One Person Lab App, MAS/MAG/RCA/OMA agent surfaces, OPL Doc, and companion tools, follow the One Person Lab guide at `https://github.com/gaofeng21cn/one-person-lab/blob/main/docs/references/current-support/opl-new-machine-codex-bootstrap.md`.
+
+OPL Flow does not own OPL runtime or App readiness. Temporal family runtime provider, native helpers, domain module health, GUI shell, App first-run state, and Full readiness belong to One Person Lab App / OPL Framework checks.
 
 ## Verification
 

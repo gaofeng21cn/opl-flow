@@ -29,8 +29,9 @@ OPTIONAL_SKILLS = (
 )
 
 
-def default_skill_roots(home: Path, codex_home: Path, plugins_dir: Path) -> list[Path]:
+def default_skill_roots(home: Path, codex_home: Path, plugins_dir: Path, repo_root: Path) -> list[Path]:
     roots = [
+        repo_root / "skills",
         codex_home / "skills",
         home / ".agents" / "skills",
         home / ".skills-manager" / "skills",
@@ -126,11 +127,11 @@ def check(args: argparse.Namespace) -> dict[str, Any]:
             "opl_flow_core_ready": core_ready,
             "opl_flow_full_guardrails_ready": full_guardrails_ready,
             "opl_flow_profile_ready": core_ready,
-            "degraded_guardrails": blocking_missing,
+            "missing_guardrails": blocking_missing,
             "notes": [
+                "OPL Flow bundles risk-based-development-flow and codex-ops-kit as profile-native guardrails.",
                 "OPL App Full Superpowers satisfies the Superpowers execution surface when superpowers.ok is true.",
-                "OPL Flow core profile remains usable when OPL Flow-native guardrails are absent, but risk/evidence and high-risk ops behavior is degraded.",
-                "Use --strict when this check is gating a full guardrail installation rather than core profile compatibility.",
+                "Use --strict to fail closed when the OPL Flow-owned guardrail payload is not discoverable.",
                 "Optional skills improve browser/document workflows but are not required for the core profile.",
             ],
         },
@@ -149,7 +150,7 @@ def parse_args() -> argparse.Namespace:
         default=None,
         help="Skill root to scan. Can be repeated.",
     )
-    parser.add_argument("--superpowers-root", default=str(home / ".codex" / "superpowers"))
+    parser.add_argument("--superpowers-root", default=str(Path(codex_home) / "superpowers"))
     parser.add_argument(
         "--strict",
         action="store_true",
@@ -162,9 +163,10 @@ def main() -> int:
     args = parse_args()
     if args.skill_root is None:
         home = Path.home()
+        repo_root = Path(__file__).resolve().parents[1]
         codex_home = Path(args.codex_home).expanduser()
         plugins_dir = Path(args.plugins_dir).expanduser()
-        args.skill_root = [str(root) for root in default_skill_roots(home, codex_home, plugins_dir)]
+        args.skill_root = [str(root) for root in default_skill_roots(home, codex_home, plugins_dir, repo_root)]
     result = check(args)
     print(json.dumps(result, indent=2, sort_keys=True))
     return 0 if result["ok"] else 1
