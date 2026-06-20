@@ -28,8 +28,15 @@ OPL-native to this workflow layer.
 - Before saying complete/fixed/passing: use Verifier.
 - Code, tests, TDD, release/currentness/readiness, or evidence-strength decisions: use `risk-based-development-flow`.
 - Worktree/subagent lane start, resume, absorb, merge, delete, closeout, RHO/session-history audit, broad manifest drift, generated/runtime config drift, release/currentness claims, secret/cache freshness, or long ops evidence: use `codex-ops-kit`.
+- Long stalls, repeated failures, heartbeat monitors, or auto-advance loops: use root-cause-first supervision. Do not stop at surface status; classify whether the cause is target artifact/content, gate/evaluator/currentness, owner route/authority/handoff, runtime/control-plane, or a legitimate human gate.
 
 Do not force heavy process on Direct work. Do not leave Durable work only in chat.
+
+## Root-Cause Supervision
+
+For stalled or monitored workflows, a status check is incomplete until it explains why the state exists and what can change it. Produce a blocker-to-owner map with evidence refs, root-cause category, current owner, legal entrypoint, expected artifact or receipt, verification method, and stop condition.
+
+Treat progress as real only when it creates target-facing delta, owner receipt, reviewer/gate delta, route-back, human gate, stable typed blocker supersession, or strict running proof. Queue empty, clean read models, repeated controller actions, focused tests, or repo commits are maintenance evidence unless they unblock the target workflow and fresh readback proves it.
 
 ## Completion Audits
 

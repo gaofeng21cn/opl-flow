@@ -89,11 +89,14 @@ def check_profile_templates(repo_root: Path) -> list[str]:
         (agents, "risk-based development flow", "AGENTS.md must route risk-based development flow"),
         (agents, "codex-ops-kit", "AGENTS.md must route high-risk Codex ops to codex-ops-kit"),
         (agents, "完成度审计", "AGENTS.md must require Chinese completion audits"),
+        (agents, "本因诊断", "AGENTS.md must require root-cause-first supervision"),
+        (agents, "blocker-to-owner map", "AGENTS.md must require blocker-to-owner maps for stalls"),
         (agents, "<!-- CODEGRAPH_START -->", "AGENTS.md must preserve the CodeGraph marker block"),
         (verifier, "验收对象的优先级", "verifier prompt must preserve audit-object priority"),
         (verifier, "完成度审计", "verifier prompt must preserve Chinese completion audit"),
         (verifier, "focused tests", "verifier prompt must reject focused-tests-as-readiness claims"),
         (taste, "风险分层优先于测试仪式", "TASTE.md must preserve risk-over-ritual preference"),
+        (taste, "本因诊断优先于状态复述", "TASTE.md must preserve root-cause-over-status preference"),
     )
     for text, needle, message in required_pairs:
         if needle not in text:
@@ -115,6 +118,8 @@ def check_docs_describe_compatibility(repo_root: Path) -> list[str]:
         (skill, "compatible with One Person Lab App Full installs", "skill must describe OPL App Full compatibility"),
         (skill, "risk-based-development-flow", "skill must name risk-based-development-flow as profile-native"),
         (skill, "codex-ops-kit", "skill must name codex-ops-kit as profile-native"),
+        (skill, "Root-Cause Supervision", "skill must document root-cause-first supervision"),
+        (skill, "blocker-to-owner map", "skill must require blocker-to-owner maps for stalls"),
         (compatibility, "Codex AGENTS.md / skills", "compatibility doc must cover Codex customization boundary"),
         (compatibility, "Superpowers", "compatibility doc must cover Superpowers boundary"),
         (compatibility, "Trellis", "compatibility doc must cover Trellis boundary"),

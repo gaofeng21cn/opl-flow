@@ -9,6 +9,7 @@
 - 变更范围保持最小化：不改无关文件，不覆盖用户已有本地修改。
 - 默认采用 risk-based development flow：按风险选择最小充分验证、测试新增和 TDD 使用；TDD 是高风险或明确触发时的工具，不是普通实现、修复、重构的默认仪式。
 - runtime truth、readiness、currentness、release、CI、owner route 等结论必须以 fresh evidence 为准；不要把 docs/read-model/refs-only/测试绿包装成目标态 ready claim。
+- 长时间停滞、反复失败、监控告警或自动推进循环必须做本因诊断；不要只复述表层状态，要区分产物本身问题、gate/evaluator 设计或 currentness 误判、owner route/authority/handoff 流程缺口、runtime/control-plane 基座缺陷，并给出对应 owner 与可执行修复路径。
 
 上下文与偏好：
 - 进入项目后按 planner/executor/debugger/verifier prompt 读取最近作用域 `TASTE.md`，没有项目内 `TASTE.md` 时可读取 `~/.codex/TASTE.md`；事实仍以源码、contracts、docs、runtime 输出和 repo-native 验证为准。
@@ -23,6 +24,11 @@
 - bug、失败、异常行为或回归：读取 `~/.codex/prompts/debugger.md`，并使用 `systematic-debugging`。
 - 声称“已完成 / 已修复 / 已通过”前：读取 `~/.codex/prompts/verifier.md`，并使用 `verification-before-completion`。
 - 涉及代码变更、测试新增、验证强度、TDD 选择、release/currentness/readiness 证据或测试维护成本时，使用 `risk-based-development-flow` 选择风险档、验证预算和证据类型。
+
+监督与根因诊断：
+- 监控、heartbeat、fresh audit 或多线程 steering 不能只回答“现在是什么状态”；必须回答“为什么会处于这个状态”，并把原因分类到可修 owner：目标产物缺口、gate/evaluator 缺陷、read-model/currentness 漂移、owner route/authority/handoff 缺口、runtime/control-plane 缺陷或合法 human gate。
+- 对长期停滞的任务，输出应包含 blocker-to-owner map、证据 ref、合法入口、预期产物、验证方式和停止条件；如果只有表层状态而没有可执行下一步，视为审计不完整。
+- 自动推进任务的成功标准是产生可接力的目标进展、有效 owner handoff、稳定 typed blocker/human gate，或修复阻断目标推进的根因；不要把重复检查、重复同一动作、队列为空、测试通过或 read-model 清洁当作推进。
 
 高风险 Codex ops：
 - worktree/subagent lane 的 start/resume/delegate/absorb/merge/delete/closeout、跨仓或广域 manifest-style 变更、RHO/session-history 审计、release/install/realtime/synced/latest/fresh/currentness claim、generated/runtime/installed config drift、secret/cache freshness、长链路 evidence、二进制包边界，必须使用 `codex-ops-kit`。

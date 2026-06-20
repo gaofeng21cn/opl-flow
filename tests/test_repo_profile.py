@@ -92,6 +92,14 @@ class RepoProfileTests(unittest.TestCase):
             self.assertEqual(agents, (repo / "AGENTS.md").read_text(encoding="utf-8"))
             self.assertEqual(taste, (repo / "TASTE.md").read_text(encoding="utf-8"))
 
+    def test_user_profile_templates_preserve_root_cause_supervision(self) -> None:
+        agents = (REPO_ROOT / "templates" / "AGENTS.md").read_text(encoding="utf-8")
+        taste = (REPO_ROOT / "templates" / "TASTE.md").read_text(encoding="utf-8")
+
+        self.assertIn("本因诊断", agents)
+        self.assertIn("blocker-to-owner map", agents)
+        self.assertIn("本因诊断优先于状态复述", taste)
+
     def test_cli_defaults_to_check(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             result = subprocess.run(
