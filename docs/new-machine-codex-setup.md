@@ -49,6 +49,8 @@ Restart Codex after installation so plugin and skill discovery refresh.
 
 If this machine was installed through One Person Lab App Full, the Superpowers execution surface and common companion skills are normally already packaged. OPL Flow is compatible with that setup and should not duplicate or replace those skills.
 
+OPL Flow should preserve the machine's current Superpowers profile. A local `lite` or `expanded` profile keeps upstream `using-superpowers` disabled and routes only selected skills into Codex discovery; official `full` Superpowers should be enabled only when the user explicitly asks for that mode.
+
 OPL Flow bundles its profile-native guardrails:
 
 - `risk-based-development-flow`
@@ -76,7 +78,7 @@ Check the current machine with:
 python3 scripts/check_companion_skills.py
 ```
 
-The default checker verifies the OPL Flow-owned guardrails and reports optional companion coverage. Use strict mode when a task needs to fail closed if the bundled guardrail payload is not discoverable:
+The default checker verifies the OPL Flow-owned guardrails, reports optional companion coverage, and reads back the active Superpowers profile as `lite`, `expanded`, `full`, `custom`, or `not_configured`. Use strict mode when a task needs to fail closed if the bundled guardrail payload is not discoverable:
 
 ```bash
 python3 scripts/check_companion_skills.py --strict
@@ -101,6 +103,7 @@ Key behavior after install:
 - Durable writeback routing for reusable workflow lessons.
 - CodeGraph marker block preservation and RTK shell preference when available.
 - Compatibility with OPL App Full / Superpowers: OPL Flow routes to the execution surface already packaged by Full install and owns only the Codex workflow / guardrail layer.
+- Superpowers profile preservation: OPL Flow keeps the current local profile unless the user explicitly chooses official full Superpowers.
 
 ## Completion Checks
 

@@ -7,7 +7,7 @@ description: "Use when a Codex task needs the OPL Flow workflow profile: Direct/
 
 OPL Flow is a lightweight Codex-first workflow profile inspired by Trellis and Superpowers, adapted for pragmatic local engineering work. It installs a thin global `AGENTS.md`, role prompts, and the OPL Flow-owned guardrail skills `codex-ops-kit` and `risk-based-development-flow`; detailed debugging and verification execution still routes to external skills such as `systematic-debugging` and `verification-before-completion` when available.
 
-It is compatible with One Person Lab App Full installs. Full installs normally provide Superpowers and common companion skills; OPL Flow should route to that execution surface rather than duplicate or replace it.
+It is compatible with One Person Lab App Full installs. Full installs normally provide Superpowers and common companion skills; OPL Flow should route to the active local Superpowers profile rather than duplicate or replace it. Keep the current local profile unless the user explicitly asks for official full Superpowers.
 
 Use it to choose the smallest reliable path:
 
@@ -99,11 +99,15 @@ The install profile includes OPL Flow-native guardrails `risk-based-development-
 
 When the target machine was installed through OPL App Full, Superpowers normally covers `systematic-debugging`, `verification-before-completion`, `using-git-worktrees`, and `test-driven-development`, and App companion payloads cover common document/tool skills such as `mineru-document-extractor`. OPL Flow should not duplicate or replace those execution surfaces.
 
+For machines that use a local Superpowers profile, `lite` is the quiet default, `expanded` can expose Superpowers v6 planning / SDD / review helpers for long-chain implementation, and `full` should mean the user intentionally enabled the official Superpowers bootstrap.
+
 Check compatibility:
 
 ```bash
 python3 scripts/check_companion_skills.py
 ```
+
+The checker reports `superpowers_profile.profile` as `lite`, `expanded`, `full`, `custom`, or `not_configured` alongside bundle readiness and companion skill coverage.
 
 Use strict mode when checking that the bundled OPL Flow guardrails are discoverable:
 

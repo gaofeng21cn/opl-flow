@@ -18,6 +18,25 @@ SUPERPOWERS_SKILLS = (
     "using-git-worktrees",
 )
 
+SUPERPOWERS_LITE_SELECTED = (
+    "brainstorming",
+    "systematic-debugging",
+    "test-driven-development",
+    "using-git-worktrees",
+    "verification-before-completion",
+)
+
+SUPERPOWERS_EXPANDED_SELECTED = (
+    *SUPERPOWERS_LITE_SELECTED,
+    "writing-plans",
+    "subagent-driven-development",
+    "executing-plans",
+    "dispatching-parallel-agents",
+    "requesting-code-review",
+    "receiving-code-review",
+    "finishing-a-development-branch",
+)
+
 OPL_FLOW_NATIVE_SKILLS = (
     "risk-based-development-flow",
     "codex-ops-kit",
@@ -82,6 +101,91 @@ def _relative_to(path: Path, root: Path) -> bool:
     except ValueError:
         return False
     return True
+
+
+def using_superpowers_disabled(codex_home: Path, superpowers_root: Path) -> bool:
+    config = codex_home / "config.toml"
+    if not config.exists():
+        return False
+    text = config.read_text(encoding="utf-8")
+    using_skill = str(superpowers_root / "skills" / "using-superpowers" / "SKILL.md")
+    start = text.find(using_skill)
+    if start == -1:
+        return False
+    return "enabled = false" in text[start : start + 300]
+
+
+def _link_info(path: Path, home: Path, codex_home: Path, plugins_dir: Path, repo_root: Path) -> dict[str, Any]:
+    exists = path.exists() or path.is_symlink()
+    target = path.resolve(strict=False) if exists else None
+    return {
+        "exists": exists,
+        "path": str(path),
+        "target": str(target) if target else None,
+        "source": classify_source(target if target else path, home, codex_home, plugins_dir, repo_root) if exists else "missing",
+    }
+
+
+def superpowers_profile_status(
+    home: Path,
+    codex_home: Path,
+    plugins_dir: Path,
+    repo_root: Path,
+    superpowers_root: Path,
+) -> dict[str, Any]:
+    agents_skills = home / ".agents" / "skills"
+    disabled = using_superpowers_disabled(codex_home, superpowers_root)
+    full_link = agents_skills / "superpowers"
+    full_target = full_link.resolve(strict=False) if full_link.exists() or full_link.is_symlink() else None
+
+    lite_links = {
+        skill: _link_info(agents_skills / skill, home, codex_home, plugins_dir, repo_root)
+        for skill in SUPERPOWERS_LITE_SELECTED
+    }
+    expanded_extra_links = {
+        skill: _link_info(agents_skills / skill, home, codex_home, plugins_dir, repo_root)
+        for skill in SUPERPOWERS_EXPANDED_SELECTED
+        if skill not in SUPERPOWERS_LITE_SELECTED
+    }
+    umbrella = _link_info(agents_skills / "superpowers-lite", home, codex_home, plugins_dir, repo_root)
+
+    lite_ready = all(item["exists"] for item in lite_links.values()) and umbrella["exists"] and disabled
+    expanded_ready = lite_ready and all(item["exists"] for item in expanded_extra_links.values())
+    full_ready = full_target == (superpowers_root / "skills").resolve(strict=False) and not disabled
+
+    if full_ready:
+        profile = "full"
+    elif expanded_ready:
+        profile = "expanded"
+    elif lite_ready:
+        profile = "lite"
+    elif any(item["exists"] for item in (*lite_links.values(), *expanded_extra_links.values())) or umbrella["exists"] or full_target:
+        profile = "custom"
+    else:
+        profile = "not_configured"
+
+    local_overlay_root = (home / ".skills-manager" / "skills" / "superpowers-local-profile").resolve(strict=False)
+    local_overlay_skills = sorted(
+        skill
+        for skill, item in {**lite_links, **expanded_extra_links}.items()
+        if item["target"] and _relative_to(Path(item["target"]), local_overlay_root)
+    )
+
+    return {
+        "profile": profile,
+        "agents_skills": str(agents_skills),
+        "using_superpowers_disabled": disabled,
+        "full_link": str(full_link),
+        "full_link_target": str(full_target) if full_target else None,
+        "lite_selected": lite_links,
+        "expanded_extra": expanded_extra_links,
+        "umbrella": umbrella,
+        "local_overlay_skills": local_overlay_skills,
+        "notes": [
+            "lite and expanded preserve the local routing profile and keep upstream using-superpowers disabled.",
+            "full enables the official Superpowers bootstrap by linking the full skills directory.",
+        ],
+    }
 
 
 def classify_source(skill_path: Path, home: Path, codex_home: Path, plugins_dir: Path, repo_root: Path) -> str:
@@ -152,6 +256,7 @@ def check(args: argparse.Namespace) -> dict[str, Any]:
         skill_status[skill_id] = find_skill(skill_id, skill_roots, home, codex_home, plugins_dir, repo_root)
 
     superpowers = superpowers_bundle_status(superpowers_root)
+    superpowers_profile = superpowers_profile_status(home, codex_home, plugins_dir, repo_root, superpowers_root)
     blocking_missing = [
         skill_id
         for skill_id in OPL_FLOW_NATIVE_SKILLS
@@ -178,6 +283,7 @@ def check(args: argparse.Namespace) -> dict[str, Any]:
         "repo_root": str(repo_root),
         "skill_roots": [str(root) for root in skill_roots],
         "superpowers": superpowers,
+        "superpowers_profile": superpowers_profile,
         "skills": skill_status,
         "blocking_missing": blocking_missing,
         "optional_missing": optional_missing,
@@ -191,6 +297,7 @@ def check(args: argparse.Namespace) -> dict[str, Any]:
             "notes": [
                 "OPL Flow bundles risk-based-development-flow and codex-ops-kit as profile-native guardrails.",
                 "OPL App Full Superpowers satisfies the Superpowers execution surface when superpowers.ok is true.",
+                "OPL Flow preserves the current local Superpowers profile unless the user explicitly asks for full Superpowers.",
                 "Use --strict to fail closed when the OPL Flow-owned guardrail payload is not discoverable.",
                 "Optional skills improve browser/document workflows but are not required for the core profile.",
             ],
