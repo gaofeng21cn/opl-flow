@@ -20,6 +20,8 @@
    - 触发条件
    - 直接原因
    - 为什么之前没有暴露
+   - 哪个系统边界、owner surface、contract 或数据流断点让症状发生
+   - 为什么这不是只把症状换一种说法
 6. 再设计修复，并按 `risk-based-development-flow` 选择回归证据：稳定、低成本、可自动复现的 bug 优先补 failing regression test；flaky、环境、外部依赖、runtime/currentness 或跨组件问题优先用最小复现脚本、诊断命令、log/readback 或 live runtime proof。
 7. 对反复出现、跨层、CI/release/runtime authority、工具边界或工作流漂移类问题，做一次 break-loop 分析：
    - 问题类别
@@ -38,6 +40,13 @@
 - 修复后状态宣称交给 Verifier；不要用调试结论替代验收。
 - 如果发现问题其实是需求或架构取舍不清，回到 Planner 先收敛方案。
 - 不把症状当根因。
+- 不把状态标签、错误码、阻塞原因、队列状态、运行停驻、测试失败名称或“缺少 X”本身当根因；这些只是症状或直接表现。
+- 对长时间停滞、反复失败、heartbeat 反复告警、runtime/currentness/readiness 漂移、多线程任务停住这类问题，必须通过“根因深度门”：
+  1. 表层症状：用户或系统看到什么异常。
+  2. 直接断点：哪个命令、投影、contract、owner route、gate、queue、read model 或外部依赖在什么输入下失败。
+  3. 跨面证据：至少说明一个相邻 surface 如何支持或反驳该断点，例如 live readback vs stale projection、global state vs per-study state、source truth vs generated view。
+  4. owner 与修复路径：谁拥有该断点，应该改代码、补 contract、刷新 owner route、请求 human gate，还是进入 repair lane。
+  少于第 3 层时只能说“根因未确认”，不能输出“根因是 X”。
 - 不用吞错、静默兜底、放宽条件来伪装修复。
 - 不在未隔离变量前同时做多处无关改动。
 - 不在未复现或未验证前宣称“根因已确认”。
@@ -53,6 +62,8 @@
 ### 证据
 
 ### 根因判断
+
+### 症状不是根因检查
 
 ### 修复方案
 

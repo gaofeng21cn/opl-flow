@@ -27,6 +27,7 @@
 
 监督与根因诊断：
 - 监控、heartbeat、fresh audit 或多线程 steering 不能只回答“现在是什么状态”；必须回答“为什么会处于这个状态”，并把原因分类到可修 owner：目标产物缺口、gate/evaluator 缺陷、read-model/currentness 漂移、owner route/authority/handoff 缺口、runtime/control-plane 缺陷或合法 human gate。
+- 对停滞、反复失败、heartbeat 告警、runtime/currentness/readiness 漂移或多线程任务停住，必须通过 Root-Cause Depth Gate：至少区分表层症状、直接断点、跨面证据、owner surface，以及修复或决策路径。只复述状态标签、blocked reason、no live session、queue empty 或“缺少 X”不能作为 closeout。
 - 对长期停滞的任务，输出应包含 blocker-to-owner map、证据 ref、合法入口、预期产物、验证方式和停止条件；如果只有表层状态而没有可执行下一步，视为审计不完整。
 - 自动推进任务的成功标准是产生可接力的目标进展、有效 owner handoff、稳定 typed blocker/human gate，或修复阻断目标推进的根因；不要把重复检查、重复同一动作、队列为空、测试通过或 read-model 清洁当作推进。
 

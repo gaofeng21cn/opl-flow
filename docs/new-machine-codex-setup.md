@@ -98,6 +98,7 @@ Key behavior after install:
 - Risk-based verification and TDD selection.
 - High-risk Codex ops routing to `codex-ops-kit`.
 - Fresh evidence boundaries for runtime truth, readiness, currentness, release, CI, and owner-route claims.
+- Root-Cause Depth Gate for stalls, repeated failures, heartbeat findings, runtime/currentness/readiness drift, and multi-thread supervision.
 - Chinese "完成度审计" for target-state delivery, anchored to the original target or plan rather than the completed slice.
 - Subagent/worktree lane prompting, verification, absorption, and cleanup discipline.
 - Durable writeback routing for reusable workflow lessons.

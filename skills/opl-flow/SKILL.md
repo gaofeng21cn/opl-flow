@@ -28,13 +28,21 @@ OPL-native to this workflow layer.
 - Before saying complete/fixed/passing: use Verifier.
 - Code, tests, TDD, release/currentness/readiness, or evidence-strength decisions: use `risk-based-development-flow`.
 - Worktree/subagent lane start, resume, absorb, merge, delete, closeout, RHO/session-history audit, broad manifest drift, generated/runtime config drift, release/currentness claims, secret/cache freshness, or long ops evidence: use `codex-ops-kit`.
-- Long stalls, repeated failures, heartbeat monitors, or auto-advance loops: use root-cause-first supervision. Do not stop at surface status; classify whether the cause is target artifact/content, gate/evaluator/currentness, owner route/authority/handoff, runtime/control-plane, or a legitimate human gate.
+- Long stalls, repeated failures, heartbeat monitors, runtime/currentness/readiness drift, multi-thread stalls, or auto-advance loops: use root-cause-first supervision. Do not stop at surface status; classify the visible symptom, direct failing boundary, cross-surface evidence, owner surface, and repair or decision path.
 
 Do not force heavy process on Direct work. Do not leave Durable work only in chat.
 
 ## Root-Cause Supervision
 
-For stalled or monitored workflows, a status check is incomplete until it explains why the state exists and what can change it. Produce a blocker-to-owner map with evidence refs, root-cause category, current owner, legal entrypoint, expected artifact or receipt, verification method, and stop condition.
+For stalled or monitored workflows, a status check is incomplete until it explains why the state exists and what can change it. The Root-Cause Depth Gate requires:
+
+1. surface symptom: what the user, monitor, runtime, or thread sees;
+2. direct boundary: the command, projection, owner route, gate, queue, contract, dependency, or artifact boundary that emitted the symptom;
+3. cross-surface evidence: at least one neighboring truth surface that confirms whether the boundary is current or stale;
+4. owner surface: the MAS/OPL/project/human/runtime surface that can legally change the state;
+5. repair or decision path: code repair, contract repair, owner consumption, human gate, typed blocker, or explicit stop condition.
+
+Produce a blocker-to-owner map with evidence refs, root-cause category, current owner, legal entrypoint, expected artifact or receipt, verification method, and stop condition. Reports that only restate blocked, no live session, queue empty, missing X, or a status label are incomplete and must not close out the audit.
 
 Treat progress as real only when it creates target-facing delta, owner receipt, reviewer/gate delta, route-back, human gate, stable typed blocker supersession, or strict running proof. Queue empty, clean read models, repeated controller actions, focused tests, or repo commits are maintenance evidence unless they unblock the target workflow and fresh readback proves it.
 

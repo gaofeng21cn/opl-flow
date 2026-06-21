@@ -12,6 +12,7 @@ It is inspired by Trellis and Superpowers, but stays Codex-first:
 - Subagent/worktree lane contract for scoped parallel work.
 - Durable evidence and lesson writeback.
 - Verification before completion, including Chinese "完成度审计" for target-state delivery.
+- Root-Cause Depth Gate for stalls, repeated failures, heartbeat findings, runtime/currentness/readiness drift, and multi-thread supervision.
 - Fresh evidence boundaries for runtime truth, readiness, currentness, release, CI, and owner-route claims.
 - CodeGraph marker block preservation for projects that rely on CodeGraph injection.
 - RTK shell preference for compact command output when available.
@@ -115,6 +116,7 @@ It also routes evidence-sensitive work:
 
 - Risk-based verification: classify the risk, choose a verification budget, and avoid TDD/test bloat unless it proves a concrete regression.
 - High-risk Codex ops: use `codex-ops-kit` before lane start/absorb/closeout, broad manifest drift, RHO/session-history audits, release/currentness claims, generated/runtime config drift, secret/cache freshness, or long evidence chains.
+- Root-cause supervision: stalls, repeated failures, heartbeat findings, runtime/currentness/readiness drift, and multi-thread stops must identify the visible symptom, direct failing boundary, cross-surface evidence, owner surface, and repair or decision path before closeout.
 - Completion audits: for "全部落地 / 一步到位 / 彻底解决" style goals, verify against the original target plan and report Chinese "完成度审计" with status, percent, fresh evidence, gaps, and next actions.
 
 The profile reads preferences by scope: repo-local `TASTE.md` first, then `~/.codex/TASTE.md` when no repo-local file exists. `TASTE.md` never overrides code, contracts, docs, runtime output, or direct user instructions.

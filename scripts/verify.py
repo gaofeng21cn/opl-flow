@@ -83,6 +83,7 @@ def check_skill_metadata(repo_root: Path) -> list[str]:
 def check_profile_templates(repo_root: Path) -> list[str]:
     errors: list[str] = []
     agents = (repo_root / "templates" / "AGENTS.md").read_text(encoding="utf-8")
+    debugger = (repo_root / "templates" / "prompts" / "debugger.md").read_text(encoding="utf-8")
     verifier = (repo_root / "templates" / "prompts" / "verifier.md").read_text(encoding="utf-8")
     taste = (repo_root / "templates" / "TASTE.md").read_text(encoding="utf-8")
     required_pairs = (
@@ -90,10 +91,14 @@ def check_profile_templates(repo_root: Path) -> list[str]:
         (agents, "codex-ops-kit", "AGENTS.md must route high-risk Codex ops to codex-ops-kit"),
         (agents, "完成度审计", "AGENTS.md must require Chinese completion audits"),
         (agents, "本因诊断", "AGENTS.md must require root-cause-first supervision"),
+        (agents, "Root-Cause Depth Gate", "AGENTS.md must require root-cause depth gate"),
         (agents, "blocker-to-owner map", "AGENTS.md must require blocker-to-owner maps for stalls"),
+        (debugger, "根因深度门", "debugger prompt must preserve root-cause depth gate"),
+        (debugger, "跨面证据", "debugger prompt must require cross-surface evidence"),
         (agents, "<!-- CODEGRAPH_START -->", "AGENTS.md must preserve the CodeGraph marker block"),
         (verifier, "验收对象的优先级", "verifier prompt must preserve audit-object priority"),
         (verifier, "完成度审计", "verifier prompt must preserve Chinese completion audit"),
+        (verifier, "根因深度检查", "verifier prompt must verify root-cause depth"),
         (verifier, "focused tests", "verifier prompt must reject focused-tests-as-readiness claims"),
         (taste, "风险分层优先于测试仪式", "TASTE.md must preserve risk-over-ritual preference"),
         (taste, "本因诊断优先于状态复述", "TASTE.md must preserve root-cause-over-status preference"),
@@ -110,6 +115,7 @@ def check_docs_describe_compatibility(repo_root: Path) -> list[str]:
     setup = (repo_root / "docs" / "new-machine-codex-setup.md").read_text(encoding="utf-8")
     compatibility = (repo_root / "docs" / "compatibility.md").read_text(encoding="utf-8")
     skill = (repo_root / "skills" / "opl-flow" / "SKILL.md").read_text(encoding="utf-8")
+    lane_closeout = (repo_root / "skills" / "codex-ops-kit" / "references" / "lane-closeout.md").read_text(encoding="utf-8")
     required_pairs = (
         (readme, "Compatibility With OPL App Full", "README must document OPL App Full compatibility"),
         (readme, "python3 scripts/check_companion_skills.py", "README must document companion skill checker"),
@@ -119,7 +125,11 @@ def check_docs_describe_compatibility(repo_root: Path) -> list[str]:
         (skill, "risk-based-development-flow", "skill must name risk-based-development-flow as profile-native"),
         (skill, "codex-ops-kit", "skill must name codex-ops-kit as profile-native"),
         (skill, "Root-Cause Supervision", "skill must document root-cause-first supervision"),
+        (skill, "Root-Cause Depth Gate", "skill must document root-cause depth gate"),
         (skill, "blocker-to-owner map", "skill must require blocker-to-owner maps for stalls"),
+        (lane_closeout, "Root-Cause Depth Guard", "lane closeout must require root-cause depth guard"),
+        (lane_closeout, "L2 cross-surface evidence", "lane closeout must require cross-surface evidence"),
+        (lane_closeout, "Reports that only rename a symptom", "lane closeout must reject symptom-only closeout"),
         (compatibility, "Codex AGENTS.md / skills", "compatibility doc must cover Codex customization boundary"),
         (compatibility, "Superpowers", "compatibility doc must cover Superpowers boundary"),
         (compatibility, "Trellis", "compatibility doc must cover Trellis boundary"),

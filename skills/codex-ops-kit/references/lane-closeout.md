@@ -58,6 +58,79 @@ Dirty files block only the same write set. Existing local commits, ahead/behind 
 
 Only mark a lane blocked when the same write set conflicts, the semantic owner is unclear, verification cannot cover the lane, remote state cannot be absorbed safely, permissions are missing, or a real owner decision is required.
 
+## Goal-Driven Executors and Heartbeat Supervisors
+
+For durable multi-thread missions, do not make an executor heartbeat the primary progress driver. The executor thread should hold an active goal that defines the mission, stop conditions, allowed write set, verification, and absorption reporting. Heartbeats may be used as temporary recovery safety nets, but once the executor goal is active they should be paused or treated as fallback-only so repeated one-shot prompts do not distort the mission.
+
+Use heartbeat automation for supervisor or auditor threads when periodic fresh readback, steering, and intervention are the actual job. Each supervisor heartbeat should check whether the executor is idle, lacks an active goal, prematurely marked the goal complete, treated a checkpoint as mission closeout, or produced an unabsorbed worktree candidate. If any of those conditions hold, the supervisor should steer the executor immediately instead of waiting for another interval.
+
+Distinguish a turn checkpoint from mission closeout. A work-unit result such as an owner receipt, artifact delta, reviewer or gate delta, stable typed blocker, human gate, route-back, `no_absorption_needed`, or a focused test pass can close the current turn only when it satisfies that turn's stop condition. It does not complete the durable mission unless the original user goal, main session acceptance, or an explicit owner decision says the mission is closed.
+
+## Mission Artifact Progress Guard
+
+For durable domain missions, keep the user's target artifact as the primary progress metric. Repo absorption, worktree hygiene, fresh readback, queue state, tests, currentness repair, provider liveness, and control-plane cleanup are supporting ops evidence; they are not mission progress unless the original mission was explicitly an ops mission.
+
+Every executor, supervisor, and main-session report should classify the latest delta as one of:
+
+- `mission_artifact_delta`: a target artifact, deliverable, decision packet, owner receipt, accepted gate/reviewer delta, stable typed blocker, human gate, route-back, or next owner handoff moved.
+- `platform_or_observability_delta`: code/test/read-model/currentness/runtime/queue/telemetry/absorption work moved, but the target artifact did not.
+- `blocked_with_owner`: the target artifact cannot move until a named owner supplies input, authority, permission, or a decision.
+
+When a governed runtime path is blocked and the project allows a foreground/manual mode, steer the executor to produce a clearly labeled manual work product or owner-decision packet instead of looping on more status reads. That manual work product must not be represented as governed runtime truth until the owning project surface consumes, accepts, rejects, or blocks it.
+
+Do not let `blocked`, `waiting_human`, `not_actionable_without_owner`, missing live session, or owner-route authority gaps become mission closeout for a user goal that explicitly asks to continue until a target deliverable exists. Treat them as escalation triggers: the executor continues the milestone deliverable, the supervisor steers or opens a repair lane, and the main session owns absorption or takeover when needed.
+
+## Mission-First Repair Lanes
+
+When a domain mission exposes platform, runtime, control-plane, currentness, or owner-route defects, do not let the mission executor become a platform-repair sink. Keep the target artifact moving while the defect is routed through a repair lane.
+
+### Root-Cause Depth Guard
+
+For durable missions, multi-thread supervision, heartbeats, runtime/currentness/readiness claims, and repeated stalls, a report must not close at symptom depth.
+
+Use this ladder:
+
+- `L0 symptom`: the visible state, such as blocked, idle, no live session, queue empty, handoff required, stale, failed, or waiting.
+- `L1 direct boundary`: the command, projection, owner route, gate, queue, contract, dependency, or artifact boundary that emitted the symptom.
+- `L2 cross-surface evidence`: at least one neighboring truth surface that proves whether the boundary is current or stale, such as global runtime state vs per-study projection, owner receipt vs pending candidate, source file vs generated view, or terminal closeout vs live readback.
+- `L3 owner repair path`: the named owner surface, allowed and forbidden write sets, verification/readback, and whether the next action is code repair, contract repair, owner consumption, human gate, or typed blocker.
+- `L4 prevention`: why existing workflow allowed the issue to recur and which prompt, runbook, skill, contract, or automation should prevent recurrence.
+
+Minimum closeout:
+
+- One-off status audit may stop at `L2` only if the user asked for observation only.
+- Repeated stalls, supervisor heartbeat findings, currentness drift, false progress/readiness claims, or repair-lane proposals require `L3`.
+- "Thorough", "root cause", "fix it", "do any intervention", or "do not stop" requests require `L3` plus either a concrete repair lane, owner decision path, or `L4` writeback recommendation.
+
+Reports that only rename a symptom, for example "it is stopped because it is blocked" or "no progress because no live session", are incomplete and must steer, investigate, or escalate instead of closing.
+
+Use this split:
+
+- mission executor: keeps producing the target artifact, governed owner handoff, foreground/manual work product, owner decision packet, stable blocker, or human gate.
+- supervisor: classifies the discovered defect, steers the executor away from runtime-only loops, and either prepares a non-conflicting repair candidate or proposes a separate repair lane.
+- repair lane: owns the platform/code/runtime fix in an isolated worktree or clearly scoped branch.
+- main session: absorbs verified repo candidates to the target ref unless explicitly handed off.
+
+Each discovered defect must be classified as one of:
+
+- `absorbed_to_main`: the repair is already on the target ref and fresh evidence confirms the target behavior.
+- `candidate_ready_for_absorption`: an isolated worktree/branch has a commit, diff, verification, readback, residual risk, and absorption packet.
+- `open_repair_lane_proposal`: root cause or strong hypothesis exists, but no repair lane is active yet; report owner surface, allowed/forbidden write sets, verification, and stop condition.
+- `not_actionable_without_owner`: continuing requires a human, runtime owner, credential, lease, permission, or cross-repo authority decision.
+- `not_blocking_mission_progress`: record the defect as supporting work but keep the mission executor focused on the artifact.
+
+Create or propose a repair lane when the defect repeatedly blocks the same mission work unit, prevents owner-surface consumption of a mission artifact, causes false progress/readiness claims, makes target-ref and executor-worktree readbacks disagree, or belongs to a cross-repo/runtime owner path that the mission executor cannot legally repair.
+
+Do not create a repair lane for status wording, telemetry polish, generic cleanup, test-only green bars, or speculative issues without a root-cause boundary. Do not hand-write domain truth, owner receipts, typed blockers, human gates, publication authority, package authority, runtime-owned queues, or provider attempts to simulate a fix.
+
+Repair-lane closeout requires the normal absorption classification plus mission impact:
+
+- what target artifact or owner path it unblocks;
+- why the mission executor should or should not wait for it;
+- how the mission continues while the repair is pending;
+- who absorbs and pushes the repo candidate;
+- what fresh readback proves the repair has reached the target ref.
+
 ## Concurrent Root Checkout Dirty
 
 When supervising concurrent Codex threads or lanes, a dirty shared root checkout is a work-location defect, not a reason to wait indefinitely or stop the original task.

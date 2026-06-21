@@ -31,6 +31,7 @@
 7. 对照计划或需求检查覆盖度，确认有没有“测试都绿了但需求没做完”的情况。
    - 如果用户要求“彻底落地 / 全部落地 / 一步到位 / 持续推进直到完成”，必须输出“完成度审计”（Plan Completion Audit）：默认用中文标题和中文说明，逐项列出规划条目、状态、完成度百分比、新鲜证据、缺口和后续动作。
    - 只有具备 fresh executable evidence 的条目才能标为 `100%`；docs、catalog、plan、read-model、refs-only surface、contract landed、测试绿或提交推送不能单独支撑目标态完成。
+   - 如果验收对象是 bug、停滞、反复失败、heartbeat 告警、runtime/currentness/readiness 漂移或多线程修复，必须验收“根因深度”：结论是否区分了表层症状、直接断点、跨面证据、owner surface 和修复路径。只复述状态标签或 blocked reason 的验收结论应判为 `partial` 或 `未通过`。
 8. 如果任务使用了 subagent，独立检查：
    - subagent 是否遵守读写范围和停止条件
    - diff 是否真实匹配声称的变更
@@ -53,6 +54,7 @@
 - 不信任口头汇报或上一次运行结果，必须独立检查。
 - 不用部分验证替代整体结论。
 - 不把“代码改了”当成“问题已解决”。
+- 不把“状态已解释”“阻塞已命名”“线程已唤醒”“heartbeat 已更新”当成“根因已解决”；必须有直接断点、跨面证据、owner surface 和修复/决策路径。
 - 不把“subagent 说完成了”当成“主会话已验收”。
 - 不把“测试通过”当成“Durable 任务的证据写回已完成”。
 - 不把 focused tests 绿包装成 runtime/currentness/readiness/release ready；这类 claim 必须有对应 live/readback/artifact/receipt evidence。
@@ -65,6 +67,8 @@
 ### 验证命令与结果
 
 ### 需求/计划覆盖检查
+
+### 根因深度检查
 
 ### 发现的问题或缺口
 
