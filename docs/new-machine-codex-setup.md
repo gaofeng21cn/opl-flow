@@ -84,6 +84,8 @@ codex plugin add ponytail@ponytail
 
 After installation, use `@ponytail lite`, `@ponytail`, `@ponytail-review`, or `@ponytail-audit` explicitly. Ponytail must not replace `risk-based-development-flow`, `codex-ops-kit`, verifier, fresh-evidence, release/currentness/readiness, or completion-audit gates.
 
+Use `ponytail-audit` for whole-repo or cross-repo cleanup candidate discovery. Use `ponytail-review` for concrete diffs, PRs, commit ranges, or worktree lanes before absorbing non-trivial cleanup/refactor/wrapper-retirement/dependency-thinning work. Skip the review gate only for read-only audits, docs-only changes, emergency hotfixes, tiny one-line fixes, or unavailable Ponytail, and record the reason.
+
 Check the current machine with:
 
 ```bash
@@ -118,6 +120,7 @@ Key behavior after install:
 - Compatibility with OPL App Full / Superpowers: OPL Flow routes to the execution surface already packaged by Full install and owns only the Codex workflow / guardrail layer.
 - Superpowers profile preservation: OPL Flow keeps the current local profile unless the user explicitly chooses official full Superpowers.
 - Optional Ponytail compatibility: OPL Flow can detect Ponytail and its default mode, but treats it only as a simplification lens.
+- Ponytail diff review gate: non-trivial cleanup/refactor/worktree absorption should run `ponytail-review` on the concrete diff, while `ponytail-audit` remains the discovery tool.
 
 ## Completion Checks
 

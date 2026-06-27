@@ -182,6 +182,14 @@ python3 scripts/worktree_absorption_audit.py --repo . --target-ref main <worktre
 
 Treat `exact-merged` and `content-equivalent` as cleanup candidates. Treat `still-dirty`, `ahead-not-absorbed`, `deleted-without-evidence`, and `needs-owner-review` as closeout work, not completion evidence.
 
+## Complexity Regression Gate
+
+Before absorbing or closing a non-trivial cleanup, refactor, wrapper-retirement, dependency-removal, generated/default-caller migration, or multi-file worktree lane, run a Ponytail-style diff review against the lane diff when Ponytail is available. The review target is the concrete diff or commit range, not the whole repository.
+
+Use `ponytail-review` to find newly introduced over-engineering: replacement wrappers, compatibility layers, one-implementation abstractions, unrequested configurability, avoidable dependencies, or dead flexibility. Fix high-confidence findings before absorption when doing so stays inside the lane write set.
+
+Skip this gate for read-only audits, docs-only changes, emergency hotfixes, tiny one-line fixes, or lanes where Ponytail is unavailable; record the skip reason in the closeout. This gate checks complexity only. It does not replace repo-native tests, security review, authority/readiness/currentness evidence, `risk-based-development-flow`, verifier, or evidence-bound closeout.
+
 ## Closeout Claim
 
 A lane is closed only when the target write set is absorbed, verification is fresh, unresolved baton items are closed or handed off, and the final response names any residual blocker.

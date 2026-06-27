@@ -114,6 +114,8 @@ For machines that use a local Superpowers profile, `lite` is the quiet default, 
 
 Ponytail is compatible as an optional simplification lens. If installed, keep its default mode `off` or `lite`, and invoke it explicitly for YAGNI / stdlib-first implementation or over-engineering review. Ponytail must not override `risk-based-development-flow`, `codex-ops-kit`, verifier, fresh-evidence, runtime/currentness/readiness, or completion-audit gates.
 
+Route Ponytail by surface: use `ponytail-audit` for whole-repo or cross-repo cleanup candidate discovery, and use `ponytail-review` for concrete diffs, PRs, commits, or worktree lanes before absorption when the lane is a non-trivial cleanup, refactor, wrapper retirement, or dependency/surface thinning change. Skip and state why for docs-only, read-only, emergency hotfix, or tiny one-line changes.
+
 Check compatibility:
 
 ```bash

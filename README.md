@@ -63,6 +63,8 @@ codex plugin add ponytail@ponytail
 
 Use Ponytail explicitly for simplification work, for example `@ponytail lite`, `@ponytail`, `@ponytail-review`, or `@ponytail-audit`. It must not override OPL Flow's `risk-based-development-flow`, `codex-ops-kit`, verifier, fresh-evidence, or completion-audit rules.
 
+OPL Flow routes Ponytail by artifact shape: `ponytail-audit` is for whole-repo or cross-repo cleanup candidate discovery; `ponytail-review` is for a concrete diff, PR, commit range, or worktree lane before absorption when the change is a non-trivial cleanup/refactor/wrapper-retirement/dependency-thinning lane.
+
 Use strict mode when checking that the OPL Flow-owned guardrail payload is discoverable:
 
 ```bash
@@ -129,6 +131,7 @@ It also routes evidence-sensitive work:
 - High-risk Codex ops: use `codex-ops-kit` before lane start/absorb/closeout, broad manifest drift, RHO/session-history audits, release/currentness claims, generated/runtime config drift, secret/cache freshness, or long evidence chains.
 - Root-cause supervision: stalls, repeated failures, heartbeat findings, runtime/currentness/readiness drift, and multi-thread stops must identify the visible symptom, direct failing boundary, cross-surface evidence, owner surface, and repair or decision path before closeout.
 - Completion audits: for "全部落地 / 一步到位 / 彻底解决" style goals, verify against the original target plan and report Chinese "完成度审计" with status, percent, fresh evidence, gaps, and next actions.
+- Complexity regression: for non-trivial cleanup/refactor/worktree lanes, review the concrete diff with `ponytail-review` before absorption; use `ponytail-audit` only for candidate discovery.
 
 The profile reads preferences by scope: repo-local `TASTE.md` first, then `~/.codex/TASTE.md` when no repo-local file exists. `TASTE.md` never overrides code, contracts, docs, runtime output, or direct user instructions.
 
