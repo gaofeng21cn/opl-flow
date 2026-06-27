@@ -109,6 +109,8 @@ When the target machine was installed through OPL App Full, Superpowers normally
 
 For machines that use a local Superpowers profile, `lite` is the quiet default, `expanded` can expose Superpowers v6 planning / SDD / review helpers for long-chain implementation, and `full` should mean the user intentionally enabled the official Superpowers bootstrap.
 
+Ponytail is compatible as an optional simplification lens. If installed, keep its default mode `off` or `lite`, and invoke it explicitly for YAGNI / stdlib-first implementation or over-engineering review. Ponytail must not override `risk-based-development-flow`, `codex-ops-kit`, verifier, fresh-evidence, runtime/currentness/readiness, or completion-audit gates.
+
 Check compatibility:
 
 ```bash
@@ -116,6 +118,8 @@ python3 scripts/check_companion_skills.py
 ```
 
 The checker reports `superpowers_profile.profile` as `lite`, `expanded`, `full`, `custom`, or `not_configured` alongside bundle readiness and companion skill coverage.
+
+It also reports optional Ponytail plugin detection and `ponytail.config.default_mode` when configured.
 
 Use strict mode when checking that the bundled OPL Flow guardrails are discoverable:
 

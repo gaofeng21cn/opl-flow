@@ -47,6 +47,12 @@ OPTIONAL_SKILLS = (
     "mineru-document-extractor",
 )
 
+OPTIONAL_PLUGINS = (
+    "ponytail",
+)
+
+PONYTAIL_VALID_MODES = {"off", "lite", "full", "ultra", "review"}
+
 
 def default_skill_roots(home: Path, codex_home: Path, plugins_dir: Path, repo_root: Path) -> list[Path]:
     roots = [
@@ -80,6 +86,17 @@ def default_skill_roots(home: Path, codex_home: Path, plugins_dir: Path, repo_ro
 
 def skill_exists(root: Path, skill_id: str) -> bool:
     return (root / skill_id / "SKILL.md").exists()
+
+
+def plugin_manifest_exists(root: Path) -> bool:
+    return (root / ".codex-plugin" / "plugin.json").exists()
+
+
+def plugin_cache_roots(codex_home: Path, plugin_id: str) -> list[Path]:
+    cache_root = codex_home / "plugins" / "cache" / plugin_id / plugin_id
+    if not cache_root.exists():
+        return []
+    return sorted(path for path in cache_root.iterdir() if path.is_dir())
 
 
 def superpowers_bundle_status(root: Path) -> dict[str, Any]:
@@ -243,6 +260,87 @@ def find_skill(
     }
 
 
+def find_plugin(
+    plugin_id: str,
+    home: Path,
+    codex_home: Path,
+    plugins_dir: Path,
+    repo_root: Path,
+) -> dict[str, Any]:
+    home = home.expanduser().resolve()
+    codex_home = codex_home.expanduser().resolve()
+    plugins_dir = plugins_dir.expanduser().resolve()
+    repo_root = repo_root.expanduser().resolve()
+    roots = [
+        plugins_dir / plugin_id,
+        repo_root / "plugins" / plugin_id,
+        *(plugin_cache_roots(codex_home, plugin_id)),
+    ]
+    matches: list[str] = []
+    details: list[dict[str, str]] = []
+    for root in roots:
+        if not plugin_manifest_exists(root):
+            continue
+        plugin_path = root.resolve()
+        matches.append(str(plugin_path))
+        details.append(
+            {
+                "path": str(plugin_path),
+                "root": str(root.parent),
+                "source": classify_source(plugin_path, home, codex_home, plugins_dir, repo_root),
+            }
+        )
+    sources = sorted({item["source"] for item in details})
+    return {
+        "ok": bool(matches),
+        "matches": matches,
+        "match_details": details,
+        "sources": sources,
+    }
+
+
+def ponytail_config_status(home: Path) -> dict[str, Any]:
+    config_path = home / ".config" / "ponytail" / "config.json"
+    if not config_path.exists():
+        return {
+            "path": str(config_path),
+            "exists": False,
+            "default_mode": "full",
+            "source": "upstream_default",
+            "auto_activation": "on",
+            "notes": [
+                "Ponytail upstream defaults to full mode when no config or PONYTAIL_DEFAULT_MODE override exists.",
+            ],
+        }
+    try:
+        data = json.loads(config_path.read_text(encoding="utf-8"))
+    except json.JSONDecodeError as exc:
+        return {
+            "path": str(config_path),
+            "exists": True,
+            "ok": False,
+            "error": str(exc),
+            "default_mode": None,
+            "source": "invalid_config",
+            "auto_activation": "unknown",
+        }
+    mode = str(data.get("defaultMode", "")).strip().lower()
+    valid = mode in PONYTAIL_VALID_MODES
+    return {
+        "path": str(config_path),
+        "exists": True,
+        "ok": valid,
+        "default_mode": mode if valid else None,
+        "source": "config_file",
+        "auto_activation": "off" if mode == "off" else "on",
+        "recommended_default_modes": ["off", "lite"],
+        "notes": [
+            "Use off or lite when Ponytail is an optional simplification lens under OPL Flow.",
+            "Ponytail must not override risk-based evidence, codex-ops-kit, verifier, or completion audits.",
+        ],
+    }
+
+
 def check(args: argparse.Namespace) -> dict[str, Any]:
     home = Path(args.home).expanduser().resolve()
     codex_home = Path(args.codex_home).expanduser().resolve()
@@ -254,6 +352,9 @@ def check(args: argparse.Namespace) -> dict[str, Any]:
     skill_status: dict[str, dict[str, Any]] = {}
     for skill_id in (*OPL_FLOW_NATIVE_SKILLS, *OPTIONAL_SKILLS):
         skill_status[skill_id] = find_skill(skill_id, skill_roots, home, codex_home, plugins_dir, repo_root)
+    plugin_status: dict[str, dict[str, Any]] = {}
+    for plugin_id in OPTIONAL_PLUGINS:
+        plugin_status[plugin_id] = find_plugin(plugin_id, home, codex_home, plugins_dir, repo_root)
 
     superpowers = superpowers_bundle_status(superpowers_root)
     superpowers_profile = superpowers_profile_status(home, codex_home, plugins_dir, repo_root, superpowers_root)
@@ -266,6 +367,11 @@ def check(args: argparse.Namespace) -> dict[str, Any]:
         skill_id
         for skill_id in OPTIONAL_SKILLS
         if not skill_status[skill_id]["ok"]
+    ]
+    optional_plugins_missing = [
+        plugin_id
+        for plugin_id in OPTIONAL_PLUGINS
+        if not plugin_status[plugin_id]["ok"]
     ]
     native_guardrail_sources = {
         skill_id: skill_status[skill_id]["sources"]
@@ -285,8 +391,15 @@ def check(args: argparse.Namespace) -> dict[str, Any]:
         "superpowers": superpowers,
         "superpowers_profile": superpowers_profile,
         "skills": skill_status,
+        "plugins": plugin_status,
+        "ponytail": {
+            "plugin": plugin_status["ponytail"],
+            "config": ponytail_config_status(home),
+            "boundary": "optional_simplification_lens",
+        },
         "blocking_missing": blocking_missing,
         "optional_missing": optional_missing,
+        "optional_plugins_missing": optional_plugins_missing,
         "compatibility": {
             "opl_app_full_superpowers_compatible": superpowers["ok"],
             "opl_flow_core_ready": core_ready,
@@ -300,6 +413,7 @@ def check(args: argparse.Namespace) -> dict[str, Any]:
                 "OPL Flow preserves the current local Superpowers profile unless the user explicitly asks for full Superpowers.",
                 "Use --strict to fail closed when the OPL Flow-owned guardrail payload is not discoverable.",
                 "Optional skills improve browser/document workflows but are not required for the core profile.",
+                "Ponytail is optional and should stay an explicit simplification lens; it must not override OPL Flow evidence, ops, verifier, or completion-audit rules.",
             ],
         },
     }

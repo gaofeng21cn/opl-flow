@@ -42,7 +42,7 @@ Existing user profile files are backed up before replacement unless their conten
 
 `TASTE.md` carries default maintenance preferences. A repo-local `TASTE.md` remains stronger for that repo; the user-level file is the fallback when a target repo has no local taste document.
 
-The profile routes to companion skills by name. OPL Flow bundles the profile-native guardrails `risk-based-development-flow` and `codex-ops-kit` so a fresh install raises Codex's behavioral floor without a separate local skill copy. OPL App Full installs the Superpowers execution surface and common companion skills, so it normally satisfies `systematic-debugging`, `verification-before-completion`, `using-git-worktrees`, `test-driven-development`, `mineru-document-extractor`, PDF, OfficeCLI, and UI/UX helper coverage. OPL Flow preserves the current local Superpowers profile by default; switching to official full Superpowers is an explicit user choice, not an installer side effect. `agent-browser`, RTK, and CodeGraph remain optional machine-level enhancements.
+The profile routes to companion skills by name. OPL Flow bundles the profile-native guardrails `risk-based-development-flow` and `codex-ops-kit` so a fresh install raises Codex's behavioral floor without a separate local skill copy. OPL App Full installs the Superpowers execution surface and common companion skills, so it normally satisfies `systematic-debugging`, `verification-before-completion`, `using-git-worktrees`, `test-driven-development`, `mineru-document-extractor`, PDF, OfficeCLI, and UI/UX helper coverage. OPL Flow preserves the current local Superpowers profile by default; switching to official full Superpowers is an explicit user choice, not an installer side effect. `agent-browser`, Ponytail, RTK, and CodeGraph remain optional machine-level enhancements.
 
 Check a machine with:
 
@@ -51,6 +51,17 @@ python3 scripts/check_companion_skills.py
 ```
 
 The checker reports both the Superpowers bundle readiness and the active local Superpowers profile (`lite`, `expanded`, `full`, `custom`, or `not_configured`). `lite` and `expanded` keep the local routing profile and leave upstream `using-superpowers` disabled; `full` links the complete upstream skills directory and enables the official bootstrap.
+
+Ponytail is treated as an optional simplification lens for YAGNI / stdlib-first / over-engineering review. When installed, prefer a safe default mode:
+
+```bash
+mkdir -p ~/.config/ponytail
+printf '{\n  "defaultMode": "off"\n}\n' > ~/.config/ponytail/config.json
+codex plugin marketplace add DietrichGebert/ponytail
+codex plugin add ponytail@ponytail
+```
+
+Use Ponytail explicitly for simplification work, for example `@ponytail lite`, `@ponytail`, `@ponytail-review`, or `@ponytail-audit`. It must not override OPL Flow's `risk-based-development-flow`, `codex-ops-kit`, verifier, fresh-evidence, or completion-audit rules.
 
 Use strict mode when checking that the OPL Flow-owned guardrail payload is discoverable:
 
@@ -129,6 +140,7 @@ OPL Flow is compatible with the One Person Lab App Full first-install payload. T
 - OPL Flow installs the user-level workflow profile, the `opl-flow` plugin, and the OPL Flow-owned guardrails `risk-based-development-flow` and `codex-ops-kit`.
 - OPL Flow should not overwrite user-owned `AGENTS.md` without backup, and OPL App session context should respect existing user profile files.
 - Superpowers should remain the execution surface for its official skills; OPL Flow only routes to the active local profile. On this workflow, `lite` is the quiet default, `expanded` exposes v6 planning / SDD / review skills for long-chain implementation, and `full` is reserved for explicit official Superpowers use.
+- Ponytail can be installed alongside OPL Flow as an optional simplification lens. Keep its default `off` or `lite`; use it explicitly for YAGNI / over-engineering checks, not as a replacement for evidence, ops, or verification gates.
 - OPL Flow does not own OPL App/runtime readiness. Temporal family runtime provider, native helpers, domain module health, GUI shell, App first-run state, and Full readiness belong to One Person Lab App / OPL Framework surfaces and should be checked there, not treated as OPL Flow profile gaps.
 
 See [docs/compatibility.md](docs/compatibility.md) for the positioning matrix against Codex customization, Superpowers, Trellis, Claude Code skills/subagents/memory, and GitHub Agentic Workflows.

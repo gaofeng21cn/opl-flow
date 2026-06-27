@@ -94,6 +94,34 @@ class CheckCompanionSkillsTests(unittest.TestCase):
             self.assertEqual(full["profile"], "full")
             self.assertFalse(full["using_superpowers_disabled"])
 
+    def test_detects_optional_ponytail_plugin_and_safe_default(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            home = Path(tmp)
+            codex_home = home / ".codex"
+            repo = home / "repo"
+            plugin_root = codex_home / "plugins" / "cache" / "ponytail" / "ponytail" / "4.8.3"
+            (plugin_root / ".codex-plugin").mkdir(parents=True)
+            (plugin_root / ".codex-plugin" / "plugin.json").write_text('{"name":"ponytail"}\n', encoding="utf-8")
+            (home / ".config" / "ponytail").mkdir(parents=True)
+            (home / ".config" / "ponytail" / "config.json").write_text(
+                '{\n  "defaultMode": "off"\n}\n',
+                encoding="utf-8",
+            )
+
+            status = check_companion_skills.find_plugin(
+                "ponytail",
+                home,
+                codex_home,
+                home / "plugins",
+                repo,
+            )
+            config = check_companion_skills.ponytail_config_status(home)
+
+            self.assertTrue(status["ok"])
+            self.assertEqual(status["sources"], ["plugin_cache"])
+            self.assertEqual(config["default_mode"], "off")
+            self.assertEqual(config["auto_activation"], "off")
+
 
 if __name__ == "__main__":
     unittest.main()

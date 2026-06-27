@@ -121,9 +121,11 @@ def check_docs_describe_compatibility(repo_root: Path) -> list[str]:
         (readme, "python3 scripts/check_companion_skills.py", "README must document companion skill checker"),
         (setup, "OPL App Full / Superpowers normally covers", "new-machine guide must describe Full/Superpowers coverage"),
         (setup, "python3 ~/opl-flow/scripts/check_companion_skills.py", "new-machine guide must include companion skill check"),
+        (setup, "codex plugin add ponytail@ponytail", "new-machine guide must document optional Ponytail install"),
         (skill, "compatible with One Person Lab App Full installs", "skill must describe OPL App Full compatibility"),
         (skill, "risk-based-development-flow", "skill must name risk-based-development-flow as profile-native"),
         (skill, "codex-ops-kit", "skill must name codex-ops-kit as profile-native"),
+        (skill, "Ponytail is compatible as an optional simplification lens", "skill must describe optional Ponytail boundary"),
         (skill, "Root-Cause Supervision", "skill must document root-cause-first supervision"),
         (skill, "Root-Cause Depth Gate", "skill must document root-cause depth gate"),
         (skill, "blocker-to-owner map", "skill must require blocker-to-owner maps for stalls"),
@@ -132,6 +134,7 @@ def check_docs_describe_compatibility(repo_root: Path) -> list[str]:
         (lane_closeout, "Reports that only rename a symptom", "lane closeout must reject symptom-only closeout"),
         (compatibility, "Codex AGENTS.md / skills", "compatibility doc must cover Codex customization boundary"),
         (compatibility, "Superpowers", "compatibility doc must cover Superpowers boundary"),
+        (compatibility, "Ponytail", "compatibility doc must cover Ponytail boundary"),
         (compatibility, "Trellis", "compatibility doc must cover Trellis boundary"),
         (compatibility, "Claude Code", "compatibility doc must cover Claude Code practices"),
         (compatibility, "GitHub Agentic Workflows", "compatibility doc must cover GitHub Agentic Workflows practices"),
@@ -173,6 +176,11 @@ def check_companion_script(repo_root: Path) -> list[str]:
         errors.append(f"companion skill check must keep core profile ready by default: {compatibility}")
     if compatibility.get("opl_flow_full_guardrails_ready") is not True:
         errors.append(f"companion skill check must report bundled full guardrails: {compatibility}")
+    ponytail = payload.get("ponytail", {})
+    if ponytail.get("boundary") != "optional_simplification_lens":
+        errors.append(f"companion skill check must describe Ponytail as optional simplification lens: {ponytail}")
+    if "ponytail" not in payload.get("plugins", {}):
+        errors.append(f"companion skill check must include optional Ponytail plugin status: {payload.get('plugins')}")
 
     strict_result = subprocess.run(cmd + ["--strict"], check=False, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
     try:

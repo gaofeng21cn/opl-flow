@@ -67,10 +67,22 @@ OPL App Full / Superpowers normally covers:
 Optional machine-level enhancements:
 
 - `agent-browser`
+- Ponytail
 - RTK
 - CodeGraph MCP/index
 
 OPL Flow installs routing/profile files and its own Codex behavior guardrails. It does not vendor Superpowers, domain agent skills, or machine tools.
+
+Ponytail can be added when the user wants a live YAGNI / stdlib-first / over-engineering lens. Keep it optional and set the default to `off` or `lite` so it does not silently narrow evidence-sensitive OPL Flow work:
+
+```bash
+mkdir -p ~/.config/ponytail
+printf '{\n  "defaultMode": "off"\n}\n' > ~/.config/ponytail/config.json
+codex plugin marketplace add DietrichGebert/ponytail
+codex plugin add ponytail@ponytail
+```
+
+After installation, use `@ponytail lite`, `@ponytail`, `@ponytail-review`, or `@ponytail-audit` explicitly. Ponytail must not replace `risk-based-development-flow`, `codex-ops-kit`, verifier, fresh-evidence, release/currentness/readiness, or completion-audit gates.
 
 Check the current machine with:
 
@@ -105,6 +117,7 @@ Key behavior after install:
 - CodeGraph marker block preservation and RTK shell preference when available.
 - Compatibility with OPL App Full / Superpowers: OPL Flow routes to the execution surface already packaged by Full install and owns only the Codex workflow / guardrail layer.
 - Superpowers profile preservation: OPL Flow keeps the current local profile unless the user explicitly chooses official full Superpowers.
+- Optional Ponytail compatibility: OPL Flow can detect Ponytail and its default mode, but treats it only as a simplification lens.
 
 ## Completion Checks
 

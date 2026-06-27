@@ -59,6 +59,7 @@
 - 需要隔离并行改动、避免污染当前工作区或用户明确要求 worktree 时，使用 `using-git-worktrees`。
 - 如果机器来自 OPL App Full 安装，优先复用其已打包的 Superpowers 执行面；OPL Flow 只负责路由与验收语义，不替代官方 Superpowers skill。
 - 默认保持本机当前 Superpowers profile；仅在用户明确要求官方 full Superpowers 时按本机已安装的 Superpowers 指引切换。
+- Ponytail 可作为按需简化 lens 使用；默认应为 `off` 或 `lite`，只在 YAGNI、stdlib-first、native-first 或 over-engineering review 场景显式触发，不能覆盖 `risk-based-development-flow`、`codex-ops-kit`、verifier、fresh evidence、runtime/currentness/readiness 或完成度审计规则。
 - 用户明确触发 `grill-with-docs`、`zoom-out`、`prototype`、`improve-codebase-architecture` 等补充技能时，按对应 skill 使用；它们不替代项目 facts、contracts、runtime 输出和 repo-native 验证。
 
 沟通与输出：
