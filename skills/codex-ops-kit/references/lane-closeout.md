@@ -66,11 +66,11 @@ Use heartbeat automation for supervisor or auditor threads when periodic fresh r
 
 Distinguish a turn checkpoint from mission closeout. A work-unit result such as an owner receipt, artifact delta, reviewer or gate delta, stable typed blocker, human gate, route-back, `no_absorption_needed`, or a focused test pass can close the current turn only when it satisfies that turn's stop condition. It does not complete the durable mission unless the original user goal, main session acceptance, or an explicit owner decision says the mission is closed.
 
-## Target-First / Substrate-As-Path
+## Target Outcome / Support Path
 
 For domain, product, and delivery missions, treat the user's target outcome as the primary progress surface. Governed runtimes, queues, stage runners, providers, read models, tests, docs, repo absorption, and currentness repair are preferred paths or support evidence; they are not prerequisites for every lawful target delta and they are not target progress by themselves.
 
-When a substrate path stalls, the foreground executor should keep moving any legal target artifact, owner-decision packet, human-gate request, route-back, stable typed blocker, or user-usable deliverable. The substrate defect should be recorded, repaired, or handed off as a side repair lane. Pause the target action only when continuing would write outside the executor's authority surface, required source content/data is missing, or the same write set has an unresolved ownership conflict that cannot be isolated.
+When a support path stalls, the foreground executor should keep moving any legal target artifact, owner-decision packet, human-gate request, route-back, stable typed blocker, or user-usable deliverable. The support defect should be recorded, repaired, or handed off as a side repair lane. Pause the target action only when continuing would write outside the executor's authority surface, required source content/data is missing, or the same write set has an unresolved ownership conflict that cannot be isolated.
 
 Do not let a repair lane consume the target lane unless the original mission is explicitly platform/runtime repair. A report that only says the substrate is blocked is incomplete for target-delivery work; it must also state which target delta can still move, or name the concrete authority/input/ownership condition that prevents movement.
 

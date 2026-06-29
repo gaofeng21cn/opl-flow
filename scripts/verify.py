@@ -102,8 +102,15 @@ def check_profile_templates(repo_root: Path) -> list[str]:
         (verifier, "完成度审计", "verifier prompt must preserve Chinese completion audit"),
         (verifier, "根因深度检查", "verifier prompt must verify root-cause depth"),
         (verifier, "focused tests", "verifier prompt must reject focused-tests-as-readiness claims"),
+        (taste, "AI 怎么干活", "TASTE.md must define general AI work principles"),
+        (taste, "AI 先行，合同托底", "TASTE.md must prioritize AI execution over over-contracting"),
+        (taste, "交付推进", "TASTE.md must prioritize delivery progress"),
+        (taste, "简单优先", "TASTE.md must preserve simplicity preference"),
+        (taste, "精准改动", "TASTE.md must preserve surgical-change preference"),
+        (taste, "证据匹配风险", "TASTE.md must preserve risk-matched evidence preference"),
         (taste, "风险分层优先于测试仪式", "TASTE.md must preserve risk-over-ritual preference"),
-        (taste, "本因诊断优先于状态复述", "TASTE.md must preserve root-cause-over-status preference"),
+        (taste, "逐项覆盖原始目标或已落盘计划", "TASTE.md must bind completion claims to plan coverage"),
+        (taste, "OPL 怎么开发", "TASTE.md must route OPL-specific development rules back to project surfaces"),
     )
     for text, needle, message in required_pairs:
         if needle not in text:
@@ -257,7 +264,6 @@ def check_repo_profile(repo_root: Path) -> list[str]:
         repo = tmp_path / "target-repo"
         repo.mkdir()
         (repo / "AGENTS.md").write_text("# Target\n\nLocal rule.\n", encoding="utf-8")
-        (repo / "TASTE.md").write_text("# Taste\n\nLocal preference.\n", encoding="utf-8")
         cmd = [
             sys.executable,
             str(repo_root / "scripts" / "repo_profile.py"),

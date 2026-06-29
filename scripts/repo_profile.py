@@ -13,7 +13,6 @@ PLUGIN_NAME = "opl-flow"
 DEFAULT_FLOW_PROFILE = "opl_default"
 PROFILE_PATH = Path("contracts/opl-native-profile.json")
 AGENTS_PATH = Path("AGENTS.md")
-TASTE_PATH = Path("TASTE.md")
 MANAGED_START = "<!-- OPL_FLOW_MANAGED_START -->"
 MANAGED_END = "<!-- OPL_FLOW_MANAGED_END -->"
 PROFILE_POINTER = "contracts/opl-native-profile.json"
@@ -35,7 +34,6 @@ FLOW_VERSION = _load_flow_version()
 def managed_surfaces() -> list[dict[str, str]]:
     return [
         {"path": "AGENTS.md", "management": "managed_block", "kind": "repo_agent_instructions"},
-        {"path": "TASTE.md", "management": "managed_block", "kind": "maintenance_preferences"},
     ]
 
 
@@ -119,7 +117,6 @@ def upsert_managed_block(existing: str | None, block: str) -> str:
 def surface_specs() -> list[tuple[Path, str]]:
     return [
         (AGENTS_PATH, "repo_agent_instructions"),
-        (TASTE_PATH, "maintenance_preferences"),
     ]
 
 

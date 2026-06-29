@@ -12,7 +12,7 @@
 - 长时间停滞、反复失败、监控告警或自动推进循环必须做本因诊断；不要只复述表层状态，要区分产物本身问题、gate/evaluator 设计或 currentness 误判、owner route/authority/handoff 流程缺口、runtime/control-plane 基座缺陷，并给出对应 owner 与可执行修复路径。
 
 上下文与偏好：
-- 进入项目后按 planner/executor/debugger/verifier prompt 读取最近作用域 `TASTE.md`，没有项目内 `TASTE.md` 时可读取 `~/.codex/TASTE.md`；事实仍以源码、contracts、docs、runtime 输出和 repo-native 验证为准。
+- 进入项目后按 planner/executor/debugger/verifier prompt 读取用户级 `~/.codex/TASTE.md` 校准 AI 工作偏好；事实仍以用户指令、源码、contracts、docs、runtime 输出和 repo-native 验证为准。项目特异规则放在当前 repo 的 `AGENTS.md`、docs、contracts、source、tests 和 runtime/readback surface。
 - 当前会话用户直接指令优先；更深层 `AGENTS.md`、项目文档、仓库约定优先于本文件。
 
 任务路由：

@@ -20,7 +20,7 @@
    - 测试已通过
    - 构建成功
    - 没有明显回归
-4. 为每条主张按 `risk-based-development-flow` 找到对应风险档、验证预算和证据类型；若目标 repo 根目录或当前作用域存在 `TASTE.md`，先读最近作用域的 `TASTE.md`，否则可读 `~/.codex/TASTE.md` 作为默认维护偏好。`TASTE.md` 只定义偏好，不覆盖用户直接指令、项目事实、接口约束、业务规则或机器真相：
+4. 为每条主张按 `risk-based-development-flow` 找到对应风险档、验证预算和证据类型；读取用户级 `~/.codex/TASTE.md` 作为默认 AI 工作偏好。`TASTE.md` 只定义偏好，不覆盖用户直接指令、项目事实、接口约束、业务规则或机器真相；项目特异规则应来自当前 repo 的 `AGENTS.md`、docs、contracts、source、tests 和 runtime/readback surface：
    - 哪个命令
    - 哪段 diff
    - 哪个测试

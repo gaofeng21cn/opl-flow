@@ -25,16 +25,13 @@ class RepoProfileTests(unittest.TestCase):
             self.assertEqual(result["mode"], "check")
             self.assertIn("contracts/opl-native-profile.json", result["missing"])
             self.assertIn("AGENTS.md", result["missing"])
-            self.assertIn("TASTE.md", result["missing"])
             self.assertFalse((repo / "contracts" / "opl-native-profile.json").exists())
             self.assertFalse((repo / "AGENTS.md").exists())
-            self.assertFalse((repo / "TASTE.md").exists())
 
     def test_sync_dry_run_reports_planned_changes_without_mutation(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             repo = Path(tmp)
             (repo / "AGENTS.md").write_text("custom agents\n", encoding="utf-8")
-            (repo / "TASTE.md").write_text("custom taste\n", encoding="utf-8")
 
             result = repo_profile.sync_repo(repo, apply=False)
 
@@ -43,17 +40,15 @@ class RepoProfileTests(unittest.TestCase):
             self.assertFalse(result["apply"])
             self.assertEqual(
                 sorted(item["path"] for item in result["planned_changes"]),
-                ["AGENTS.md", "TASTE.md", "contracts/opl-native-profile.json"],
+                ["AGENTS.md", "contracts/opl-native-profile.json"],
             )
             self.assertEqual((repo / "AGENTS.md").read_text(encoding="utf-8"), "custom agents\n")
-            self.assertEqual((repo / "TASTE.md").read_text(encoding="utf-8"), "custom taste\n")
             self.assertFalse((repo / "contracts" / "opl-native-profile.json").exists())
 
     def test_sync_apply_creates_profile_and_managed_blocks_preserving_repo_overlay(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             repo = Path(tmp)
             (repo / "AGENTS.md").write_text("# Repo Agents\n\nLocal rule.\n", encoding="utf-8")
-            (repo / "TASTE.md").write_text("# Repo Taste\n\nLocal preference.\n", encoding="utf-8")
             (repo / "contracts").mkdir()
             (repo / "contracts" / "opl-native-profile.json").write_text(
                 json.dumps({"repo_overlay": {"owner": "local"}}, indent=2) + "\n",
@@ -72,25 +67,16 @@ class RepoProfileTests(unittest.TestCase):
                 {"path": "AGENTS.md", "management": "managed_block", "kind": "repo_agent_instructions"},
                 profile["managed_by_plugins"]["opl-flow"]["managed_surfaces"],
             )
-            self.assertIn(
-                {"path": "TASTE.md", "management": "managed_block", "kind": "maintenance_preferences"},
-                profile["managed_by_plugins"]["opl-flow"]["managed_surfaces"],
-            )
 
             agents = (repo / "AGENTS.md").read_text(encoding="utf-8")
-            taste = (repo / "TASTE.md").read_text(encoding="utf-8")
             self.assertIn("Local rule.", agents)
             self.assertIn(repo_profile.MANAGED_START, agents)
             self.assertIn("contracts/opl-native-profile.json", agents)
-            self.assertIn("Local preference.", taste)
-            self.assertIn(repo_profile.MANAGED_START, taste)
-            self.assertIn("contracts/opl-native-profile.json", taste)
 
             second = repo_profile.sync_repo(repo, apply=True)
             self.assertTrue(second["ok"])
             self.assertEqual(second["planned_changes"], [])
             self.assertEqual(agents, (repo / "AGENTS.md").read_text(encoding="utf-8"))
-            self.assertEqual(taste, (repo / "TASTE.md").read_text(encoding="utf-8"))
 
     def test_user_profile_templates_preserve_root_cause_supervision(self) -> None:
         agents = (REPO_ROOT / "templates" / "AGENTS.md").read_text(encoding="utf-8")
@@ -98,7 +84,13 @@ class RepoProfileTests(unittest.TestCase):
 
         self.assertIn("本因诊断", agents)
         self.assertIn("blocker-to-owner map", agents)
-        self.assertIn("本因诊断优先于状态复述", taste)
+        self.assertIn("AI 先行，合同托底", taste)
+        self.assertIn("交付推进", taste)
+        self.assertIn("简单优先", taste)
+        self.assertIn("精准改动", taste)
+        self.assertIn("证据匹配风险", taste)
+        self.assertIn("逐项覆盖原始目标或已落盘计划", taste)
+        self.assertIn("OPL 怎么开发", taste)
 
     def test_cli_defaults_to_check(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:

@@ -146,9 +146,9 @@ python3 ~/opl-flow/scripts/repo_profile.py check --repo-root /path/to/repo
 python3 ~/opl-flow/scripts/repo_profile.py sync --repo-root /path/to/repo --apply
 ```
 
-This writes only the workflow profile declaration and managed AGENTS/TASTE
-blocks. It does not install OPL runtime modules, mutate domain contracts, or
-replace repo-specific rules.
+This writes only the workflow profile declaration and the managed `AGENTS.md`
+block. It does not install OPL runtime modules, create repo-local taste files,
+mutate domain contracts, or replace repo-specific rules.
 
 ## Where This Fits
 

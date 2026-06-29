@@ -20,8 +20,8 @@ OPL-native to this workflow layer.
 
 ## Core Route
 
-- For repo work, read the target repo's `TASTE.md` when present before using the user-level fallback at `~/.codex/TASTE.md`.
-- Treat `TASTE.md` as maintenance preference, not as project fact or machine truth.
+- For repo work, read the user-level `~/.codex/TASTE.md` as the shared AI work-principles preference, then read the target repo's AGENTS/docs/contracts/source for local facts.
+- Treat `~/.codex/TASTE.md` as AI work-principles preference, not as project fact or machine truth.
 - Requirements unclear, solution comparison, task decomposition: use Planner.
 - Goal clear and implementation needed: use Executor.
 - Bug, test failure, regression, unexpected behavior: use Debugger first.
@@ -29,7 +29,7 @@ OPL-native to this workflow layer.
 - Code, tests, TDD, release/currentness/readiness, or evidence-strength decisions: use `risk-based-development-flow`.
 - Worktree/subagent lane start, resume, absorb, merge, delete, closeout, RHO/session-history audit, broad manifest drift, generated/runtime config drift, release/currentness claims, secret/cache freshness, or long ops evidence: use `codex-ops-kit`.
 - Long stalls, repeated failures, heartbeat monitors, runtime/currentness/readiness drift, multi-thread stalls, or auto-advance loops: use root-cause-first supervision. Do not stop at surface status; classify the visible symptom, direct failing boundary, cross-surface evidence, owner surface, and repair or decision path.
-- For domain, product, or delivery tasks, use Target-First / Substrate-As-Path routing: the target artifact, owner decision, human gate, artifact delta, or user-usable result is the primary progress surface. OPL/MAS/MAG/RCA runtime, stage, queue, provider, read-model, test, and docs surfaces are preferred execution or support paths, not prerequisites for foreground target progress. If a substrate path stalls, keep moving any legal target delta and route the substrate defect to a side repair lane unless the next target action would cross authority, lacks required inputs, or conflicts with an unisolatable write set.
+- For domain, product, or delivery tasks, keep the requested outcome as the primary progress surface. Tools, runtimes, queues, tests, docs, read models, and repair work are preferred paths or support evidence, not progress by themselves. If a supporting path stalls, keep moving any legal target delta and route the support defect to a side repair lane unless the next target action would cross authority, lacks required inputs, or conflicts with an unisolatable write set.
 
 Do not force heavy process on Direct work. Do not leave Durable work only in chat.
 
@@ -47,7 +47,7 @@ Produce a blocker-to-owner map with evidence refs, root-cause category, current 
 
 Treat progress as real only when it creates target-facing delta, owner receipt, reviewer/gate delta, route-back, human gate, stable typed blocker supersession, or strict running proof. Queue empty, clean read models, repeated controller actions, focused tests, or repo commits are maintenance evidence unless they unblock the target workflow and fresh readback proves it.
 
-Substrate repair must not swallow the target lane. Platform/runtime/currentness defects should be classified, repaired, or handed off in their own lane while the executor continues a lawful foreground deliverable or owner decision packet. The exceptions are explicit platform-repair missions, authority-surface violations, missing required source content, or an unresolved same-write-set ownership conflict.
+Support repair must not swallow the target lane. Platform/runtime/currentness defects should be classified, repaired, or handed off in their own lane while the executor continues a lawful foreground deliverable or owner decision packet. The exceptions are explicit platform-repair missions, authority-surface violations, missing required source content, or an unresolved same-write-set ownership conflict.
 
 ## Completion Audits
 
@@ -157,7 +157,7 @@ python3 <opl-flow-checkout>/scripts/repo_profile.py sync --repo-root <repo-root>
 ```
 
 `sync` is dry-run unless `--apply` is passed. Apply mode may update
-`contracts/opl-native-profile.json` and OPL Flow managed blocks in `AGENTS.md`
-and `TASTE.md`; it must preserve repo-specific guidance outside those managed
-blocks and must not edit contracts, source, tests, runtime outputs, or project
-truth.
+`contracts/opl-native-profile.json` and the OPL Flow managed block in
+`AGENTS.md`; it must preserve repo-specific guidance outside that managed block
+and must not edit contracts, source, tests, runtime outputs, project truth, or
+create repo-local taste files.

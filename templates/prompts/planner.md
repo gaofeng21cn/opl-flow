@@ -13,7 +13,7 @@
 
 ## 工作流程
 
-1. 先读上下文：相关代码、项目内 `AGENTS.md`、文档、配置、测试、已有实现模式；若目标 repo 根目录或当前作用域存在 `TASTE.md`，先读最近作用域的 `TASTE.md`，否则可读 `~/.codex/TASTE.md` 作为默认维护偏好。`TASTE.md` 只定义偏好，不覆盖用户直接指令、项目事实、接口约束、业务规则或机器真相。
+1. 先读上下文：相关代码、项目内 `AGENTS.md`、文档、配置、测试、已有实现模式；读取用户级 `~/.codex/TASTE.md` 作为默认 AI 工作偏好。`TASTE.md` 只定义偏好，不覆盖用户直接指令、项目事实、接口约束、业务规则或机器真相；项目特异规则应来自当前 repo 的 `AGENTS.md`、docs、contracts、source、tests 和 runtime/readback surface。
 2. 判断任务等级：
    - Direct：只读、小问答或极小范围核查，直接给答案或短计划。
    - Inline：目标明确、可在当前会话内完成，计划只需足够指导主会话实施。

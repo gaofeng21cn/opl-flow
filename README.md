@@ -40,7 +40,7 @@ This installs:
 
 Existing user profile files are backed up before replacement unless their content already matches the template.
 
-`TASTE.md` carries default maintenance preferences. A repo-local `TASTE.md` remains stronger for that repo; the user-level file is the fallback when a target repo has no local taste document.
+`~/.codex/TASTE.md` carries default AI work principles. Repo-specific facts, local boundaries, and project development rules belong in `AGENTS.md`, docs, contracts, source, tests, and runtime/readback evidence rather than duplicated repo-local taste files.
 
 The profile routes to companion skills by name. OPL Flow bundles the profile-native guardrails `risk-based-development-flow` and `codex-ops-kit` so a fresh install raises Codex's behavioral floor without a separate local skill copy. OPL App Full installs the Superpowers execution surface and common companion skills, so it normally satisfies `systematic-debugging`, `verification-before-completion`, `using-git-worktrees`, `test-driven-development`, `mineru-document-extractor`, PDF, OfficeCLI, and UI/UX helper coverage. OPL Flow preserves the current local Superpowers profile by default; switching to official full Superpowers is an explicit user choice, not an installer side effect. `agent-browser`, Ponytail, RTK, and CodeGraph remain optional machine-level enhancements.
 
@@ -107,7 +107,7 @@ python3 scripts/repo_profile.py sync --repo-root /path/to/repo --apply
 
 `sync` is a dry-run unless `--apply` is present. Apply mode preserves
 repo-specific prose and only updates `contracts/opl-native-profile.json` plus
-managed blocks in `AGENTS.md` and `TASTE.md`. Those managed blocks point to the
+managed blocks in `AGENTS.md`. That managed block points to the
 profile and do not own contracts, source, tests, runtime output, or project
 truth.
 
@@ -133,7 +133,7 @@ It also routes evidence-sensitive work:
 - Completion audits: for "全部落地 / 一步到位 / 彻底解决" style goals, verify against the original target plan and report Chinese "完成度审计" with status, percent, fresh evidence, gaps, and next actions.
 - Complexity regression: for non-trivial cleanup/refactor/worktree lanes, review the concrete diff with `ponytail-review` before absorption; use `ponytail-audit` only for candidate discovery.
 
-The profile reads preferences by scope: repo-local `TASTE.md` first, then `~/.codex/TASTE.md` when no repo-local file exists. `TASTE.md` never overrides code, contracts, docs, runtime output, or direct user instructions.
+The profile reads AI work principles from the user-level `~/.codex/TASTE.md`. Repo-local `TASTE.md` files are no longer required for OPL-native repositories; local facts, stricter rules, and project-specific development policy should live in `AGENTS.md`, docs, contracts, source, tests, or runtime/readback surfaces. Taste never overrides code, contracts, docs, runtime output, or direct user instructions.
 
 ## Compatibility With OPL App Full
 
@@ -157,8 +157,8 @@ owns documentation lifecycle profile checks. The shared machine pointer is
 `contracts/opl-native-profile.json`.
 
 `opl-flow` itself is the source repository for that profile and is intentionally
-self-hosted without a repo-local `contracts/opl-native-profile.json`, `AGENTS.md`,
-or `TASTE.md`. Run `repo_profile.py check` against consumer OPL-native repos, not
+self-hosted without a repo-local `contracts/opl-native-profile.json` or `AGENTS.md`.
+Run `repo_profile.py check` against consumer OPL-native repos, not
 as a self-check for this repository.
 
 ## Development
