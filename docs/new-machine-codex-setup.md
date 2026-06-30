@@ -45,7 +45,23 @@ python3 scripts/verify.py
 
 If the machine already uses SSH keys for GitHub, the clone URL can be `git@github.com:gaofeng21cn/opl-flow.git`.
 
+If `~/.codex/AGENTS.md` does not exist, this installs the rendered OPL Flow
+profile directly. If `~/.codex/AGENTS.md` already exists, the installer must not
+overwrite it. It creates a merge packet under
+`~/.codex/state/opl-flow/profile-merge/<timestamp>/` and reports
+`requires_codex_semantic_merge`; Codex must read that packet and produce the
+semantic merge before any profile apply.
+
 Restart Codex after installation so plugin and skill discovery refresh.
+
+If this machine is initialized through One Person Lab App Full, OPL Flow is the
+Workflow Profile layer. The App may install its plugin payload alongside App
+Binary, Runtime Substrate, Capability Packages, Companion Tools, and Codex
+Surface sync work, but those layers keep their own lifecycle and readiness
+evidence. On a fresh machine with no existing Codex profile, this is the same
+as a normal fresh OPL Flow install. On a machine that already has Codex, OPL
+Flow still follows the non-overwrite path: install or stage the plugin payload,
+generate the merge packet, and let Codex perform the semantic profile merge.
 
 If this machine was installed through One Person Lab App Full, the Superpowers execution surface and common companion skills are normally already packaged. OPL Flow is compatible with that setup and should not duplicate or replace those skills.
 
@@ -56,7 +72,7 @@ OPL Flow bundles its profile-native guardrails:
 - `risk-based-development-flow`
 - `codex-ops-kit`
 
-OPL App Full / Superpowers normally covers:
+OPL App Full / companion layers normally cover:
 
 - `systematic-debugging`
 - `verification-before-completion`
@@ -71,7 +87,7 @@ Optional machine-level enhancements:
 - RTK
 - CodeGraph MCP/index
 
-OPL Flow installs routing/profile files and its own Codex behavior guardrails. It does not vendor Superpowers, domain agent skills, or machine tools.
+OPL Flow installs routing/profile files and its own Codex behavior guardrails. It does not vendor Superpowers, domain agent skills, companion tools, runtime substrate payloads, or Codex surface projections.
 
 Ponytail can be added when the user wants a live YAGNI / stdlib-first / over-engineering lens. Keep it optional and set the default to `off` or `lite` so it does not silently narrow evidence-sensitive OPL Flow work:
 
@@ -102,7 +118,11 @@ python3 scripts/check_companion_skills.py --strict
 
 | Layer | Entry | Installs or refreshes |
 | --- | --- | --- |
-| Codex workflow | `opl-flow` | `~/plugins/opl-flow`, `~/.agents/plugins/marketplace.json`, `~/.codex/AGENTS.md`, `~/.codex/TASTE.md`, role prompts, `risk-based-development-flow`, and `codex-ops-kit` |
+| Workflow Profile | `opl-flow` | `~/plugins/opl-flow`, `~/.agents/plugins/marketplace.json`, `~/.codex/AGENTS.md`, `~/.codex/TASTE.md`, role prompts, `risk-based-development-flow`, and `codex-ops-kit` |
+
+When an existing user-level `AGENTS.md` is present, the `~/.codex/AGENTS.md`
+entry above means "candidate profile plus Codex semantic merge packet", not
+silent replacement.
 
 Key behavior after install:
 
@@ -117,7 +137,7 @@ Key behavior after install:
 - Subagent/worktree lane prompting, verification, absorption, and cleanup discipline.
 - Durable writeback routing for reusable workflow lessons.
 - CodeGraph marker block preservation and RTK shell preference when available.
-- Compatibility with OPL App Full / Superpowers: OPL Flow routes to the execution surface already packaged by Full install and owns only the Codex workflow / guardrail layer.
+- Compatibility with OPL App Full / Superpowers: OPL Flow routes to the execution surface already packaged by Full install and owns only the Workflow Profile layer.
 - Superpowers profile preservation: OPL Flow keeps the current local profile unless the user explicitly chooses official full Superpowers.
 - Optional Ponytail compatibility: OPL Flow can detect Ponytail and its default mode, but treats it only as a simplification lens.
 - Ponytail diff review gate: non-trivial cleanup/refactor/worktree absorption should run `ponytail-review` on the concrete diff, while `ponytail-audit` remains the discovery tool.
@@ -152,7 +172,12 @@ mutate domain contracts, or replace repo-specific rules.
 
 ## Where This Fits
 
-`opl-flow` configures Codex behavior on a new machine. It owns the workflow profile, risk-based development flow, and high-risk Codex ops guardrails. It does not own OPL runtime, App installation, MAS/MAG/RCA/BookForge domain agents, OPL App Full packaged Superpowers, common companion skills, Temporal family runtime provider, native helpers, domain module health, GUI shell, App first-run state, or Full readiness. BookForge default visibility belongs to later One Person Lab App / OPL Framework admission evidence, not OPL Flow checks.
+`opl-flow` configures Codex behavior on a new machine. It owns the Workflow Profile layer, risk-based development flow, and high-risk Codex ops guardrails. It does not own Installation Carrier, Runtime Substrate, Capability Packages, Companion Tools, Codex Surface sync, user data/artifacts, MAS/MAG/RCA/BookForge domain authority, Temporal family runtime provider, native helpers, domain module health, GUI shell, App first-run state, or Full readiness. BookForge default visibility belongs to later One Person Lab App / OPL Framework admission evidence, not OPL Flow checks.
+
+If OPL Flow is managed by the OPL App update plane, treat plugin payload updates
+and user profile updates as separate operations. Payload updates may be staged
+and verified automatically; user profile changes must go through Codex semantic
+merge, review, apply, and rollback evidence.
 
 See `docs/compatibility.md` for the positioning matrix against Codex customization, Superpowers, Trellis, Claude Code skills/subagents/memory, and GitHub Agentic Workflows.
 

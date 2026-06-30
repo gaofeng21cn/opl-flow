@@ -5,9 +5,9 @@ description: "Use when a Codex task needs the OPL Flow workflow profile: Direct/
 
 # OPL Flow
 
-OPL Flow is a lightweight Codex-first workflow profile inspired by Trellis and Superpowers, adapted for pragmatic local engineering work. It installs a thin global `AGENTS.md`, role prompts, and the OPL Flow-owned guardrail skills `codex-ops-kit` and `risk-based-development-flow`; detailed debugging and verification execution still routes to external skills such as `systematic-debugging` and `verification-before-completion` when available.
+OPL Flow is a lightweight Codex-first workflow profile inspired by Trellis and Superpowers, adapted for pragmatic local engineering work. In the OPL install taxonomy it owns the Workflow Profile layer only. It installs a thin global `AGENTS.md`, role prompts, and the OPL Flow-owned guardrail skills `codex-ops-kit` and `risk-based-development-flow`; detailed debugging and verification execution still routes to external skills such as `systematic-debugging` and `verification-before-completion` when available.
 
-It is compatible with One Person Lab App Full installs. Full installs normally provide Superpowers and common companion skills; OPL Flow should route to the active local Superpowers profile rather than duplicate or replace it. Keep the current local profile unless the user explicitly asks for official full Superpowers.
+It is compatible with One Person Lab App Full installs. Full installs may provide Superpowers, companion tools, support skills, capability packages, runtime substrate, and Codex surface sync through their own lifecycle planes; OPL Flow should route to the active local Superpowers profile rather than duplicate or replace it. Keep the current local profile unless the user explicitly asks for official full Superpowers.
 
 Use it to choose the smallest reliable path:
 
@@ -108,7 +108,7 @@ Use `python3 scripts/install_local_plugin.py --no-profile` to install only the p
 
 The install profile includes OPL Flow-native guardrails `risk-based-development-flow` and `codex-ops-kit`. It routes to companion skills such as `systematic-debugging` and `verification-before-completion` when they are available.
 
-When the target machine was installed through OPL App Full, Superpowers normally covers `systematic-debugging`, `verification-before-completion`, `using-git-worktrees`, and `test-driven-development`, and App companion payloads cover common document/tool skills such as `mineru-document-extractor`. OPL Flow should not duplicate or replace those execution surfaces.
+When the target machine was installed through OPL App Full, Superpowers normally covers `systematic-debugging`, `verification-before-completion`, `using-git-worktrees`, and `test-driven-development`, and App companion layers cover common document/tool skills such as `mineru-document-extractor`. OPL Flow should not duplicate or replace those execution surfaces.
 
 For machines that use a local Superpowers profile, `lite` is the quiet default, `expanded` can expose Superpowers v6 planning / SDD / review helpers for long-chain implementation, and `full` should mean the user intentionally enabled the official Superpowers bootstrap.
 
@@ -134,7 +134,7 @@ python3 scripts/check_companion_skills.py --strict
 
 For a complete OPL-family bootstrap that also covers OPL runtime, One Person Lab App, MAS/MAG/RCA/OMA agent surfaces, OPL Doc, and companion tools, follow the One Person Lab guide at `https://github.com/gaofeng21cn/one-person-lab/blob/main/docs/references/current-support/opl-new-machine-codex-bootstrap.md`. BookForge default visibility needs separate OPL/App admission evidence.
 
-OPL Flow does not own OPL runtime or App readiness. Temporal family runtime provider, native helpers, domain module health, GUI shell, App first-run state, and Full readiness belong to One Person Lab App / OPL Framework checks.
+OPL Flow does not own OPL runtime or App readiness. Installation Carrier, Runtime Substrate, Capability Packages, Companion Tools, Codex Surface sync, user data/artifacts, Temporal family runtime provider, native helpers, domain module health, GUI shell, App first-run state, and Full readiness belong to One Person Lab App / OPL Framework checks.
 
 ## Verification
 

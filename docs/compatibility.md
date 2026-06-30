@@ -5,7 +5,7 @@ Purpose: `opl_flow_positioning_and_compatibility`
 State: `active`
 Machine boundary: This page is a human-readable positioning map. Executable truth remains the plugin manifest, install scripts, bundled skills, companion checker output, and repo-native verification commands.
 
-OPL Flow is a Codex-first workflow profile and guardrail layer. It is not a second implementation of Superpowers, Trellis, Claude Code, or GitHub Agentic Workflows. It packages the workstation workflow into a Codex plugin, installs profile prompts, bundles OPL Flow-owned guardrails, and routes to external execution skills when those skills are the right owner.
+OPL Flow is a Codex-first workflow profile and guardrail layer. In the OPL install taxonomy it owns the `workflow_profile` layer only. It is not a second implementation of Superpowers, Trellis, Claude Code, GitHub Agentic Workflows, the OPL runtime substrate, OPL Packages, companion tools, or Codex plugin surface sync. It packages the workstation workflow into a Codex plugin, installs profile prompts, bundles OPL Flow-owned guardrails, and routes to external execution skills when those skills are the right owner.
 
 ## Positioning Matrix
 
@@ -28,8 +28,20 @@ OPL Flow is a Codex-first workflow profile and guardrail layer. It is not a seco
 | High-risk ops guardrail | OPL Flow | `skills/codex-ops-kit` |
 | Debugging / verification execution | Superpowers / companion skills | Not vendored by OPL Flow; routed to when installed |
 | Simplification / over-engineering review | Ponytail | Optional companion plugin; detected but not required |
-| OPL runtime and App readiness | One Person Lab / OPL App | Not owned by OPL Flow |
-| MAS/MAG/RCA/OMA/BookForge domain agents | Domain repos and plugins | Not owned by OPL Flow |
+| Installation Carrier | One Person Lab App / host carrier | Not owned by OPL Flow |
+| Runtime Substrate | One Person Lab / OPL App | Not owned by OPL Flow |
+| Capability Packages | One Person Lab / domain repos | Not owned by OPL Flow |
+| Companion Tools | One Person Lab / external tool owners | Not owned by OPL Flow |
+| Codex Surface sync | One Person Lab / OPL App | Not owned by OPL Flow |
+| User data and artifacts | User / domain owners | Not owned by OPL Flow |
+
+## Install And Update Boundary
+
+- Fresh machine: if user-level `~/.codex/AGENTS.md` does not exist, OPL Flow can install the rendered profile directly.
+- Existing Codex machine: if user-level `~/.codex/AGENTS.md` exists, OPL Flow must not overwrite it. The installer creates a profile merge packet and requires Codex semantic merge.
+- Script merge policy: disabled for profile semantics. Scripts may copy, stage, back up, verify, and create packets; Codex handles semantic reconciliation.
+- OPL App Full initialization can include OPL Flow alongside other payloads, but OPL Flow remains the workflow-profile lifecycle. Fresh machines use the direct profile path; existing Codex machines use the merge-packet path.
+- OPL App update management must stage OPL Flow plugin payload updates separately from user profile changes. User profile changes require Codex semantic merge, review/apply, and rollback evidence.
 
 ## Readiness Claims
 
@@ -39,7 +51,7 @@ OPL Flow is a Codex-first workflow profile and guardrail layer. It is not a seco
 - `superpowers_profile.profile` reports the active local Superpowers profile as `lite`, `expanded`, `full`, `custom`, or `not_configured`; this is a workflow readback, not an OPL App/runtime readiness claim.
 - `ponytail.config.default_mode` reports the configured Ponytail startup mode when the plugin is installed. `off` or `lite` is the recommended OPL Flow-compatible default.
 - Ponytail readiness only proves the simplification lens is available. It does not prove any cleanup is safe; deletion, absorption, runtime/currentness, and owner-route claims still need repo-native evidence.
-- Runtime, release, latest/currentness, OPL App Full, MAS/MAG/RCA/BookForge, and owner-route readiness require their own live artifacts or owner receipts. OPL Flow tests cannot prove those surfaces ready.
+- Runtime substrate, capability packages, companion tools, Codex surface sync, release, latest/currentness, OPL App Full, MAS/MAG/RCA/BookForge, and owner-route readiness require their own live artifacts or owner receipts. OPL Flow tests cannot prove those surfaces ready.
 
 ## Canonical External References
 

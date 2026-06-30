@@ -34,6 +34,16 @@ REQUIRED_FILES = (
     "scripts/install_local_plugin.py",
     "scripts/check_companion_skills.py",
     "scripts/repo_profile.py",
+    "scripts/profile_compose.py",
+    "profile/manifest.json",
+    "profile/modules/01-user-preferences.md",
+    "profile/modules/02-role-baseline.md",
+    "profile/modules/03-workflow-core.md",
+    "profile/modules/04-guardrails.md",
+    "profile/modules/05-ops-authority-core.md",
+    "profile/modules/06-capability-adapters.md",
+    "profile/modules/07-tool-preferences.md",
+    "profile/modules/08-managed-block-policy.md",
 )
 
 
@@ -115,6 +125,18 @@ def check_profile_templates(repo_root: Path) -> list[str]:
     for text, needle, message in required_pairs:
         if needle not in text:
             errors.append(message)
+    compose_result = subprocess.run(
+        [sys.executable, str(repo_root / "scripts" / "profile_compose.py"), "check", "--repo-root", str(repo_root)],
+        check=False,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        text=True,
+    )
+    if compose_result.returncode != 0:
+        errors.append(
+            "templates/AGENTS.md must match profile modules: "
+            + (compose_result.stdout or compose_result.stderr).strip()
+        )
     return errors
 
 
@@ -128,11 +150,13 @@ def check_docs_describe_compatibility(repo_root: Path) -> list[str]:
     required_pairs = (
         (readme, "Compatibility With OPL App Full", "README must document OPL App Full compatibility"),
         (readme, "python3 scripts/check_companion_skills.py", "README must document companion skill checker"),
-        (setup, "OPL App Full / Superpowers normally covers", "new-machine guide must describe Full/Superpowers coverage"),
+        (setup, "OPL App Full / companion layers normally cover", "new-machine guide must describe Full companion layer coverage"),
+        (setup, "Workflow Profile", "new-machine guide must classify OPL Flow as the Workflow Profile layer"),
         (setup, "python3 ~/opl-flow/scripts/check_companion_skills.py", "new-machine guide must include companion skill check"),
         (setup, "codex plugin add ponytail@ponytail", "new-machine guide must document optional Ponytail install"),
         (setup, "Use `ponytail-audit` for whole-repo or cross-repo cleanup candidate discovery", "new-machine guide must explain Ponytail audit vs review routing"),
         (skill, "compatible with One Person Lab App Full installs", "skill must describe OPL App Full compatibility"),
+        (skill, "Workflow Profile layer only", "skill must classify OPL Flow as the Workflow Profile layer"),
         (skill, "risk-based-development-flow", "skill must name risk-based-development-flow as profile-native"),
         (skill, "codex-ops-kit", "skill must name codex-ops-kit as profile-native"),
         (skill, "Ponytail is compatible as an optional simplification lens", "skill must describe optional Ponytail boundary"),
@@ -147,6 +171,9 @@ def check_docs_describe_compatibility(repo_root: Path) -> list[str]:
         (lane_closeout, "ponytail-review", "lane closeout must mention ponytail-review for lane diffs"),
         (compatibility, "Codex AGENTS.md / skills", "compatibility doc must cover Codex customization boundary"),
         (compatibility, "Superpowers", "compatibility doc must cover Superpowers boundary"),
+        (compatibility, "Runtime Substrate", "compatibility doc must cover Runtime Substrate boundary"),
+        (compatibility, "Capability Packages", "compatibility doc must cover Capability Packages boundary"),
+        (compatibility, "Codex Surface sync", "compatibility doc must cover Codex Surface sync boundary"),
         (compatibility, "Ponytail", "compatibility doc must cover Ponytail boundary"),
         (compatibility, "Trellis", "compatibility doc must cover Trellis boundary"),
         (compatibility, "Claude Code", "compatibility doc must cover Claude Code practices"),
@@ -242,6 +269,8 @@ def check_install(repo_root: Path) -> list[str]:
         if result.returncode != 0:
             errors.append(f"install verify failed: {result.stdout} {result.stderr}".strip())
         payload = json.loads(result.stdout)
+        if payload.get("profile_status") != "current":
+            errors.append(f"fresh install profile must verify current: {payload.get('profile_status')}")
         required_files = payload.get("required_files", [])
         for suffix in (
             "skills/risk-based-development-flow/SKILL.md",
@@ -254,6 +283,41 @@ def check_install(repo_root: Path) -> list[str]:
             expected = str(tmp_path / "plugins" / "opl-flow" / suffix)
             if expected in payload.get("missing", []):
                 errors.append(f"install verify must include guardrail artifact: {expected}")
+
+    with tempfile.TemporaryDirectory() as tmp:
+        tmp_path = Path(tmp)
+        codex_home = tmp_path / "codex"
+        codex_home.mkdir()
+        (codex_home / "AGENTS.md").write_text("custom user profile\n", encoding="utf-8")
+        cmd = [
+            sys.executable,
+            str(repo_root / "scripts" / "install_local_plugin.py"),
+            "--repo-root",
+            str(repo_root),
+            "--plugins-dir",
+            str(tmp_path / "plugins"),
+            "--marketplace-path",
+            str(tmp_path / "marketplace.json"),
+            "--codex-home",
+            str(codex_home),
+        ]
+        result = subprocess.run(cmd, check=False, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+        if result.returncode != 0:
+            errors.append(f"existing profile install should create merge packet without failing: {result.stdout} {result.stderr}".strip())
+            return errors
+        payload = json.loads(result.stdout)
+        profile = payload.get("profile", {})
+        if profile.get("status") != "requires_codex_semantic_merge":
+            errors.append(f"existing profile install must require semantic merge: {profile}")
+        if (codex_home / "AGENTS.md").read_text(encoding="utf-8") != "custom user profile\n":
+            errors.append("existing profile install must not overwrite user AGENTS.md")
+        merge_packet = profile.get("merge_packet")
+        if not merge_packet or not (Path(merge_packet) / "merge-plan.json").exists():
+            errors.append(f"existing profile install must create merge packet: {profile}")
+        verify_result = subprocess.run(cmd + ["--verify-only"], check=False, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+        verify_payload = json.loads(verify_result.stdout)
+        if verify_result.returncode == 0 or verify_payload.get("profile_status") != "merge_required":
+            errors.append(f"verify-only must report merge_required for existing user profile: {verify_result.stdout} {verify_result.stderr}".strip())
     return errors
 
 

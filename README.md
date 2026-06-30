@@ -18,6 +18,33 @@ It is inspired by Trellis and Superpowers, but stays Codex-first:
 - RTK shell preference for compact command output when available.
 - Repo-local workflow profile check/sync for OPL-native development directories.
 
+## User Profile Source
+
+`templates/AGENTS.md` is a rendered profile, not the only source. The source is
+split into ordered modules under `profile/modules/` and declared by
+`profile/manifest.json`:
+
+- user preferences
+- role and baseline
+- workflow core
+- guardrails
+- ops and authority core
+- capability adapters
+- tool preferences
+- managed block policy
+
+Regenerate and check the rendered profile with:
+
+```bash
+python3 scripts/profile_compose.py write
+python3 scripts/profile_compose.py check
+```
+
+The composer only performs deterministic module rendering. It does not do
+semantic merging. If a target machine already has a user-level `AGENTS.md`,
+semantic reconciliation must be done by Codex after reading the existing file
+and the OPL Flow profile intent, not by heuristic script rules.
+
 ## Install On A New Machine
 
 ```bash
@@ -38,11 +65,18 @@ This installs:
   - `~/.codex/prompts/debugger.md`
   - `~/.codex/prompts/verifier.md`
 
-Existing user profile files are backed up before replacement unless their content already matches the template.
+On a machine without `~/.codex/AGENTS.md`, the installer writes the rendered OPL
+Flow profile directly. On a machine that already has user-level `AGENTS.md`, the
+installer does not overwrite it. It installs the plugin payload, then creates a
+merge packet under `~/.codex/state/opl-flow/profile-merge/<timestamp>/` with
+the existing profile, candidate OPL Flow profile, module manifest, module
+sources, and a Codex merge prompt. Semantic merging must be performed by Codex
+from that packet; the installer does not use heuristic script merging for
+profile semantics.
 
 `~/.codex/TASTE.md` carries default AI work principles. Repo-specific facts, local boundaries, and project development rules belong in `AGENTS.md`, docs, contracts, source, tests, and runtime/readback evidence rather than duplicated repo-local taste files.
 
-The profile routes to companion skills by name. OPL Flow bundles the profile-native guardrails `risk-based-development-flow` and `codex-ops-kit` so a fresh install raises Codex's behavioral floor without a separate local skill copy. OPL App Full installs the Superpowers execution surface and common companion skills, so it normally satisfies `systematic-debugging`, `verification-before-completion`, `using-git-worktrees`, `test-driven-development`, `mineru-document-extractor`, PDF, OfficeCLI, and UI/UX helper coverage. OPL Flow preserves the current local Superpowers profile by default; switching to official full Superpowers is an explicit user choice, not an installer side effect. `agent-browser`, Ponytail, RTK, and CodeGraph remain optional machine-level enhancements.
+The profile routes to companion skills by name. OPL Flow bundles the profile-native guardrails `risk-based-development-flow` and `codex-ops-kit` so a fresh install raises Codex's behavioral floor without a separate local skill copy. In the OPL install taxonomy, OPL Flow is the `workflow_profile` layer only. OPL App Full may install the Superpowers execution surface, common companion skills, companion tools, and OPL capability packages through their own lifecycle planes; OPL Flow only detects and routes to those surfaces when present. It preserves the current local Superpowers profile by default; switching to official full Superpowers is an explicit user choice, not an installer side effect. `agent-browser`, Ponytail, RTK, and CodeGraph remain optional machine-level enhancements.
 
 Check a machine with:
 
@@ -137,14 +171,22 @@ The profile reads AI work principles from the user-level `~/.codex/TASTE.md`. Re
 
 ## Compatibility With OPL App Full
 
-OPL Flow is compatible with the One Person Lab App Full first-install payload. Treat the layers separately:
+OPL Flow is compatible with the One Person Lab App Full first-install payload, but it is not part of the runtime substrate or OPL Packages lifecycle. Treat the layers separately:
 
-- OPL App Full packages Superpowers and common companion skills.
+- Installation Carrier updates are owned by One Person Lab App and the host/container carrier: macOS standard updater/Homebrew, Docker/WebUI image host route, or Linux package carrier.
+- Runtime Substrate updates cover App-owned runtime payloads such as the embedded Codex executor, Temporal archive, Node/Python/uv, native helpers, and OPL Framework runtime.
+- Capability Packages cover MAS/MAG/RCA/OMA/BookForge/ScholarSkills managed modules.
+- Companion Tools and support skills cover OfficeCLI, MinerU, PDF, UI/UX, Superpowers, and similar helpers.
+- Codex Surface sync covers plugin registry, plugin-packaged skills, generated OPL plugin surfaces, and reload guidance.
+- OPL Flow owns only the Workflow Profile layer: `AGENTS.md`, `TASTE.md`, role prompts, the `opl-flow` plugin, and OPL Flow-owned guardrails.
+- On a fresh machine with no user-level `~/.codex/AGENTS.md`, App-managed initialization can install the OPL Flow plugin and rendered user profile directly.
+- On a machine that already has Codex and user-level `AGENTS.md`, App-managed initialization must use OPL Flow's non-overwrite install path: install or stage the plugin payload, generate the merge packet, and let Codex perform the semantic merge before any profile apply.
 - OPL Flow installs the user-level workflow profile, the `opl-flow` plugin, and the OPL Flow-owned guardrails `risk-based-development-flow` and `codex-ops-kit`.
-- OPL Flow should not overwrite user-owned `AGENTS.md` without backup, and OPL App session context should respect existing user profile files.
+- OPL Flow should not overwrite user-owned `AGENTS.md`, and OPL App session context should respect existing user profile files.
 - Superpowers should remain the execution surface for its official skills; OPL Flow only routes to the active local profile. On this workflow, `lite` is the quiet default, `expanded` exposes v6 planning / SDD / review skills for long-chain implementation, and `full` is reserved for explicit official Superpowers use.
 - Ponytail can be installed alongside OPL Flow as an optional simplification lens. Keep its default `off` or `lite`; use it explicitly for YAGNI / over-engineering checks, not as a replacement for evidence, ops, or verification gates.
-- OPL Flow does not own OPL App/runtime readiness. Temporal family runtime provider, native helpers, domain module health, GUI shell, App first-run state, and Full readiness belong to One Person Lab App / OPL Framework surfaces and should be checked there, not treated as OPL Flow profile gaps.
+- OPL Flow does not own OPL App/runtime readiness. Runtime substrate, companion tools, domain module health, GUI shell, App first-run state, and Full readiness belong to One Person Lab App / OPL Framework surfaces and should be checked there, not treated as OPL Flow profile gaps.
+- OPL App update management for OPL Flow must split plugin payload updates from profile updates. Plugin payloads can be staged and verified; user-level profile changes require a Codex semantic merge packet, review/apply, and rollback evidence.
 
 See [docs/compatibility.md](docs/compatibility.md) for the positioning matrix against Codex customization, Superpowers, Trellis, Claude Code skills/subagents/memory, and GitHub Agentic Workflows.
 

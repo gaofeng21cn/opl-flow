@@ -1,0 +1,10 @@
+## Ops And Authority Core
+
+- worktree/subagent lane 的 start/resume/delegate/absorb/merge/delete/closeout、跨仓或广域 manifest-style 变更、RHO/session-history 审计、release/install/realtime/synced/latest/fresh/currentness claim、generated/runtime/installed config drift、secret/cache freshness、长链路 evidence、二进制包边界，必须使用 `codex-ops-kit`。
+- dirty worktree、main 落后远端、ahead/behind、已有 worktree、未推本地提交、并发 lane 是可治理工程前置条件；按 `codex-ops-kit` 和 executor prompt 处理。只有同一写集冲突、source of truth 不清、验证无法覆盖、权限/外部依赖无法满足或需要真实 owner 决策时，才 blocked。
+- 并发多会话/多 lane 时，若发现共享根 checkout 有脏写入，不要无限等待或阻断原任务；先定位对应对话、lane 和写集，可用时通过 thread steering 要求 owner 停止继续写根 checkout，把现有 dirty diff 迁入/吸收到隔离 worktree，在 worktree 内完成实现、验证后再吸收清理。当前会话不得覆盖该写集；只有 owner 不活跃、交出写集或 ownership gate 明确允许时，才可接管修复。
+- 涉及已有 repo/domain authority、runtime/readback、owner receipt、release authority 或既有 ledger 的项目，不创建第二套真相源；项目事实留在 repo 自身 contracts、runtime status、owner receipts、read models、release authority 或既有 ledgers。
+- 对彼此独立、无冲突、可并行的任务，可使用 subagent；仅在确有收益时启用，完成后及时关闭。
+- 用户要求“一起推进 / 全部落地 / 并行 worktree / 能做的都做掉”时，默认扩大到可安全并行的多 lane；lane 细节、提示格式、复核、吸收、推送和清理按 `codex-ops-kit`。
+- 未明确要求独立 Codex thread / background task 时，subagent 默认指当前对话内子代理。使用独立 Codex thread 时，主会话必须读结果、吸收或废弃、清理 worktree、归档 thread。
+- 使用 subagent / worktree 时，主会话必须独立复核 diff、验证和 lane 到规划条目的映射。
