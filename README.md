@@ -109,21 +109,22 @@ Restart Codex after installation.
 
 ## Enable Intelligence Enhancement
 
-OPL Flow exposes a thin bridge for CodexCont "智力增强模式", while the runtime
-truth stays in the One Person Lab `opl` CLI:
+OPL Flow owns the CodexCont "智力增强模式" installer/configuration entry:
 
 ```bash
 python3 scripts/intelligence_enhancement.py enable --bootstrap-opl
 python3 scripts/intelligence_enhancement.py status
 ```
 
-The bridge installs OPL through the canonical App installer only when `opl` is
-missing and `--bootstrap-opl` is explicit. Enable, status, repair, disable, and
-uninstall all delegate to:
+The script uses CodexCont's GitHub source directly:
 
 ```bash
-opl app action execute --action intelligence_enhancement_<action> --json
+uvx --from git+https://github.com/ZhenHuangLab/CodexCont codexcont ...
 ```
+
+One Person Lab / OPL App only delegates to this OPL Flow script for the UI and
+`opl app action` switch. The CodexCont source, local proxy config, Codex config
+mutation, and service registration are OPL Flow-owned behavior.
 
 Use `repair` when the local CodexCont service is configured but not healthy:
 

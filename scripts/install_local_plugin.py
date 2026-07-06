@@ -42,6 +42,7 @@ PLUGIN_REQUIRED_FILES = (
     "templates/prompts/executor.md",
     "templates/prompts/debugger.md",
     "templates/prompts/verifier.md",
+    "scripts/intelligence_enhancement.py",
     "scripts/profile_compose.py",
 )
 

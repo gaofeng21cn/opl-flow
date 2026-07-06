@@ -139,18 +139,18 @@ OPL Flow does not own OPL runtime or App readiness. Installation Carrier, Runtim
 ### Intelligence Enhancement
 
 When the user asks to enable OPL Flow "智力增强模式" or CodexCont through
-`gaofeng21cn/opl-flow`, use the OPL Flow bridge and keep runtime authority in
-the One Person Lab `opl` CLI:
+`gaofeng21cn/opl-flow`, use the OPL Flow-owned CodexCont script:
 
 ```bash
 python3 scripts/intelligence_enhancement.py enable --bootstrap-opl
 python3 scripts/intelligence_enhancement.py status
 ```
 
-The bridge may bootstrap `opl` through the canonical One Person Lab App
-installer only when `--bootstrap-opl` is explicit. After `opl` exists, it
-delegates enable/status/repair/disable/uninstall to
-`opl app action execute --action intelligence_enhancement_<action> --json`.
+The script uses `uvx --from git+https://github.com/ZhenHuangLab/CodexCont
+codexcont ...` directly and owns the local proxy config, Codex config mutation,
+and service registration. One Person Lab / OPL App may expose a UI or
+`opl app action` switch, but that switch delegates to this script rather than
+owning CodexCont installation semantics.
 
 Use:
 

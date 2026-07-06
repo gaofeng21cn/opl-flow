@@ -106,20 +106,18 @@ OPL Flow installs routing/profile files and its own Codex behavior guardrails. I
 
 ### 2. 可选：开启智力增强模式
 
-OPL Flow 提供一个薄入口，方便用户从 `gaofeng21cn/opl-flow` checkout 直接开启
-CodexCont 智力增强模式；实际 runtime 真相仍归 One Person Lab `opl` CLI：
+OPL Flow 持有 CodexCont 智力增强模式的安装、配置和服务入口；One Person Lab /
+OPL App 只调用这个入口：
 
 ```bash
 python3 scripts/intelligence_enhancement.py enable --bootstrap-opl
 python3 scripts/intelligence_enhancement.py status
 ```
 
-`--bootstrap-opl` 只在 `opl` 缺失时走官方 One Person Lab App installer 安装 OPL CLI。
-已有 `opl` 时，该脚本只委托执行：
+脚本直接使用 CodexCont GitHub 源：
 
 ```bash
-opl app action execute --action intelligence_enhancement_enable --json
-opl app action execute --action intelligence_enhancement_status --json
+uvx --from git+https://github.com/ZhenHuangLab/CodexCont codexcont ...
 ```
 
 修复、关闭和卸载入口：
