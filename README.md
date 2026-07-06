@@ -107,6 +107,36 @@ python3 scripts/check_companion_skills.py --strict
 
 Restart Codex after installation.
 
+## Enable Intelligence Enhancement
+
+OPL Flow exposes a thin bridge for CodexCont "智力增强模式", while the runtime
+truth stays in the One Person Lab `opl` CLI:
+
+```bash
+python3 scripts/intelligence_enhancement.py enable --bootstrap-opl
+python3 scripts/intelligence_enhancement.py status
+```
+
+The bridge installs OPL through the canonical App installer only when `opl` is
+missing and `--bootstrap-opl` is explicit. Enable, status, repair, disable, and
+uninstall all delegate to:
+
+```bash
+opl app action execute --action intelligence_enhancement_<action> --json
+```
+
+Use `repair` when the local CodexCont service is configured but not healthy:
+
+```bash
+python3 scripts/intelligence_enhancement.py repair
+```
+
+Uninstall stays explicit:
+
+```bash
+python3 scripts/intelligence_enhancement.py uninstall --confirmation uninstall_codexcont
+```
+
 For a complete new-machine setup that installs the OPL runtime, One Person Lab App, MAS/MAG/RCA/OMA agent surfaces, OPL Flow, OPL Doc, and companion tools, use the [One Person Lab new-machine Codex bootstrap guide](https://github.com/gaofeng21cn/one-person-lab/blob/main/docs/references/current-support/opl-new-machine-codex-bootstrap.md). BookForge is tracked as a new OPL-standard repo, but default Connect/App visibility needs separate admission evidence.
 
 You can paste this into Codex on the new machine:
@@ -114,6 +144,16 @@ You can paste this into Codex on the new machine:
 ```text
 Please follow the official One Person Lab new-machine guide and set up this machine with the OPL agent runtime environment and the complete Codex workflow toolkit.
 Source of truth: https://github.com/gaofeng21cn/one-person-lab/blob/main/docs/references/current-support/opl-new-machine-codex-bootstrap.md
+```
+
+For the shorter CodexCont path, paste:
+
+```text
+安装并配置 gaofeng21cn/opl-flow，然后在 opl-flow checkout 中运行：
+python3 scripts/intelligence_enhancement.py enable --bootstrap-opl
+python3 scripts/intelligence_enhancement.py status
+
+要求：如果 OPL CLI 缺失，允许通过官方 One Person Lab App installer 安装；最终报告智力增强模式状态、CodexCont 服务状态、Codex provider base URL，以及关闭/卸载命令。
 ```
 
 ## Install Plugin Only

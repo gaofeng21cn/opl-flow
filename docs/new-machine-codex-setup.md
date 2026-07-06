@@ -89,6 +89,35 @@ Optional machine-level enhancements:
 
 OPL Flow installs routing/profile files and its own Codex behavior guardrails. It does not vendor Superpowers, domain agent skills, companion tools, runtime substrate payloads, or Codex surface projections.
 
+### 2. 可选：开启智力增强模式
+
+OPL Flow 提供一个薄入口，方便用户从 `gaofeng21cn/opl-flow` checkout 直接开启
+CodexCont 智力增强模式；实际 runtime 真相仍归 One Person Lab `opl` CLI：
+
+```bash
+python3 scripts/intelligence_enhancement.py enable --bootstrap-opl
+python3 scripts/intelligence_enhancement.py status
+```
+
+`--bootstrap-opl` 只在 `opl` 缺失时走官方 One Person Lab App installer 安装 OPL CLI。
+已有 `opl` 时，该脚本只委托执行：
+
+```bash
+opl app action execute --action intelligence_enhancement_enable --json
+opl app action execute --action intelligence_enhancement_status --json
+```
+
+修复、关闭和卸载入口：
+
+```bash
+python3 scripts/intelligence_enhancement.py repair
+python3 scripts/intelligence_enhancement.py disable
+python3 scripts/intelligence_enhancement.py uninstall --confirmation uninstall_codexcont
+```
+
+“一直在线”的可验证表述是注册为本机持久服务并通过 `status` 读回健康状态；
+系统睡眠、网络、上游服务或凭据问题仍可能让运行态需要 `repair` 或人工处理。
+
 Ponytail can be added when the user wants a live YAGNI / stdlib-first / over-engineering lens. Keep it optional and set the default to `off` or `lite` so it does not silently narrow evidence-sensitive OPL Flow work:
 
 ```bash
@@ -150,6 +179,7 @@ Codex should not report the setup complete until it has run the checks that appl
 python3 ~/opl-flow/scripts/install_local_plugin.py --verify-only
 python3 ~/opl-flow/scripts/verify.py
 python3 ~/opl-flow/scripts/check_companion_skills.py
+python3 ~/opl-flow/scripts/intelligence_enhancement.py status
 ```
 
 Use `python3 ~/opl-flow/scripts/check_companion_skills.py --strict` when claiming the bundled OPL Flow guardrails are discoverable.

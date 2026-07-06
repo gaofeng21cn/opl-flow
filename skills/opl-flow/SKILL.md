@@ -136,6 +136,35 @@ For a complete OPL-family bootstrap that also covers OPL runtime, One Person Lab
 
 OPL Flow does not own OPL runtime or App readiness. Installation Carrier, Runtime Substrate, Capability Packages, Companion Tools, Codex Surface sync, user data/artifacts, Temporal family runtime provider, native helpers, domain module health, GUI shell, App first-run state, and Full readiness belong to One Person Lab App / OPL Framework checks.
 
+### Intelligence Enhancement
+
+When the user asks to enable OPL Flow "智力增强模式" or CodexCont through
+`gaofeng21cn/opl-flow`, use the OPL Flow bridge and keep runtime authority in
+the One Person Lab `opl` CLI:
+
+```bash
+python3 scripts/intelligence_enhancement.py enable --bootstrap-opl
+python3 scripts/intelligence_enhancement.py status
+```
+
+The bridge may bootstrap `opl` through the canonical One Person Lab App
+installer only when `--bootstrap-opl` is explicit. After `opl` exists, it
+delegates enable/status/repair/disable/uninstall to
+`opl app action execute --action intelligence_enhancement_<action> --json`.
+
+Use:
+
+```bash
+python3 scripts/intelligence_enhancement.py repair
+python3 scripts/intelligence_enhancement.py disable
+python3 scripts/intelligence_enhancement.py uninstall --confirmation uninstall_codexcont
+```
+
+Do not claim absolute always-online behavior. The supportable claim is that the
+mode is configured as the platform's persistent CodexCont service and freshly
+verified by `status`; sleep, network, upstream, credential, or local service
+failures still route to `repair` or human action.
+
 ## Verification
 
 After installation:

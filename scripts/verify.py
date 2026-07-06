@@ -32,6 +32,7 @@ REQUIRED_FILES = (
     "templates/prompts/debugger.md",
     "templates/prompts/verifier.md",
     "scripts/install_local_plugin.py",
+    "scripts/intelligence_enhancement.py",
     "scripts/check_companion_skills.py",
     "scripts/repo_profile.py",
     "scripts/profile_compose.py",
@@ -149,8 +150,10 @@ def check_docs_describe_compatibility(repo_root: Path) -> list[str]:
     lane_closeout = (repo_root / "skills" / "codex-ops-kit" / "references" / "lane-closeout.md").read_text(encoding="utf-8")
     required_pairs = (
         (readme, "Compatibility With OPL App Full", "README must document OPL App Full compatibility"),
+        (readme, "scripts/intelligence_enhancement.py enable --bootstrap-opl", "README must document intelligence enhancement bridge"),
         (readme, "python3 scripts/check_companion_skills.py", "README must document companion skill checker"),
         (setup, "OPL App Full / companion layers normally cover", "new-machine guide must describe Full companion layer coverage"),
+        (setup, "scripts/intelligence_enhancement.py enable --bootstrap-opl", "new-machine guide must document intelligence enhancement bridge"),
         (setup, "Workflow Profile", "new-machine guide must classify OPL Flow as the Workflow Profile layer"),
         (setup, "python3 ~/opl-flow/scripts/check_companion_skills.py", "new-machine guide must include companion skill check"),
         (setup, "codex plugin add ponytail@ponytail", "new-machine guide must document optional Ponytail install"),
@@ -160,6 +163,7 @@ def check_docs_describe_compatibility(repo_root: Path) -> list[str]:
         (skill, "risk-based-development-flow", "skill must name risk-based-development-flow as profile-native"),
         (skill, "codex-ops-kit", "skill must name codex-ops-kit as profile-native"),
         (skill, "Ponytail is compatible as an optional simplification lens", "skill must describe optional Ponytail boundary"),
+        (skill, "scripts/intelligence_enhancement.py enable --bootstrap-opl", "skill must document intelligence enhancement bridge"),
         (skill, "Route Ponytail by surface", "skill must route Ponytail audit vs review by surface"),
         (skill, "Root-Cause Supervision", "skill must document root-cause-first supervision"),
         (skill, "Root-Cause Depth Gate", "skill must document root-cause depth gate"),
