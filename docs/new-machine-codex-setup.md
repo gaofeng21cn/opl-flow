@@ -13,6 +13,21 @@ https://github.com/gaofeng21cn/one-person-lab/blob/main/docs/references/current-
 
 ## Copy This Into Codex
 
+只需要开启 CodexCont 智力增强模式时，可以直接说：
+
+```text
+安装并配置 gaofeng21cn/opl-flow 并开启智力增强模式。
+```
+
+Agent 应读取本页和 README，并在 `opl-flow` checkout 中执行：
+
+```bash
+python3 scripts/intelligence_enhancement.py enable --bootstrap-opl
+python3 scripts/intelligence_enhancement.py status
+```
+
+下面是只安装 OPL Flow 工作流 profile 的完整提示：
+
 ```text
 请按 OPL Flow 帮我安装或刷新这台机器的 Codex 工作流 profile。
 

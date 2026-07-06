@@ -149,9 +149,14 @@ Source of truth: https://github.com/gaofeng21cn/one-person-lab/blob/main/docs/re
 For the shorter CodexCont path, paste:
 
 ```text
-安装并配置 gaofeng21cn/opl-flow，然后在 opl-flow checkout 中运行：
-python3 scripts/intelligence_enhancement.py enable --bootstrap-opl
-python3 scripts/intelligence_enhancement.py status
+安装并配置 gaofeng21cn/opl-flow 并开启智力增强模式。
+
+执行口径：
+1. 读取 https://github.com/gaofeng21cn/opl-flow 的 README。
+2. 安装或刷新 OPL Flow。
+3. 在 opl-flow checkout 中运行：
+   python3 scripts/intelligence_enhancement.py enable --bootstrap-opl
+   python3 scripts/intelligence_enhancement.py status
 
 要求：如果 OPL CLI 缺失，允许通过官方 One Person Lab App installer 安装；最终报告智力增强模式状态、CodexCont 服务状态、Codex provider base URL，以及关闭/卸载命令。
 ```
