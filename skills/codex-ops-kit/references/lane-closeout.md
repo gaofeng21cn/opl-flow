@@ -58,6 +58,28 @@ Dirty files block only the same write set. Existing local commits, ahead/behind 
 
 Only mark a lane blocked when the same write set conflicts, the semantic owner is unclear, verification cannot cover the lane, remote state cannot be absorbed safely, permissions are missing, or a real owner decision is required.
 
+## Write Target Boundary
+
+Before the first edit in an isolated worktree or lane, record the actual edit target:
+
+```bash
+pwd
+git rev-parse --show-toplevel
+git branch --show-current
+git diff --name-only
+```
+
+Also name the allowed write set. When a shared root checkout and a lane worktree both exist, use absolute paths for edits and verification commands.
+
+After each manual patch, bulk replacement, generator run, or formatter run, check both the lane and the root checkout:
+
+```bash
+git -C <lane-root> diff --name-only
+git -C <root-checkout> diff --name-only
+```
+
+If the root checkout shows this lane's current write set, stop business edits. Inspect the root diff, confirm it is your current-turn write, revert only those accidental root changes, rerun the pre-edit gate from the intended lane root, and continue only with absolute paths under the lane root. Do not overwrite unrelated dirty files; if ownership is unclear, stop for an owner decision.
+
 ## Goal-Driven Executors and Heartbeat Supervisors
 
 For durable multi-thread missions, do not make an executor heartbeat the primary progress driver. The executor thread should hold an active goal that defines the mission, stop conditions, allowed write set, verification, and absorption reporting. Heartbeats may be used as temporary recovery safety nets, but once the executor goal is active they should be paused or treated as fallback-only so repeated one-shot prompts do not distort the mission.
