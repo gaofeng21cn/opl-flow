@@ -2,6 +2,18 @@
 
 OPL Flow is a lightweight Codex workflow profile for pragmatic local engineering. It packages the workflow now used on this workstation into a reusable Codex plugin and installable user profile.
 
+## Public Role Boundary
+
+OPL Flow is the distribution of a working mode: workflow profile, role prompts,
+guardrail skills, and install/update guidance for Codex. It owns the
+`workflow_profile` layer only.
+
+OPL Flow is not runtime truth, package truth, or domain truth. It does not own
+OPL App readiness, OPL Framework runtime behavior, OPL Packages lifecycle,
+release currentness, companion-tool health, project facts, source behavior, or
+domain acceptance. Those claims stay with the owning App, Framework, package,
+repo, runtime, contract, test, or owner-receipt surface.
+
 It is inspired by Trellis and Superpowers, but stays Codex-first:
 
 - Direct / Inline / Durable task tiers.

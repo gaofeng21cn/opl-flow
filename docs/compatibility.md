@@ -7,6 +7,11 @@ Machine boundary: This page is a human-readable positioning map. Executable trut
 
 OPL Flow is a Codex-first workflow profile and guardrail layer. In the OPL install taxonomy it owns the `workflow_profile` layer only. It is not a second implementation of Superpowers, Trellis, Claude Code, GitHub Agentic Workflows, the OPL runtime substrate, OPL Packages, companion tools, or Codex plugin surface sync. It packages the workstation workflow into a Codex plugin, installs profile prompts, bundles OPL Flow-owned guardrails, and routes to external execution skills when those skills are the right owner.
 
+Publicly, OPL Flow should be read as a distribution of working mode, not as a
+runtime, package, or domain authority. It may guide how Codex works, verifies,
+and records evidence, but it cannot make OPL App, OPL Framework, OPL Packages,
+or domain systems ready by itself.
+
 ## Positioning Matrix
 
 | System | Mature practice to absorb | OPL Flow boundary |
