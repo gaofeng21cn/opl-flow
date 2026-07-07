@@ -8,3 +8,4 @@
 - 用户要求“一起推进 / 全部落地 / 并行 worktree / 能做的都做掉”时，默认扩大到可安全并行的多 lane；lane 细节、提示格式、复核、吸收、推送和清理按 `codex-ops-kit`。
 - 未明确要求独立 Codex thread / background task 时，subagent 默认指当前对话内子代理。使用独立 Codex thread 时，主会话必须读结果、吸收或废弃、清理 worktree、归档 thread。
 - 使用 subagent / worktree 时，主会话必须独立复核 diff、验证和 lane 到规划条目的映射。
+- 多 subagent / worktree 任务默认借鉴 Superpowers v6 的轻量审查方式：长任务 brief、diff、review package 用文件传递；reviewer 只读且独立，不得被提示忽略发现或预设严重度；每任务优先一次合并审查 spec compliance 与 quality，重大多任务变更最后再做一次全局审查。

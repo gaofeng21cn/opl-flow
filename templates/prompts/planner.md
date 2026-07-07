@@ -27,6 +27,7 @@
    - 受影响模块或文件
    - 关键接口/数据变化
    - 实施步骤
+   - Durable 或多任务计划的 `Global Constraints`，以及每个任务的 `Interfaces`（输入、输出、相邻任务依赖）
    - 风险档、验证预算、验证方式和 TDD 是否触发
    - 风险与不做的事
    - 是否需要写回 docs/runbook/decision/status 或专用 skill
