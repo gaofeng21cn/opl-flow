@@ -17,7 +17,7 @@ or domain systems ready by itself.
 | System | Mature practice to absorb | OPL Flow boundary |
 | --- | --- | --- |
 | Codex AGENTS.md / skills | Keep persistent agent behavior in scoped instruction files; keep reusable procedures in skills; use plugins for distribution. | OPL Flow owns the Codex workflow profile, `opl-flow` skill, and bundled guardrails. It does not own project facts, source, tests, runtime output, or domain contracts. |
-| Superpowers | Use explicit skills for systematic debugging, verification before completion, TDD, worktree isolation, and v6 planning / SDD / review flows when the task warrants them. | Superpowers remains the execution surface for its official skills. OPL Flow routes to the active local Superpowers profile and keeps the default profile lighter than full always-on Superpowers. `lite` is the quiet default, `expanded` exposes v6 long-chain implementation helpers, and `full` is an explicit user choice. |
+| Superpowers | Use explicit skills for systematic debugging, verification before completion, TDD, worktree isolation, and v6 planning / SDD / review flows when the task warrants them. | Superpowers remains the execution surface for its official skills. `lite` keeps the focused debugger/TDD/verifier subset; broad upstream `brainstorming` and `using-git-worktrees` metadata move to `expanded`; `full` is an explicit user choice. |
 | Ponytail | Use YAGNI, stdlib/native-first implementation, over-engineering review, and cleanup candidate discovery as a tactical simplification lens. | Ponytail is optional. `ponytail-audit` is for whole-repo/cross-repo discovery; `ponytail-review` is a concrete-diff complexity regression gate before absorbing non-trivial cleanup/refactor lanes. It must not override OPL Flow evidence, ops, verifier, or completion-audit rules. |
 | Trellis | Persist specs, tasks, workspace state, and closeout artifacts in versioned project surfaces. | OPL Flow absorbs the artifact discipline, but writes Durable evidence into each repo's existing docs, contracts, ledgers, or closeouts instead of creating a second `.trellis`-style truth source. |
 | Claude Code skills/subagents/memory | Load specialized procedures on demand; use subagents for bounded, isolated work; keep memory/rules concise and scoped. | OPL Flow keeps `SKILL.md` entrypoints lean, requires explicit subagent write sets and stop conditions, and treats `TASTE.md` as preference rather than fact. |
@@ -50,11 +50,11 @@ or domain systems ready by itself.
 
 ## Readiness Claims
 
-- `scripts/check_companion_skills.py` default mode checks core profile compatibility and reports optional companion coverage.
-- `scripts/check_companion_skills.py --strict` fails closed unless the OPL Flow-owned guardrails are discoverable.
-- `match_details` and `sources` identify whether a skill came from the source checkout, installed plugin, user skill root, skills manager, plugin cache, or custom root.
+- `scripts/check_companion_skills.py` default mode reports profile, plugin, runtime guardrail, and optional companion state without packaging source candidates as readiness.
+- `scripts/check_companion_skills.py --strict` fails closed unless the profile, exact installed plugin/cache payload, and source-matching runtime guardrails are ready.
+- `match_details` distinguishes source/staged candidates from runtime-discoverable roots and deduplicates resolved paths.
 - `superpowers_profile.profile` reports the active local Superpowers profile as `lite`, `expanded`, `full`, `custom`, or `not_configured`; this is a workflow readback, not an OPL App/runtime readiness claim.
-- `ponytail.config.default_mode` reports the configured Ponytail startup mode when the plugin is installed. `off` or `lite` is the recommended OPL Flow-compatible default.
+- `ponytail.config.default_mode` reports the configured Ponytail startup mode when the plugin is installed. This profile keeps `lite` as the default.
 - Ponytail readiness only proves the simplification lens is available. It does not prove any cleanup is safe; deletion, absorption, runtime/currentness, and owner-route claims still need repo-native evidence.
 - Runtime substrate, capability packages, companion tools, Codex surface sync, release, latest/currentness, OPL App Full, MAS/MAG/RCA/BookForge, and owner-route readiness require their own live artifacts or owner receipts. OPL Flow tests cannot prove those surfaces ready.
 

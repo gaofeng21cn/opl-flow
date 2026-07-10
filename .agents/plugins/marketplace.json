@@ -1,0 +1,20 @@
+{
+  "interface": {
+    "displayName": "OPL Flow Local"
+  },
+  "name": "opl-flow-local",
+  "plugins": [
+    {
+      "category": "Developer Tools",
+      "name": "opl-flow",
+      "policy": {
+        "authentication": "ON_INSTALL",
+        "installation": "AVAILABLE"
+      },
+      "source": {
+        "path": ".",
+        "source": "local"
+      }
+    }
+  ]
+}

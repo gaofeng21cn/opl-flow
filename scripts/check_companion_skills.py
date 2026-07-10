@@ -9,6 +9,11 @@ import os
 from pathlib import Path
 from typing import Any
 
+try:
+    from scripts import install_local_plugin
+except ImportError:
+    import install_local_plugin  # type: ignore[no-redef]
+
 
 SUPERPOWERS_SKILLS = (
     "using-superpowers",
@@ -19,15 +24,15 @@ SUPERPOWERS_SKILLS = (
 )
 
 SUPERPOWERS_LITE_SELECTED = (
-    "brainstorming",
     "systematic-debugging",
     "test-driven-development",
-    "using-git-worktrees",
     "verification-before-completion",
 )
 
 SUPERPOWERS_EXPANDED_SELECTED = (
     *SUPERPOWERS_LITE_SELECTED,
+    "brainstorming",
+    "using-git-worktrees",
     "writing-plans",
     "subagent-driven-development",
     "executing-plans",
@@ -37,10 +42,7 @@ SUPERPOWERS_EXPANDED_SELECTED = (
     "finishing-a-development-branch",
 )
 
-OPL_FLOW_NATIVE_SKILLS = (
-    "risk-based-development-flow",
-    "codex-ops-kit",
-)
+OPL_FLOW_NATIVE_SKILLS = install_local_plugin.GUARDRAIL_SKILLS
 
 OPTIONAL_SKILLS = (
     "agent-browser",
@@ -82,6 +84,11 @@ def default_skill_roots(home: Path, codex_home: Path, plugins_dir: Path, repo_ro
         seen.add(normalized)
         unique_roots.append(normalized)
     return unique_roots
+
+
+def runtime_discovery_root(root: Path, home: Path, codex_home: Path) -> bool:
+    absolute = Path(os.path.abspath(root.expanduser()))
+    return _relative_to(absolute, codex_home / "skills") or _relative_to(absolute, home / ".agents" / "skills")
 
 
 def skill_exists(root: Path, skill_id: str) -> bool:
@@ -210,7 +217,7 @@ def classify_source(skill_path: Path, home: Path, codex_home: Path, plugins_dir:
     packaged_root = Path(os.environ.get("OPL_PACKAGED_SKILLS_ROOT", "")).expanduser()
     full_runtime_home = Path(os.environ.get("OPL_FULL_RUNTIME_HOME", "")).expanduser()
     if _relative_to(skill_path, plugins_dir / "opl-flow" / "skills"):
-        return "installed_opl_flow_plugin"
+        return "staged_local_plugin"
     if _relative_to(skill_path, repo_root / "skills"):
         return "bundled_repo"
     if _relative_to(skill_path, plugins_dir):
@@ -238,19 +245,29 @@ def find_skill(
     plugins_dir: Path,
     repo_root: Path,
 ) -> dict[str, Any]:
-    matches: list[str] = []
-    details: list[dict[str, str]] = []
+    details_by_path: dict[str, dict[str, Any]] = {}
     for root in skill_roots:
         if skill_exists(root, skill_id):
             skill_path = (root / skill_id).resolve()
-            matches.append(str(skill_path))
-            details.append(
+            key = str(skill_path)
+            detail = details_by_path.setdefault(
+                key,
                 {
-                    "path": str(skill_path),
+                    "path": key,
                     "root": str(root),
+                    "discovery_roots": [],
                     "source": classify_source(skill_path, home, codex_home, plugins_dir, repo_root),
-                }
+                    "runtime_discoverable": False,
+                },
             )
+            detail["discovery_roots"].append(str(root))
+            detail["runtime_discoverable"] = detail["runtime_discoverable"] or runtime_discovery_root(
+                root,
+                home,
+                codex_home,
+            )
+    details = list(details_by_path.values())
+    matches = list(details_by_path)
     sources = sorted({item["source"] for item in details})
     return {
         "ok": bool(matches),
@@ -258,6 +275,19 @@ def find_skill(
         "match_details": details,
         "sources": sources,
     }
+
+
+def runtime_skill_ready(status: dict[str, Any], source: Path | None = None) -> bool:
+    for item in status.get("match_details", []):
+        if item.get("runtime_discoverable") is not True:
+            continue
+        if source is None or not install_local_plugin.tree_mismatches(
+            source,
+            Path(item["path"]),
+            f"skills/{source.name}",
+        ):
+            return True
+    return False
 
 
 def find_plugin(
@@ -308,8 +338,11 @@ def ponytail_config_status(home: Path) -> dict[str, Any]:
             "default_mode": "full",
             "source": "upstream_default",
             "auto_activation": "on",
+            "recommended_default_mode": "lite",
+            "matches_opl_default": False,
             "notes": [
                 "Ponytail upstream defaults to full mode when no config or PONYTAIL_DEFAULT_MODE override exists.",
+                "OPL Flow recommends an explicit lite default for automatic low-intensity activation.",
             ],
         }
     try:
@@ -333,9 +366,10 @@ def ponytail_config_status(home: Path) -> dict[str, Any]:
         "default_mode": mode if valid else None,
         "source": "config_file",
         "auto_activation": "off" if mode == "off" else "on",
-        "recommended_default_modes": ["off", "lite"],
+        "recommended_default_mode": "lite",
+        "matches_opl_default": valid and mode == "lite",
         "notes": [
-            "Use off or lite when Ponytail is an optional simplification lens under OPL Flow.",
+            "OPL Flow keeps Ponytail lite as the default simplification lens.",
             "Ponytail must not override risk-based evidence, codex-ops-kit, verifier, or completion audits.",
         ],
     }
@@ -358,10 +392,45 @@ def check(args: argparse.Namespace) -> dict[str, Any]:
 
     superpowers = superpowers_bundle_status(superpowers_root)
     superpowers_profile = superpowers_profile_status(home, codex_home, plugins_dir, repo_root, superpowers_root)
+    profile_status = install_local_plugin.verify_profile(repo_root, codex_home, profile=True)
+    profile_ready = profile_status["status"] in {"current", "local_overlay"}
+    staged_plugin = plugins_dir / install_local_plugin.PLUGIN_NAME
+    try:
+        plugin_verification = (
+            install_local_plugin.verify(
+                repo_root,
+                plugins_dir,
+                codex_home,
+                profile=False,
+                codex_bin=args.codex_bin,
+            )
+            if staged_plugin.exists()
+            else {"ok": False, "reason": "staged_plugin_missing"}
+        )
+    except (RuntimeError, ValueError) as exc:
+        plugin_verification = {"ok": False, "error": str(exc)}
+    plugin_readback = plugin_verification.get("plugin_readback", {"ok": False})
+    plugin_ready = plugin_verification.get("ok") is True
+    payload_mismatches = (
+        *plugin_verification.get("source_plugin_mismatches", []),
+        *plugin_verification.get("cache_mismatches", []),
+    )
+    plugin_guardrails = {
+        skill_id: (
+            plugin_readback.get("ok") is True
+            and not any(f"/skills/{skill_id}/" in mismatch for mismatch in payload_mismatches)
+        )
+        for skill_id in OPL_FLOW_NATIVE_SKILLS
+    }
+    runtime_guardrails = {
+        skill_id: plugin_guardrails[skill_id]
+        or runtime_skill_ready(skill_status[skill_id], repo_root / "skills" / skill_id)
+        for skill_id in OPL_FLOW_NATIVE_SKILLS
+    }
     blocking_missing = [
         skill_id
         for skill_id in OPL_FLOW_NATIVE_SKILLS
-        if not skill_status[skill_id]["ok"]
+        if not runtime_guardrails[skill_id]
     ]
     optional_missing = [
         skill_id
@@ -374,13 +443,17 @@ def check(args: argparse.Namespace) -> dict[str, Any]:
         if not plugin_status[plugin_id]["ok"]
     ]
     native_guardrail_sources = {
-        skill_id: skill_status[skill_id]["sources"]
+        skill_id: sorted(
+            set(skill_status[skill_id]["sources"])
+            | ({"installed_opl_flow_plugin"} if plugin_guardrails[skill_id] else set())
+        )
         for skill_id in OPL_FLOW_NATIVE_SKILLS
     }
 
-    core_ready = True
+    core_ready = profile_ready and not blocking_missing
     full_guardrails_ready = not blocking_missing
-    ok = full_guardrails_ready if args.strict else core_ready
+    full_ready = core_ready and plugin_ready
+    ok = full_ready if args.strict else True
 
     return {
         "ok": ok,
@@ -390,6 +463,9 @@ def check(args: argparse.Namespace) -> dict[str, Any]:
         "skill_roots": [str(root) for root in skill_roots],
         "superpowers": superpowers,
         "superpowers_profile": superpowers_profile,
+        "profile": profile_status,
+        "opl_flow_plugin": plugin_readback,
+        "opl_flow_install": plugin_verification,
         "skills": skill_status,
         "plugins": plugin_status,
         "ponytail": {
@@ -404,14 +480,16 @@ def check(args: argparse.Namespace) -> dict[str, Any]:
             "opl_app_full_superpowers_compatible": superpowers["ok"],
             "opl_flow_core_ready": core_ready,
             "opl_flow_full_guardrails_ready": full_guardrails_ready,
-            "opl_flow_profile_ready": core_ready,
+            "opl_flow_profile_ready": profile_ready,
+            "opl_flow_plugin_ready": plugin_ready,
+            "opl_flow_full_ready": full_ready,
             "missing_guardrails": blocking_missing,
             "native_guardrail_sources": native_guardrail_sources,
             "notes": [
                 "OPL Flow bundles risk-based-development-flow and codex-ops-kit as profile-native guardrails.",
                 "OPL App Full Superpowers satisfies the Superpowers execution surface when superpowers.ok is true.",
                 "OPL Flow preserves the current local Superpowers profile unless the user explicitly asks for full Superpowers.",
-                "Use --strict to fail closed when the OPL Flow-owned guardrail payload is not discoverable.",
+                "Use --strict to fail closed unless the profile, exact installed/cache payload, and runtime guardrails are ready.",
                 "Optional skills improve browser/document workflows but are not required for the core profile.",
                 "Ponytail is optional and should stay an explicit simplification lens; it must not override OPL Flow evidence, ops, verifier, or completion-audit rules.",
             ],
@@ -427,6 +505,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--repo-root", default=str(Path(__file__).resolve().parents[1]))
     parser.add_argument("--codex-home", default=codex_home)
     parser.add_argument("--plugins-dir", default=str(home / "plugins"))
+    parser.add_argument("--codex-bin", default=os.environ.get("CODEX_BIN", "codex"))
     parser.add_argument(
         "--skill-root",
         action="append",
@@ -437,7 +516,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--strict",
         action="store_true",
-        help="Return non-zero unless OPL Flow-native guardrail skills are discoverable.",
+        help="Return non-zero unless the OPL Flow profile, exact installed/cache payload, and native guardrails are ready.",
     )
     return parser.parse_args()
 

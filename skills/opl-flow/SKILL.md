@@ -1,11 +1,11 @@
 ---
 name: "opl-flow"
-description: "Use when a Codex task needs the OPL Flow workflow profile: Direct/Inline/Durable task classification, planner/executor/debugger/verifier routing, risk-based development flow, high-risk Codex ops routing, subagent/worktree lane contracts, durable evidence writeback, or completion-audit/verification-before-completion discipline. Also use when installing or syncing this workflow profile on a new machine."
+description: "Use when installing, syncing, diagnosing, or explaining the OPL Flow workflow profile, or when the user explicitly asks to use OPL Flow. Normal development tasks should follow the active AGENTS profile and load only the relevant decision lens or specialist skill."
 ---
 
 # OPL Flow
 
-OPL Flow is a lightweight Codex-first workflow profile inspired by Trellis and Superpowers, adapted for pragmatic local engineering work. In the OPL install taxonomy it owns the Workflow Profile layer only. It installs a thin global `AGENTS.md`, role prompts, and the OPL Flow-owned guardrail skills `codex-ops-kit` and `risk-based-development-flow`; detailed debugging and verification execution still routes to external skills such as `systematic-debugging` and `verification-before-completion` when available.
+OPL Flow is a lightweight Codex-first workflow profile inspired by Trellis and Superpowers, adapted for pragmatic local engineering work. One Person Lab App Standard and Full install it as a required `workflow_plugin_package`; its semantic ownership remains the Workflow Profile layer only. It installs a thin global `AGENTS.md`, decision-lens prompts, and the OPL Flow-owned guardrail skills `codex-ops-kit` and `risk-based-development-flow`; detailed debugging and verification execution still routes to external skills such as `systematic-debugging` and `verification-before-completion` when available.
 
 It is compatible with One Person Lab App Full installs. Full installs may provide Superpowers, companion tools, support skills, capability packages, runtime substrate, and Codex surface sync through their own lifecycle planes; OPL Flow should route to the active local Superpowers profile rather than duplicate or replace it. Keep the current local profile unless the user explicitly asks for official full Superpowers.
 
@@ -22,10 +22,7 @@ OPL-native to this workflow layer.
 
 - For repo work, read the user-level `~/.codex/TASTE.md` as the shared AI work-principles preference, then read the target repo's AGENTS/docs/contracts/source for local facts.
 - Treat `~/.codex/TASTE.md` as AI work-principles preference, not as project fact or machine truth.
-- Requirements unclear, solution comparison, task decomposition: use Planner.
-- Goal clear and implementation needed: use Executor.
-- Bug, test failure, regression, unexpected behavior: use Debugger first.
-- Before saying complete/fixed/passing: use Verifier.
+- Apply Planner, Executor, Debugger, and Verifier as decision lenses in one task. Continue to the next lens unless the user requested only planning/diagnosis or a real authority gate stops work.
 - Code, tests, TDD, release/currentness/readiness, or evidence-strength decisions: use `risk-based-development-flow`.
 - Git-backed worktree/subagent lane start, resume, absorb, merge, delete, or closeout, and public GitHub release URL/asset/install-command verification: use `codex-ops-kit` for fail-closed mechanical evidence.
 - Long stalls, repeated failures, heartbeat monitors, runtime/currentness/readiness drift, multi-thread stalls, or auto-advance loops: use root-cause-first supervision. Do not stop at surface status; classify the visible symptom, direct failing boundary, cross-surface evidence, owner surface, and repair or decision path.
@@ -55,7 +52,7 @@ When the user asks for "全部落地", "一步到位", "彻底解决", "持续�
 
 The audit object must come from the user's latest target, the original plan, a persisted plan/runbook/contract, or lane goals. Do not replace the full plan with the slice that happened to be implemented. For each item, report `done / partial / not_started / blocked`, percent complete, fresh evidence, gaps, and next action.
 
-Only mark `100%` when fresh executable evidence supports the target-state claim. Docs, plans, contracts, refs-only read models, focused tests, or commits do not by themselves prove runtime/readiness/release/owner acceptance.
+Only mark `100%` when fresh claim-appropriate evidence supports the target-state claim. Documentation and structure can use fresh render/schema/diff checks; runtime/readiness/release/currentness/owner claims require executable, live, artifact, or receipt evidence.
 
 ## Subagent Contract
 
@@ -95,7 +92,7 @@ cd opl-flow
 python3 scripts/install_local_plugin.py
 ```
 
-That installs the local plugin into `~/plugins/opl-flow`, registers it in the personal marketplace at `~/.agents/plugins/marketplace.json`, and syncs the OPL Flow user profile into:
+That stages the local plugin and its independent `opl-flow-local` marketplace at `~/plugins/opl-flow`, installs `opl-flow@opl-flow-local` through Codex, refreshes the versioned Codex cache even for a same-version update, verifies exact installed/enabled/version/source/cache readback, and syncs the OPL Flow user profile into:
 
 - `~/.codex/AGENTS.md`
 - `~/.codex/TASTE.md`
@@ -110,9 +107,9 @@ The install profile includes OPL Flow-native guardrails `risk-based-development-
 
 When the target machine was installed through OPL App Full, Superpowers normally covers `systematic-debugging`, `verification-before-completion`, `using-git-worktrees`, and `test-driven-development`, and App companion layers cover common document/tool skills such as `mineru-document-extractor`. OPL Flow should not duplicate or replace those execution surfaces.
 
-For machines that use a local Superpowers profile, `lite` is the quiet default, `expanded` can expose Superpowers v6 planning / SDD / review helpers for long-chain implementation, and `full` should mean the user intentionally enabled the official Superpowers bootstrap.
+For machines that use a local Superpowers profile, `lite` exposes the focused debugger/TDD/verifier subset. Broad upstream `brainstorming` and `using-git-worktrees` metadata move to `expanded`; `full` remains an explicit user choice.
 
-Ponytail is compatible as an optional simplification lens. If installed, keep its default mode `off` or `lite`, and invoke it explicitly for YAGNI / stdlib-first implementation or over-engineering review. Ponytail must not override `risk-based-development-flow`, the Git/release evidence produced by `codex-ops-kit`, verifier, fresh-evidence, runtime/currentness/readiness, or completion-audit gates.
+Ponytail is compatible as an optional simplification lens and OPL Flow keeps its default mode `lite`. The plugin owns mode/ladders; OPL Flow routes `ponytail-audit` for broad discovery and `ponytail-review` for concrete diffs without claiming automatic `full/ultra` switches. Ponytail must not override `risk-based-development-flow`, the Git/release evidence produced by `codex-ops-kit`, verifier, fresh-evidence, runtime/currentness/readiness, or completion-audit gates.
 
 Route Ponytail by surface: use `ponytail-audit` for whole-repo or cross-repo cleanup candidate discovery, and use `ponytail-review` for concrete diffs, PRs, commits, or worktree lanes before absorption when the lane is a non-trivial cleanup, refactor, wrapper retirement, or dependency/surface thinning change. Skip and state why for docs-only, read-only, emergency hotfix, or tiny one-line changes.
 
@@ -126,7 +123,7 @@ The checker reports `superpowers_profile.profile` as `lite`, `expanded`, `full`,
 
 It also reports optional Ponytail plugin detection and `ponytail.config.default_mode` when configured.
 
-Use strict mode when checking that the bundled OPL Flow guardrails are discoverable:
+Use strict mode when checking that the profile, exact installed plugin, and runtime-discoverable guardrails are ready:
 
 ```bash
 python3 scripts/check_companion_skills.py --strict

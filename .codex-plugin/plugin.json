@@ -1,7 +1,7 @@
 {
   "name": "opl-flow",
-  "version": "0.1.7",
-  "description": "OPL Flow is a pragmatic Codex workflow profile with bundled risk guardrails and narrow Git/release ops audits for direct answers, inline execution, durable evidence, subagent boundaries, completion audits, and OPL App Full/Superpowers compatibility.",
+  "version": "0.1.8",
+  "description": "OPL Flow is a pragmatic Codex workflow profile with decision lenses, bundled risk guardrails, and narrow Git/release ops audits for direct answers, inline execution, durable evidence, subagent boundaries, and completion audits.",
   "author": {
     "name": "Gaofeng"
   },
@@ -9,7 +9,7 @@
   "interface": {
     "displayName": "OPL Flow",
     "shortDescription": "Pragmatic Codex workflow profile",
-    "longDescription": "OPL Flow packages a reusable Codex-first workflow compatible with OPL App Full and Superpowers: Direct/Inline/Durable task tiers, planner/executor/debugger/verifier role prompts, bundled risk-based evidence selection, fail-closed Git lane and GitHub release audits, subagent dispatch contracts, durable writeback rules, and completion audits.",
+    "longDescription": "OPL Flow packages a reusable Codex-first workflow compatible with OPL App Full and Superpowers: Direct/Inline/Durable task tiers, planner/executor/debugger/verifier decision lenses, bundled risk-based evidence selection, fail-closed Git lane and GitHub release audits, durable writeback rules, and completion audits.",
     "developerName": "Gaofeng",
     "category": "Developer Tools",
     "capabilities": [

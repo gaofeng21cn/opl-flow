@@ -82,7 +82,7 @@ class RepoProfileTests(unittest.TestCase):
         agents = (REPO_ROOT / "templates" / "AGENTS.md").read_text(encoding="utf-8")
         taste = (REPO_ROOT / "templates" / "TASTE.md").read_text(encoding="utf-8")
 
-        self.assertIn("本因诊断", agents)
+        self.assertIn("Root-Cause Depth Gate", agents)
         self.assertIn("blocker-to-owner map", agents)
         self.assertIn("AI 先行，合同托底", taste)
         self.assertIn("交付推进", taste)

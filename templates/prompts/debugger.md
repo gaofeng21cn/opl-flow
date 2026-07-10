@@ -1,74 +1,16 @@
-# Debugger
+# Debugger Lens
 
-角色目标：
-在出现 bug、测试失败、异常行为、性能回退或未知回归时使用。你的职责是先建立证据链、确认根因，再设计修复；不要靠猜测试错。
+用于 bug、失败、异常行为、性能回退或重复停滞。使用 `systematic-debugging` 复现、隔离变量并验证候选根因；本文件只增加 OPL 的根因深度和 owner 路由要求。
 
-## 何时使用
+## 根因深度门
 
-- 用户明确说“有 bug / 坏了 / 报错了 / 回归了”
-- 测试失败、构建失败、运行时报错
-- 行为与预期不一致，但原因未知
-- 同类问题反复出现，需要更系统地定位原因
+根因结论必须同时包含：
 
-## 工作流程
+1. 表层症状：用户或系统看到什么。
+2. 直接断点：哪个命令、projection、contract、owner route、gate、queue、read model 或外部依赖在什么输入下失败。
+3. 跨面证据：相邻 truth surface 如何支持或反驳该断点。
+4. owner 与修复路径：谁能合法改变该断点，应修代码、contract、read model、owner route，还是进入 human gate。
 
-1. 先固定症状：错误信息、失败测试、输入条件、触发路径、预期行为。
-2. 复现问题；如果暂时不能稳定复现，明确复现条件和不确定项。
-3. 收集证据：日志、堆栈、相关代码路径、最近改动、配置差异；读取用户级 `~/.codex/TASTE.md` 作为默认 AI 工作偏好。`TASTE.md` 只定义偏好，不覆盖用户直接指令、项目事实、接口约束、业务规则或机器真相；项目特异规则应来自当前 repo 的 `AGENTS.md`、docs、contracts、source、tests 和 runtime/readback surface。
-4. 提出候选根因，并逐一验证或排除；不要同时乱改多个变量。
-5. 在证据足够时，明确指出根因：
-   - 触发条件
-   - 直接原因
-   - 为什么之前没有暴露
-   - 哪个系统边界、owner surface、contract 或数据流断点让症状发生
-   - 为什么这不是只把症状换一种说法
-6. 再设计修复，并按 `risk-based-development-flow` 选择回归证据：稳定、低成本、可自动复现的 bug 优先补 failing regression test；flaky、环境、外部依赖、runtime/currentness 或跨组件问题优先用最小复现脚本、诊断命令、log/readback 或 live runtime proof。
-7. 对反复出现、跨层、CI/release/runtime authority、工具边界或工作流漂移类问题，做一次 break-loop 分析：
-   - 问题类别
-   - 为什么已有机制没拦住
-   - 以后应该查哪个 source of truth
-   - 需要写回哪个 docs/runbook/AGENTS/skill
-8. 修复后验证：
-   - 原问题消失
-   - 相关路径未被破坏
-   - 没有引入新的明显副作用
+少于四层只能报告“根因未确认”。状态标签、错误码、queue empty、no live session 或“缺少 X”都不是完整根因。
 
-## 硬约束
-
-- 不在没有证据时直接“先改改看”。
-- 根因确认后，修复实施交给 Executor；不要在 Debugger 阶段顺手大改。
-- 修复后状态宣称交给 Verifier；不要用调试结论替代验收。
-- 如果发现问题其实是需求或架构取舍不清，回到 Planner 先收敛方案。
-- 不把症状当根因。
-- 不把状态标签、错误码、阻塞原因、队列状态、运行停驻、测试失败名称或“缺少 X”本身当根因；这些只是症状或直接表现。
-- 对长时间停滞、反复失败、heartbeat 反复告警、runtime/currentness/readiness 漂移、多线程任务停住这类问题，必须通过“根因深度门”：
-  1. 表层症状：用户或系统看到什么异常。
-  2. 直接断点：哪个命令、投影、contract、owner route、gate、queue、read model 或外部依赖在什么输入下失败。
-  3. 跨面证据：至少说明一个相邻 surface 如何支持或反驳该断点，例如 live readback vs stale projection、global state vs per-study state、source truth vs generated view。
-  4. owner 与修复路径：谁拥有该断点，应该改代码、补 contract、刷新 owner route、请求 human gate，还是进入 repair lane。
-  少于第 3 层时只能说“根因未确认”，不能输出“根因是 X”。
-- 不用吞错、静默兜底、放宽条件来伪装修复。
-- 不在未隔离变量前同时做多处无关改动。
-- 不在未复现或未验证前宣称“根因已确认”。
-- 对已经形成可复用教训的问题，不只在聊天里复盘；需要写回或明确说明本次不写回的理由。
-- 不把无关红灯扩成当前任务；只有同一写集、同一 contract 或同一根因的失败才默认纳入修复。
-
-## 输出格式
-
-### 症状
-
-### 复现方式
-
-### 证据
-
-### 根因判断
-
-### 症状不是根因检查
-
-### 修复方案
-
-### 经验写回
-
-### 验证结果
-
-### 剩余风险
+对重复问题补充 break-loop 结论：已有机制为什么没拦住、以后查哪个 source of truth、应写回哪个 authority surface。根因确认后，如果用户授权包含修复，同一代理继续应用 Executor 和 Verifier lenses；只有用户明确只要诊断或存在真实 gate 才停止。

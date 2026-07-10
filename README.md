@@ -1,10 +1,10 @@
 # OPL Flow
 
-OPL Flow is a lightweight Codex workflow profile for pragmatic local engineering. It packages the workflow now used on this workstation into a reusable Codex plugin and installable user profile.
+OPL Flow is a lightweight Codex workflow profile for pragmatic local engineering. It packages decision lenses, durable guardrails, and installation/readback checks into a reusable Codex plugin and user profile.
 
 ## Public Role Boundary
 
-OPL Flow is the distribution of a working mode: workflow profile, role prompts,
+OPL Flow is the distribution of a working mode: workflow profile, decision lenses,
 guardrail skills, and install/update guidance for Codex. It owns the
 `workflow_profile` layer only.
 
@@ -17,7 +17,7 @@ repo, runtime, contract, test, or owner-receipt surface.
 It is inspired by Trellis and Superpowers, but stays Codex-first:
 
 - Direct / Inline / Durable task tiers.
-- Planner / Executor / Debugger / Verifier role prompts.
+- Planner / Executor / Debugger / Verifier decision lenses used continuously by one agent.
 - Bundled risk-based development flow for verification budget, test additions, TDD selection, and completion evidence.
 - Bundled `codex-ops-kit` for fail-closed Git worktree/subagent lane evidence and live GitHub release URL/asset/install-command audits.
 - Codex inline execution by default.
@@ -65,10 +65,10 @@ cd opl-flow
 python3 scripts/install_local_plugin.py
 ```
 
-This installs:
+This stages and installs:
 
-- local plugin: `~/plugins/opl-flow`
-- personal marketplace entry: `~/.agents/plugins/marketplace.json`
+- local plugin and independent marketplace root: `~/plugins/opl-flow`
+- exact Codex plugin: `opl-flow@opl-flow-local`, verified installed and enabled
 - Codex workflow profile:
   - `~/.codex/AGENTS.md`
   - `~/.codex/TASTE.md`
@@ -88,7 +88,7 @@ profile semantics.
 
 `~/.codex/TASTE.md` carries default AI work principles. Repo-specific facts, local boundaries, and project development rules belong in `AGENTS.md`, docs, contracts, source, tests, and runtime/readback evidence rather than duplicated repo-local taste files.
 
-The profile routes to companion skills by name. OPL Flow bundles the profile-native guardrails `risk-based-development-flow` and `codex-ops-kit` so a fresh install raises Codex's behavioral floor without a separate local skill copy. In the OPL install taxonomy, OPL Flow is the `workflow_profile` layer only. OPL App Full may install the Superpowers execution surface, common companion skills, companion tools, and OPL capability packages through their own lifecycle planes; OPL Flow only detects and routes to those surfaces when present. It preserves the current local Superpowers profile by default; switching to official full Superpowers is an explicit user choice, not an installer side effect. `agent-browser`, Ponytail, RTK, and CodeGraph remain optional machine-level enhancements.
+The profile routes to companion skills by name. OPL Flow bundles the profile-native guardrails `risk-based-development-flow` and `codex-ops-kit` so a fresh install raises Codex's behavioral floor without a separate local skill copy. OPL Flow is a required Standard and Full `workflow_plugin_package`, while its semantic ownership remains limited to the Workflow Profile layer. OPL App Full may install the Superpowers execution surface, common companion skills, companion tools, and other OPL capability packages through their own lifecycle planes; OPL Flow only detects and routes to those surfaces when present. It preserves the current local Superpowers profile by default; switching to official full Superpowers is an explicit user choice, not an installer side effect. `agent-browser`, Ponytail, RTK, and CodeGraph remain optional machine-level enhancements.
 
 Check a machine with:
 
@@ -98,20 +98,20 @@ python3 scripts/check_companion_skills.py
 
 The checker reports both the Superpowers bundle readiness and the active local Superpowers profile (`lite`, `expanded`, `full`, `custom`, or `not_configured`). `lite` and `expanded` keep the local routing profile and leave upstream `using-superpowers` disabled; `full` links the complete upstream skills directory and enables the official bootstrap.
 
-Ponytail is treated as an optional simplification lens for YAGNI / stdlib-first / over-engineering review. When installed, prefer a safe default mode:
+Ponytail is treated as an optional simplification lens for YAGNI / stdlib-first / over-engineering review. OPL Flow keeps the workstation default at `lite`:
 
 ```bash
 mkdir -p ~/.config/ponytail
-printf '{\n  "defaultMode": "off"\n}\n' > ~/.config/ponytail/config.json
+printf '{\n  "defaultMode": "lite"\n}\n' > ~/.config/ponytail/config.json
 codex plugin marketplace add DietrichGebert/ponytail
 codex plugin add ponytail@ponytail
 ```
 
-Use Ponytail explicitly for simplification work, for example `@ponytail lite`, `@ponytail`, `@ponytail-review`, or `@ponytail-audit`. It must not override OPL Flow's `risk-based-development-flow`, `codex-ops-kit` Git/release evidence, verifier, fresh-evidence, or completion-audit rules.
+The Ponytail plugin owns its active mode. OPL Flow does not claim task-driven automatic `full/ultra` switches; it routes `ponytail-audit` for broad candidate discovery and `ponytail-review` for concrete diffs. Ponytail must not override OPL Flow's `risk-based-development-flow`, `codex-ops-kit` Git/release evidence, verifier, fresh-evidence, or completion-audit rules.
 
 OPL Flow routes Ponytail by artifact shape: `ponytail-audit` is for whole-repo or cross-repo cleanup candidate discovery; `ponytail-review` is for a concrete diff, PR, commit range, or worktree lane before absorption when the change is a non-trivial cleanup/refactor/wrapper-retirement/dependency-thinning lane.
 
-Use strict mode when checking that the OPL Flow-owned guardrail payload is discoverable:
+Use strict mode when checking that the profile, exact installed plugin, and runtime-discoverable guardrails are ready:
 
 ```bash
 python3 scripts/check_companion_skills.py --strict
@@ -187,6 +187,8 @@ python3 scripts/install_local_plugin.py --verify-only
 scripts/verify.sh
 ```
 
+Verification binds the repository marketplace manifest, staged plugin, exact Codex plugin readback, and the versioned Codex cache payload. Reinstalling the same version still refreshes that cache.
+
 ## Repo Profile Sync
 
 OPL Flow can check or write the workflow portion of an OPL-native repo profile:
@@ -229,20 +231,20 @@ The profile reads AI work principles from the user-level `~/.codex/TASTE.md`. Re
 
 ## Compatibility With OPL App Full
 
-OPL Flow is compatible with the One Person Lab App Full first-install payload, but it is not part of the runtime substrate or OPL Packages lifecycle. Treat the layers separately:
+OPL Flow is a required workflow plugin package in One Person Lab App Standard and Full. It participates in the managed OPL Package lifecycle for plugin delivery and readback, while owning only Workflow Profile semantics and never becoming part of Runtime Substrate. Treat the layers separately:
 
 - Installation Carrier updates are owned by One Person Lab App and the host/container carrier: macOS standard updater/Homebrew, Docker/WebUI image host route, or Linux package carrier.
 - Runtime Substrate updates cover App-owned runtime payloads such as the embedded Codex executor, Temporal archive, Node/Python/uv, native helpers, and OPL Framework runtime.
-- Capability Packages cover MAS/MAG/RCA/OMA/BookForge/ScholarSkills managed modules.
-- Companion Tools and support skills cover OfficeCLI, MinerU, PDF, UI/UX, Superpowers, and similar helpers.
+- Capability Packages cover MAS/MAG/RCA/OMA/BookForge/ScholarSkills managed modules and the separately typed OPL Flow workflow plugin package.
+- Companion Tools and support skills cover the complete upstream OfficeCLI skill family, MinerU, UI/UX, Superpowers, and similar helpers; official OpenAI Primary Runtime PDF/Office capabilities are not mirrored as OPL skills.
 - Codex Surface sync covers plugin registry, plugin-packaged skills, generated OPL plugin surfaces, and reload guidance.
-- OPL Flow owns only the Workflow Profile layer: `AGENTS.md`, `TASTE.md`, role prompts, the `opl-flow` plugin, and OPL Flow-owned guardrails.
+- OPL Flow owns only the Workflow Profile semantics: `AGENTS.md`, `TASTE.md`, decision lenses, the `opl-flow` plugin, and OPL Flow-owned guardrails.
 - On a fresh machine with no user-level `~/.codex/AGENTS.md`, App-managed initialization can install the OPL Flow plugin and rendered user profile directly.
 - On a machine that already has Codex and user-level `AGENTS.md`, App-managed initialization must use OPL Flow's non-overwrite install path: install or stage the plugin payload, generate the merge packet, and let Codex perform the semantic merge before any profile apply.
-- OPL Flow installs the user-level workflow profile, the `opl-flow` plugin, and the OPL Flow-owned guardrails `risk-based-development-flow` and `codex-ops-kit`.
+- OPL Flow installs the user-level workflow profile, `opl-flow@opl-flow-local`, and the OPL Flow-owned guardrails `risk-based-development-flow` and `codex-ops-kit`.
 - OPL Flow should not overwrite user-owned `AGENTS.md`, and OPL App session context should respect existing user profile files.
-- Superpowers should remain the execution surface for its official skills; OPL Flow only routes to the active local profile. On this workflow, `lite` is the quiet default, `expanded` exposes v6 planning / SDD / review skills for long-chain implementation, and `full` is reserved for explicit official Superpowers use.
-- Ponytail can be installed alongside OPL Flow as an optional simplification lens. Keep its default `off` or `lite`; use it explicitly for YAGNI / over-engineering checks, not as a replacement for evidence, ops, or verification gates.
+- Superpowers should remain the execution surface for its official skills; OPL Flow only routes to the active local profile. `lite` keeps the focused debugger/TDD/verifier subset, `expanded` adds broad planning/worktree helpers, and `full` is reserved for explicit official Superpowers use.
+- Ponytail can be installed alongside OPL Flow as an optional simplification lens with default `lite`; use audit/review routing for YAGNI and over-engineering checks, not as a replacement for evidence, ops, or verification gates.
 - OPL Flow does not own OPL App/runtime readiness. Runtime substrate, companion tools, domain module health, GUI shell, App first-run state, and Full readiness belong to One Person Lab App / OPL Framework surfaces and should be checked there, not treated as OPL Flow profile gaps.
 - OPL App update management for OPL Flow must split plugin payload updates from profile updates. Plugin payloads can be staged and verified; user-level profile changes require a Codex semantic merge packet, review/apply, and rollback evidence.
 

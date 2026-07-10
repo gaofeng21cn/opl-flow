@@ -1,5 +1,8 @@
 from __future__ import annotations
 
+import argparse
+import json
+import shutil
 import tempfile
 import unittest
 from pathlib import Path
@@ -22,6 +25,32 @@ class CheckCompanionSkillsTests(unittest.TestCase):
             f'[[skills.config]]\npath = "{skill_path}"\n{enabled_line}\n',
             encoding="utf-8",
         )
+
+    def write_fake_codex(self, root: Path, plugin_root: Path) -> Path:
+        version = json.loads(
+            (plugin_root / ".codex-plugin" / "plugin.json").read_text(encoding="utf-8")
+        )["version"]
+        script = root / "bin" / "codex"
+        script.parent.mkdir(parents=True)
+        script.write_text(
+            "#!/usr/bin/env python3\n"
+            "import json, sys\n"
+            f"root = {str(plugin_root)!r}\n"
+            f"version = {version!r}\n"
+            "args = sys.argv[1:]\n"
+            "if args[:3] == ['plugin', 'marketplace', 'list']:\n"
+            "    print(json.dumps({'marketplaces': [{'name': 'opl-flow-local', 'root': root}]}))\n"
+            "elif args[:2] == ['plugin', 'list']:\n"
+            "    print(json.dumps({'installed': [{'pluginId': 'opl-flow@opl-flow-local', 'name': 'opl-flow', "
+            "'marketplaceName': 'opl-flow-local', 'version': version, 'installed': True, "
+            "'enabled': True, 'source': {'source': 'local', 'path': root}, "
+            "'marketplaceSource': {'sourceType': 'local', 'source': root}}], 'available': []}))\n"
+            "else:\n"
+            "    print('{}')\n",
+            encoding="utf-8",
+        )
+        script.chmod(0o755)
+        return script
 
     def test_detects_lite_profile_with_local_overrides(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
@@ -54,6 +83,10 @@ class CheckCompanionSkillsTests(unittest.TestCase):
                 status["local_overlay_skills"],
                 ["systematic-debugging", "test-driven-development", "verification-before-completion"],
             )
+            self.assertNotIn("brainstorming", check_companion_skills.SUPERPOWERS_LITE_SELECTED)
+            self.assertNotIn("using-git-worktrees", check_companion_skills.SUPERPOWERS_LITE_SELECTED)
+            self.assertIn("brainstorming", check_companion_skills.SUPERPOWERS_EXPANDED_SELECTED)
+            self.assertIn("using-git-worktrees", check_companion_skills.SUPERPOWERS_EXPANDED_SELECTED)
 
     def test_detects_expanded_and_full_profiles(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
@@ -104,7 +137,7 @@ class CheckCompanionSkillsTests(unittest.TestCase):
             (plugin_root / ".codex-plugin" / "plugin.json").write_text('{"name":"ponytail"}\n', encoding="utf-8")
             (home / ".config" / "ponytail").mkdir(parents=True)
             (home / ".config" / "ponytail" / "config.json").write_text(
-                '{\n  "defaultMode": "off"\n}\n',
+                '{\n  "defaultMode": "lite"\n}\n',
                 encoding="utf-8",
             )
 
@@ -119,8 +152,62 @@ class CheckCompanionSkillsTests(unittest.TestCase):
 
             self.assertTrue(status["ok"])
             self.assertEqual(status["sources"], ["plugin_cache"])
-            self.assertEqual(config["default_mode"], "off")
-            self.assertEqual(config["auto_activation"], "off")
+            self.assertEqual(config["default_mode"], "lite")
+            self.assertEqual(config["auto_activation"], "on")
+            self.assertEqual(config["recommended_default_mode"], "lite")
+            self.assertTrue(config["matches_opl_default"])
+
+    def test_runtime_guardrail_ready_rejects_source_and_staged_candidates(self) -> None:
+        status = {
+            "match_details": [
+                {"source": "bundled_repo", "runtime_discoverable": False},
+                {"source": "staged_local_plugin", "runtime_discoverable": False},
+            ]
+        }
+
+        self.assertFalse(check_companion_skills.runtime_skill_ready(status))
+
+        status["match_details"].append(
+            {"source": "codex_home", "runtime_discoverable": True}
+        )
+        self.assertTrue(check_companion_skills.runtime_skill_ready(status))
+
+    def test_strict_rejects_plugin_missing_one_native_guardrail(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            home = root / "home"
+            codex_home = home / ".codex"
+            plugins_dir = home / "plugins"
+            plugin_root = plugins_dir / "opl-flow"
+            shutil.copytree(Path(__file__).resolve().parents[1], plugin_root)
+            shutil.rmtree(plugin_root / "skills" / "risk-based-development-flow")
+
+            version = json.loads(
+                (plugin_root / ".codex-plugin" / "plugin.json").read_text(encoding="utf-8")
+            )["version"]
+            cache_root = codex_home / "plugins" / "cache" / "opl-flow-local" / "opl-flow" / version
+            shutil.copytree(plugin_root, cache_root)
+            check_companion_skills.install_local_plugin.install_profile(
+                Path(__file__).resolve().parents[1],
+                codex_home,
+            )
+            codex_bin = self.write_fake_codex(root, plugin_root)
+            args = argparse.Namespace(
+                home=str(home),
+                codex_home=str(codex_home),
+                plugins_dir=str(plugins_dir),
+                repo_root=str(Path(__file__).resolve().parents[1]),
+                skill_root=[str(Path(__file__).resolve().parents[1] / "skills")],
+                superpowers_root=str(codex_home / "superpowers"),
+                codex_bin=str(codex_bin),
+                strict=True,
+            )
+
+            result = check_companion_skills.check(args)
+
+            self.assertFalse(result["ok"])
+            self.assertEqual(result["blocking_missing"], ["risk-based-development-flow"])
+            self.assertFalse(result["compatibility"]["opl_flow_plugin_ready"])
 
 
 if __name__ == "__main__":

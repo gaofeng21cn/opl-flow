@@ -35,11 +35,11 @@ Source of truth:
 - OPL Flow: https://github.com/gaofeng21cn/opl-flow/blob/main/docs/new-machine-codex-setup.md
 
 目标:
-1. 安装并验证 OPL Flow，让 Codex 获得用户级 AGENTS.md、TASTE.md、planner/executor/debugger/verifier 角色库和 opl-flow 插件。
+1. 安装并验证 OPL Flow，让 Codex 获得用户级 AGENTS.md、TASTE.md、planner/executor/debugger/verifier decision lenses 和 opl-flow 插件。
 2. 完成后报告安装路径、备份位置、验证命令输出摘要、仍需人工处理的权限或网络问题。
 
 约束:
-- 修改前读取当前机器已有 ~/.codex、~/.agents/plugins/marketplace.json、~/plugins 和 opl-flow checkout 状态。
+- 修改前读取当前机器已有 ~/.codex、已配置 marketplace、~/plugins 和 opl-flow checkout 状态。
 - 不覆盖用户已有配置；若安装器会替换用户级 profile，确认其备份路径。
 - 遇到鉴权、网络、macOS 权限、GitHub 登录或系统安装权限阻塞时，停止并给出精确恢复步骤。
 ```
@@ -48,7 +48,7 @@ Source of truth:
 
 ### 1. OPL Flow
 
-OPL Flow owns the Codex-side working profile: user-level `AGENTS.md`, `TASTE.md`, role prompts, risk-based evidence routing, high-risk Codex ops routing, subagent/worktree lane contracts, Durable writeback, and completion verification.
+OPL Flow owns the Codex-side working profile: user-level `AGENTS.md`, `TASTE.md`, decision lenses, risk-based evidence routing, high-risk Codex ops routing, Durable writeback, and completion verification.
 
 ```bash
 git clone https://github.com/gaofeng21cn/opl-flow.git
@@ -69,8 +69,8 @@ semantic merge before any profile apply.
 
 Restart Codex after installation so plugin and skill discovery refresh.
 
-If this machine is initialized through One Person Lab App Full, OPL Flow is the
-Workflow Profile layer. The App may install its plugin payload alongside App
+If this machine is initialized through One Person Lab App Standard or Full, OPL Flow is a required
+workflow plugin package whose semantics are limited to the Workflow Profile layer. The App installs its plugin payload alongside App
 Binary, Runtime Substrate, Capability Packages, Companion Tools, and Codex
 Surface sync work, but those layers keep their own lifecycle and readiness
 evidence. On a fresh machine with no existing Codex profile, this is the same
@@ -131,16 +131,16 @@ python3 scripts/intelligence_enhancement.py uninstall --confirmation uninstall_c
 “一直在线”的可验证表述是注册为本机持久服务并通过 `status` 读回健康状态；
 系统睡眠、网络、上游服务或凭据问题仍可能让运行态需要 `repair` 或人工处理。
 
-Ponytail can be added when the user wants a live YAGNI / stdlib-first / over-engineering lens. Keep it optional and set the default to `off` or `lite` so it does not silently narrow evidence-sensitive OPL Flow work:
+Ponytail can be added when the user wants a live YAGNI / stdlib-first / over-engineering lens. Keep it optional and use the OPL Flow default `lite`:
 
 ```bash
 mkdir -p ~/.config/ponytail
-printf '{\n  "defaultMode": "off"\n}\n' > ~/.config/ponytail/config.json
+printf '{\n  "defaultMode": "lite"\n}\n' > ~/.config/ponytail/config.json
 codex plugin marketplace add DietrichGebert/ponytail
 codex plugin add ponytail@ponytail
 ```
 
-After installation, use `@ponytail lite`, `@ponytail`, `@ponytail-review`, or `@ponytail-audit` explicitly. Ponytail must not replace `risk-based-development-flow`, `codex-ops-kit` Git/release evidence, verifier, fresh-evidence, release/currentness/readiness, or completion-audit gates.
+After installation, `lite` activates automatically in new sessions. Use `@ponytail` to inspect or resume the configured mode, explicit level arguments to switch it, and `@ponytail-review` / `@ponytail-audit` as one-shot review surfaces. Ponytail must not replace `risk-based-development-flow`, `codex-ops-kit` Git/release evidence, verifier, fresh-evidence, release/currentness/readiness, or completion-audit gates.
 
 Use `ponytail-audit` for whole-repo or cross-repo cleanup candidate discovery. Use `ponytail-review` for concrete diffs, PRs, commit ranges, or worktree lanes before absorbing non-trivial cleanup/refactor/wrapper-retirement/dependency-thinning work. Skip the review gate only for read-only audits, docs-only changes, emergency hotfixes, tiny one-line fixes, or unavailable Ponytail, and record the reason.
 
@@ -150,7 +150,7 @@ Check the current machine with:
 python3 scripts/check_companion_skills.py
 ```
 
-The default checker verifies the OPL Flow-owned guardrails, reports optional companion coverage, and reads back the active Superpowers profile as `lite`, `expanded`, `full`, `custom`, or `not_configured`. Use strict mode when a task needs to fail closed if the bundled guardrail payload is not discoverable:
+The default checker reports the profile, exact plugin, runtime guardrails, optional companion coverage, and active Superpowers profile. Use strict mode when a task needs to fail closed unless the profile, plugin, and runtime-discoverable guardrails are ready:
 
 ```bash
 python3 scripts/check_companion_skills.py --strict
@@ -160,7 +160,7 @@ python3 scripts/check_companion_skills.py --strict
 
 | Layer | Entry | Installs or refreshes |
 | --- | --- | --- |
-| Workflow Profile | `opl-flow` | `~/plugins/opl-flow`, `~/.agents/plugins/marketplace.json`, `~/.codex/AGENTS.md`, `~/.codex/TASTE.md`, role prompts, `risk-based-development-flow`, and `codex-ops-kit` |
+| Workflow Profile | `opl-flow` | `~/plugins/opl-flow` as the independent `opl-flow-local` marketplace, `opl-flow@opl-flow-local`, `~/.codex/AGENTS.md`, `~/.codex/TASTE.md`, decision lenses, `risk-based-development-flow`, and `codex-ops-kit` |
 
 When an existing user-level `AGENTS.md` is present, the `~/.codex/AGENTS.md`
 entry above means "candidate profile plus Codex semantic merge packet", not
@@ -170,7 +170,7 @@ Key behavior after install:
 
 - Chinese, direct, evidence-oriented communication.
 - Direct / Inline / Durable task classification.
-- Planner / Executor / Debugger / Verifier prompt routing.
+- Planner / Executor / Debugger / Verifier decision lenses used in one continuous task.
 - Risk-based verification and TDD selection.
 - Fail-closed Git lane and GitHub release evidence through `codex-ops-kit`.
 - Fresh evidence boundaries for runtime truth, readiness, currentness, release, CI, and owner-route claims.
@@ -195,7 +195,7 @@ python3 ~/opl-flow/scripts/check_companion_skills.py
 python3 ~/opl-flow/scripts/intelligence_enhancement.py status
 ```
 
-Use `python3 ~/opl-flow/scripts/check_companion_skills.py --strict` when claiming the bundled OPL Flow guardrails are discoverable.
+Use `python3 ~/opl-flow/scripts/check_companion_skills.py --strict` when claiming the profile, exact installed plugin, and runtime guardrails are ready.
 
 If checkout paths differ, use the actual clone location in place of `~/opl-flow`.
 

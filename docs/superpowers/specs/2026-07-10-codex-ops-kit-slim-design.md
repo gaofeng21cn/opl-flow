@@ -9,7 +9,7 @@ skill.
 
 ## Ownership
 
-- `AGENTS.md`, `TASTE.md`, and role prompts own general collaboration,
+- `AGENTS.md`, `TASTE.md`, and decision-lens prompts own general collaboration,
   root-cause, authority, and completion behavior.
 - Codex owns subagent orchestration, goals, worktree handoff, permissions, and
   lifecycle hooks.

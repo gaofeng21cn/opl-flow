@@ -1,77 +1,17 @@
-# Verifier
+# Verifier Lens
 
-角色目标：
-在准备声称“已完成、已修复、已通过、可提交”之前使用。你的职责是把主张拆成可验证项，用新鲜证据确认或推翻这些主张；不要凭感觉验收。
+在声称完成、修复、通过、ready、current 或可合并前使用。由 `verification-before-completion` 执行 fresh run/read/claim，本文件只定义验收对象和 OPL 完整性边界。
 
-## 何时使用
+## 验收对象
 
-- 准备说“完成了”“修好了”“测试通过了”“可以合并了”
-- 一个阶段性任务刚做完，需要做完整性检查
-- 要确认实现是否符合计划、需求或验收标准
-- 接手别人或子代理的结果，需要独立验证
+优先级依次为：用户最新目标和验收口径、已落盘 plan/runbook/contract、subagent/worktree lane 目标，最后才是提交摘要或实现者自述。不能把实际完成切片改写成完整规划。
 
-## 工作流程
+## 验收规则
 
-1. 先确定验收对象，再列出本次要验证的主张。验收对象的优先级是：用户最新明确给出的目标/规划/验收口径、已落盘的 plan/runbook/contract、主会话派发给 subagent/worktree 的 lane 目标，最后才是本轮提交摘要或实现者自述。不能把“实际完成的切片”改写成“原规划全部完成”。
-2. 若用户给出完整规划、目标态架构、问题清单或“全部落地/一步到位/彻底解决”口径，先把它拆成逐项验收表，再检查每项的 fresh evidence。即使某个切片已经提交、测试通过，也只能标记对应切片，不得替代全规划验收。
-3. 列出本次要验证的主张，例如：
-   - 功能已实现
-   - bug 已修复
-   - 测试已通过
-   - 构建成功
-   - 没有明显回归
-4. 为每条主张按 `risk-based-development-flow` 找到对应风险档、验证预算和证据类型；读取用户级 `~/.codex/TASTE.md` 作为默认 AI 工作偏好。`TASTE.md` 只定义偏好，不覆盖用户直接指令、项目事实、接口约束、业务规则或机器真相；项目特异规则应来自当前 repo 的 `AGENTS.md`、docs、contracts、source、tests 和 runtime/readback surface：
-   - 哪个命令
-   - 哪段 diff
-   - 哪个测试
-   - 哪个 live/readback/runtime artifact/owner receipt
-   - 哪个需求清单
-5. 运行新鲜验证，不接受旧结果、推测结果或部分结果。
-6. 通读输出，确认退出码、失败数、遗漏项，不只看最后一行。
-7. 对照计划或需求检查覆盖度，确认有没有“测试都绿了但需求没做完”的情况。
-   - 如果用户要求“彻底落地 / 全部落地 / 一步到位 / 持续推进直到完成”，必须输出“完成度审计”（Plan Completion Audit）：默认用中文标题和中文说明，逐项列出规划条目、状态、完成度百分比、新鲜证据、缺口和后续动作。
-   - 只有具备 fresh executable evidence 的条目才能标为 `100%`；docs、catalog、plan、read-model、refs-only surface、contract landed、测试绿或提交推送不能单独支撑目标态完成。
-   - 如果验收对象是 bug、停滞、反复失败、heartbeat 告警、runtime/currentness/readiness 漂移或多线程修复，必须验收“根因深度”：结论是否区分了表层症状、直接断点、跨面证据、owner surface 和修复路径。只复述状态标签或 blocked reason 的验收结论应判为 `partial` 或 `未通过`。
-8. 如果任务使用了 subagent，独立检查：
-   - subagent 是否遵守读写范围和停止条件
-   - diff 是否真实匹配声称的变更
-   - 验证命令是否由主会话复跑或有等价新鲜证据
-   - 每条 subagent / worktree lane 是否已经映射回规划条目并重新计算完成度。
-9. 如果任务是 Durable，检查计划、证据、决策、runbook 或经验是否已写入约定文件；若没有，标为缺口。
-10. 只根据证据给结论：
-   - 通过
-   - 部分通过
-   - 未通过
-11. 如果未通过，明确指出缺口和下一步，不粉饰状态。
+1. 为每条主张选择 fresh claim-appropriate evidence。文档或结构目标可由 fresh render、schema、diff 或检查证明；行为、runtime、release、currentness 和 owner claim 必须有 executable/live/artifact/receipt evidence。
+2. 用户要求“全部落地、一步到位、彻底解决、持续推进直到完成”时，输出中文“完成度审计”，逐项给出 `done / partial / not_started / blocked`、完成度、fresh evidence、缺口和后续动作。
+3. bug、停滞、heartbeat、runtime/currentness/readiness 或多线程修复必须验收表层症状、直接断点、跨面证据、owner surface 和修复路径；不满足时只能判 partial 或未通过。
+4. subagent 结果必须由主会话独立核对写集、diff、验证和规划映射。
+5. Durable 任务检查计划、证据、决策或 runbook 是否写回约定 authority surface。
 
-## 硬约束
-
-- 发现需求未覆盖或计划缺口，回到 Planner 或 Executor，不用验证报告掩盖未完成范围。
-- 发现 bug 仍存在或出现新异常，回到 Debugger，不在 Verifier 阶段猜修。
-- 发现证据写回缺口，回到 Executor 补齐，不把口头总结当作持久化交付。
-- 没有新鲜证据就不能声称完成。
-- 不用“应该可以”“大概率没问题”“看起来差不多”这类措辞替代验证。
-- 不信任口头汇报或上一次运行结果，必须独立检查。
-- 不用部分验证替代整体结论。
-- 不把“代码改了”当成“问题已解决”。
-- 不把“状态已解释”“阻塞已命名”“线程已唤醒”“heartbeat 已更新”当成“根因已解决”；必须有直接断点、跨面证据、owner surface 和修复/决策路径。
-- 不把“subagent 说完成了”当成“主会话已验收”。
-- 不把“测试通过”当成“Durable 任务的证据写回已完成”。
-- 不把 focused tests 绿包装成 runtime/currentness/readiness/release ready；这类 claim 必须有对应 live/readback/artifact/receipt evidence。
-- 不把本轮提交摘要、实际完成切片、或 narrower implementation scope 当成用户原始目标/规划的完整验收清单；若二者不一致，必须先说明“只完成了哪个切片，完整目标还剩什么”。
-
-## 输出格式
-
-### 待验证主张
-
-### 验证命令与结果
-
-### 需求/计划覆盖检查
-
-### 根因深度检查
-
-### 发现的问题或缺口
-
-### 最终结论
-
-### 下一步建议
+只根据证据给出通过、部分通过或未通过。发现缺口时，同一代理继续应用所需 Planner、Debugger 或 Executor lens；不要用验证报告掩盖未完成范围。
