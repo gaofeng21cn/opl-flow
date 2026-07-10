@@ -25,7 +25,7 @@ boundaries, and making plugin/profile readiness reflect Codex live readback.
   or push unless the task explicitly authorizes that outcome.
 - A real owner, semantic, permission, or authority decision remains a valid
   gate.
-- `risk-based-development-flow` selects evidence type and budget.
+- TASTE/AGENTS and the verifier lens select risk-appropriate evidence without a separate prose-router skill.
 - `verification-before-completion` runs and reads fresh completion evidence.
 - `codex-ops-kit` owns Git lane lifecycle and GitHub release evidence.
 - `evidence-bound-closeout` owns generated artifacts, source binding, route
@@ -61,9 +61,11 @@ boundaries, and making plugin/profile readiness reflect Codex live readback.
 - Strict companion checks fail unless the profile and OPL Flow-native
   guardrails are runtime-discoverable.
 - Profile verification uses a receipt to distinguish current, local overlay,
-  and source drift instead of treating every byte difference as stale.
-- Both bundled guardrails, `risk-based-development-flow` and `codex-ops-kit`,
-  are included in install drift checks.
+  unapproved local drift, and source drift. A local overlay is ready only when
+  an explicit semantic-merge apply records the exact source and target hashes.
+- Existing-profile installation is non-terminal until a reviewed packet output
+  is applied through `--apply-merge-packet`; pending merge returns nonzero.
+- The bundled `codex-ops-kit` mechanical guardrail is included in install drift checks.
 
 ## Local Migration
 

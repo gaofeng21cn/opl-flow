@@ -18,7 +18,7 @@ It is inspired by Trellis and Superpowers, but stays Codex-first:
 
 - Direct / Inline / Durable task tiers.
 - Planner / Executor / Debugger / Verifier decision lenses used continuously by one agent.
-- Bundled risk-based development flow for verification budget, test additions, TDD selection, and completion evidence.
+- Risk-aware evidence and narrow TDD rules in TASTE/AGENTS and the verifier lens.
 - Bundled `codex-ops-kit` for fail-closed Git worktree/subagent lane evidence and live GitHub release URL/asset/install-command audits.
 - Codex inline execution by default.
 - Subagent/worktree lane contract for scoped parallel work.
@@ -86,9 +86,17 @@ sources, and a Codex merge prompt. Semantic merging must be performed by Codex
 from that packet; the installer does not use heuristic script merging for
 profile semantics.
 
+The pending install returns a nonzero status. After reviewing the complete
+`output/` set and `merge-report.md`, apply it and record the approved receipt:
+
+```bash
+python3 scripts/install_local_plugin.py --apply-merge-packet <packet-path>
+python3 scripts/install_local_plugin.py --verify-only
+```
+
 `~/.codex/TASTE.md` carries default AI work principles. Repo-specific facts, local boundaries, and project development rules belong in `AGENTS.md`, docs, contracts, source, tests, and runtime/readback evidence rather than duplicated repo-local taste files.
 
-The profile routes to companion skills by name. OPL Flow bundles the profile-native guardrails `risk-based-development-flow` and `codex-ops-kit` so a fresh install raises Codex's behavioral floor without a separate local skill copy. OPL Flow is a required Standard and Full `workflow_plugin_package`, while its semantic ownership remains limited to the Workflow Profile layer. OPL App Full may install the Superpowers execution surface, common companion skills, companion tools, and other OPL capability packages through their own lifecycle planes; OPL Flow only detects and routes to those surfaces when present. It preserves the current local Superpowers profile by default; switching to official full Superpowers is an explicit user choice, not an installer side effect. `agent-browser`, Ponytail, RTK, and CodeGraph remain optional machine-level enhancements.
+The profile routes to companion skills by name. OPL Flow bundles only `codex-ops-kit`, because Git lane and public release checks need deterministic fail-closed machinery; general risk judgment stays in the thin profile. OPL Flow is a required Standard and Full `workflow_plugin_package`, while its semantic ownership remains limited to the Workflow Profile layer. OPL App Full may install the Superpowers execution surface, common companion skills, companion tools, and other OPL capability packages through their own lifecycle planes; OPL Flow only detects and routes to those surfaces when present. It preserves the current local Superpowers profile by default; switching to official full Superpowers is an explicit user choice, not an installer side effect. `agent-browser`, Ponytail, RTK, and CodeGraph remain optional machine-level enhancements.
 
 Check a machine with:
 
@@ -107,7 +115,7 @@ codex plugin marketplace add DietrichGebert/ponytail
 codex plugin add ponytail@ponytail
 ```
 
-The Ponytail plugin owns its active mode. OPL Flow does not claim task-driven automatic `full/ultra` switches; it routes `ponytail-audit` for broad candidate discovery and `ponytail-review` for concrete diffs. Ponytail must not override OPL Flow's `risk-based-development-flow`, `codex-ops-kit` Git/release evidence, verifier, fresh-evidence, or completion-audit rules.
+The Ponytail plugin owns its active mode. OPL Flow does not claim task-driven automatic `full/ultra` switches; it routes `ponytail-audit` for broad candidate discovery and `ponytail-review` for concrete diffs. Ponytail must not override risk-aware evidence, `codex-ops-kit` Git/release evidence, verifier, fresh-evidence, or completion-audit rules.
 
 OPL Flow routes Ponytail by artifact shape: `ponytail-audit` is for whole-repo or cross-repo cleanup candidate discovery; `ponytail-review` is for a concrete diff, PR, commit range, or worktree lane before absorption when the change is a non-trivial cleanup/refactor/wrapper-retirement/dependency-thinning lane.
 
@@ -241,7 +249,7 @@ OPL Flow is a required workflow plugin package in One Person Lab App Standard an
 - OPL Flow owns only the Workflow Profile semantics: `AGENTS.md`, `TASTE.md`, decision lenses, the `opl-flow` plugin, and OPL Flow-owned guardrails.
 - On a fresh machine with no user-level `~/.codex/AGENTS.md`, App-managed initialization can install the OPL Flow plugin and rendered user profile directly.
 - On a machine that already has Codex and user-level `AGENTS.md`, App-managed initialization must use OPL Flow's non-overwrite install path: install or stage the plugin payload, generate the merge packet, and let Codex perform the semantic merge before any profile apply.
-- OPL Flow installs the user-level workflow profile, `opl-flow@opl-flow-local`, and the OPL Flow-owned guardrails `risk-based-development-flow` and `codex-ops-kit`.
+- OPL Flow installs the user-level workflow profile, `opl-flow@opl-flow-local`, and the OPL Flow-owned mechanical guardrail `codex-ops-kit`.
 - OPL Flow should not overwrite user-owned `AGENTS.md`, and OPL App session context should respect existing user profile files.
 - Superpowers should remain the execution surface for its official skills; OPL Flow only routes to the active local profile. `lite` keeps the focused debugger/TDD/verifier subset, `expanded` adds broad planning/worktree helpers, and `full` is reserved for explicit official Superpowers use.
 - Ponytail can be installed alongside OPL Flow as an optional simplification lens with default `lite`; use audit/review routing for YAGNI and over-engineering checks, not as a replacement for evidence, ops, or verification gates.

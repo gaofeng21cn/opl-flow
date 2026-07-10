@@ -180,7 +180,7 @@ class CheckCompanionSkillsTests(unittest.TestCase):
             plugins_dir = home / "plugins"
             plugin_root = plugins_dir / "opl-flow"
             shutil.copytree(Path(__file__).resolve().parents[1], plugin_root)
-            shutil.rmtree(plugin_root / "skills" / "risk-based-development-flow")
+            shutil.rmtree(plugin_root / "skills" / "codex-ops-kit")
 
             version = json.loads(
                 (plugin_root / ".codex-plugin" / "plugin.json").read_text(encoding="utf-8")
@@ -206,8 +206,44 @@ class CheckCompanionSkillsTests(unittest.TestCase):
             result = check_companion_skills.check(args)
 
             self.assertFalse(result["ok"])
-            self.assertEqual(result["blocking_missing"], ["risk-based-development-flow"])
+            self.assertEqual(result["blocking_missing"], ["codex-ops-kit"])
             self.assertFalse(result["compatibility"]["opl_flow_plugin_ready"])
+
+    def test_strict_rejects_unapproved_profile_drift(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            home = root / "home"
+            codex_home = home / ".codex"
+            plugins_dir = home / "plugins"
+            plugin_root = plugins_dir / "opl-flow"
+            shutil.copytree(Path(__file__).resolve().parents[1], plugin_root)
+            version = json.loads(
+                (plugin_root / ".codex-plugin" / "plugin.json").read_text(encoding="utf-8")
+            )["version"]
+            cache_root = codex_home / "plugins" / "cache" / "opl-flow-local" / "opl-flow" / version
+            shutil.copytree(plugin_root, cache_root)
+            check_companion_skills.install_local_plugin.install_profile(
+                Path(__file__).resolve().parents[1],
+                codex_home,
+            )
+            (codex_home / "AGENTS.md").write_text("custom only\n", encoding="utf-8")
+            codex_bin = self.write_fake_codex(root, plugin_root)
+            args = argparse.Namespace(
+                home=str(home),
+                codex_home=str(codex_home),
+                plugins_dir=str(plugins_dir),
+                repo_root=str(Path(__file__).resolve().parents[1]),
+                skill_root=[str(Path(__file__).resolve().parents[1] / "skills")],
+                superpowers_root=str(codex_home / "superpowers"),
+                codex_bin=str(codex_bin),
+                strict=True,
+            )
+
+            result = check_companion_skills.check(args)
+
+            self.assertFalse(result["ok"])
+            self.assertEqual(result["profile"]["status"], "merge_required")
+            self.assertFalse(result["compatibility"]["opl_flow_profile_ready"])
 
 
 if __name__ == "__main__":

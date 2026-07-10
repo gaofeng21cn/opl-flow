@@ -486,7 +486,7 @@ def check(args: argparse.Namespace) -> dict[str, Any]:
             "missing_guardrails": blocking_missing,
             "native_guardrail_sources": native_guardrail_sources,
             "notes": [
-                "OPL Flow bundles risk-based-development-flow and codex-ops-kit as profile-native guardrails.",
+                "OPL Flow bundles codex-ops-kit as its profile-native mechanical guardrail.",
                 "OPL App Full Superpowers satisfies the Superpowers execution surface when superpowers.ok is true.",
                 "OPL Flow preserves the current local Superpowers profile unless the user explicitly asks for full Superpowers.",
                 "Use --strict to fail closed unless the profile, exact installed/cache payload, and runtime guardrails are ready.",

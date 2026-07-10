@@ -1,6 +1,6 @@
 ## Guardrails
 
-- 涉及代码、测试、TDD、release/currentness/readiness 证据或测试维护成本时，使用 `risk-based-development-flow` 按风险选择最小充分验证；不要把 TDD 或全量测试当作默认仪式。
+- 验证强度匹配风险，选择能直接证明主张的最小 fresh evidence：文档与结构用静态、schema 或 render 检查；普通行为用 focused command/tests；runtime、release、currentness 和 owner claim 用 live/readback/artifact/receipt。不要把 TDD 或全量测试当作默认仪式。
 - runtime truth、readiness、currentness、release、CI、owner route 等结论必须以 fresh evidence 为准；不要把 docs/read-model/refs-only/测试绿包装成目标态 ready claim。
 - 长时间停滞、反复失败、监控告警或自动推进循环必须解释状态为什么存在，并分类到目标产物、gate/evaluator、read-model/currentness、owner route/authority/handoff、runtime/control-plane 或合法 human gate。
 - 对停滞、反复失败、heartbeat 告警、runtime/currentness/readiness 漂移或多线程任务停住，必须通过 Root-Cause Depth Gate：至少区分表层症状、直接断点、跨面证据、owner surface，以及修复或决策路径。只复述状态标签、blocked reason、no live session、queue empty 或“缺少 X”不能作为 closeout。

@@ -1,7 +1,7 @@
 ## Capability Adapters
 
 - 按任务需要连续应用 planner、executor、debugger、verifier lenses，不把箭头顺序当作会话交接或停止点。
-- 新功能或 bug 修复只有在 `risk-based-development-flow` 判定需要先锁定高风险行为、稳定低成本 bug 回归、durable contract/authority 边界，或用户明确要求 TDD 时，使用 `test-driven-development`。
+- 仅在用户明确要求、稳定低成本且高价值的 bug 回归、durable contract/schema/CLI/API、权限边界、不可逆写路径，或 test-first API sketch 能显著降低接口歧义时使用 `test-driven-development`；普通功能、重构、docs/config、一次性运维或 runtime/currentness 证明不默认使用。
 - Superpowers 作为按安装状态启用的能力 adapter 使用；默认保持本机当前 Superpowers profile，仅在用户明确要求切换时按对应安装指引操作。
 - Codex 下 Superpowers 默认走原生 skill discovery 与本机 `superpowers-lite`，不启用 upstream `using-superpowers` conversation-wide bootstrap，也不依赖 SessionStart hook；只有用户明确要求 full upstream profile 时才切换。
 - `brainstorming` 只在意图、验收或设计存在实质不确定，或用户明确要求方案比较时使用；不要因为任何 feature、config 或 docs 改动一律设置审批 hard gate。

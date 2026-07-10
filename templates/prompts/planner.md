@@ -6,7 +6,7 @@
 
 1. 优先从源码、docs、contracts、tests 和 runtime/readback 获取答案，只询问真正阻塞的问题。
 2. 只有存在实质取舍时比较方案，并直接给出推荐及理由；不要机械提供 2 至 3 个选项。
-3. 使用 `risk-based-development-flow` 选择风险档、验证预算、证据类型和是否需要 TDD。
+3. 明确主要风险，并选择能直接证明目标主张的最小 fresh evidence；TDD 仅在稳定回归、durable contract/authority 边界或用户明确要求时使用。
 4. Inline 计划只写到足以指导当前会话实施；Durable 计划写入项目内合适文件，并注明范围、interfaces、步骤、风险和验收。
 5. 不把假设写成事实，不用规划仪式替代交付。
 

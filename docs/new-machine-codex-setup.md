@@ -77,15 +77,22 @@ evidence. On a fresh machine with no existing Codex profile, this is the same
 as a normal fresh OPL Flow install. On a machine that already has Codex, OPL
 Flow still follows the non-overwrite path: install or stage the plugin payload,
 generate the merge packet, and let Codex perform the semantic profile merge.
+The install remains non-terminal until the reviewed packet output is applied:
+
+```bash
+python3 scripts/install_local_plugin.py --apply-merge-packet <packet-path>
+python3 scripts/install_local_plugin.py --verify-only
+```
 
 If this machine was installed through One Person Lab App Full, the Superpowers execution surface and common companion skills are normally already packaged. OPL Flow is compatible with that setup and should not duplicate or replace those skills.
 
 OPL Flow should preserve the machine's current Superpowers profile. A local `lite` or `expanded` profile keeps upstream `using-superpowers` disabled and routes only selected skills into Codex discovery; official `full` Superpowers should be enabled only when the user explicitly asks for that mode.
 
-OPL Flow bundles its profile-native guardrails:
+OPL Flow bundles one profile-native mechanical guardrail:
 
-- `risk-based-development-flow`
 - `codex-ops-kit`
+
+Risk-aware evidence selection and TDD routing live in TASTE/AGENTS and the verifier lens rather than a separate prose-router skill.
 
 OPL App Full / companion layers normally cover:
 
@@ -140,7 +147,7 @@ codex plugin marketplace add DietrichGebert/ponytail
 codex plugin add ponytail@ponytail
 ```
 
-After installation, `lite` activates automatically in new sessions. Use `@ponytail` to inspect or resume the configured mode, explicit level arguments to switch it, and `@ponytail-review` / `@ponytail-audit` as one-shot review surfaces. Ponytail must not replace `risk-based-development-flow`, `codex-ops-kit` Git/release evidence, verifier, fresh-evidence, release/currentness/readiness, or completion-audit gates.
+After installation, `lite` activates automatically in new sessions. Use `@ponytail` to inspect or resume the configured mode, explicit level arguments to switch it, and `@ponytail-review` / `@ponytail-audit` as one-shot review surfaces. Ponytail must not replace risk-aware evidence, `codex-ops-kit` Git/release evidence, verifier, fresh-evidence, release/currentness/readiness, or completion-audit gates.
 
 Use `ponytail-audit` for whole-repo or cross-repo cleanup candidate discovery. Use `ponytail-review` for concrete diffs, PRs, commit ranges, or worktree lanes before absorbing non-trivial cleanup/refactor/wrapper-retirement/dependency-thinning work. Skip the review gate only for read-only audits, docs-only changes, emergency hotfixes, tiny one-line fixes, or unavailable Ponytail, and record the reason.
 
@@ -160,7 +167,7 @@ python3 scripts/check_companion_skills.py --strict
 
 | Layer | Entry | Installs or refreshes |
 | --- | --- | --- |
-| Workflow Profile | `opl-flow` | `~/plugins/opl-flow` as the independent `opl-flow-local` marketplace, `opl-flow@opl-flow-local`, `~/.codex/AGENTS.md`, `~/.codex/TASTE.md`, decision lenses, `risk-based-development-flow`, and `codex-ops-kit` |
+| Workflow Profile | `opl-flow` | `~/plugins/opl-flow` as the independent `opl-flow-local` marketplace, `opl-flow@opl-flow-local`, `~/.codex/AGENTS.md`, `~/.codex/TASTE.md`, decision lenses, and `codex-ops-kit` |
 
 When an existing user-level `AGENTS.md` is present, the `~/.codex/AGENTS.md`
 entry above means "candidate profile plus Codex semantic merge packet", not

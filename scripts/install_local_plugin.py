@@ -21,15 +21,13 @@ PROFILE_NAMES = ("AGENTS.md", "TASTE.md")
 PROMPT_NAMES = ("planner.md", "executor.md", "debugger.md", "verifier.md")
 MERGE_PACKET_SCHEMA = "opl_flow_profile_merge_packet.v1"
 PROFILE_RECEIPT_SCHEMA = "opl_flow_profile_install_receipt.v1"
-GUARDRAIL_SKILLS = ("risk-based-development-flow", "codex-ops-kit")
+GUARDRAIL_SKILLS = ("codex-ops-kit",)
 COPY_IGNORE_NAMES = (".git", ".worktrees", ".pytest_cache", "__pycache__", ".DS_Store")
 PLUGIN_REQUIRED_FILES = (
     ".agents/plugins/marketplace.json",
     ".codex-plugin/plugin.json",
     "skills/opl-flow/SKILL.md",
     "skills/opl-flow/agents/openai.yaml",
-    "skills/risk-based-development-flow/SKILL.md",
-    "skills/risk-based-development-flow/agents/openai.yaml",
     "skills/codex-ops-kit/SKILL.md",
     "skills/codex-ops-kit/agents/openai.yaml",
     "skills/codex-ops-kit/scripts/codex_ops_gate.py",
@@ -138,7 +136,7 @@ def profile_state(repo_root: Path, codex_home: Path) -> dict[str, Any]:
 
     approved_source = receipt.get("source_hashes")
     approved_target = receipt.get("target_hashes")
-    if source_hashes == approved_source:
+    if source_hashes == approved_source and target_hashes == approved_target:
         return {"status": "local_overlay", "missing": [], "receipt": str(receipt_path)}
     if target_hashes == approved_target and approved_target == approved_source:
         return {"status": "source_update", "missing": [], "receipt": str(receipt_path)}
@@ -414,7 +412,7 @@ Rules:
 4. Keep `AGENTS.md` focused on workflow, guardrails, capability adapters, tool preferences, and managed block policy.
 5. Do not hardcode project/domain instance facts into the user-level `AGENTS.md`; route them to the owning repo `AGENTS.md`, docs, contracts, runtime/readback, or explicit context overlay.
 6. Preserve official marker blocks and managed tool blocks unless the corresponding tool is confirmed retired.
-7. Preserve OPL Flow's risk, verifier, fresh-evidence, root-cause, ops, and completion-audit guardrails.
+7. Preserve OPL Flow's risk-aware evidence, verifier, fresh-evidence, root-cause, ops, and completion-audit guardrails.
 8. Preserve capability adapters such as RTK, CodeGraph, MinerU, agent-browser, Superpowers, and Ponytail as adapters, not project facts.
 9. Report any unresolved conflict instead of silently deleting or weakening behavior.
 
@@ -422,7 +420,7 @@ Write outputs under `output/`:
 
 - `output/AGENTS.md`: merged user-level AGENTS profile
 - `output/TASTE.md`: merged or selected TASTE principles file
-- `output/prompts/*.md`: selected prompt files if changes are needed
+- `output/prompts/*.md`: all four merged decision-lens prompt files
 - `output/merge-report.md`: what was preserved, changed, rejected, and why
 
 Do not apply the merge directly to `~/.codex`. The installer or operator will
@@ -431,7 +429,7 @@ review and apply the output after this semantic merge is complete.
 
 
 def create_merge_packet(repo_root: Path, codex_home: Path, reason: str) -> dict[str, Any]:
-    timestamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
+    timestamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%S%fZ")
     packet = codex_home / "state" / PLUGIN_NAME / "profile-merge" / timestamp
     packet.mkdir(parents=True, exist_ok=False)
     copied_existing = copy_existing_profile(codex_home, packet)
@@ -451,6 +449,7 @@ def create_merge_packet(repo_root: Path, codex_home: Path, reason: str) -> dict[
         "prompt": "prompt.md",
         "output_dir": "output",
         "apply_policy": "review_codex_output_then_apply_with_backup",
+        "apply_command": f"python3 scripts/install_local_plugin.py --apply-merge-packet {packet}",
         "script_merge_policy": "disabled",
     }
     write_json(packet / "merge-plan.json", plan)
@@ -463,8 +462,55 @@ def create_merge_packet(repo_root: Path, codex_home: Path, reason: str) -> dict[
     }
 
 
+def apply_merge_packet(repo_root: Path, codex_home: Path, packet: Path) -> dict[str, Any]:
+    packet = packet.expanduser().resolve()
+    merge_root = (codex_home / "state" / PLUGIN_NAME / "profile-merge").resolve()
+    if packet.parent != merge_root:
+        raise ValueError(f"merge packet must be directly under {merge_root}: {packet}")
+
+    plan_path = packet / "merge-plan.json"
+    plan = load_json(plan_path)
+    if plan.get("schema") != MERGE_PACKET_SCHEMA or plan.get("plugin") != PLUGIN_NAME:
+        raise ValueError(f"invalid OPL Flow merge packet: {packet}")
+    if plan.get("status") != "requires_codex_semantic_merge":
+        raise ValueError(f"merge packet is not pending: {plan.get('status')}")
+
+    output = packet / "output"
+    output_files = [(output / name, codex_home / name) for name in PROFILE_NAMES]
+    output_files.extend((output / "prompts" / name, codex_home / "prompts" / name) for name in PROMPT_NAMES)
+    required = [source for source, _ in output_files] + [output / "merge-report.md"]
+    missing = [str(path) for path in required if not path.is_file()]
+    if missing:
+        raise ValueError(f"merge packet output is incomplete: {missing}")
+
+    timestamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%S%fZ")
+    backup_root = codex_home / "backups" / PLUGIN_NAME / timestamp
+    changed: list[str] = []
+    for source, target in output_files:
+        if backup_and_copy(source, target, backup_root):
+            changed.append(str(target))
+
+    receipt = write_profile_receipt(repo_root, codex_home)
+    plan.update(
+        {
+            "status": "applied",
+            "applied_at": datetime.now(timezone.utc).isoformat(),
+            "receipt": str(receipt),
+            "backup_root": str(backup_root) if backup_root.exists() else None,
+        }
+    )
+    write_json(plan_path, plan)
+    return {
+        "status": "applied",
+        "changed": changed,
+        "backup_root": str(backup_root) if backup_root.exists() else None,
+        "merge_packet": str(packet),
+        "receipt": str(receipt),
+    }
+
+
 def install_profile(repo_root: Path, codex_home: Path) -> dict[str, Any]:
-    timestamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
+    timestamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%S%fZ")
     backup_root = codex_home / "backups" / PLUGIN_NAME / timestamp
     changed: list[str] = []
 
@@ -528,8 +574,10 @@ def install(
     marketplace_path = plugin_path / MARKETPLACE_MANIFEST
     plugin_result = install_codex_plugin(codex_bin, plugin_path)
     profile_result = install_profile(repo_root, codex_home) if profile else {"status": "skipped", "changed": [], "backup_root": None}
+    pending_merge = profile_result["status"] == "requires_codex_semantic_merge"
     return {
-        "status": "installed",
+        "ok": not pending_merge,
+        "status": "profile_merge_required" if pending_merge else "installed",
         "plugin_path": str(plugin_path),
         "marketplace_path": str(marketplace_path),
         "codex": plugin_result,
@@ -665,7 +713,12 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--codex-home", default=str(Path.home() / ".codex"))
     parser.add_argument("--codex-bin", default=shutil.which("codex") or "codex")
     parser.add_argument("--no-profile", action="store_true", help="Install the plugin without syncing AGENTS.md and prompts.")
-    parser.add_argument("--verify-only", action="store_true", help="Only verify an existing install.")
+    mode = parser.add_mutually_exclusive_group()
+    mode.add_argument("--verify-only", action="store_true", help="Only verify an existing install.")
+    mode.add_argument(
+        "--apply-merge-packet",
+        help="Apply a reviewed semantic-merge packet output and record its profile receipt.",
+    )
     return parser.parse_args()
 
 
@@ -677,6 +730,13 @@ def main() -> int:
     codex_bin = str(Path(args.codex_bin).expanduser()) if "/" in args.codex_bin else args.codex_bin
     profile = not args.no_profile
 
+    if args.apply_merge_packet:
+        if args.no_profile:
+            raise ValueError("--apply-merge-packet cannot be combined with --no-profile")
+        result = apply_merge_packet(repo_root, codex_home, Path(args.apply_merge_packet))
+        print(json.dumps(result, indent=2, sort_keys=True))
+        return 0
+
     if args.verify_only:
         result = verify(repo_root, plugins_dir, codex_home, profile, codex_bin)
         print(json.dumps(result, indent=2, sort_keys=True))
@@ -684,7 +744,7 @@ def main() -> int:
 
     result = install(repo_root, plugins_dir, codex_home, profile, codex_bin)
     print(json.dumps(result, indent=2, sort_keys=True))
-    return 0
+    return 0 if result["ok"] else 2
 
 
 if __name__ == "__main__":

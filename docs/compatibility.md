@@ -29,7 +29,7 @@ or domain systems ready by itself.
 | --- | --- | --- |
 | Workflow profile | OPL Flow | `~/.codex/AGENTS.md`, `~/.codex/TASTE.md`, planner/executor/debugger/verifier prompts |
 | Generic OPL Flow skill | OPL Flow | `skills/opl-flow` |
-| Risk selection guardrail | OPL Flow | `skills/risk-based-development-flow` |
+| Risk-aware evidence selection | OPL Flow profile | `TASTE.md`, `AGENTS.md`, and verifier lens; no separate prose-router skill |
 | Git lane and GitHub release audit | OPL Flow | `skills/codex-ops-kit` |
 | Debugging / verification execution | Superpowers / companion skills | Not vendored by OPL Flow; routed to when installed |
 | Simplification / over-engineering review | Ponytail | Optional companion plugin; detected but not required |

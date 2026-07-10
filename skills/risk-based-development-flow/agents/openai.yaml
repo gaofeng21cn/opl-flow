@@ -1,4 +1,0 @@
-interface:
-  display_name: "Risk-Based Development Flow"
-  short_description: "Choose verification and TDD effort by risk instead of ritual."
-  default_prompt: "Use $risk-based-development-flow to classify this coding task, choose the minimum sufficient verification budget, and decide whether TDD is warranted."
