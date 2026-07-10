@@ -47,14 +47,6 @@ REQUIRED_FILES = (
     "profile/modules/08-managed-block-policy.md",
 )
 
-TEST_MODULES = (
-    "tests.test_codex_ops_kit",
-    "tests.test_check_companion_skills",
-    "tests.test_install_local_plugin",
-    "tests.test_repo_profile",
-)
-
-
 def require(text: str, needle: str, message: str, errors: list[str]) -> None:
     if needle not in text:
         errors.append(message)
@@ -204,7 +196,17 @@ def check_retired_skill(repo_root: Path) -> list[str]:
 
 def check_contract_tests(repo_root: Path) -> list[str]:
     result = subprocess.run(
-        [sys.executable, "-m", "unittest", "-v", *TEST_MODULES],
+        [
+            sys.executable,
+            "-m",
+            "unittest",
+            "discover",
+            "-s",
+            "tests",
+            "-p",
+            "*test*.py",
+            "-v",
+        ],
         cwd=repo_root,
         check=False,
         stdout=subprocess.PIPE,

@@ -311,6 +311,45 @@ class InstallLocalPluginTests(unittest.TestCase):
             drift = install_local_plugin.verify_profile(repo, codex_home, profile=True)
             self.assertEqual(drift["status"], "merge_required")
 
+    def test_apply_merge_packet_rejects_source_drift(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            repo = root / "repo"
+            codex_home = root / "codex"
+            shutil.copytree(REPO_ROOT / "templates", repo / "templates")
+            codex_home.mkdir()
+            (codex_home / "AGENTS.md").write_text("custom user profile\n", encoding="utf-8")
+            pending = install_local_plugin.install_profile(repo, codex_home)
+            packet = Path(pending["merge_packet"])
+            self.write_merge_output(packet)
+            (repo / "templates" / "AGENTS.md").write_text(
+                (repo / "templates" / "AGENTS.md").read_text(encoding="utf-8") + "\nsource drift\n",
+                encoding="utf-8",
+            )
+
+            with self.assertRaisesRegex(ValueError, "source changed after packet creation"):
+                install_local_plugin.apply_merge_packet(repo, codex_home, packet)
+
+            self.assertEqual((codex_home / "AGENTS.md").read_text(encoding="utf-8"), "custom user profile\n")
+
+    def test_apply_merge_packet_rejects_target_drift(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            repo = root / "repo"
+            codex_home = root / "codex"
+            shutil.copytree(REPO_ROOT / "templates", repo / "templates")
+            codex_home.mkdir()
+            (codex_home / "AGENTS.md").write_text("custom user profile\n", encoding="utf-8")
+            pending = install_local_plugin.install_profile(repo, codex_home)
+            packet = Path(pending["merge_packet"])
+            self.write_merge_output(packet)
+            (codex_home / "AGENTS.md").write_text("newer user edit\n", encoding="utf-8")
+
+            with self.assertRaisesRegex(ValueError, "target changed after packet creation"):
+                install_local_plugin.apply_merge_packet(repo, codex_home, packet)
+
+            self.assertEqual((codex_home / "AGENTS.md").read_text(encoding="utf-8"), "newer user edit\n")
+
     def test_profile_receipt_allows_safe_source_update_without_local_changes(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)

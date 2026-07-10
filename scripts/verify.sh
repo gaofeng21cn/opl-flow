@@ -5,4 +5,3 @@ repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$repo_root"
 
 python3 scripts/verify.py
-python3 -m unittest discover -s tests -p '*test*.py'

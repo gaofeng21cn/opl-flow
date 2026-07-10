@@ -65,6 +65,8 @@ boundaries, and making plugin/profile readiness reflect Codex live readback.
   an explicit semantic-merge apply records the exact source and target hashes.
 - Existing-profile installation is non-terminal until a reviewed packet output
   is applied through `--apply-merge-packet`; pending merge returns nonzero.
+- Merge packets bind both the candidate source hashes and the existing target
+  hashes. Apply fails closed if either side changes after packet creation.
 - The bundled `codex-ops-kit` mechanical guardrail is included in install drift checks.
 
 ## Local Migration

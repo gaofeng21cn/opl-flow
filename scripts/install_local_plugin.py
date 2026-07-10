@@ -432,6 +432,10 @@ def create_merge_packet(repo_root: Path, codex_home: Path, reason: str) -> dict[
     timestamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%S%fZ")
     packet = codex_home / "state" / PLUGIN_NAME / "profile-merge" / timestamp
     packet.mkdir(parents=True, exist_ok=False)
+    candidate_source_hashes, existing_target_hashes, existing_missing = profile_hashes(
+        repo_root,
+        codex_home,
+    )
     copied_existing = copy_existing_profile(codex_home, packet)
     copy_candidate_profile(repo_root, packet)
     (packet / "output").mkdir()
@@ -446,6 +450,9 @@ def create_merge_packet(repo_root: Path, codex_home: Path, reason: str) -> dict[
         "existing_files": copied_existing,
         "candidate_profile": "candidate/AGENTS.md",
         "candidate_manifest": "candidate/profile/manifest.json",
+        "candidate_source_hashes": candidate_source_hashes,
+        "existing_target_hashes": existing_target_hashes,
+        "existing_missing": existing_missing,
         "prompt": "prompt.md",
         "output_dir": "output",
         "apply_policy": "review_codex_output_then_apply_with_backup",
@@ -474,6 +481,18 @@ def apply_merge_packet(repo_root: Path, codex_home: Path, packet: Path) -> dict[
         raise ValueError(f"invalid OPL Flow merge packet: {packet}")
     if plan.get("status") != "requires_codex_semantic_merge":
         raise ValueError(f"merge packet is not pending: {plan.get('status')}")
+
+    current_source_hashes, current_target_hashes, current_missing = profile_hashes(
+        repo_root,
+        codex_home,
+    )
+    if current_source_hashes != plan.get("candidate_source_hashes"):
+        raise ValueError("profile source changed after packet creation; create a new merge packet")
+    if (
+        current_target_hashes != plan.get("existing_target_hashes")
+        or current_missing != plan.get("existing_missing")
+    ):
+        raise ValueError("profile target changed after packet creation; create a new merge packet")
 
     output = packet / "output"
     output_files = [(output / name, codex_home / name) for name in PROFILE_NAMES]

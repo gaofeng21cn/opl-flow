@@ -94,6 +94,9 @@ python3 scripts/install_local_plugin.py --apply-merge-packet <packet-path>
 python3 scripts/install_local_plugin.py --verify-only
 ```
 
+Packet apply is bound to the candidate source and existing target fingerprints
+captured at packet creation. If either side changes, generate a new packet.
+
 `~/.codex/TASTE.md` carries default AI work principles. Repo-specific facts, local boundaries, and project development rules belong in `AGENTS.md`, docs, contracts, source, tests, and runtime/readback evidence rather than duplicated repo-local taste files.
 
 The profile routes to companion skills by name. OPL Flow bundles only `codex-ops-kit`, because Git lane and public release checks need deterministic fail-closed machinery; general risk judgment stays in the thin profile. OPL Flow is a required Standard and Full `workflow_plugin_package`, while its semantic ownership remains limited to the Workflow Profile layer. OPL App Full may install the Superpowers execution surface, common companion skills, companion tools, and other OPL capability packages through their own lifecycle planes; OPL Flow only detects and routes to those surfaces when present. It preserves the current local Superpowers profile by default; switching to official full Superpowers is an explicit user choice, not an installer side effect. `agent-browser`, Ponytail, RTK, and CodeGraph remain optional machine-level enhancements.
