@@ -1,6 +1,6 @@
 interface:
   display_name: "Codex Ops Kit"
-  short_description: "高风险 Codex ops 护栏与 RHO 吸收工具包"
-  default_prompt: "Use $codex-ops-kit to route this high-risk Codex ops event to the right gate and playbook."
+  short_description: "Git lane 与 GitHub release 机械审计"
+  default_prompt: "Use $codex-ops-kit to audit this Git lane or GitHub release with fresh, fail-closed readback."
 policy:
   allow_implicit_invocation: true

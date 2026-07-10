@@ -27,7 +27,10 @@ skill.
    prohibition.
 2. `worktree_absorption_audit.py` classifies a clean lane as exact merged,
    tree-equivalent, patch-equivalent, ahead-not-absorbed, or owner review. Patch
-   equivalence must compare the lane commit set with the target.
+   equivalence must compare the lane commit set with the target. A lane that
+   contains merge commits may be accepted automatically only when it is exact
+   merged or tree-equivalent; otherwise merge-resolution equivalence requires
+   owner review because `git cherry` does not prove it.
 3. `release_url_audit.py` binds public GitHub release URLs and optional install
    commands to the canonical remote. Missing or failed GitHub release readback
    fails closed.

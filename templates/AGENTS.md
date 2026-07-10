@@ -43,16 +43,16 @@
 - “完成度审计”的验收项必须来自用户最新目标、原始规划、已落盘 plan/runbook/contract 或 lane 目标；不能用本轮实际完成的切片、提交摘要或测试清单替代完整规划。
 - “完成度审计”默认用中文标题和中文说明，逐项给出 `done / partial / not_started / blocked`、完成度百分比、新鲜证据、缺口和后续动作。
 - `100%` 只能用于已有 fresh executable evidence 的条目；docs、catalog、plan、read-model、refs-only surface、contract landed、测试绿或提交推送不能单独替代 runnable behavior、runtime artifact、owner receipt、end-to-end acceptance 或用户明确要求的目标态证据。
-- 同类 bug、CI 失败、release gate、远端同步、auth/secret、runtime authority、路径/工具边界、工作流漂移等问题形成可复用经验后，按 `codex-ops-kit` 的 Durable Writeback 路由写回合适 authority surface；一次性现象或未验证猜测不固化。
+- 同类 bug、CI 失败、release gate、远端同步、auth/secret、runtime authority、路径/工具边界、工作流漂移等问题形成可复用经验后，写回拥有该事实或合同的 repo-native authority surface；一次性现象或未验证猜测不固化。
 
 ## Ops And Authority Core
 
-- worktree/subagent lane 的 start/resume/delegate/absorb/merge/delete/closeout、跨仓或广域 manifest-style 变更、RHO/session-history 审计、release/install/realtime/synced/latest/fresh/currentness claim、generated/runtime/installed config drift、secret/cache freshness、长链路 evidence、二进制包边界，必须使用 `codex-ops-kit`。
-- dirty worktree、main 落后远端、ahead/behind、已有 worktree、未推本地提交、并发 lane 是可治理工程前置条件；按 `codex-ops-kit` 和 executor prompt 处理。只有同一写集冲突、source of truth 不清、验证无法覆盖、权限/外部依赖无法满足或需要真实 owner 决策时，才 blocked。
+- worktree/subagent Git lane 的 start/resume/delegate/absorb/merge/delete/closeout，以及公开 GitHub release URL、asset 或安装命令核验，使用 `codex-ops-kit` 获取 fail-closed 机械证据；普通 subagent 协作、RHO/session 审计、广域扫描、cache/runtime currentness、artifact QA 和 phase tracking 不由该 skill 管理。
+- dirty worktree、main 落后远端、ahead/behind、已有 worktree、未推本地提交、并发 lane 是可治理工程前置条件；对涉及的 lane 用 `codex-ops-kit` 读回 Git 事实，再按 executor prompt 处理。只有同一写集冲突、source of truth 不清、验证无法覆盖、权限/外部依赖无法满足或需要真实 owner 决策时，才 blocked。
 - 并发多会话/多 lane 时，若发现共享根 checkout 有脏写入，不要无限等待或阻断原任务；先定位对应对话、lane 和写集，可用时通过 thread steering 要求 owner 停止继续写根 checkout，把现有 dirty diff 迁入/吸收到隔离 worktree，在 worktree 内完成实现、验证后再吸收清理。当前会话不得覆盖该写集；只有 owner 不活跃、交出写集或 ownership gate 明确允许时，才可接管修复。
 - 涉及已有 repo/domain authority、runtime/readback、owner receipt、release authority 或既有 ledger 的项目，不创建第二套真相源；项目事实留在 repo 自身 contracts、runtime status、owner receipts、read models、release authority 或既有 ledgers。
 - 对彼此独立、无冲突、可并行的任务，可使用 subagent；仅在确有收益时启用，完成后及时关闭。
-- 用户要求“一起推进 / 全部落地 / 并行 worktree / 能做的都做掉”时，默认扩大到可安全并行的多 lane；lane 细节、提示格式、复核、吸收、推送和清理按 `codex-ops-kit`。
+- 用户要求“一起推进 / 全部落地 / 并行 worktree / 能做的都做掉”时，默认扩大到可安全并行的多 lane；subagent 提示、复核与任务管理按本 profile，Git lane 的 preflight、absorption 和 cleanup evidence 按 `codex-ops-kit`。
 - 未明确要求独立 Codex thread / background task 时，subagent 默认指当前对话内子代理。使用独立 Codex thread 时，主会话必须读结果、吸收或废弃、清理 worktree、归档 thread。
 - 使用 subagent / worktree 时，主会话必须独立复核 diff、验证和 lane 到规划条目的映射。
 - 多 subagent / worktree 任务默认借鉴 Superpowers v6 的轻量审查方式：长任务 brief、diff、review package 用文件传递；reviewer 只读且独立，不得被提示忽略发现或预设严重度；每任务优先一次合并审查 spec compliance 与 quality，重大多任务变更最后再做一次全局审查。
@@ -65,7 +65,7 @@
 - 需要隔离并行改动、避免污染当前工作区或用户明确要求 worktree 时，使用 `using-git-worktrees`。
 - Superpowers 作为按安装状态启用的能力 adapter 使用；默认保持本机当前 Superpowers profile，仅在用户明确要求切换时按对应安装指引操作。
 - Codex 下 Superpowers 默认走原生 skill discovery 与本机 `superpowers-lite`，不启用 upstream `using-superpowers` conversation-wide bootstrap，也不依赖 SessionStart hook；只有用户明确要求 full upstream profile 时才切换。
-- Ponytail 默认保持 `lite`，用于日常问答、状态阅读、方案比较、任务拆解、报告、completion audit、runtime/readiness/currentness 判断；它不能覆盖 `risk-based-development-flow`、`codex-ops-kit`、debugger、verifier、fresh evidence、owner route、completion audit、runtime/readiness/currentness 证据要求。
+- Ponytail 默认保持 `lite`，用于日常问答、状态阅读、方案比较、任务拆解、报告、completion audit、runtime/readiness/currentness 判断；它不能覆盖 `risk-based-development-flow`、`codex-ops-kit` 的 Git/release 机械审计、debugger、verifier、fresh evidence、owner route、completion audit、runtime/readiness/currentness 证据要求。
 - 具体开发任务自动提升到 `ponytail full`：实现功能、修 bug、重构、配置改动、脚本改动、测试改动、PR/diff review、worktree lane 吸收。`full` 下主动执行 Ponytail ladder：先判断是否需要存在，优先删除或复用现有代码，优先 stdlib/native/已有依赖，避免新增 wrapper/factory/未来扩展位，保持最小 diff；非平凡逻辑留下最小可运行检查。
 - 删除/瘦身专项才使用 `ponytail ultra`：用户明确要求“删除、瘦身、反过度设计、砍 wrapper、清历史残留、找哪里可以删、YAGNI audit、ponytail-audit”时触发；`ultra` 默认先输出候选清单和风险排序，只有用户明确要求执行时才做删除性修改。
 - 当任务同时命中 `full` 和 `ultra`，默认使用 `full`；只有任务主目标是删除/瘦身时才使用 `ultra`。用户要求“彻底落地 / 全部落地 / 一步到位 / 持续推进直到完成”时，Ponytail 只能压缩实现方式，不能缩小验收范围或把缺少 runtime/owner/end-to-end evidence 的条目报告为完成。

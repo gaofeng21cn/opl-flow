@@ -140,7 +140,7 @@ codex plugin marketplace add DietrichGebert/ponytail
 codex plugin add ponytail@ponytail
 ```
 
-After installation, use `@ponytail lite`, `@ponytail`, `@ponytail-review`, or `@ponytail-audit` explicitly. Ponytail must not replace `risk-based-development-flow`, `codex-ops-kit`, verifier, fresh-evidence, release/currentness/readiness, or completion-audit gates.
+After installation, use `@ponytail lite`, `@ponytail`, `@ponytail-review`, or `@ponytail-audit` explicitly. Ponytail must not replace `risk-based-development-flow`, `codex-ops-kit` Git/release evidence, verifier, fresh-evidence, release/currentness/readiness, or completion-audit gates.
 
 Use `ponytail-audit` for whole-repo or cross-repo cleanup candidate discovery. Use `ponytail-review` for concrete diffs, PRs, commit ranges, or worktree lanes before absorbing non-trivial cleanup/refactor/wrapper-retirement/dependency-thinning work. Skip the review gate only for read-only audits, docs-only changes, emergency hotfixes, tiny one-line fixes, or unavailable Ponytail, and record the reason.
 
@@ -172,7 +172,7 @@ Key behavior after install:
 - Direct / Inline / Durable task classification.
 - Planner / Executor / Debugger / Verifier prompt routing.
 - Risk-based verification and TDD selection.
-- High-risk Codex ops routing to `codex-ops-kit`.
+- Fail-closed Git lane and GitHub release evidence through `codex-ops-kit`.
 - Fresh evidence boundaries for runtime truth, readiness, currentness, release, CI, and owner-route claims.
 - Root-Cause Depth Gate for stalls, repeated failures, heartbeat findings, runtime/currentness/readiness drift, and multi-thread supervision.
 - Chinese "完成度审计" for target-state delivery, anchored to the original target or plan rather than the completed slice.

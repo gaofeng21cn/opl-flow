@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import shutil
 import tempfile
 import unittest
 from pathlib import Path
@@ -84,6 +85,37 @@ class InstallLocalPluginTests(unittest.TestCase):
             self.assertEqual(verify_result["profile_status"], "merge_required")
             self.assertEqual(verify_result["profile_merge_packet"], install_result["profile"]["merge_packet"])
             self.assertEqual((codex_home / "AGENTS.md").read_text(encoding="utf-8"), "custom user profile\n")
+
+    def test_verify_rejects_stale_or_extra_ops_skill_files(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            codex_home = root / "codex"
+            plugins_dir = root / "plugins"
+            marketplace = root / "marketplace.json"
+            codex_home.mkdir()
+            install_local_plugin.install(REPO_ROOT, plugins_dir, marketplace, codex_home, profile=False)
+
+            source_skill = REPO_ROOT / "skills" / "codex-ops-kit"
+            plugin_skill = plugins_dir / "opl-flow" / "skills" / "codex-ops-kit"
+            (plugin_skill / "SKILL.md").write_text("stale\n", encoding="utf-8")
+            (plugin_skill / "scripts" / "rho_wrapper.py").write_text("retired\n", encoding="utf-8")
+
+            local_skill = codex_home / "skills" / "codex-ops-kit"
+            shutil.copytree(source_skill, local_skill)
+            (local_skill / "SKILL.md").write_text("stale local\n", encoding="utf-8")
+
+            result = install_local_plugin.verify(
+                REPO_ROOT,
+                plugins_dir,
+                marketplace,
+                codex_home,
+                profile=False,
+            )
+
+            self.assertFalse(result["ok"])
+            self.assertIn("content:skills/codex-ops-kit/SKILL.md", result["plugin_mismatches"])
+            self.assertIn("unexpected:skills/codex-ops-kit/scripts/rho_wrapper.py", result["plugin_mismatches"])
+            self.assertIn("content:skills/codex-ops-kit/SKILL.md", result["local_skill_mismatches"])
 
 
 if __name__ == "__main__":

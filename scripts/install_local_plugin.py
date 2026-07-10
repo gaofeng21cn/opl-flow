@@ -25,8 +25,10 @@ PLUGIN_REQUIRED_FILES = (
     "skills/codex-ops-kit/SKILL.md",
     "skills/codex-ops-kit/agents/openai.yaml",
     "skills/codex-ops-kit/scripts/codex_ops_gate.py",
-    "skills/codex-ops-kit/scripts/rho_wrapper.py",
+    "skills/codex-ops-kit/scripts/worktree_absorption_audit.py",
+    "skills/codex-ops-kit/scripts/release_url_audit.py",
     "skills/codex-ops-kit/references/lane-closeout.md",
+    "skills/codex-ops-kit/references/release-currentness.md",
     "profile/manifest.json",
     "profile/modules/01-user-preferences.md",
     "profile/modules/02-role-baseline.md",
@@ -113,6 +115,19 @@ def profile_is_current(repo_root: Path, codex_home: Path) -> bool:
         if not target.exists() or not filecmp.cmp(source, target, shallow=False):
             return False
     return True
+
+
+def tree_mismatches(source: Path, target: Path, label: str) -> list[str]:
+    source_files = {path.relative_to(source) for path in source.rglob("*") if path.is_file()}
+    target_files = {path.relative_to(target) for path in target.rglob("*") if path.is_file()} if target.exists() else set()
+    mismatches = [f"missing:{label}/{path}" for path in sorted(source_files - target_files)]
+    mismatches.extend(f"unexpected:{label}/{path}" for path in sorted(target_files - source_files))
+    mismatches.extend(
+        f"content:{label}/{path}"
+        for path in sorted(source_files & target_files)
+        if not filecmp.cmp(source / path, target / path, shallow=False)
+    )
+    return mismatches
 
 
 def copy_if_exists(source: Path, target: Path) -> bool:
@@ -323,16 +338,38 @@ def verify(repo_root: Path, plugins_dir: Path, marketplace_path: Path, codex_hom
     plugins = marketplace.get("plugins", [])
     marketplace_ok = any(isinstance(item, dict) and item.get("name") == PLUGIN_NAME for item in plugins)
 
+    source_ops_skill = repo_root / "skills" / "codex-ops-kit"
+    plugin_mismatches = tree_mismatches(
+        source_ops_skill,
+        plugin_path / "skills" / "codex-ops-kit",
+        "skills/codex-ops-kit",
+    )
+    local_ops_skill = codex_home / "skills" / "codex-ops-kit"
+    local_skill_mismatches = (
+        tree_mismatches(source_ops_skill, local_ops_skill, "skills/codex-ops-kit")
+        if local_ops_skill.exists()
+        else []
+    )
+
     profile_result = verify_profile(repo_root, codex_home, profile)
     profile_mismatches = list(profile_result["mismatches"])
 
-    ok = not missing and marketplace_ok and not profile_mismatches and profile_result["status"] in {"current", "skipped"}
+    ok = (
+        not missing
+        and not plugin_mismatches
+        and not local_skill_mismatches
+        and marketplace_ok
+        and not profile_mismatches
+        and profile_result["status"] in {"current", "skipped"}
+    )
     return {
         "ok": ok,
         "plugin_path": str(plugin_path),
         "required_files": list(PLUGIN_REQUIRED_FILES),
         "marketplace_ok": marketplace_ok,
         "missing": missing,
+        "plugin_mismatches": plugin_mismatches,
+        "local_skill_mismatches": local_skill_mismatches,
         "profile_status": profile_result["status"],
         "profile_mismatches": profile_mismatches,
         "profile_merge_packet": profile_result["merge_packet"],

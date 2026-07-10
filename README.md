@@ -19,7 +19,7 @@ It is inspired by Trellis and Superpowers, but stays Codex-first:
 - Direct / Inline / Durable task tiers.
 - Planner / Executor / Debugger / Verifier role prompts.
 - Bundled risk-based development flow for verification budget, test additions, TDD selection, and completion evidence.
-- Bundled high-risk Codex ops routing into `codex-ops-kit` for worktree/subagent lanes, RHO/session-history audit, manifest drift, release/currentness claims, secret/cache freshness, and long evidence chains.
+- Bundled `codex-ops-kit` for fail-closed Git worktree/subagent lane evidence and live GitHub release URL/asset/install-command audits.
 - Codex inline execution by default.
 - Subagent/worktree lane contract for scoped parallel work.
 - Durable evidence and lesson writeback.
@@ -107,7 +107,7 @@ codex plugin marketplace add DietrichGebert/ponytail
 codex plugin add ponytail@ponytail
 ```
 
-Use Ponytail explicitly for simplification work, for example `@ponytail lite`, `@ponytail`, `@ponytail-review`, or `@ponytail-audit`. It must not override OPL Flow's `risk-based-development-flow`, `codex-ops-kit`, verifier, fresh-evidence, or completion-audit rules.
+Use Ponytail explicitly for simplification work, for example `@ponytail lite`, `@ponytail`, `@ponytail-review`, or `@ponytail-audit`. It must not override OPL Flow's `risk-based-development-flow`, `codex-ops-kit` Git/release evidence, verifier, fresh-evidence, or completion-audit rules.
 
 OPL Flow routes Ponytail by artifact shape: `ponytail-audit` is for whole-repo or cross-repo cleanup candidate discovery; `ponytail-review` is for a concrete diff, PR, commit range, or worktree lane before absorption when the change is a non-trivial cleanup/refactor/wrapper-retirement/dependency-thinning lane.
 
@@ -220,7 +220,7 @@ The profile routes work by shape:
 It also routes evidence-sensitive work:
 
 - Risk-based verification: classify the risk, choose a verification budget, and avoid TDD/test bloat unless it proves a concrete regression.
-- High-risk Codex ops: use `codex-ops-kit` before lane start/absorb/closeout, broad manifest drift, RHO/session-history audits, release/currentness claims, generated/runtime config drift, secret/cache freshness, or long evidence chains.
+- High-risk Git/release evidence: use `codex-ops-kit` before Git lane start/absorb/closeout or before claiming a public GitHub release URL, asset, or exact install command is current.
 - Root-cause supervision: stalls, repeated failures, heartbeat findings, runtime/currentness/readiness drift, and multi-thread stops must identify the visible symptom, direct failing boundary, cross-surface evidence, owner surface, and repair or decision path before closeout.
 - Completion audits: for "全部落地 / 一步到位 / 彻底解决" style goals, verify against the original target plan and report Chinese "完成度审计" with status, percent, fresh evidence, gaps, and next actions.
 - Complexity regression: for non-trivial cleanup/refactor/worktree lanes, review the concrete diff with `ponytail-review` before absorption; use `ponytail-audit` only for candidate discovery.

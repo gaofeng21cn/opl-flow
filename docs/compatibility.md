@@ -21,7 +21,7 @@ or domain systems ready by itself.
 | Ponytail | Use YAGNI, stdlib/native-first implementation, over-engineering review, and cleanup candidate discovery as a tactical simplification lens. | Ponytail is optional. `ponytail-audit` is for whole-repo/cross-repo discovery; `ponytail-review` is a concrete-diff complexity regression gate before absorbing non-trivial cleanup/refactor lanes. It must not override OPL Flow evidence, ops, verifier, or completion-audit rules. |
 | Trellis | Persist specs, tasks, workspace state, and closeout artifacts in versioned project surfaces. | OPL Flow absorbs the artifact discipline, but writes Durable evidence into each repo's existing docs, contracts, ledgers, or closeouts instead of creating a second `.trellis`-style truth source. |
 | Claude Code skills/subagents/memory | Load specialized procedures on demand; use subagents for bounded, isolated work; keep memory/rules concise and scoped. | OPL Flow keeps `SKILL.md` entrypoints lean, requires explicit subagent write sets and stop conditions, and treats `TASTE.md` as preference rather than fact. |
-| GitHub Agentic Workflows | Use guardrails, scoped permissions, auditability, cost/ops visibility, and safe outputs for production agent work. | `codex-ops-kit` owns high-risk Codex ops gates for lane lifecycle, currentness claims, generated/runtime config drift, secret freshness, and long evidence chains. |
+| GitHub Agentic Workflows | Use guardrails, scoped permissions, auditability, cost/ops visibility, and safe outputs for production agent work. | `codex-ops-kit` keeps only deterministic Git lane lifecycle evidence and live GitHub release URL/asset/install-command readback; the profile and owning repos handle general policy and domain currentness. |
 
 ## Installed Layers
 
@@ -30,7 +30,7 @@ or domain systems ready by itself.
 | Workflow profile | OPL Flow | `~/.codex/AGENTS.md`, `~/.codex/TASTE.md`, planner/executor/debugger/verifier prompts |
 | Generic OPL Flow skill | OPL Flow | `skills/opl-flow` |
 | Risk selection guardrail | OPL Flow | `skills/risk-based-development-flow` |
-| High-risk ops guardrail | OPL Flow | `skills/codex-ops-kit` |
+| Git lane and GitHub release audit | OPL Flow | `skills/codex-ops-kit` |
 | Debugging / verification execution | Superpowers / companion skills | Not vendored by OPL Flow; routed to when installed |
 | Simplification / over-engineering review | Ponytail | Optional companion plugin; detected but not required |
 | Installation Carrier | One Person Lab App / host carrier | Not owned by OPL Flow |

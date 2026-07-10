@@ -12,4 +12,4 @@
 - “完成度审计”的验收项必须来自用户最新目标、原始规划、已落盘 plan/runbook/contract 或 lane 目标；不能用本轮实际完成的切片、提交摘要或测试清单替代完整规划。
 - “完成度审计”默认用中文标题和中文说明，逐项给出 `done / partial / not_started / blocked`、完成度百分比、新鲜证据、缺口和后续动作。
 - `100%` 只能用于已有 fresh executable evidence 的条目；docs、catalog、plan、read-model、refs-only surface、contract landed、测试绿或提交推送不能单独替代 runnable behavior、runtime artifact、owner receipt、end-to-end acceptance 或用户明确要求的目标态证据。
-- 同类 bug、CI 失败、release gate、远端同步、auth/secret、runtime authority、路径/工具边界、工作流漂移等问题形成可复用经验后，按 `codex-ops-kit` 的 Durable Writeback 路由写回合适 authority surface；一次性现象或未验证猜测不固化。
+- 同类 bug、CI 失败、release gate、远端同步、auth/secret、runtime authority、路径/工具边界、工作流漂移等问题形成可复用经验后，写回拥有该事实或合同的 repo-native authority surface；一次性现象或未验证猜测不固化。

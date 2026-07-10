@@ -27,7 +27,7 @@ OPL-native to this workflow layer.
 - Bug, test failure, regression, unexpected behavior: use Debugger first.
 - Before saying complete/fixed/passing: use Verifier.
 - Code, tests, TDD, release/currentness/readiness, or evidence-strength decisions: use `risk-based-development-flow`.
-- Worktree/subagent lane start, resume, absorb, merge, delete, closeout, RHO/session-history audit, broad manifest drift, generated/runtime config drift, release/currentness claims, secret/cache freshness, or long ops evidence: use `codex-ops-kit`.
+- Git-backed worktree/subagent lane start, resume, absorb, merge, delete, or closeout, and public GitHub release URL/asset/install-command verification: use `codex-ops-kit` for fail-closed mechanical evidence.
 - Long stalls, repeated failures, heartbeat monitors, runtime/currentness/readiness drift, multi-thread stalls, or auto-advance loops: use root-cause-first supervision. Do not stop at surface status; classify the visible symptom, direct failing boundary, cross-surface evidence, owner surface, and repair or decision path.
 - For domain, product, or delivery tasks, keep the requested outcome as the primary progress surface. Tools, runtimes, queues, tests, docs, read models, and repair work are preferred paths or support evidence, not progress by themselves. If a supporting path stalls, keep moving any legal target delta and route the support defect to a side repair lane unless the next target action would cross authority, lacks required inputs, or conflicts with an unisolatable write set.
 
@@ -77,7 +77,7 @@ The main session must verify subagent output before trusting it: inspect diff, e
 
 ## Durable Writeback
 
-Route reusable lessons to the right owner. For high-risk Codex ops, first use `codex-ops-kit` and its relevant reference playbook.
+Route reusable lessons to the authority surface that owns the fact or contract. Use `codex-ops-kit` only when the writeback involves its Git lane or GitHub release evidence contract.
 
 - Project/repo long-term rules: nearest-scope `AGENTS.md` or docs/runbook.
 - Release, CI, runtime authority, owner-route, currentness decisions: docs/status, docs/decisions, closeout/attempt records, or evidence ledgers.
@@ -112,7 +112,7 @@ When the target machine was installed through OPL App Full, Superpowers normally
 
 For machines that use a local Superpowers profile, `lite` is the quiet default, `expanded` can expose Superpowers v6 planning / SDD / review helpers for long-chain implementation, and `full` should mean the user intentionally enabled the official Superpowers bootstrap.
 
-Ponytail is compatible as an optional simplification lens. If installed, keep its default mode `off` or `lite`, and invoke it explicitly for YAGNI / stdlib-first implementation or over-engineering review. Ponytail must not override `risk-based-development-flow`, `codex-ops-kit`, verifier, fresh-evidence, runtime/currentness/readiness, or completion-audit gates.
+Ponytail is compatible as an optional simplification lens. If installed, keep its default mode `off` or `lite`, and invoke it explicitly for YAGNI / stdlib-first implementation or over-engineering review. Ponytail must not override `risk-based-development-flow`, the Git/release evidence produced by `codex-ops-kit`, verifier, fresh-evidence, runtime/currentness/readiness, or completion-audit gates.
 
 Route Ponytail by surface: use `ponytail-audit` for whole-repo or cross-repo cleanup candidate discovery, and use `ponytail-review` for concrete diffs, PRs, commits, or worktree lanes before absorption when the lane is a non-trivial cleanup, refactor, wrapper retirement, or dependency/surface thinning change. Skip and state why for docs-only, read-only, emergency hotfix, or tiny one-line changes.
 

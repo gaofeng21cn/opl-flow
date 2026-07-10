@@ -23,8 +23,10 @@ REQUIRED_FILES = (
     "skills/codex-ops-kit/SKILL.md",
     "skills/codex-ops-kit/agents/openai.yaml",
     "skills/codex-ops-kit/scripts/codex_ops_gate.py",
-    "skills/codex-ops-kit/scripts/rho_wrapper.py",
+    "skills/codex-ops-kit/scripts/worktree_absorption_audit.py",
+    "skills/codex-ops-kit/scripts/release_url_audit.py",
     "skills/codex-ops-kit/references/lane-closeout.md",
+    "skills/codex-ops-kit/references/release-currentness.md",
     "templates/AGENTS.md",
     "templates/TASTE.md",
     "templates/prompts/planner.md",
@@ -60,11 +62,11 @@ def check_plugin_json(repo_root: Path) -> list[str]:
     if manifest.get("skills") != "./skills/":
         errors.append("plugin skills path must be ./skills/")
     description = manifest.get("description")
-    if not isinstance(description, str) or "bundled risk and ops guardrails" not in description:
-        errors.append("plugin description must advertise bundled risk and ops guardrails")
+    if not isinstance(description, str) or "bundled risk guardrails and narrow Git/release ops audits" not in description:
+        errors.append("plugin description must advertise bundled risk guardrails and narrow Git/release ops audits")
     long_description = manifest.get("interface", {}).get("longDescription")
-    if not isinstance(long_description, str) or "bundled high-risk Codex ops routing" not in long_description:
-        errors.append("interface.longDescription must advertise bundled high-risk Codex ops routing")
+    if not isinstance(long_description, str) or "fail-closed Git lane and GitHub release audits" not in long_description:
+        errors.append("interface.longDescription must advertise fail-closed Git lane and GitHub release audits")
     default_prompt = manifest.get("interface", {}).get("defaultPrompt")
     if not default_prompt:
         errors.append("interface.defaultPrompt is required")
@@ -147,7 +149,6 @@ def check_docs_describe_compatibility(repo_root: Path) -> list[str]:
     setup = (repo_root / "docs" / "new-machine-codex-setup.md").read_text(encoding="utf-8")
     compatibility = (repo_root / "docs" / "compatibility.md").read_text(encoding="utf-8")
     skill = (repo_root / "skills" / "opl-flow" / "SKILL.md").read_text(encoding="utf-8")
-    lane_closeout = (repo_root / "skills" / "codex-ops-kit" / "references" / "lane-closeout.md").read_text(encoding="utf-8")
     required_pairs = (
         (readme, "Compatibility With OPL App Full", "README must document OPL App Full compatibility"),
         (readme, "scripts/intelligence_enhancement.py enable --bootstrap-opl", "README must document intelligence enhancement bridge"),
@@ -168,11 +169,6 @@ def check_docs_describe_compatibility(repo_root: Path) -> list[str]:
         (skill, "Root-Cause Supervision", "skill must document root-cause-first supervision"),
         (skill, "Root-Cause Depth Gate", "skill must document root-cause depth gate"),
         (skill, "blocker-to-owner map", "skill must require blocker-to-owner maps for stalls"),
-        (lane_closeout, "Root-Cause Depth Guard", "lane closeout must require root-cause depth guard"),
-        (lane_closeout, "L2 cross-surface evidence", "lane closeout must require cross-surface evidence"),
-        (lane_closeout, "Reports that only rename a symptom", "lane closeout must reject symptom-only closeout"),
-        (lane_closeout, "Complexity Regression Gate", "lane closeout must require complexity regression gate"),
-        (lane_closeout, "ponytail-review", "lane closeout must mention ponytail-review for lane diffs"),
         (compatibility, "Codex AGENTS.md / skills", "compatibility doc must cover Codex customization boundary"),
         (compatibility, "Superpowers", "compatibility doc must cover Superpowers boundary"),
         (compatibility, "Runtime Substrate", "compatibility doc must cover Runtime Substrate boundary"),
@@ -187,6 +183,31 @@ def check_docs_describe_compatibility(repo_root: Path) -> list[str]:
         if needle not in text:
             errors.append(message)
     return errors
+
+
+def check_codex_ops_contracts(repo_root: Path) -> list[str]:
+    result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "unittest",
+            "discover",
+            "-s",
+            str(repo_root / "tests"),
+            "-p",
+            "test_codex_ops_kit.py",
+            "-v",
+        ],
+        cwd=repo_root,
+        check=False,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        text=True,
+    )
+    if result.returncode == 0:
+        return []
+    output = (result.stdout + result.stderr).strip()
+    return [f"codex-ops-kit contract tests failed: {output}"]
 
 
 def check_companion_script(repo_root: Path) -> list[str]:
@@ -281,12 +302,21 @@ def check_install(repo_root: Path) -> list[str]:
             "skills/risk-based-development-flow/agents/openai.yaml",
             "skills/codex-ops-kit/SKILL.md",
             "skills/codex-ops-kit/agents/openai.yaml",
+            "skills/codex-ops-kit/scripts/codex_ops_gate.py",
+            "skills/codex-ops-kit/scripts/worktree_absorption_audit.py",
+            "skills/codex-ops-kit/scripts/release_url_audit.py",
+            "skills/codex-ops-kit/references/lane-closeout.md",
+            "skills/codex-ops-kit/references/release-currentness.md",
         ):
             if suffix not in required_files:
                 errors.append(f"install verify required_files must include guardrail artifact: {suffix}")
             expected = str(tmp_path / "plugins" / "opl-flow" / suffix)
             if expected in payload.get("missing", []):
                 errors.append(f"install verify must include guardrail artifact: {expected}")
+        if payload.get("plugin_mismatches"):
+            errors.append(f"fresh install codex-ops-kit tree must match source exactly: {payload['plugin_mismatches']}")
+        if payload.get("local_skill_mismatches"):
+            errors.append(f"fresh install must not contain a stale direct codex-ops-kit copy: {payload['local_skill_mismatches']}")
 
     with tempfile.TemporaryDirectory() as tmp:
         tmp_path = Path(tmp)
@@ -362,6 +392,7 @@ def main() -> int:
     errors.extend(check_skill_metadata(repo_root))
     errors.extend(check_profile_templates(repo_root))
     errors.extend(check_docs_describe_compatibility(repo_root))
+    errors.extend(check_codex_ops_contracts(repo_root))
     errors.extend(check_companion_script(repo_root))
     errors.extend(check_install(repo_root))
     errors.extend(check_repo_profile(repo_root))
