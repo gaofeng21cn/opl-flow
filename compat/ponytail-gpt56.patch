@@ -1,0 +1,319 @@
+diff --git a/.agents/plugins/marketplace.json b/.agents/plugins/marketplace.json
+--- a/.agents/plugins/marketplace.json
++++ b/.agents/plugins/marketplace.json
+@@ -1,5 +1,5 @@
+ {
+-  "name": "ponytail",
++  "name": "ponytail-local",
+   "interface": {
+     "displayName": "Ponytail"
+   },
+@@ -7,9 +7,8 @@
+     {
+       "name": "ponytail",
+       "source": {
+-        "source": "url",
+-        "url": "https://github.com/DietrichGebert/ponytail.git",
+-        "ref": "main"
++        "source": "local",
++        "path": "."
+       },
+       "policy": {
+         "installation": "AVAILABLE",
+diff --git a/hooks/claude-codex-hooks.json b/hooks/claude-codex-hooks.json
+--- a/hooks/claude-codex-hooks.json
++++ b/hooks/claude-codex-hooks.json
+@@ -2,7 +2,7 @@
+   "hooks": {
+     "SessionStart": [
+       {
+-        "matcher": "startup|resume|clear|compact",
++        "matcher": "startup",
+         "hooks": [
+           {
+             "type": "command",
+@@ -14,19 +14,6 @@
+         ]
+       }
+     ],
+-    "SubagentStart": [
+-      {
+-        "hooks": [
+-          {
+-            "type": "command",
+-            "command": "node \"${CLAUDE_PLUGIN_ROOT}/hooks/ponytail-subagent.js\"",
+-            "commandWindows": "if (Get-Command node -ErrorAction SilentlyContinue) { node \"$env:CLAUDE_PLUGIN_ROOT\\hooks\\ponytail-subagent.js\" }",
+-            "timeout": 5,
+-            "statusMessage": "Loading ponytail mode..."
+-          }
+-        ]
+-      }
+-    ],
+     "UserPromptSubmit": [
+       {
+         "hooks": [
+diff --git a/hooks/ponytail-instructions.js b/hooks/ponytail-instructions.js
+--- a/hooks/ponytail-instructions.js
++++ b/hooks/ponytail-instructions.js
+@@ -7,6 +7,16 @@ const { DEFAULT_MODE, normalizeMode, normalizePersistedMode } = require('./ponyt
+
+ const INDEPENDENT_MODES = new Set(['review']);
+ const SKILL_PATH = path.join(__dirname, '..', 'skills', 'ponytail', 'SKILL.md');
++const LITE_INSTRUCTIONS = [
++  'PONYTAIL MODE ACTIVE — level: lite',
++  '',
++  'Use the smallest correct implementation for the user\'s frozen scope.',
++  'Before adding code, reuse the codebase, standard library, platform, or installed dependencies.',
++  'Prefer deletion and direct code over speculative abstractions, wrappers, configuration, or dependencies.',
++  'Do not simplify away correctness, security, accessibility, data safety, authority, or requested behavior.',
++  'Leave the smallest runnable check that directly proves non-trivial behavior.',
++  'Use full, ultra, audit, or review only when explicitly requested.',
++].join('\n');
+
+ function filterSkillBodyForMode(body, mode) {
+   const effectiveMode = normalizeMode(mode) || DEFAULT_MODE;
+@@ -83,6 +93,8 @@ function getPonytailInstructions(mode) {
+
+   const effectiveMode = normalizeMode(configuredMode) || DEFAULT_MODE;
+
++  if (effectiveMode === 'lite') return LITE_INSTRUCTIONS;
++
+   try {
+     return 'PONYTAIL MODE ACTIVE — level: ' + effectiveMode + '\n\n' +
+       filterSkillBodyForMode(fs.readFileSync(SKILL_PATH, 'utf8'), effectiveMode);
+@@ -94,5 +106,6 @@ function getPonytailInstructions(mode) {
+ module.exports = {
+   filterSkillBodyForMode,
+   getFallbackInstructions,
++  LITE_INSTRUCTIONS,
+   getPonytailInstructions,
+ };
+diff --git a/hooks/ponytail-mode-tracker.js b/hooks/ponytail-mode-tracker.js
+--- a/hooks/ponytail-mode-tracker.js
++++ b/hooks/ponytail-mode-tracker.js
+@@ -20,6 +20,7 @@ function finish() {
+     // Match /ponytail commands
+     let modeSwitched = false;
+     let deactivated = false;
++    let oneShotMode = null;
+     if (/^[/@$]ponytail/.test(prompt)) {
+       const parts = prompt.split(/\s+/);
+       const cmd = parts[0].replace(/^[@$]/, '/');
+@@ -29,7 +30,7 @@ function finish() {
+       let isReportOnly = false;
+
+       if (cmd === '/ponytail-review' || cmd === '/ponytail:ponytail-review') {
+-        mode = 'review';
++        oneShotMode = 'review';
+       } else if (cmd === '/ponytail' || cmd === '/ponytail:ponytail') {
+         // `/ponytail default <mode>` persists the default to config (survives
+         // restarts). Plain switches stay session-scoped ("sticks until session
+@@ -48,14 +49,23 @@ function finish() {
+         else if (arg === 'ultra') mode = 'ultra';
+         else if (arg === 'off') mode = 'off';
+         else if (arg === '') {
+-          isReportOnly = true;
+-          mode = readMode() || getDefaultMode();
++          mode = readMode();
++          if (mode) isReportOnly = true;
++          else mode = getDefaultMode();
+         } else {
+           mode = getDefaultMode();
+         }
+       }
+
+-      if (isReportOnly) {
++      if (oneShotMode) {
++        if (!isQoder) {
++          writeHookOutput(
++            'UserPromptSubmit',
++            oneShotMode,
++            getPonytailInstructions(oneShotMode),
++          );
++        }
++      } else if (isReportOnly) {
+         writeHookOutput(
+           'UserPromptSubmit',
+           mode,
+@@ -94,7 +104,7 @@ function finish() {
+     // SessionStart via ponytail-activate.js; Qoder can't, so we do it here.
+     // Skip when deactivated — user just turned ponytail off.
+     if (isQoder && !deactivated) {
+-      let currentMode = readMode();
++      let currentMode = oneShotMode || readMode();
+       if (!currentMode) {
+         // First prompt in session — initialize from config/env default
+         currentMode = getDefaultMode();
+diff --git a/tests/hooks-windows.test.js b/tests/hooks-windows.test.js
+--- a/tests/hooks-windows.test.js
++++ b/tests/hooks-windows.test.js
+@@ -33,6 +33,29 @@ function commandHooks() {
+     .flatMap((entry) => entry.hooks);
+ }
+
++test('Codex lifecycle injects once at root startup and never on subagents', () => {
++  const config = JSON.parse(fs.readFileSync(path.join(root, HOOKS_JSON), 'utf8'));
++  assert.equal(config.hooks.SessionStart[0].matcher, 'startup');
++  assert.equal(Object.hasOwn(config.hooks, 'SubagentStart'), false);
++  assert.equal(Object.hasOwn(config.hooks, 'UserPromptSubmit'), true);
++});
++
++test('lite instructions are a five-to-ten-line delta', () => {
++  const { getPonytailInstructions } = require('../hooks/ponytail-instructions');
++  const lines = getPonytailInstructions('lite').split(/\r?\n/);
++  assert.ok(lines.length >= 5 && lines.length <= 10, `expected 5-10 lite lines, got ${lines.length}`);
++  assert.match(lines.join('\n'), /smallest correct implementation/);
++});
++
++test('main Ponytail skill is explicit-only and defaults to lite', () => {
++  const skill = fs.readFileSync(path.join(root, 'skills', 'ponytail', 'SKILL.md'), 'utf8');
++  const metadata = fs.readFileSync(path.join(root, 'skills', 'ponytail', 'agents', 'openai.yaml'), 'utf8');
++  assert.match(skill, /Do not auto-load for ordinary coding/);
++  assert.match(skill, /Default follows host configuration/);
++  assert.match(metadata, /allow_implicit_invocation: false/);
++  assert.match(metadata, /\$ponytail/);
++});
++
+ test('every commandWindows uses PowerShell $env: syntax, not cmd.exe %VAR%', () => {
+   const windowsCommands = commandHooks()
+     .map((h) => h.commandWindows)
+diff --git a/tests/hooks.test.js b/tests/hooks.test.js
+--- a/tests/hooks.test.js
++++ b/tests/hooks.test.js
+@@ -103,11 +103,34 @@ assert.equal(fs.existsSync(codexState), false);
+ output = JSON.parse(result.stdout);
+ assert.equal(output.systemMessage, 'PONYTAIL:OFF');
+
++// Bare @ponytail resumes the configured default after an explicit stop.
++result = run(
++  'ponytail-mode-tracker.js',
++  codexEnv,
++  JSON.stringify({ prompt: '@ponytail' }),
++);
++assert.equal(result.status, 0, result.stderr);
++assert.equal(fs.readFileSync(codexState, 'utf8'), 'ultra');
++output = JSON.parse(result.stdout);
++assert.equal(output.systemMessage, 'PONYTAIL:ULTRA');
++
+ // A request that merely mentions "normal mode" must not deactivate ponytail.
+ result = run('ponytail-mode-tracker.js', codexEnv, JSON.stringify({ prompt: '@ponytail lite' }));
+ assert.equal(result.status, 0, result.stderr);
+ assert.equal(fs.readFileSync(codexState, 'utf8'), 'lite');
+
++// Review is one-shot: inject its instructions without replacing the active mode.
++result = run(
++  'ponytail-mode-tracker.js',
++  codexEnv,
++  JSON.stringify({ prompt: '@ponytail-review' }),
++);
++assert.equal(result.status, 0, result.stderr);
++assert.equal(fs.readFileSync(codexState, 'utf8'), 'lite');
++output = JSON.parse(result.stdout);
++assert.equal(output.systemMessage, 'PONYTAIL:REVIEW');
++assert.match(output.hookSpecificOutput.additionalContext, /level: review/);
++
+ result = run(
+   'ponytail-mode-tracker.js',
+   codexEnv,
+@@ -368,6 +391,17 @@ assert.match(
+   /PONYTAIL MODE CHANGED — level: ultra/,
+ );
+
++// Qoder also gets review once while retaining the persistent runtime mode.
++result = run(
++  'ponytail-mode-tracker.js',
++  qoderEnv,
++  JSON.stringify({ prompt: '/ponytail-review' }),
++);
++assert.equal(result.status, 0, result.stderr);
++assert.equal(fs.readFileSync(qoderState, 'utf8'), 'ultra');
++output = JSON.parse(result.stdout);
++assert.match(output.hookSpecificOutput.additionalContext, /level: review/);
++
+ // "stop ponytail": deactivates, clears flag, no ruleset output.
+ result = run(
+   'ponytail-mode-tracker.js',
+diff --git a/skills/ponytail/SKILL.md b/skills/ponytail/SKILL.md
+--- a/skills/ponytail/SKILL.md
++++ b/skills/ponytail/SKILL.md
+@@ -1,18 +1,12 @@
+ ---
+ name: ponytail
+ description: >
+-  Forces the laziest solution that actually works, simplest, shortest, most
+-  minimal. Channels a senior dev who has seen everything: question whether the
+-  task needs to exist at all (YAGNI), reach for the standard library before
+-  custom code, native platform features before dependencies, one line before
+-  fifty. Supports intensity levels: lite, full (default), ultra. Use on ANY
+-  coding task: writing, adding, refactoring, fixing, reviewing, or designing
+-  code, and choosing libraries or dependencies. Also use whenever the user
+-  says "ponytail", "be lazy", "lazy mode", "simplest solution", "minimal
+-  solution", "yagni", "do less", or "shortest path", or complains about
+-  over-engineering, bloat, boilerplate, or unnecessary dependencies. Do NOT
+-  use for non-coding requests (general knowledge, prose, translation,
+-  summaries, recipes).
++  Explicit Ponytail mode and intensity control for YAGNI, standard-library
++  first, native-platform-first, deletion-first implementation. Use only when
++  the user explicitly invokes Ponytail, asks for lite/full/ultra intensity, or
++  requests its named simplification mode. Do not auto-load for ordinary coding;
++  the Codex startup hook supplies the short lite delta. Use ponytail-review or
++  ponytail-audit for explicit over-engineering review and discovery.
+ argument-hint: "[lite|full|ultra]"
+ license: MIT
+ ---
+@@ -25,8 +19,8 @@ code is the code never written.
+
+ ## Persistence
+
+-ACTIVE EVERY RESPONSE. No drift back to over-building. Still active if
+-unsure. Off only: "stop ponytail" / "normal mode". Default: **full**.
++ACTIVE EVERY RESPONSE while the mode is active. No drift back to over-building.
++Off only: "stop ponytail" / "normal mode". Default follows host configuration.
+ Switch: `/ponytail lite|full|ultra`.
+
+ ## The ladder
+@@ -78,8 +72,8 @@ Pattern: `[code] → skipped: [X], add when [Y].`
+
+ | Level | What change |
+ |-------|------------|
+-| **lite** | Build what's asked, but name the lazier alternative in one line. User picks. |
+-| **full** | The ladder enforced. Stdlib and native first. Shortest diff, shortest explanation. Default. |
++| **lite** | Build what's asked, but name the lazier alternative in one line. User picks. |
++| **full** | The ladder enforced. Stdlib and native first. Shortest diff, shortest explanation. |
+ | **ultra** | YAGNI extremist. Deletion before addition. Ship the one-liner and challenge the rest of the requirement in the same breath. |
+
+ Example: "Add a cache for these API responses."
+diff --git a/skills/ponytail/agents/openai.yaml b/skills/ponytail/agents/openai.yaml
+new file mode 100644
+--- /dev/null
++++ b/skills/ponytail/agents/openai.yaml
+@@ -0,0 +1,6 @@
++interface:
++  display_name: "Ponytail"
++  short_description: "Explicit simplification mode and intensity control"
++  default_prompt: "Use $ponytail explicitly to apply the selected simplification intensity to this task."
++policy:
++  allow_implicit_invocation: false
+diff --git a/.openclaw/skills/ponytail/SKILL.md b/.openclaw/skills/ponytail/SKILL.md
+--- a/.openclaw/skills/ponytail/SKILL.md
++++ b/.openclaw/skills/ponytail/SKILL.md
+@@ -13,8 +13,8 @@ code is the code never written.
+
+ ## Persistence
+
+-ACTIVE EVERY RESPONSE. No drift back to over-building. Still active if
+-unsure. Off only: "stop ponytail" / "normal mode". Default: **full**.
++ACTIVE EVERY RESPONSE while the mode is active. No drift back to over-building.
++Off only: "stop ponytail" / "normal mode". Default follows host configuration.
+ Switch: `/ponytail lite|full|ultra`.
+
+ ## The ladder
+@@ -67,7 +67,7 @@ Pattern: `[code] → skipped: [X], add when [Y].`
+ | Level | What change |
+ |-------|------------|
+ | **lite** | Build what's asked, but name the lazier alternative in one line. User picks. |
+-| **full** | The ladder enforced. Stdlib and native first. Shortest diff, shortest explanation. Default. |
++| **full** | The ladder enforced. Stdlib and native first. Shortest diff, shortest explanation. |
+ | **ultra** | YAGNI extremist. Deletion before addition. Ship the one-liner and challenge the rest of the requirement in the same breath. |
+
+ Example: "Add a cache for these API responses."

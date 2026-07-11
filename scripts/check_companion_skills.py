@@ -6,6 +6,8 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import shutil
+import subprocess
 from pathlib import Path
 from typing import Any
 
@@ -100,10 +102,15 @@ def plugin_manifest_exists(root: Path) -> bool:
 
 
 def plugin_cache_roots(codex_home: Path, plugin_id: str) -> list[Path]:
-    cache_root = codex_home / "plugins" / "cache" / plugin_id / plugin_id
+    cache_root = codex_home / "plugins" / "cache"
     if not cache_root.exists():
         return []
-    return sorted(path for path in cache_root.iterdir() if path.is_dir())
+    roots: list[Path] = []
+    for marketplace in cache_root.iterdir():
+        plugin_root = marketplace / plugin_id
+        if plugin_root.is_dir():
+            roots.extend(path for path in plugin_root.iterdir() if path.is_dir())
+    return sorted(roots)
 
 
 def superpowers_bundle_status(root: Path) -> dict[str, Any]:
@@ -369,9 +376,118 @@ def ponytail_config_status(home: Path) -> dict[str, Any]:
         "recommended_default_mode": "lite",
         "matches_opl_default": valid and mode == "lite",
         "notes": [
-            "OPL Flow keeps Ponytail lite as the default simplification lens.",
-            "Ponytail must not override risk-based evidence, codex-ops-kit, verifier, or completion audits.",
+            "OPL Flow keeps Ponytail lite as the default simplification lens and checks hook shape separately.",
+            "Ponytail must not override frozen scope, authority, fresh evidence, runtime claims, or root terminal audits.",
         ],
+    }
+
+
+def ponytail_hook_status(codex_home: Path, plugin_payload: Any | None = None) -> dict[str, Any]:
+    cache_root = codex_home / "plugins" / "cache"
+    active_plugins = (
+        [
+            item
+            for item in install_local_plugin.json_entries(plugin_payload, "plugins")
+            if item.get("name") == "ponytail"
+            and item.get("installed") is True
+            and item.get("enabled") is True
+        ]
+        if plugin_payload is not None
+        else []
+    )
+    if plugin_payload is not None:
+        plugin_roots = [
+            cache_root / str(item.get("marketplaceName", "")) / "ponytail" / str(item.get("version", ""))
+            for item in active_plugins
+        ]
+    else:
+        plugin_roots = sorted(cache_root.glob("*/ponytail/*"))
+    details: list[dict[str, Any]] = []
+    for plugin_root in plugin_roots:
+        hook_path = plugin_root / "hooks" / "claude-codex-hooks.json"
+        instructions_path = plugin_root / "hooks" / "ponytail-instructions.js"
+        if not hook_path.is_file() or not instructions_path.is_file():
+            continue
+        try:
+            hooks = install_local_plugin.load_json(hook_path).get("hooks", {})
+        except (ValueError, json.JSONDecodeError) as exc:
+            details.append({"path": str(plugin_root), "ok": False, "error": str(exc)})
+            continue
+
+        session_entries = hooks.get("SessionStart", []) if isinstance(hooks, dict) else []
+        prompt_entries = hooks.get("UserPromptSubmit", []) if isinstance(hooks, dict) else []
+        session_hooks = (
+            session_entries[0].get("hooks", [])
+            if isinstance(session_entries, list)
+            and len(session_entries) == 1
+            and isinstance(session_entries[0], dict)
+            else []
+        )
+        prompt_hooks = (
+            prompt_entries[0].get("hooks", [])
+            if isinstance(prompt_entries, list)
+            and len(prompt_entries) == 1
+            and isinstance(prompt_entries[0], dict)
+            else []
+        )
+        startup_only = (
+            isinstance(session_entries, list)
+            and len(session_entries) == 1
+            and isinstance(session_entries[0], dict)
+            and session_entries[0].get("matcher") == "startup"
+            and len(session_hooks) == 1
+            and isinstance(session_hooks[0], dict)
+            and "hooks/ponytail-activate.js" in str(session_hooks[0].get("command", ""))
+        )
+        subagent_registered = isinstance(hooks, dict) and "SubagentStart" in hooks
+        prompt_registered = (
+            len(prompt_entries) == 1
+            and len(prompt_hooks) == 1
+            and isinstance(prompt_hooks[0], dict)
+            and "hooks/ponytail-mode-tracker.js" in str(prompt_hooks[0].get("command", ""))
+        )
+        lite_lines: int | None = None
+        node = shutil.which("node")
+        if node:
+            script = (
+                f"const {{getPonytailInstructions:g}}=require({json.dumps(str(instructions_path))});"
+                "process.stdout.write(String(g('lite').split(/\\r?\\n/).length));"
+            )
+            try:
+                result = subprocess.run(
+                    [node, "-e", script],
+                    check=False,
+                    stdout=subprocess.PIPE,
+                    stderr=subprocess.PIPE,
+                    text=True,
+                    timeout=5,
+                )
+            except (OSError, subprocess.TimeoutExpired):
+                result = None
+            if result is not None and result.returncode == 0 and result.stdout.strip().isdigit():
+                lite_lines = int(result.stdout.strip())
+
+        ok = startup_only and not subagent_registered and prompt_registered and lite_lines is not None and 5 <= lite_lines <= 10
+        details.append(
+            {
+                "path": str(plugin_root),
+                "ok": ok,
+                "startup_only": startup_only,
+                "subagent_registered": subagent_registered,
+                "prompt_registered": prompt_registered,
+                "lite_lines": lite_lines,
+            }
+        )
+
+    hook_ok = any(item.get("ok") is True for item in details)
+    if plugin_payload is not None:
+        hook_ok = len(active_plugins) == 1 and len(details) == 1 and hook_ok
+    return {
+        "ok": hook_ok,
+        "matches": details,
+        "active_plugins": [item.get("pluginId") for item in active_plugins],
+        "binding": "installed_enabled_plugin" if plugin_payload is not None else "filesystem_only",
+        "required_shape": "root_startup_once_lite_5_to_10_lines_no_subagent",
     }
 
 
@@ -389,6 +505,16 @@ def check(args: argparse.Namespace) -> dict[str, Any]:
     plugin_status: dict[str, dict[str, Any]] = {}
     for plugin_id in OPTIONAL_PLUGINS:
         plugin_status[plugin_id] = find_plugin(plugin_id, home, codex_home, plugins_dir, repo_root)
+    try:
+        plugin_payload = install_local_plugin.run_codex_json(
+            args.codex_bin,
+            "plugin",
+            "list",
+            "--available",
+            "--json",
+        )
+    except (RuntimeError, ValueError):
+        plugin_payload = {}
 
     superpowers = superpowers_bundle_status(superpowers_root)
     superpowers_profile = superpowers_profile_status(home, codex_home, plugins_dir, repo_root, superpowers_root)
@@ -471,6 +597,7 @@ def check(args: argparse.Namespace) -> dict[str, Any]:
         "ponytail": {
             "plugin": plugin_status["ponytail"],
             "config": ponytail_config_status(home),
+            "hooks": ponytail_hook_status(codex_home, plugin_payload),
             "boundary": "optional_simplification_lens",
         },
         "blocking_missing": blocking_missing,
@@ -489,9 +616,9 @@ def check(args: argparse.Namespace) -> dict[str, Any]:
                 "OPL Flow bundles codex-ops-kit as its profile-native mechanical guardrail.",
                 "OPL App Full Superpowers satisfies the Superpowers execution surface when superpowers.ok is true.",
                 "OPL Flow preserves the current local Superpowers profile unless the user explicitly asks for full Superpowers.",
-                "Use --strict to fail closed unless the profile, exact installed/cache payload, and runtime guardrails are ready.",
+                "Use --strict to fail closed unless the AGENTS runtime profile, exact installed/cache payload, and runtime guardrails are ready; TASTE/prompt drift is diagnostic only.",
                 "Optional skills improve browser/document workflows but are not required for the core profile.",
-                "Ponytail is optional and should stay an explicit simplification lens; it must not override OPL Flow evidence, ops, verifier, or completion-audit rules.",
+                "Ponytail is optional; lite should inject a short delta once at root startup, while audit/review remain explicit.",
             ],
         },
     }

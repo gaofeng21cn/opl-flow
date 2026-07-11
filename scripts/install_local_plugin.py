@@ -17,10 +17,11 @@ from typing import Any
 PLUGIN_NAME = "opl-flow"
 MARKETPLACE_NAME = "opl-flow-local"
 MARKETPLACE_MANIFEST = Path(".agents/plugins/marketplace.json")
-PROFILE_NAMES = ("AGENTS.md", "TASTE.md")
-PROMPT_NAMES = ("planner.md", "executor.md", "debugger.md", "verifier.md")
-MERGE_PACKET_SCHEMA = "opl_flow_profile_merge_packet.v1"
-PROFILE_RECEIPT_SCHEMA = "opl_flow_profile_install_receipt.v1"
+RUNTIME_PROFILE_NAMES = ("AGENTS.md",)
+AUTHORING_SOURCE_NAMES = ("TASTE.md",)
+COMPATIBILITY_PROMPT_NAMES = ("planner.md", "executor.md", "debugger.md", "verifier.md")
+MERGE_PACKET_SCHEMA = "opl_flow_profile_merge_packet.v2"
+PROFILE_RECEIPT_SCHEMA = "opl_flow_profile_install_receipt.v2"
 GUARDRAIL_SKILLS = ("codex-ops-kit",)
 COPY_IGNORE_NAMES = (".git", ".worktrees", ".pytest_cache", "__pycache__", ".DS_Store")
 PLUGIN_REQUIRED_FILES = (
@@ -35,6 +36,7 @@ PLUGIN_REQUIRED_FILES = (
     "skills/codex-ops-kit/scripts/release_url_audit.py",
     "skills/codex-ops-kit/references/lane-closeout.md",
     "skills/codex-ops-kit/references/release-currentness.md",
+    "compat/ponytail-gpt56.patch",
     "profile/manifest.json",
     "profile/modules/01-user-preferences.md",
     "profile/modules/02-role-baseline.md",
@@ -104,18 +106,56 @@ def profile_hashes(repo_root: Path, codex_home: Path) -> tuple[dict[str, str], d
     return source_hashes, target_hashes, missing
 
 
+def support_hashes(repo_root: Path, codex_home: Path) -> tuple[dict[str, str], dict[str, str], list[str]]:
+    source_hashes: dict[str, str] = {}
+    target_hashes: dict[str, str] = {}
+    missing: list[str] = []
+    for source, target in support_checks(repo_root, codex_home):
+        rel = str(target.relative_to(codex_home))
+        source_hashes[rel] = sha256_file(source)
+        if target.exists():
+            target_hashes[rel] = sha256_file(target)
+        else:
+            missing.append(rel)
+    return source_hashes, target_hashes, missing
+
+
+def support_surface_status(repo_root: Path, codex_home: Path) -> dict[str, Any]:
+    source_hashes, target_hashes, missing = support_hashes(repo_root, codex_home)
+    states = {
+        rel: (
+            "missing"
+            if rel in missing
+            else "current"
+            if target_hashes.get(rel) == source_hash
+            else "local_or_source_drift"
+        )
+        for rel, source_hash in source_hashes.items()
+    }
+    return {
+        "runtime_required": False,
+        "states": states,
+        "missing": missing,
+        "drift": sorted(rel for rel, state in states.items() if state == "local_or_source_drift"),
+    }
+
+
 def write_profile_receipt(repo_root: Path, codex_home: Path) -> Path:
     source_hashes, target_hashes, missing = profile_hashes(repo_root, codex_home)
     if missing:
         raise ValueError(f"cannot record incomplete profile receipt: {missing}")
+    support_source_hashes, support_target_hashes, support_missing = support_hashes(repo_root, codex_home)
     path = profile_receipt_path(codex_home)
     write_json(
         path,
         {
             "schema": PROFILE_RECEIPT_SCHEMA,
             "recorded_at": datetime.now(timezone.utc).isoformat(),
-            "source_hashes": source_hashes,
-            "target_hashes": target_hashes,
+            "runtime_source_hashes": source_hashes,
+            "runtime_target_hashes": target_hashes,
+            "support_source_hashes": support_source_hashes,
+            "support_target_hashes": support_target_hashes,
+            "support_missing": support_missing,
         },
     )
     return path
@@ -123,24 +163,45 @@ def write_profile_receipt(repo_root: Path, codex_home: Path) -> Path:
 
 def profile_state(repo_root: Path, codex_home: Path) -> dict[str, Any]:
     source_hashes, target_hashes, missing = profile_hashes(repo_root, codex_home)
+    support = support_surface_status(repo_root, codex_home)
     if missing:
         status = "merge_required" if (codex_home / "AGENTS.md").exists() else "missing"
-        return {"status": status, "missing": missing, "receipt": None}
+        return {"status": status, "missing": missing, "receipt": None, "support": support}
     if source_hashes == target_hashes:
-        return {"status": "current", "missing": [], "receipt": str(profile_receipt_path(codex_home))}
+        return {
+            "status": "current",
+            "missing": [],
+            "receipt": str(profile_receipt_path(codex_home)),
+            "support": support,
+        }
 
     receipt_path = profile_receipt_path(codex_home)
     receipt = load_json(receipt_path)
     if receipt.get("schema") != PROFILE_RECEIPT_SCHEMA:
-        return {"status": "merge_required", "missing": [], "receipt": None}
+        return {"status": "merge_required", "missing": [], "receipt": None, "support": support}
 
-    approved_source = receipt.get("source_hashes")
-    approved_target = receipt.get("target_hashes")
+    approved_source = receipt.get("runtime_source_hashes")
+    approved_target = receipt.get("runtime_target_hashes")
     if source_hashes == approved_source and target_hashes == approved_target:
-        return {"status": "local_overlay", "missing": [], "receipt": str(receipt_path)}
+        return {
+            "status": "local_overlay",
+            "missing": [],
+            "receipt": str(receipt_path),
+            "support": support,
+        }
     if target_hashes == approved_target and approved_target == approved_source:
-        return {"status": "source_update", "missing": [], "receipt": str(receipt_path)}
-    return {"status": "merge_required", "missing": [], "receipt": str(receipt_path)}
+        return {
+            "status": "source_update",
+            "missing": [],
+            "receipt": str(receipt_path),
+            "support": support,
+        }
+    return {
+        "status": "merge_required",
+        "missing": [],
+        "receipt": str(receipt_path),
+        "support": support,
+    }
 
 
 def backup_and_copy(source: Path, target: Path, backup_root: Path) -> bool:
@@ -157,9 +218,28 @@ def backup_and_copy(source: Path, target: Path, backup_root: Path) -> bool:
 
 def profile_checks(repo_root: Path, codex_home: Path) -> list[tuple[Path, Path]]:
     templates = repo_root / "templates"
-    checks = [(templates / name, codex_home / name) for name in PROFILE_NAMES]
-    checks.extend((templates / "prompts" / name, codex_home / "prompts" / name) for name in PROMPT_NAMES)
+    return [(templates / name, codex_home / name) for name in RUNTIME_PROFILE_NAMES]
+
+
+def support_checks(repo_root: Path, codex_home: Path) -> list[tuple[Path, Path]]:
+    templates = repo_root / "templates"
+    checks = [(templates / name, codex_home / name) for name in AUTHORING_SOURCE_NAMES]
+    checks.extend(
+        (templates / "prompts" / name, codex_home / "prompts" / name)
+        for name in COMPATIBILITY_PROMPT_NAMES
+    )
     return checks
+
+
+def install_missing_support_surfaces(repo_root: Path, codex_home: Path) -> list[str]:
+    changed: list[str] = []
+    for source, target in support_checks(repo_root, codex_home):
+        if target.exists():
+            continue
+        target.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(source, target)
+        changed.append(str(target))
+    return changed
 
 
 def tree_mismatches(
@@ -367,9 +447,9 @@ def copy_if_exists(source: Path, target: Path) -> bool:
 def copy_candidate_profile(repo_root: Path, packet: Path) -> None:
     templates = repo_root / "templates"
     candidate = packet / "candidate"
-    for name in PROFILE_NAMES:
+    for name in (*RUNTIME_PROFILE_NAMES, *AUTHORING_SOURCE_NAMES):
         copy_if_exists(templates / name, candidate / name)
-    for name in PROMPT_NAMES:
+    for name in COMPATIBILITY_PROMPT_NAMES:
         copy_if_exists(templates / "prompts" / name, candidate / "prompts" / name)
     copy_if_exists(repo_root / "profile" / "manifest.json", candidate / "profile" / "manifest.json")
     modules_root = repo_root / "profile" / "modules"
@@ -380,10 +460,10 @@ def copy_candidate_profile(repo_root: Path, packet: Path) -> None:
 def copy_existing_profile(codex_home: Path, packet: Path) -> list[str]:
     copied: list[str] = []
     existing = packet / "existing"
-    for name in PROFILE_NAMES:
+    for name in (*RUNTIME_PROFILE_NAMES, *AUTHORING_SOURCE_NAMES):
         if copy_if_exists(codex_home / name, existing / name):
             copied.append(name)
-    for name in PROMPT_NAMES:
+    for name in COMPATIBILITY_PROMPT_NAMES:
         rel = f"prompts/{name}"
         if copy_if_exists(codex_home / "prompts" / name, existing / rel):
             copied.append(rel)
@@ -399,8 +479,8 @@ Read these inputs:
 
 - `existing/AGENTS.md` and any other files under `existing/`
 - `candidate/AGENTS.md`
-- `candidate/TASTE.md`
-- `candidate/prompts/*.md`
+- `candidate/TASTE.md` (non-runtime authoring source)
+- `candidate/prompts/*.md` (explicit compatibility prompts)
 - `candidate/profile/manifest.json`
 - `candidate/profile/modules/*.md`
 
@@ -408,8 +488,8 @@ Rules:
 
 1. Do not mechanically concatenate the files.
 2. Preserve user-specific preferences and local machine rules unless they clearly conflict with higher-priority user instructions.
-3. Keep `TASTE.md` as the principles layer, not as an optional preference sample.
-4. Keep `AGENTS.md` focused on workflow, guardrails, capability adapters, tool preferences, and managed block policy.
+3. Treat `AGENTS.md` as the only runtime profile. Preserve user-specific runtime rules there.
+4. Treat `TASTE.md` as a non-runtime authoring source and the four prompts as explicit compatibility surfaces.
 5. Do not hardcode project/domain instance facts into the user-level `AGENTS.md`; route them to the owning repo `AGENTS.md`, docs, contracts, runtime/readback, or explicit context overlay.
 6. Preserve official marker blocks and managed tool blocks unless the corresponding tool is confirmed retired.
 7. Preserve OPL Flow's risk-aware evidence, verifier, fresh-evidence, root-cause, ops, and completion-audit guardrails.
@@ -419,8 +499,8 @@ Rules:
 Write outputs under `output/`:
 
 - `output/AGENTS.md`: merged user-level AGENTS profile
-- `output/TASTE.md`: merged or selected TASTE principles file
-- `output/prompts/*.md`: all four merged decision-lens prompt files
+- `output/TASTE.md` (optional): intentionally updated authoring source
+- `output/prompts/*.md` (optional): intentionally updated compatibility prompts
 - `output/merge-report.md`: what was preserved, changed, rejected, and why
 
 Do not apply the merge directly to `~/.codex`. The installer or operator will
@@ -433,6 +513,10 @@ def create_merge_packet(repo_root: Path, codex_home: Path, reason: str) -> dict[
     packet = codex_home / "state" / PLUGIN_NAME / "profile-merge" / timestamp
     packet.mkdir(parents=True, exist_ok=False)
     candidate_source_hashes, existing_target_hashes, existing_missing = profile_hashes(
+        repo_root,
+        codex_home,
+    )
+    support_source_hashes, support_target_hashes, support_missing = support_hashes(
         repo_root,
         codex_home,
     )
@@ -453,6 +537,9 @@ def create_merge_packet(repo_root: Path, codex_home: Path, reason: str) -> dict[
         "candidate_source_hashes": candidate_source_hashes,
         "existing_target_hashes": existing_target_hashes,
         "existing_missing": existing_missing,
+        "support_candidate_source_hashes": support_source_hashes,
+        "support_existing_target_hashes": support_target_hashes,
+        "support_existing_missing": support_missing,
         "prompt": "prompt.md",
         "output_dir": "output",
         "apply_policy": "review_codex_output_then_apply_with_backup",
@@ -495,8 +582,26 @@ def apply_merge_packet(repo_root: Path, codex_home: Path, packet: Path) -> dict[
         raise ValueError("profile target changed after packet creation; create a new merge packet")
 
     output = packet / "output"
-    output_files = [(output / name, codex_home / name) for name in PROFILE_NAMES]
-    output_files.extend((output / "prompts" / name, codex_home / "prompts" / name) for name in PROMPT_NAMES)
+    output_files = [(output / name, codex_home / name) for name in RUNTIME_PROFILE_NAMES]
+    optional_output_files = [
+        (output / name, codex_home / name) for name in AUTHORING_SOURCE_NAMES
+    ]
+    optional_output_files.extend(
+        (output / "prompts" / name, codex_home / "prompts" / name)
+        for name in COMPATIBILITY_PROMPT_NAMES
+    )
+    if any(source.is_file() for source, _ in optional_output_files):
+        support_source_hashes, support_target_hashes, support_missing = support_hashes(
+            repo_root,
+            codex_home,
+        )
+        if support_source_hashes != plan.get("support_candidate_source_hashes"):
+            raise ValueError("support source changed after packet creation; create a new merge packet")
+        if (
+            support_target_hashes != plan.get("support_existing_target_hashes")
+            or support_missing != plan.get("support_existing_missing")
+        ):
+            raise ValueError("support target changed after packet creation; create a new merge packet")
     required = [source for source, _ in output_files] + [output / "merge-report.md"]
     missing = [str(path) for path in required if not path.is_file()]
     if missing:
@@ -508,6 +613,11 @@ def apply_merge_packet(repo_root: Path, codex_home: Path, packet: Path) -> dict[
     for source, target in output_files:
         if backup_and_copy(source, target, backup_root):
             changed.append(str(target))
+    for source, target in optional_output_files:
+        if source.is_file() and backup_and_copy(source, target, backup_root):
+            changed.append(str(target))
+
+    changed.extend(install_missing_support_surfaces(repo_root, codex_home))
 
     receipt = write_profile_receipt(repo_root, codex_home)
     plan.update(
@@ -537,30 +647,36 @@ def install_profile(repo_root: Path, codex_home: Path) -> dict[str, Any]:
     if agents_path.exists():
         state = profile_state(repo_root, codex_home)
         if state["status"] == "current":
+            changed.extend(install_missing_support_surfaces(repo_root, codex_home))
             receipt = write_profile_receipt(repo_root, codex_home)
             return {
                 "status": "current",
-                "changed": [],
+                "changed": changed,
                 "backup_root": None,
                 "receipt": str(receipt),
+                "support": support_surface_status(repo_root, codex_home),
             }
         if state["status"] == "local_overlay":
+            changed.extend(install_missing_support_surfaces(repo_root, codex_home))
             return {
                 "status": "local_overlay",
-                "changed": [],
+                "changed": changed,
                 "backup_root": None,
                 "receipt": state["receipt"],
+                "support": support_surface_status(repo_root, codex_home),
             }
         if state["status"] == "source_update":
             for source, target in profile_checks(repo_root, codex_home):
                 if backup_and_copy(source, target, backup_root):
                     changed.append(str(target))
+            changed.extend(install_missing_support_surfaces(repo_root, codex_home))
             receipt = write_profile_receipt(repo_root, codex_home)
             return {
                 "status": "updated",
                 "changed": changed,
                 "backup_root": str(backup_root) if backup_root.exists() else None,
                 "receipt": str(receipt),
+                "support": support_surface_status(repo_root, codex_home),
             }
         return create_merge_packet(
             repo_root,
@@ -571,6 +687,7 @@ def install_profile(repo_root: Path, codex_home: Path) -> dict[str, Any]:
     for source, target in profile_checks(repo_root, codex_home):
         if backup_and_copy(source, target, backup_root):
             changed.append(str(target))
+    changed.extend(install_missing_support_surfaces(repo_root, codex_home))
 
     receipt = write_profile_receipt(repo_root, codex_home)
 
@@ -579,6 +696,7 @@ def install_profile(repo_root: Path, codex_home: Path) -> dict[str, Any]:
         "changed": changed,
         "backup_root": str(backup_root) if backup_root.exists() else None,
         "receipt": str(receipt),
+        "support": support_surface_status(repo_root, codex_home),
     }
 
 
@@ -618,6 +736,7 @@ def verify_profile(repo_root: Path, codex_home: Path, profile: bool) -> dict[str
             "status": "skipped",
             "mismatches": [],
             "merge_packet": None,
+            "support": {"runtime_required": False, "states": {}, "missing": [], "drift": []},
         }
     state = profile_state(repo_root, codex_home)
     if state["status"] in {"current", "local_overlay"}:
@@ -626,6 +745,7 @@ def verify_profile(repo_root: Path, codex_home: Path, profile: bool) -> dict[str
             "mismatches": [],
             "merge_packet": None,
             "receipt": state["receipt"],
+            "support": state["support"],
         }
     if state["status"] in {"source_update", "merge_required"}:
         return {
@@ -633,12 +753,14 @@ def verify_profile(repo_root: Path, codex_home: Path, profile: bool) -> dict[str
             "mismatches": [],
             "merge_packet": latest_merge_packet(codex_home),
             "receipt": state["receipt"],
+            "support": state["support"],
         }
     return {
         "status": "missing",
         "mismatches": state["missing"],
         "merge_packet": None,
         "receipt": state["receipt"],
+        "support": state["support"],
     }
 
 
@@ -731,7 +853,11 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--plugins-dir", default=str(Path.home() / "plugins"))
     parser.add_argument("--codex-home", default=str(Path.home() / ".codex"))
     parser.add_argument("--codex-bin", default=shutil.which("codex") or "codex")
-    parser.add_argument("--no-profile", action="store_true", help="Install the plugin without syncing AGENTS.md and prompts.")
+    parser.add_argument(
+        "--no-profile",
+        action="store_true",
+        help="Install the plugin without syncing the AGENTS.md runtime profile or optional support surfaces.",
+    )
     mode = parser.add_mutually_exclusive_group()
     mode.add_argument("--verify-only", action="store_true", help="Only verify an existing install.")
     mode.add_argument(

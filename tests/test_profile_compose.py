@@ -12,6 +12,16 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 
 
 class ProfileComposeTests(unittest.TestCase):
+    def test_manifest_separates_runtime_authoring_and_compatibility_surfaces(self) -> None:
+        manifest = json.loads(
+            (REPO_ROOT / "profile" / "manifest.json").read_text(encoding="utf-8")
+        )
+
+        self.assertEqual(manifest["schema"], "opl_flow_profile_manifest.v2")
+        self.assertEqual(manifest["runtime_profile"], {"path": "templates/AGENTS.md", "required": True})
+        self.assertFalse(manifest["authoring_source"]["runtime_required"])
+        self.assertEqual(len(manifest["explicit_compatibility_surfaces"]), 4)
+
     def test_repo_template_matches_profile_modules(self) -> None:
         result = profile_compose.check(REPO_ROOT)
 

@@ -1,7 +1,7 @@
 {
   "name": "opl-flow",
-  "version": "0.1.9",
-  "description": "OPL Flow is a pragmatic Codex workflow profile with decision lenses, risk-aware evidence rules, and narrow Git/release ops audits for direct answers, inline execution, durable evidence, subagent boundaries, and completion audits.",
+  "version": "0.1.10",
+  "description": "OPL Flow installs one thin Codex runtime profile, explicit compatibility prompts, risk-aware evidence rules, and narrow Git/release mechanical audits.",
   "author": {
     "name": "Gaofeng"
   },
@@ -9,18 +9,18 @@
   "interface": {
     "displayName": "OPL Flow",
     "shortDescription": "Pragmatic Codex workflow profile",
-    "longDescription": "OPL Flow packages a reusable Codex-first workflow compatible with OPL App Full and Superpowers: Direct/Inline/Durable task tiers, planner/executor/debugger/verifier decision lenses, risk-aware evidence selection, fail-closed Git lane and GitHub release audits, durable writeback rules, and completion audits.",
+    "longDescription": "OPL Flow packages a thin AGENTS.md runtime profile compatible with OPL App Full and Superpowers, plus explicit planner/executor/debugger/verifier compatibility prompts, risk-aware evidence selection, and fail-closed Git lane and GitHub release audits.",
     "developerName": "Gaofeng",
     "category": "Developer Tools",
     "capabilities": [
       "workflow",
-      "planning",
+      "explicit-compatibility-prompts",
       "verification",
       "risk-aware-evidence",
       "superpowers-compatible",
-      "subagents"
+      "bounded-subagents"
     ],
-    "defaultPrompt": "Use OPL Flow to route Direct/Inline/Durable work and verify claims with risk-appropriate evidence."
+    "defaultPrompt": "Use OPL Flow to install or diagnose the thin AGENTS.md runtime profile and its mechanical guardrails."
   },
   "homepage": "https://github.com/gaofeng21cn/opl-flow",
   "repository": "https://github.com/gaofeng21cn/opl-flow",

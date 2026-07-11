@@ -16,6 +16,7 @@ REQUIRED_FILES = (
     "docs/compatibility.md",
     "docs/new-machine-codex-setup.md",
     "LICENSE",
+    "compat/ponytail-gpt56.patch",
     "skills/opl-flow/SKILL.md",
     "skills/opl-flow/agents/openai.yaml",
     "skills/codex-ops-kit/SKILL.md",
@@ -69,11 +70,11 @@ def check_plugin_json(repo_root: Path) -> list[str]:
     if manifest.get("skills") != "./skills/":
         errors.append("plugin skills path must be ./skills/")
     description = manifest.get("description")
-    if not isinstance(description, str) or "decision lenses" not in description:
-        errors.append("plugin description must advertise decision lenses")
+    if not isinstance(description, str) or "one thin Codex runtime profile" not in description:
+        errors.append("plugin description must advertise one thin runtime profile")
     interface = manifest.get("interface", {})
-    if "decision lenses" not in interface.get("longDescription", ""):
-        errors.append("interface.longDescription must advertise decision lenses")
+    if "explicit planner/executor/debugger/verifier compatibility prompts" not in interface.get("longDescription", ""):
+        errors.append("interface.longDescription must identify explicit compatibility prompts")
     default_prompt = interface.get("defaultPrompt")
     if not default_prompt or len(default_prompt) > 128:
         errors.append("interface.defaultPrompt must exist and be at most 128 characters")
@@ -107,15 +108,22 @@ def check_profile(repo_root: Path) -> list[str]:
         (agents, "blocker-to-owner map", "AGENTS.md must preserve blocker-to-owner mapping"),
         (agents, "ponytail-review", "AGENTS.md must route concrete complexity review"),
         (agents, "ponytail-audit", "AGENTS.md must route cleanup discovery"),
-        (agents, "decision lenses", "AGENTS.md must define decision lenses"),
+        (agents, "唯一默认运行时 workflow profile", "AGENTS.md must be the sole runtime profile"),
+        (agents, "显式兼容入口", "AGENTS.md must make lens prompts explicit compatibility surfaces"),
+        (agents, 'fork_turns="none"', "AGENTS.md must default self-contained subagents to no context fork"),
+        (agents, "不设固定两条上限", "AGENTS.md must avoid an arbitrary fixed implementation-lane cap"),
+        (agents, "仅由 root 在终局执行一次", "AGENTS.md must make completion audit root-only and once"),
+        (agents, "2-5 个代表页面", "AGENTS.md must require representative product samples"),
+        (agents, "commentary 采用事件驱动", "AGENTS.md must use event-driven commentary"),
+        (agents, "tests 是重要行为证据", "AGENTS.md must retain tests as behavior evidence"),
         (agents, "fresh claim-appropriate evidence", "AGENTS.md must require claim-appropriate evidence"),
         (agents, "<!-- CODEGRAPH_START -->", "AGENTS.md must preserve the CodeGraph marker block"),
-        (planner, "Planner 是 decision lens", "planner prompt must remain a lens"),
-        (executor, "只有用户请求或明确 lane contract 授权", "executor must require Git authority"),
-        (debugger, "根因深度门", "debugger must preserve the root-cause depth gate"),
+        (planner, "显式兼容入口", "planner prompt must be an explicit compatibility surface"),
+        (executor, "当前任务授权", "executor must require Git authority"),
+        (debugger, "显式兼容入口", "debugger prompt must be an explicit compatibility surface"),
         (debugger, "跨面证据", "debugger must require cross-surface evidence"),
-        (verifier, "优先级依次为", "verifier must preserve acceptance priority"),
-        (verifier, "完成度审计", "verifier must preserve completion audits"),
+        (verifier, "显式兼容入口", "verifier prompt must be an explicit compatibility surface"),
+        (verifier, "只由 root 在终局输出一次完成度审计", "verifier must preserve root-only completion audits"),
         (taste, "AI 先行，合同托底", "TASTE.md must prioritize AI execution"),
         (taste, "证据匹配风险", "TASTE.md must preserve risk-matched evidence"),
         (taste, "简单优先", "TASTE.md must preserve simplicity"),
@@ -130,6 +138,10 @@ def check_profile(repo_root: Path) -> list[str]:
         (planner, "给出 2-3 个可行方案", "planner must not force multiple options"),
         (combined_prompts, "## 输出格式", "decision lenses must not force output templates"),
         (agents, "自动提升到 `ponytail full`", "AGENTS.md must not claim mechanical Ponytail switching"),
+        (agents, "进入项目后读取用户级 `~/.codex/TASTE.md`", "AGENTS.md must not require runtime TASTE reads"),
+        (agents, "连续应用 planner、executor、debugger、verifier", "AGENTS.md must not require a prompt chain"),
+        (agents, "默认扩大到可安全并行的多 lane", "AGENTS.md must not expand fanout from target-state wording"),
+        (agents, "跨仓实现默认已授权", "AGENTS.md must not claim default cross-repo takeover"),
     )
     for text, needle, message in forbidden:
         forbid(text, needle, message, errors)

@@ -2,19 +2,19 @@
 
 ## Goal
 
-Keep the user's intentional local choices unchanged: bearer-token provider
-configuration, Ponytail default `lite`, and unrestricted `agents.max_threads`.
-Simplify OPL Flow by removing duplicated workflow ceremony, tightening authority
-boundaries, and making plugin/profile readiness reflect Codex live readback.
+Keep the user's bearer-token provider configuration, Ponytail default `lite`,
+and intentional `agents.max_threads=100`. Adapt OPL Flow to GPT-5.6 by removing
+duplicated runtime ceremony, delegating bounded independent work proactively,
+and making readiness reflect the one profile Codex actually needs at runtime.
 
 ## Profile Boundary
 
-- `TASTE.md` remains the collaboration-principles source of truth.
-- `AGENTS.md` owns durable routing and hard boundaries, not repeated procedures.
-- Planner, Executor, Debugger, and Verifier are lenses used by one agent in the
-  same task, not handoff states that stop delivery.
-- Decision-lens prompts retain only their OPL-specific delta. Reusable algorithms stay in
-  the corresponding skills.
+- `AGENTS.md` is the only runtime profile.
+- `TASTE.md` remains a human-maintained authoring source whose stable digest is
+  compiled into AGENTS; sessions and subagents do not read it by default.
+- Planner, Executor, Debugger, and Verifier prompts are explicit compatibility
+  entrypoints, not a default runtime chain.
+- Commentary is event-driven rather than clock-driven.
 - Completion evidence must be fresh and appropriate to the claim. Executable or
   live evidence is mandatory for behavior, runtime, release, and currentness
   claims, not for every documentation or decision deliverable.
@@ -25,8 +25,8 @@ boundaries, and making plugin/profile readiness reflect Codex live readback.
   or push unless the task explicitly authorizes that outcome.
 - A real owner, semantic, permission, or authority decision remains a valid
   gate.
-- TASTE/AGENTS and the verifier lens select risk-appropriate evidence without a separate prose-router skill.
-- `verification-before-completion` runs and reads fresh completion evidence.
+- AGENTS selects risk-appropriate evidence without a separate prose-router skill.
+- `verification-before-completion` runs only for root terminal claims and high-risk runtime/release/owner claims.
 - `codex-ops-kit` owns Git lane lifecycle and GitHub release evidence.
 - `evidence-bound-closeout` owns generated artifacts, source binding, route
   authority, and public-surface drift, not Git lane lifecycle.
@@ -34,6 +34,8 @@ boundaries, and making plugin/profile readiness reflect Codex live readback.
 ## Capability Adapters
 
 - Ponytail remains enabled with default `lite`.
+- Its automatic Codex rules are a 5-10 line delta injected once at root startup;
+  resume, compact, and subagent hooks do not repeat it.
 - OPL Flow does not claim that task classification mechanically switches the
   Ponytail plugin mode. `ponytail-audit` handles broad candidate discovery and
   `ponytail-review` handles concrete diffs.
@@ -60,6 +62,8 @@ boundaries, and making plugin/profile readiness reflect Codex live readback.
   readiness evidence.
 - Strict companion checks fail unless the profile and OPL Flow-native
   guardrails are runtime-discoverable.
+- Profile receipts and semantic-merge gates bind only `AGENTS.md`. TASTE and the
+  four compatibility prompts remain installable and diagnosable but non-blocking.
 - Profile verification uses a receipt to distinguish current, local overlay,
   unapproved local drift, and source drift. A local overlay is ready only when
   an explicit semantic-merge apply records the exact source and target hashes.
@@ -73,10 +77,10 @@ boundaries, and making plugin/profile readiness reflect Codex live readback.
 
 - Update the repo-native modules and rendered templates first.
 - Preserve the workstation's newer RTK rules in the source module.
-- Sync the resulting AGENTS, prompts, bundled guardrails, and plugin payload to
+- Sync the resulting AGENTS, optional support surfaces, bundled guardrails, and plugin payload to
   the local Codex surfaces.
-- Remove only project-trust entries whose paths no longer exist. Keep all live
-  entries and the user's `agents.max_threads` value.
+- Remove the redundant `goals=true` pin; preserve the intentional
+  `agents.max_threads=100`, `agents.max_depth=1`, and all unrelated live configuration.
 
 ## Verification
 
@@ -86,5 +90,5 @@ boundaries, and making plugin/profile readiness reflect Codex live readback.
 3. `python3 scripts/verify.py` verifies the full repository contract.
 4. A real local install is followed by `codex plugin list --available --json`
    and `check_companion_skills.py --strict` readback.
-5. The final diff receives an independent correctness review and a
-   `ponytail-review` complexity pass.
+5. A fresh root task forward-tests the thin profile; Ponytail review remains
+   explicit rather than a mandatory closeout pass.

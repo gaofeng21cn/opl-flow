@@ -215,6 +215,80 @@ class InstallLocalPluginTests(unittest.TestCase):
             self.assertTrue((codex_home / "TASTE.md").exists())
             self.assertTrue((codex_home / "prompts" / "planner.md").exists())
 
+    def test_fresh_runtime_install_preserves_existing_support_surfaces(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            codex_home = Path(tmp) / "codex"
+            (codex_home / "prompts").mkdir(parents=True)
+            (codex_home / "TASTE.md").write_text("human authoring source\n", encoding="utf-8")
+            (codex_home / "prompts" / "planner.md").write_text("custom compatibility prompt\n", encoding="utf-8")
+
+            result = install_local_plugin.install_profile(REPO_ROOT, codex_home)
+
+            self.assertEqual(result["status"], "installed")
+            self.assertTrue((codex_home / "AGENTS.md").exists())
+            self.assertEqual((codex_home / "TASTE.md").read_text(encoding="utf-8"), "human authoring source\n")
+            self.assertEqual(
+                (codex_home / "prompts" / "planner.md").read_text(encoding="utf-8"),
+                "custom compatibility prompt\n",
+            )
+            self.assertIn("TASTE.md", result["support"]["drift"])
+
+    def test_support_surface_missing_or_drift_does_not_block_runtime_profile(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            repo = root / "repo"
+            codex_home = root / "codex"
+            shutil.copytree(REPO_ROOT / "templates", repo / "templates")
+            install_local_plugin.install_profile(repo, codex_home)
+
+            (codex_home / "TASTE.md").write_text("local authoring edit\n", encoding="utf-8")
+            (codex_home / "prompts" / "planner.md").unlink()
+            status = install_local_plugin.verify_profile(repo, codex_home, profile=True)
+
+            self.assertEqual(status["status"], "current")
+            self.assertIn("TASTE.md", status["support"]["drift"])
+            self.assertIn("prompts/planner.md", status["support"]["missing"])
+            self.assertFalse(status["support"]["runtime_required"])
+
+    def test_merge_packet_only_requires_runtime_profile_and_report(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            repo = root / "repo"
+            codex_home = root / "codex"
+            shutil.copytree(REPO_ROOT / "templates", repo / "templates")
+            codex_home.mkdir()
+            (codex_home / "AGENTS.md").write_text("custom profile\n", encoding="utf-8")
+
+            pending = install_local_plugin.install_profile(repo, codex_home)
+            packet = Path(pending["merge_packet"])
+            shutil.copy2(packet / "candidate" / "AGENTS.md", packet / "output" / "AGENTS.md")
+            (packet / "output" / "merge-report.md").write_text("approved\n", encoding="utf-8")
+
+            applied = install_local_plugin.apply_merge_packet(repo, codex_home, packet)
+
+            self.assertEqual(applied["status"], "applied")
+            self.assertTrue((codex_home / "TASTE.md").exists())
+            self.assertTrue((codex_home / "prompts" / "verifier.md").exists())
+
+    def test_old_receipt_schema_fails_closed_after_runtime_source_change(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            repo = root / "repo"
+            codex_home = root / "codex"
+            shutil.copytree(REPO_ROOT / "templates", repo / "templates")
+            install_local_plugin.install_profile(repo, codex_home)
+            receipt_path = install_local_plugin.profile_receipt_path(codex_home)
+            receipt = json.loads(receipt_path.read_text(encoding="utf-8"))
+            receipt["schema"] = "opl_flow_profile_install_receipt.v1"
+            receipt_path.write_text(json.dumps(receipt), encoding="utf-8")
+            agents = repo / "templates" / "AGENTS.md"
+            agents.write_text(agents.read_text(encoding="utf-8") + "\nsource update\n", encoding="utf-8")
+
+            status = install_local_plugin.verify_profile(repo, codex_home, profile=True)
+
+            self.assertEqual(status["status"], "merge_required")
+            self.assertIsNone(status["receipt"])
+
     def test_install_profile_does_not_overwrite_existing_agents(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             codex_home = Path(tmp) / "codex"
@@ -349,6 +423,25 @@ class InstallLocalPluginTests(unittest.TestCase):
                 install_local_plugin.apply_merge_packet(repo, codex_home, packet)
 
             self.assertEqual((codex_home / "AGENTS.md").read_text(encoding="utf-8"), "newer user edit\n")
+
+    def test_apply_merge_packet_rejects_optional_support_target_drift(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            repo = root / "repo"
+            codex_home = root / "codex"
+            shutil.copytree(REPO_ROOT / "templates", repo / "templates")
+            codex_home.mkdir()
+            (codex_home / "AGENTS.md").write_text("custom user profile\n", encoding="utf-8")
+            (codex_home / "TASTE.md").write_text("existing taste\n", encoding="utf-8")
+            pending = install_local_plugin.install_profile(repo, codex_home)
+            packet = Path(pending["merge_packet"])
+            self.write_merge_output(packet)
+            (codex_home / "TASTE.md").write_text("newer authoring edit\n", encoding="utf-8")
+
+            with self.assertRaisesRegex(ValueError, "support target changed after packet creation"):
+                install_local_plugin.apply_merge_packet(repo, codex_home, packet)
+
+            self.assertEqual((codex_home / "TASTE.md").read_text(encoding="utf-8"), "newer authoring edit\n")
 
     def test_profile_receipt_allows_safe_source_update_without_local_changes(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:

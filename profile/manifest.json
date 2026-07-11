@@ -1,6 +1,20 @@
 {
-  "schema": "opl_flow_profile_manifest.v1",
+  "schema": "opl_flow_profile_manifest.v2",
   "rendered": "templates/AGENTS.md",
+  "runtime_profile": {
+    "path": "templates/AGENTS.md",
+    "required": true
+  },
+  "authoring_source": {
+    "path": "templates/TASTE.md",
+    "runtime_required": false
+  },
+  "explicit_compatibility_surfaces": [
+    "templates/prompts/planner.md",
+    "templates/prompts/executor.md",
+    "templates/prompts/debugger.md",
+    "templates/prompts/verifier.md"
+  ],
   "modules": [
     {
       "id": "user_preferences",

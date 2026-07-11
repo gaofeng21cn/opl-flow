@@ -35,7 +35,7 @@ Source of truth:
 - OPL Flow: https://github.com/gaofeng21cn/opl-flow/blob/main/docs/new-machine-codex-setup.md
 
 目标:
-1. 安装并验证 OPL Flow，让 Codex 获得用户级 AGENTS.md、TASTE.md、planner/executor/debugger/verifier decision lenses 和 opl-flow 插件。
+1. 安装并验证 OPL Flow，让 Codex 获得用户级 AGENTS.md 唯一运行时 profile、非运行时 TASTE authoring source、四个显式兼容 prompt 和 opl-flow 插件。
 2. 完成后报告安装路径、备份位置、验证命令输出摘要、仍需人工处理的权限或网络问题。
 
 约束:
@@ -48,7 +48,7 @@ Source of truth:
 
 ### 1. OPL Flow
 
-OPL Flow owns the Codex-side working profile: user-level `AGENTS.md`, `TASTE.md`, decision lenses, risk-based evidence routing, high-risk Codex ops routing, Durable writeback, and completion verification.
+OPL Flow owns the Codex-side working profile: user-level `AGENTS.md` runtime profile, non-blocking TASTE authoring source, explicit compatibility prompts, risk-based evidence routing, high-risk Codex ops routing, Durable writeback, and terminal completion verification.
 
 ```bash
 git clone https://github.com/gaofeng21cn/opl-flow.git
@@ -92,7 +92,7 @@ OPL Flow bundles one profile-native mechanical guardrail:
 
 - `codex-ops-kit`
 
-Risk-aware evidence selection and TDD routing live in TASTE/AGENTS and the verifier lens rather than a separate prose-router skill.
+Risk-aware evidence selection and narrow TDD routing live in `AGENTS.md` and specialist skills rather than a separate prose-router or mandatory verifier prompt.
 
 OPL App Full / companion layers normally cover:
 
@@ -138,18 +138,25 @@ python3 scripts/intelligence_enhancement.py uninstall --confirmation uninstall_c
 “一直在线”的可验证表述是注册为本机持久服务并通过 `status` 读回健康状态；
 系统睡眠、网络、上游服务或凭据问题仍可能让运行态需要 `repair` 或人工处理。
 
-Ponytail can be added when the user wants a live YAGNI / stdlib-first / over-engineering lens. Keep it optional and use the OPL Flow default `lite`:
+Ponytail can be added when the user wants a live YAGNI / stdlib-first / over-engineering lens. Keep it optional and use the OPL Flow GPT-5.6 overlay so `lite` is short and root-only:
 
 ```bash
+OPL_FLOW_ROOT="$(git rev-parse --show-toplevel)"
+mkdir -p ~/workspace
+git clone https://github.com/DietrichGebert/ponytail.git ~/workspace/ponytail
+git -C ~/workspace/ponytail checkout 14a0d79548d4de8fc2de95c1b94bb0de63a739d3
+git -C ~/workspace/ponytail switch -c local/gpt-5.6-lite
+git -C ~/workspace/ponytail apply "$OPL_FLOW_ROOT/compat/ponytail-gpt56.patch"
+npm --prefix ~/workspace/ponytail test
 mkdir -p ~/.config/ponytail
 printf '{\n  "defaultMode": "lite"\n}\n' > ~/.config/ponytail/config.json
-codex plugin marketplace add DietrichGebert/ponytail
-codex plugin add ponytail@ponytail
+codex plugin marketplace add ~/workspace/ponytail
+codex plugin add ponytail@ponytail-local
 ```
 
-After installation, `lite` activates automatically in new sessions. Use `@ponytail` to inspect or resume the configured mode, explicit level arguments to switch it, and `@ponytail-review` / `@ponytail-audit` as one-shot review surfaces. Ponytail must not replace risk-aware evidence, `codex-ops-kit` Git/release evidence, verifier, fresh-evidence, release/currentness/readiness, or completion-audit gates.
+After installation, `lite` activates once at root startup as a 5-10 line complexity delta. The Codex hook profile disables resume, compact, and subagent reinjection. On an existing machine, verify the local plugin before removing the old `ponytail@ponytail` install and marketplace. Use explicit level arguments to switch it, and `@ponytail-review` / `@ponytail-audit` as one-shot review surfaces. Ponytail must not replace scope, authority, fresh evidence, or runtime/release/currentness gates.
 
-Use `ponytail-audit` for whole-repo or cross-repo cleanup candidate discovery. Use `ponytail-review` for concrete diffs, PRs, commit ranges, or worktree lanes before absorbing non-trivial cleanup/refactor/wrapper-retirement/dependency-thinning work. Skip the review gate only for read-only audits, docs-only changes, emergency hotfixes, tiny one-line fixes, or unavailable Ponytail, and record the reason.
+Use `ponytail-audit` explicitly for whole-repo or cross-repo cleanup candidate discovery. Use `ponytail-review` explicitly for a concrete diff, PR, commit range, or worktree lane when the user asks for over-engineering review; it is not a default absorption gate.
 
 Check the current machine with:
 
@@ -167,7 +174,7 @@ python3 scripts/check_companion_skills.py --strict
 
 | Layer | Entry | Installs or refreshes |
 | --- | --- | --- |
-| Workflow Profile | `opl-flow` | `~/plugins/opl-flow` as the independent `opl-flow-local` marketplace, `opl-flow@opl-flow-local`, `~/.codex/AGENTS.md`, `~/.codex/TASTE.md`, decision lenses, and `codex-ops-kit` |
+| Workflow Profile | `opl-flow` | `~/plugins/opl-flow` as the independent `opl-flow-local` marketplace, `opl-flow@opl-flow-local`, the `~/.codex/AGENTS.md` runtime profile, non-blocking TASTE/compatibility prompts, and `codex-ops-kit` |
 
 When an existing user-level `AGENTS.md` is present, the `~/.codex/AGENTS.md`
 entry above means "candidate profile plus Codex semantic merge packet", not
@@ -177,19 +184,19 @@ Key behavior after install:
 
 - Chinese, direct, evidence-oriented communication.
 - Direct / Inline / Durable task classification.
-- Planner / Executor / Debugger / Verifier decision lenses used in one continuous task.
+- Native planning / execution / diagnosis / verification; four prompt files are explicit compatibility entrypoints only.
 - Risk-based verification and TDD selection.
 - Fail-closed Git lane and GitHub release evidence through `codex-ops-kit`.
 - Fresh evidence boundaries for runtime truth, readiness, currentness, release, CI, and owner-route claims.
-- Root-Cause Depth Gate for stalls, repeated failures, heartbeat findings, runtime/currentness/readiness drift, and multi-thread supervision.
-- Chinese "完成度审计" for target-state delivery, anchored to the original target or plan rather than the completed slice.
-- Subagent/worktree lane prompting, verification, absorption, and cleanup discipline.
+- Root-Cause Depth Gate for repeated, flaky, cross-component, or initially unclear failures.
+- One root-only terminal Chinese "完成度审计" for target-state delivery, anchored to the frozen target.
+- Root-owned coordination with proactive subagent delegation for bounded independent work; implementation concurrency follows benefit, available capacity, and write-set isolation instead of a fixed lane count.
 - Durable writeback routing for reusable workflow lessons.
 - CodeGraph marker block preservation and RTK shell preference when available.
 - Compatibility with OPL App Full / Superpowers: OPL Flow routes to the execution surface already packaged by Full install and owns only the Workflow Profile layer.
 - Superpowers profile preservation: OPL Flow keeps the current local profile unless the user explicitly chooses official full Superpowers.
 - Optional Ponytail compatibility: OPL Flow can detect Ponytail and its default mode, but treats it only as a simplification lens.
-- Ponytail diff review gate: non-trivial cleanup/refactor/worktree absorption should run `ponytail-review` on the concrete diff, while `ponytail-audit` remains the discovery tool.
+- Ponytail explicit review surfaces: use `ponytail-review` for concrete complexity review and `ponytail-audit` for discovery when requested.
 
 ## Completion Checks
 

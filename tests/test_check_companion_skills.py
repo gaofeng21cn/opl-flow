@@ -132,9 +132,32 @@ class CheckCompanionSkillsTests(unittest.TestCase):
             home = Path(tmp)
             codex_home = home / ".codex"
             repo = home / "repo"
-            plugin_root = codex_home / "plugins" / "cache" / "ponytail" / "ponytail" / "4.8.3"
+            plugin_root = codex_home / "plugins" / "cache" / "ponytail-local" / "ponytail" / "4.8.3"
             (plugin_root / ".codex-plugin").mkdir(parents=True)
             (plugin_root / ".codex-plugin" / "plugin.json").write_text('{"name":"ponytail"}\n', encoding="utf-8")
+            (plugin_root / "hooks").mkdir()
+            (plugin_root / "hooks" / "claude-codex-hooks.json").write_text(
+                json.dumps(
+                    {
+                        "hooks": {
+                            "SessionStart": [
+                                {
+                                    "matcher": "startup",
+                                    "hooks": [{"command": "node hooks/ponytail-activate.js"}],
+                                }
+                            ],
+                            "UserPromptSubmit": [
+                                {"hooks": [{"command": "node hooks/ponytail-mode-tracker.js"}]}
+                            ],
+                        }
+                    }
+                ),
+                encoding="utf-8",
+            )
+            (plugin_root / "hooks" / "ponytail-instructions.js").write_text(
+                "module.exports.getPonytailInstructions=()=>['a','b','c','d','e'].join('\\n');\n",
+                encoding="utf-8",
+            )
             (home / ".config" / "ponytail").mkdir(parents=True)
             (home / ".config" / "ponytail" / "config.json").write_text(
                 '{\n  "defaultMode": "lite"\n}\n',
@@ -149,6 +172,21 @@ class CheckCompanionSkillsTests(unittest.TestCase):
                 repo,
             )
             config = check_companion_skills.ponytail_config_status(home)
+            hooks = check_companion_skills.ponytail_hook_status(
+                codex_home,
+                {
+                    "installed": [
+                        {
+                            "pluginId": "ponytail@ponytail-local",
+                            "name": "ponytail",
+                            "marketplaceName": "ponytail-local",
+                            "version": "4.8.3",
+                            "installed": True,
+                            "enabled": True,
+                        }
+                    ]
+                },
+            )
 
             self.assertTrue(status["ok"])
             self.assertEqual(status["sources"], ["plugin_cache"])
@@ -156,6 +194,63 @@ class CheckCompanionSkillsTests(unittest.TestCase):
             self.assertEqual(config["auto_activation"], "on")
             self.assertEqual(config["recommended_default_mode"], "lite")
             self.assertTrue(config["matches_opl_default"])
+            self.assertTrue(hooks["ok"])
+            self.assertEqual(hooks["matches"][0]["lite_lines"], 5)
+            self.assertEqual(hooks["binding"], "installed_enabled_plugin")
+
+            empty_hooks = json.loads(
+                (plugin_root / "hooks" / "claude-codex-hooks.json").read_text(encoding="utf-8")
+            )
+            empty_hooks["hooks"]["UserPromptSubmit"][0]["hooks"] = []
+            (plugin_root / "hooks" / "claude-codex-hooks.json").write_text(
+                json.dumps(empty_hooks), encoding="utf-8"
+            )
+            self.assertFalse(
+                check_companion_skills.ponytail_hook_status(
+                    codex_home,
+                    {
+                        "installed": [
+                            {
+                                "pluginId": "ponytail@ponytail-local",
+                                "name": "ponytail",
+                                "marketplaceName": "ponytail-local",
+                                "version": "4.8.3",
+                                "installed": True,
+                                "enabled": True,
+                            }
+                        ]
+                    },
+                )["ok"]
+            )
+
+            empty_hooks["hooks"]["UserPromptSubmit"][0]["hooks"] = [
+                {"command": "node hooks/ponytail-mode-tracker.js"}
+            ]
+            (plugin_root / "hooks" / "claude-codex-hooks.json").write_text(
+                json.dumps(empty_hooks), encoding="utf-8"
+            )
+
+            duplicate_payload = {
+                "installed": [
+                    *[
+                        {
+                            "pluginId": plugin_id,
+                            "name": "ponytail",
+                            "marketplaceName": marketplace,
+                            "version": "4.8.3",
+                            "installed": True,
+                            "enabled": True,
+                        }
+                        for plugin_id, marketplace in (
+                            ("ponytail@ponytail-local", "ponytail-local"),
+                            ("ponytail@ponytail", "ponytail"),
+                        )
+                    ]
+                ]
+            }
+            self.assertFalse(
+                check_companion_skills.ponytail_hook_status(codex_home, duplicate_payload)["ok"]
+            )
 
     def test_runtime_guardrail_ready_rejects_source_and_staged_candidates(self) -> None:
         status = {

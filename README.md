@@ -1,10 +1,10 @@
 # OPL Flow
 
-OPL Flow is a lightweight Codex workflow profile for pragmatic local engineering. It packages decision lenses, durable guardrails, and installation/readback checks into a reusable Codex plugin and user profile.
+OPL Flow is a lightweight Codex workflow profile for pragmatic local engineering. It packages one thin `AGENTS.md` runtime profile, explicit compatibility prompts, mechanical guardrails, and installation/readback checks.
 
 ## Public Role Boundary
 
-OPL Flow is the distribution of a working mode: workflow profile, decision lenses,
+OPL Flow is the distribution of a working mode: one runtime profile, optional compatibility surfaces,
 guardrail skills, and install/update guidance for Codex. It owns the
 `workflow_profile` layer only.
 
@@ -17,13 +17,13 @@ repo, runtime, contract, test, or owner-receipt surface.
 It is inspired by Trellis and Superpowers, but stays Codex-first:
 
 - Direct / Inline / Durable task tiers.
-- Planner / Executor / Debugger / Verifier decision lenses used continuously by one agent.
-- Risk-aware evidence and narrow TDD rules in TASTE/AGENTS and the verifier lens.
+- Native planning, execution, diagnosis, and verification without default prompt-file reads; four legacy prompts remain explicit compatibility entrypoints.
+- Risk-aware evidence and narrow TDD rules in `AGENTS.md` and specialist skills.
 - Bundled `codex-ops-kit` for fail-closed Git worktree/subagent lane evidence and live GitHub release URL/asset/install-command audits.
 - Codex inline execution by default.
-- Subagent/worktree lane contract for scoped parallel work.
+- Root-owned coordination with proactive subagent delegation for bounded independent work; implementation concurrency follows actual benefit, capacity, and write-set isolation rather than a fixed two-lane cap.
 - Durable evidence and lesson writeback.
-- Verification before completion, including Chinese "完成度审计" for target-state delivery.
+- One root-only terminal "完成度审计" for target-state delivery.
 - Root-Cause Depth Gate for stalls, repeated failures, heartbeat findings, runtime/currentness/readiness drift, and multi-thread supervision.
 - Fresh evidence boundaries for runtime truth, readiness, currentness, release, CI, and owner-route claims.
 - CodeGraph marker block preservation for projects that rely on CodeGraph injection.
@@ -69,13 +69,9 @@ This stages and installs:
 
 - local plugin and independent marketplace root: `~/plugins/opl-flow`
 - exact Codex plugin: `opl-flow@opl-flow-local`, verified installed and enabled
-- Codex workflow profile:
-  - `~/.codex/AGENTS.md`
-  - `~/.codex/TASTE.md`
-  - `~/.codex/prompts/planner.md`
-  - `~/.codex/prompts/executor.md`
-  - `~/.codex/prompts/debugger.md`
-  - `~/.codex/prompts/verifier.md`
+- Runtime workflow profile: `~/.codex/AGENTS.md`
+- Non-runtime authoring source: `~/.codex/TASTE.md`
+- Explicit compatibility prompts: `~/.codex/prompts/{planner,executor,debugger,verifier}.md`
 
 On a machine without `~/.codex/AGENTS.md`, the installer writes the rendered OPL
 Flow profile directly. On a machine that already has user-level `AGENTS.md`, the
@@ -86,8 +82,8 @@ sources, and a Codex merge prompt. Semantic merging must be performed by Codex
 from that packet; the installer does not use heuristic script merging for
 profile semantics.
 
-The pending install returns a nonzero status. After reviewing the complete
-`output/` set and `merge-report.md`, apply it and record the approved receipt:
+The pending install returns a nonzero status. After reviewing the required
+`output/AGENTS.md` and `output/merge-report.md` (plus optional authoring/compatibility outputs), apply it and record the approved receipt:
 
 ```bash
 python3 scripts/install_local_plugin.py --apply-merge-packet <packet-path>
@@ -97,7 +93,7 @@ python3 scripts/install_local_plugin.py --verify-only
 Packet apply is bound to the candidate source and existing target fingerprints
 captured at packet creation. If either side changes, generate a new packet.
 
-`~/.codex/TASTE.md` carries default AI work principles. Repo-specific facts, local boundaries, and project development rules belong in `AGENTS.md`, docs, contracts, source, tests, and runtime/readback evidence rather than duplicated repo-local taste files.
+`~/.codex/TASTE.md` is the human-maintained preference authoring source, not a session input. Its stable digest is compiled into `AGENTS.md`; its absence or drift does not fail runtime readiness. Repo-specific facts, local boundaries, and project development rules belong in `AGENTS.md`, docs, contracts, source, tests, and runtime/readback evidence.
 
 The profile routes to companion skills by name. OPL Flow bundles only `codex-ops-kit`, because Git lane and public release checks need deterministic fail-closed machinery; general risk judgment stays in the thin profile. OPL Flow is a required Standard and Full `workflow_plugin_package`, while its semantic ownership remains limited to the Workflow Profile layer. OPL App Full may install the Superpowers execution surface, common companion skills, companion tools, and other OPL capability packages through their own lifecycle planes; OPL Flow only detects and routes to those surfaces when present. It preserves the current local Superpowers profile by default; switching to official full Superpowers is an explicit user choice, not an installer side effect. `agent-browser`, Ponytail, RTK, and CodeGraph remain optional machine-level enhancements.
 
@@ -109,16 +105,23 @@ python3 scripts/check_companion_skills.py
 
 The checker reports both the Superpowers bundle readiness and the active local Superpowers profile (`lite`, `expanded`, `full`, `custom`, or `not_configured`). `lite` and `expanded` keep the local routing profile and leave upstream `using-superpowers` disabled; `full` links the complete upstream skills directory and enables the official bootstrap.
 
-Ponytail is treated as an optional simplification lens for YAGNI / stdlib-first / over-engineering review. OPL Flow keeps the workstation default at `lite`:
+Ponytail is treated as an optional simplification lens for YAGNI / stdlib-first / over-engineering review. OPL Flow keeps the workstation default at `lite`, but applies a Codex-specific compatibility patch so automatic context is short and root-only:
 
 ```bash
+OPL_FLOW_ROOT="$(git rev-parse --show-toplevel)"
+mkdir -p ~/workspace
+git clone https://github.com/DietrichGebert/ponytail.git ~/workspace/ponytail
+git -C ~/workspace/ponytail checkout 14a0d79548d4de8fc2de95c1b94bb0de63a739d3
+git -C ~/workspace/ponytail switch -c local/gpt-5.6-lite
+git -C ~/workspace/ponytail apply "$OPL_FLOW_ROOT/compat/ponytail-gpt56.patch"
+npm --prefix ~/workspace/ponytail test
 mkdir -p ~/.config/ponytail
 printf '{\n  "defaultMode": "lite"\n}\n' > ~/.config/ponytail/config.json
-codex plugin marketplace add DietrichGebert/ponytail
-codex plugin add ponytail@ponytail
+codex plugin marketplace add ~/workspace/ponytail
+codex plugin add ponytail@ponytail-local
 ```
 
-The Ponytail plugin owns its active mode. OPL Flow does not claim task-driven automatic `full/ultra` switches; it routes `ponytail-audit` for broad candidate discovery and `ponytail-review` for concrete diffs. Ponytail must not override risk-aware evidence, `codex-ops-kit` Git/release evidence, verifier, fresh-evidence, or completion-audit rules.
+When migrating from the upstream marketplace, verify `ponytail@ponytail-local` first, then remove `ponytail@ponytail` and its marketplace to prevent duplicate hooks. For GPT-5.6, `lite` is a root-startup-only 5-10 line complexity delta; resume, compact, and subagent injection are disabled. `ponytail-audit` and `ponytail-review` remain explicit. Ponytail must not override scope, evidence, authority, or completion rules.
 
 OPL Flow routes Ponytail by artifact shape: `ponytail-audit` is for whole-repo or cross-repo cleanup candidate discovery; `ponytail-review` is for a concrete diff, PR, commit range, or worktree lane before absorption when the change is a non-trivial cleanup/refactor/wrapper-retirement/dependency-thinning lane.
 
@@ -234,11 +237,11 @@ It also routes evidence-sensitive work:
 
 - Risk-based verification: classify the risk, choose a verification budget, and avoid TDD/test bloat unless it proves a concrete regression.
 - High-risk Git/release evidence: use `codex-ops-kit` before Git lane start/absorb/closeout or before claiming a public GitHub release URL, asset, or exact install command is current.
-- Root-cause supervision: stalls, repeated failures, heartbeat findings, runtime/currentness/readiness drift, and multi-thread stops must identify the visible symptom, direct failing boundary, cross-surface evidence, owner surface, and repair or decision path before closeout.
-- Completion audits: for "全部落地 / 一步到位 / 彻底解决" style goals, verify against the original target plan and report Chinese "完成度审计" with status, percent, fresh evidence, gaps, and next actions.
-- Complexity regression: for non-trivial cleanup/refactor/worktree lanes, review the concrete diff with `ponytail-review` before absorption; use `ponytail-audit` only for candidate discovery.
+- Root-cause supervision: use the full depth gate for repeated, flaky, cross-component, or initially unclear failures; ordinary first failures are diagnosed directly.
+- Completion audits: for target-state goals, root reports one terminal Chinese "完成度审计" against the frozen target, with fresh evidence and gaps.
+- Complexity review: use `ponytail-audit` or `ponytail-review` explicitly when broad or concrete over-engineering review is actually requested.
 
-The profile reads AI work principles from the user-level `~/.codex/TASTE.md`. Repo-local `TASTE.md` files are no longer required for OPL-native repositories; local facts, stricter rules, and project-specific development policy should live in `AGENTS.md`, docs, contracts, source, tests, or runtime/readback surfaces. Taste never overrides code, contracts, docs, runtime output, or direct user instructions.
+The runtime profile does not read `~/.codex/TASTE.md`. OPL Flow compiles its stable preference digest into `AGENTS.md`; the full TASTE file remains available for human maintenance. Repo-local `TASTE.md` files are not required.
 
 ## Compatibility With OPL App Full
 
@@ -249,13 +252,13 @@ OPL Flow is a required workflow plugin package in One Person Lab App Standard an
 - Capability Packages cover MAS/MAG/RCA/OMA/BookForge/ScholarSkills managed modules and the separately typed OPL Flow workflow plugin package.
 - Companion Tools and support skills cover the complete upstream OfficeCLI skill family, MinerU, UI/UX, Superpowers, and similar helpers; official OpenAI Primary Runtime PDF/Office capabilities are not mirrored as OPL skills.
 - Codex Surface sync covers plugin registry, plugin-packaged skills, generated OPL plugin surfaces, and reload guidance.
-- OPL Flow owns only the Workflow Profile semantics: `AGENTS.md`, `TASTE.md`, decision lenses, the `opl-flow` plugin, and OPL Flow-owned guardrails.
+- OPL Flow owns only the Workflow Profile semantics: the `AGENTS.md` runtime profile, TASTE authoring source, explicit compatibility prompts, the `opl-flow` plugin, and OPL Flow-owned guardrails.
 - On a fresh machine with no user-level `~/.codex/AGENTS.md`, App-managed initialization can install the OPL Flow plugin and rendered user profile directly.
 - On a machine that already has Codex and user-level `AGENTS.md`, App-managed initialization must use OPL Flow's non-overwrite install path: install or stage the plugin payload, generate the merge packet, and let Codex perform the semantic merge before any profile apply.
 - OPL Flow installs the user-level workflow profile, `opl-flow@opl-flow-local`, and the OPL Flow-owned mechanical guardrail `codex-ops-kit`.
 - OPL Flow should not overwrite user-owned `AGENTS.md`, and OPL App session context should respect existing user profile files.
 - Superpowers should remain the execution surface for its official skills; OPL Flow only routes to the active local profile. `lite` keeps the focused debugger/TDD/verifier subset, `expanded` adds broad planning/worktree helpers, and `full` is reserved for explicit official Superpowers use.
-- Ponytail can be installed alongside OPL Flow as an optional simplification lens with default `lite`; use audit/review routing for YAGNI and over-engineering checks, not as a replacement for evidence, ops, or verification gates.
+- Ponytail can be installed alongside OPL Flow as an optional simplification lens with root-startup-only `lite`; audit/review remain explicit and never replace evidence, ops, or verification gates.
 - OPL Flow does not own OPL App/runtime readiness. Runtime substrate, companion tools, domain module health, GUI shell, App first-run state, and Full readiness belong to One Person Lab App / OPL Framework surfaces and should be checked there, not treated as OPL Flow profile gaps.
 - OPL App update management for OPL Flow must split plugin payload updates from profile updates. Plugin payloads can be staged and verified; user-level profile changes require a Codex semantic merge packet, review/apply, and rollback evidence.
 
