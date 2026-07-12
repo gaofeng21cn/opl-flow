@@ -20,13 +20,13 @@ REQUIRED_FILES = (
     "LICENSE",
     "skills/opl-flow/SKILL.md",
     "skills/opl-flow/agents/openai.yaml",
-    "skills/codex-ops-kit/SKILL.md",
-    "skills/codex-ops-kit/agents/openai.yaml",
-    "skills/codex-ops-kit/scripts/codex_ops_gate.py",
-    "skills/codex-ops-kit/scripts/worktree_absorption_audit.py",
-    "skills/codex-ops-kit/scripts/release_url_audit.py",
-    "skills/codex-ops-kit/references/lane-closeout.md",
-    "skills/codex-ops-kit/references/release-currentness.md",
+    "optional-skills/codex-ops-kit/SKILL.md",
+    "optional-skills/codex-ops-kit/agents/openai.yaml",
+    "optional-skills/codex-ops-kit/scripts/codex_ops_gate.py",
+    "optional-skills/codex-ops-kit/scripts/worktree_absorption_audit.py",
+    "optional-skills/codex-ops-kit/scripts/release_url_audit.py",
+    "optional-skills/codex-ops-kit/references/lane-closeout.md",
+    "optional-skills/codex-ops-kit/references/release-currentness.md",
     "templates/AGENTS.md",
     "templates/TASTE.md",
     "scripts/install_local_plugin.py",
@@ -57,6 +57,12 @@ def check_plugin_json(repo_root: Path) -> list[str]:
         errors.append("plugin name must be opl-flow")
     if manifest.get("skills") != "./skills/":
         errors.append("plugin skills path must be ./skills/")
+    discoverable_skills = {
+        path.name for path in (repo_root / "skills").iterdir()
+        if path.is_dir() and (path / "SKILL.md").exists()
+    }
+    if discoverable_skills != {"opl-flow"}:
+        errors.append("default plugin must expose only the opl-flow skill")
     policy = json.loads((repo_root / "contracts" / "workflow-policy.json").read_text(encoding="utf-8"))
     if manifest.get("version") != policy.get("package", {}).get("version"):
         errors.append("plugin version must match contracts/workflow-policy.json package.version")
@@ -130,8 +136,12 @@ def check_workflow_policy(repo_root: Path) -> list[str]:
 
 def check_skill_metadata(repo_root: Path) -> list[str]:
     errors: list[str] = []
-    for skill_id in ("opl-flow", "codex-ops-kit"):
-        path = repo_root / "skills" / skill_id / "agents" / "openai.yaml"
+    skill_roots = {
+        "opl-flow": repo_root / "skills" / "opl-flow",
+        "codex-ops-kit": repo_root / "optional-skills" / "codex-ops-kit",
+    }
+    for skill_id, skill_root in skill_roots.items():
+        path = skill_root / "agents" / "openai.yaml"
         text = path.read_text(encoding="utf-8")
         for needle in ("interface:", "display_name:", "short_description:", "default_prompt:", f"${skill_id}"):
             require(text, needle, f"{path.relative_to(repo_root)} must contain {needle}", errors)
@@ -218,7 +228,7 @@ def check_retired_skill(repo_root: Path) -> list[str]:
     errors: list[str] = []
     if (repo_root / "skills" / retired).exists():
         errors.append(f"retired skill directory still exists: skills/{retired}")
-    roots = ("README.md", "docs", "profile", "templates", "skills", "scripts", "tests", ".codex-plugin")
+    roots = ("README.md", "docs", "profile", "templates", "skills", "optional-skills", "scripts", "tests", ".codex-plugin")
     for root_name in roots:
         root = repo_root / root_name
         paths = [root] if root.is_file() else root.rglob("*")

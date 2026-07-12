@@ -31,7 +31,7 @@ or domain systems ready by itself.
 | Preference authoring | OPL Flow | Non-blocking `~/.codex/TASTE.md` |
 | Generic OPL Flow skill | OPL Flow | `skills/opl-flow` |
 | CodeGraph bootstrap | OPL Flow profile | Initialize and Git-ignore `.codegraph/`; keep detailed tool guidance repo-local |
-| Git lane and GitHub release audit | Optional OPL Flow utility | `skills/codex-ops-kit`; explicit invocation only |
+| Git lane and GitHub release audit | Optional OPL Flow utility | `optional-skills/codex-ops-kit`; not exposed by the default plugin and installed only by explicit selection |
 | Specialist debugging / verification | Independent skills | Not vendored or measured by OPL Flow; routed only by narrow triggers |
 | Simplification / over-engineering review | Model-native | No global persona or hook dependency |
 | OPL Base | One Person Lab | Not installed or updated by OPL Flow |

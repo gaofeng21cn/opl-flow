@@ -19,7 +19,8 @@ OPL Flow installs:
 - the minimal user-level `~/.codex/AGENTS.md` preference profile;
 - the non-runtime `~/.codex/TASTE.md` authoring source;
 - the normal package plugin identity `opl-flow@opl-agent-opl-flow-local`;
-- the explicit-only `codex-ops-kit` utility.
+
+The default plugin exposes only the `opl-flow` skill. `codex-ops-kit` remains an optional source under `optional-skills/`; it is installed only when explicitly selected and is never a profile readiness dependency.
 
 The Framework package transaction applies the policy's declared conflict migration: matching legacy workflow surfaces are backed up, removed from active discovery and recorded in a rollback receipt. A migration id can be retained explicitly with `--keep`.
 

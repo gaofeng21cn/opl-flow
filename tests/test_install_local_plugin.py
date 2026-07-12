@@ -556,8 +556,9 @@ class InstallLocalPluginTests(unittest.TestCase):
                 codex_bin=str(codex_bin),
             )
 
-            plugin_skill = plugins_dir / "opl-flow" / "skills" / "codex-ops-kit"
+            plugin_skill = plugins_dir / "opl-flow" / "skills" / "opl-flow"
             (plugin_skill / "SKILL.md").write_text("stale\n", encoding="utf-8")
+            (plugin_skill / "scripts").mkdir()
             (plugin_skill / "scripts" / "rho_wrapper.py").write_text("retired\n", encoding="utf-8")
 
             result = install_local_plugin.verify(
@@ -569,8 +570,8 @@ class InstallLocalPluginTests(unittest.TestCase):
             )
 
             self.assertFalse(result["ok"])
-            self.assertIn("content:plugin/skills/codex-ops-kit/SKILL.md", result["source_plugin_mismatches"])
-            self.assertIn("unexpected:plugin/skills/codex-ops-kit/scripts/rho_wrapper.py", result["source_plugin_mismatches"])
+            self.assertIn("content:plugin/skills/opl-flow/SKILL.md", result["source_plugin_mismatches"])
+            self.assertIn("unexpected:plugin/skills/opl-flow/scripts/rho_wrapper.py", result["source_plugin_mismatches"])
 
 if __name__ == "__main__":
     unittest.main()

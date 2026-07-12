@@ -12,7 +12,7 @@ from pathlib import Path
 
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
-SCRIPTS = REPO_ROOT / "skills" / "codex-ops-kit" / "scripts"
+SCRIPTS = REPO_ROOT / "optional-skills" / "codex-ops-kit" / "scripts"
 
 
 def run_script(name: str, *args: str, env: dict[str, str] | None = None) -> subprocess.CompletedProcess[str]:

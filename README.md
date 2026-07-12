@@ -4,7 +4,7 @@ OPL Flow distributes a minimal Codex preference profile. It keeps ordinary desig
 
 ## Public Role Boundary
 
-OPL Flow owns the user-level `AGENTS.md` profile and its installation/readback contract. The plugin also carries `codex-ops-kit` as an explicitly invoked utility; it is not a profile dependency or readiness signal.
+OPL Flow owns the user-level `AGENTS.md` profile and its installation/readback contract. The repository retains `codex-ops-kit` under `optional-skills/` as an explicitly installable utility; the OPL Flow plugin does not expose it by default, and it is not a profile dependency or readiness signal.
 
 OPL Flow is not runtime truth, package truth, or domain truth. It does not own
 OPL App readiness, OPL Framework runtime behavior, OPL Packages lifecycle,
