@@ -11,6 +11,7 @@ This page installs the OPL Flow preference profile only. For the complete OPL fa
 ```bash
 opl packages install opl-flow
 opl packages update opl-flow
+opl packages optimize opl-flow
 ```
 
 OPL Flow installs:
@@ -24,7 +25,7 @@ The Framework package transaction applies the policy's declared conflict migrati
 
 The same transaction resolves `contracts/workflow-policy.json` recommendations, installs the online dependency closure, applies the OPL Flow model recommendation without overriding a user-pinned model, and writes a rollback receipt. App Full bundles the manifest's `offline_bundle=full` closure for offline installation.
 
-If `~/.codex/AGENTS.md` already exists, the package lifecycle does not overwrite it. It creates a merge packet and returns the review/apply route. OPL Framework remains the install, update, rollback, and package-currentness owner.
+If `~/.codex/AGENTS.md` already exists, the package lifecycle backs it up and asks Codex to merge the minimal profile with distinct user preferences. Known marker blocks are removed deterministically; unmarked prose is never rewritten by a heuristic script. A target-hash check precedes apply. If Codex cannot complete a valid merge, the original file remains unchanged and the package command returns the review/apply route for its merge packet.
 
 Restart Codex after installation so plugin and skill discovery refresh.
 

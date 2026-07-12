@@ -22,16 +22,17 @@ For normal installation and update, use the OPL Framework package lifecycle:
 ```bash
 opl packages install opl-flow
 opl packages update opl-flow
+opl packages optimize opl-flow
 ```
 
-The package lifecycle owns dependency resolution, conflict retirement, install, update, rollback, Codex configuration, receipts, and package currentness. Explicit install or update authorizes the policy migration in `contracts/workflow-policy.json`; use the command's keep override only for intentionally retained conflicts. `scripts/install_local_plugin.py` is only a repository developer/local-source tool for staging and verifying a checkout; it is not the normal user installer or package authority.
+The package lifecycle owns dependency resolution, conflict retirement, install, update, optimize, rollback, Codex configuration, receipts, and package currentness. Explicit install, update, or optimize authorizes the policy migration in `contracts/workflow-policy.json`; use the command's keep override only for intentionally retained conflicts. `scripts/install_local_plugin.py` is only a repository developer/local-source tool for staging and verifying a checkout; it is not the normal user installer or package authority.
 
 The installed surfaces have different authority:
 
 - Runtime profile: `~/.codex/AGENTS.md`
 - Non-runtime authoring source: `~/.codex/TASTE.md`
 
-Existing user `AGENTS.md` content requires semantic merge. Follow the review/apply route returned by the package command; restart Codex after installation so plugin and skill discovery refresh.
+Existing user `AGENTS.md` content is merged semantically by Codex inside the package transaction. Scripts remove only known marker blocks. If Codex cannot produce a valid merge, follow the review/apply fallback route returned by the package command. Restart Codex after installation so plugin and skill discovery refresh.
 
 OPL Flow declares recommended dependencies and incompatibilities; OPL Framework executes them. OPL App may bundle the manifest's Full dependency closure and present user overrides, but it must not maintain a second skill list or model policy.
 

@@ -86,10 +86,12 @@
       "items": {
         "type": "object",
         "additionalProperties": false,
-        "required": ["id", "discovery_ids", "auto_retire_on_optimize", "reason"],
+        "required": ["id", "discovery_ids", "config_markers", "service_ids", "auto_retire_on_optimize", "reason"],
         "properties": {
           "id": { "type": "string", "minLength": 1 },
           "discovery_ids": { "type": "array", "items": { "type": "string", "minLength": 1 } },
+          "config_markers": { "type": "array", "items": { "type": "string", "minLength": 1 } },
+          "service_ids": { "type": "array", "items": { "type": "string", "minLength": 1 } },
           "auto_retire_on_optimize": { "type": "boolean" },
           "reason": { "type": "string", "minLength": 1 }
         }

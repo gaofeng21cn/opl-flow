@@ -43,15 +43,15 @@ or domain systems ready by itself.
 ## Install And Update Boundary
 
 - Fresh machine: `opl packages install opl-flow` owns package installation and can install the rendered profile when user-level `~/.codex/AGENTS.md` does not exist.
-- Existing Codex machine: `opl packages update opl-flow` owns package update. It must not overwrite an existing user profile and instead routes a semantic merge packet.
-- Script merge policy: disabled for profile semantics. Scripts may copy, stage, back up, verify, and create packets; Codex handles semantic reconciliation.
+- Existing Codex machine: `opl packages update opl-flow` owns package update and runs the same optimize transaction after source refresh.
+- Script merge policy: scripts remove only policy-declared marker blocks. Codex handles unmarked semantic reconciliation; target-hash validation, backup, receipt, and rollback protect the applied result.
 - OPL App Full initialization can include OPL Flow alongside other payloads, but OPL Flow remains the workflow-profile lifecycle. Fresh machines use the direct profile path; existing Codex machines use the merge-packet path.
-- OPL App update management must stage OPL Flow plugin payload updates separately from user profile changes. User profile changes require Codex semantic merge, review/apply, and rollback evidence.
+- A successful OPL App update may request `opl packages optimize opl-flow`; Framework performs the dependency, conflict, profile, receipt, and rollback transaction. The App does not duplicate its policy or mutate `AGENTS.md` directly.
 
 ## Verification Boundary
 
 - `scripts/install_local_plugin.py --verify-only` is a repository developer/local-source check for the AGENTS profile, staged plugin, exact installed plugin identity, and versioned cache payload. It is not the package currentness authority.
-- It does not score project readiness or domain quality. OPL Framework reads its conflict/retirement policy only during an explicit OPL Flow package install or update.
+- It does not score project readiness or domain quality. OPL Framework reads its conflict/retirement policy only during an explicit OPL Flow package install, update, optimize, or post-App-update reconcile.
 - Framework migration backs up and retires the historical surfaces declared by the workflow policy.
 - Base runtime/dependencies, App release/currentness, other Packages, MAS/MAG/RCA/BookForge domain truth, and owner-route status remain on their owning surfaces.
 

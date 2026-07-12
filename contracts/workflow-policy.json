@@ -3,7 +3,7 @@
   "schema": "opl_flow_workflow_policy.v1",
   "package": {
     "id": "opl-flow",
-    "version": "0.1.15",
+    "version": "0.1.16",
     "owner": "opl-flow",
     "kind": "workflow_profile"
   },
@@ -138,18 +138,24 @@
     {
       "id": "upstream-superpowers",
       "discovery_ids": ["superpowers", "using-superpowers"],
+      "config_markers": ["superpowers"],
+      "service_ids": [],
       "auto_retire_on_optimize": true,
       "reason": "Umbrella development methodology overrides model-native task handling and duplicates Codex orchestration."
     },
     {
       "id": "ponytail",
-      "discovery_ids": ["ponytail", "ponytail-audit", "ponytail-review"],
+      "discovery_ids": ["ponytail", "ponytail-local", "ponytail-ponytail", "ponytail-audit", "ponytail-review"],
+      "config_markers": ["ponytail"],
+      "service_ids": [],
       "auto_retire_on_optimize": true,
       "reason": "Global persona hooks and mode routing are no longer part of the minimal OPL Flow profile."
     },
     {
       "id": "codexcont-intelligence-enhancement",
       "discovery_ids": ["codexcont", "intelligence_enhancement"],
+      "config_markers": ["codexcont", "intelligence_enhancement"],
+      "service_ids": ["codexcont", "com.opl.codexcont"],
       "auto_retire_on_optimize": true,
       "reason": "The legacy continuation proxy changes provider and service behavior outside the minimal workflow profile."
     }
@@ -157,15 +163,27 @@
   "retires": [
     {
       "id": "superpowers-local-method-profile",
-      "discovery_ids": ["superpowers-lite", "systematic-debugging", "test-driven-development", "verification-before-completion"],
+      "discovery_ids": ["superpowers-lite", "superpowers-local-profile", "systematic-debugging", "test-driven-development", "verification-before-completion"],
+      "config_markers": [],
+      "service_ids": [],
       "auto_retire_on_optimize": true,
       "reason": "These GPT-5.5-era process skills remain available for independent explicit installation but are not part of the recommended OPL Flow environment."
     },
     {
       "id": "legacy-development-role-prompts",
       "discovery_ids": ["planner", "executor", "debugger", "verifier"],
+      "config_markers": [],
+      "service_ids": [],
       "auto_retire_on_optimize": true,
       "reason": "Global role prompts duplicate the current model's native planning, implementation, debugging, and verification behavior."
+    },
+    {
+      "id": "legacy-opl-flow-local-plugin",
+      "discovery_ids": ["opl-flow-local"],
+      "config_markers": [],
+      "service_ids": [],
+      "auto_retire_on_optimize": true,
+      "reason": "The repository-local OPL Flow marketplace identity was replaced by the Framework-owned package identity."
     }
   ],
   "codex_model_policy": {
@@ -189,16 +207,36 @@
     }
   },
   "migration_policy": {
-    "trigger": "explicit_opl_flow_install_or_update",
+    "trigger": "explicit_opl_flow_install_update_optimize_or_app_post_update_reconcile",
     "default_action": "backup_disable_and_remove_from_discovery",
     "physical_delete": false,
     "receipt_owner": "opl-framework",
     "rollback_required": true,
     "keep_override_supported": true,
-    "fresh_discovery_required": true
+    "fresh_discovery_required": true,
+    "discovery_root_ids": [
+      "codex_skills",
+      "agent_skills",
+      "skills_manager_skills",
+      "codex_plugin_cache",
+      "codex_plugin_staging",
+      "codex_plugin_data",
+      "codex_prompts",
+      "codex_agents",
+      "launch_agents",
+      "systemd_user_services",
+      "legacy_config_roots"
+    ],
+    "profile_optimization": {
+      "default_mode": "codex_semantic_merge",
+      "deterministic_cleanup_scope": "known_marker_blocks_only",
+      "fallback": "reviewable_merge_packet",
+      "target_hash_check_required": true,
+      "backup_and_rollback_required": true
+    }
   },
   "historical_fingerprints": {
-    "plugin_ids": ["superpowers", "ponytail@ponytail", "opl-flow@opl-flow-local"],
+    "plugin_ids": ["superpowers", "ponytail@ponytail", "opl-flow@opl-flow-local", "opl-flow-local"],
     "skill_ids": [
       "using-superpowers",
       "superpowers-lite",
@@ -208,6 +246,26 @@
     ],
     "service_ids": ["codexcont", "com.opl.codexcont"],
     "config_markers": ["ponytail", "codexcont", "intelligence_enhancement"],
-    "legacy_prompt_ids": ["planner", "executor", "debugger", "verifier"]
+    "legacy_prompt_ids": ["planner", "executor", "debugger", "verifier"],
+    "agents_marker_pairs": [
+      {
+        "start": "<!-- OPL_FLOW_MANAGED_START -->",
+        "end": "<!-- OPL_FLOW_MANAGED_END -->"
+      },
+      {
+        "start": "<!-- CODEGRAPH_START -->",
+        "end": "<!-- CODEGRAPH_END -->"
+      }
+    ],
+    "agents_legacy_section_headings": [
+      "## User Preferences",
+      "## Role And Baseline",
+      "## Workflow Core",
+      "## Guardrails",
+      "## Ops And Authority Core",
+      "## Capability Adapters",
+      "## Tool Preferences",
+      "## CodeGraph"
+    ]
   }
 }

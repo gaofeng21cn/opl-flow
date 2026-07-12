@@ -33,16 +33,17 @@ python3 scripts/profile_compose.py write
 python3 scripts/profile_compose.py check
 ```
 
-The composer only performs deterministic module rendering. It does not do
-semantic merging. If a target machine already has a user-level `AGENTS.md`,
-semantic reconciliation must be done by Codex after reading the existing file
-and the OPL Flow profile intent, not by heuristic script rules.
+The composer only performs deterministic module rendering. The Framework package
+transaction asks Codex to reconcile an existing user-level `AGENTS.md`
+semantically; scripts only remove policy-declared marker blocks and never guess
+at unmarked user preferences.
 
 ## Install Or Update
 
 ```bash
 opl packages install opl-flow
 opl packages update opl-flow
+opl packages optimize opl-flow
 ```
 
 The OPL Framework package lifecycle owns installation, update, rollback, and package currentness. It installs:
@@ -52,19 +53,20 @@ The OPL Framework package lifecycle owns installation, update, rollback, and pac
 - Non-runtime authoring source: `~/.codex/TASTE.md`
 
 On a machine without `~/.codex/AGENTS.md`, the package lifecycle writes the rendered OPL
-Flow profile directly. On a machine that already has user-level `AGENTS.md`, the
-package lifecycle does not overwrite it. It installs the plugin payload, then creates a
-merge packet under `~/.codex/state/opl-flow/profile-merge/<timestamp>/` with
-the existing profile, candidate OPL Flow profile, module manifest, module
-sources, and a Codex merge prompt. Semantic merging must be performed by Codex
-from that packet; the package lifecycle does not use heuristic script merging for
-profile semantics.
+Flow profile directly. On a machine that already has user-level `AGENTS.md`, the same
+transaction backs up the file, removes only known marker-delimited legacy blocks, and
+uses Codex to merge distinct user preferences into the minimal candidate. The result is
+validated against the candidate baseline and the original target hash before atomic
+apply. Conflict retirement and profile changes share one rollback receipt.
 
-When a semantic merge is required, follow the merge packet and apply route returned by the package command. The package lifecycle remains the user-facing owner of the operation and its readback.
+If Codex is unavailable, its output fails validation, or the target changes during the
+transaction, the original file remains in place and a reviewable merge packet is kept
+under the Framework state directory. The command returns the exact
+`opl packages profile-apply opl-flow --packet <path>` fallback route.
 
 `~/.codex/TASTE.md` is the human-maintained preference authoring source, not a session input. Its stable digest is compiled into `AGENTS.md`; its absence or drift does not fail runtime readiness. Repo-specific facts, local boundaries, and project development rules belong in `AGENTS.md`, docs, contracts, source, tests, and runtime/readback evidence.
 
-Installing or updating OPL Flow applies the manifest migration policy and records every archived legacy surface in a rollback receipt. Explicit `--keep` overrides are preserved in the same package transaction.
+Installing, updating, or optimizing OPL Flow applies the manifest migration policy and records every archived legacy surface in a rollback receipt. Explicit `--keep` overrides are preserved in the same package transaction. `optimize` reuses the installed source without pulling it, so OPL App can request post-update reconciliation without owning workflow logic.
 
 Use the package command's readback for installed version and package currentness. OPL Flow does not maintain a second companion or readiness checker.
 
@@ -137,9 +139,9 @@ OPL Flow is an official OPL Package. App Standard or Full may select it, but Bas
 - OPL Packages include MAS/MAG/RCA/OMA/BookForge/ScholarSkills and OPL Flow. Plugin/skill/profile materialization is internal package projection, not another user lifecycle.
 - OPL Flow owns only the minimal `AGENTS.md` preference profile, TASTE authoring source, and package payload semantics.
 - On a fresh machine with no user-level `~/.codex/AGENTS.md`, `opl packages install opl-flow` installs the plugin and rendered user profile directly.
-- On a machine that already has `AGENTS.md`, the same package transaction preserves it, creates one current merge packet, and requires explicit `opl packages profile apply` after semantic review.
+- On a machine that already has `AGENTS.md`, the same package transaction uses Codex to preserve distinct user preferences while removing conflicting or redundant legacy workflow prose; packet review/apply is the failure fallback.
 - Normal package installation registers `opl-flow@opl-agent-opl-flow-local`; `opl-flow@opl-flow-local` is reserved for the repository developer/local-source tool.
-- OPL Flow should not overwrite user-owned `AGENTS.md`, and OPL App session context should respect existing user profile files.
+- OPL Flow changes user-owned `AGENTS.md` only after semantic merge, target-hash validation, backup, and receipt creation; OPL App only requests the Framework transaction.
 - App Full packages the OPL Flow `offline_bundle=full` dependency closure; Framework applies the same package's migration and rollback policy.
 - OPL Flow does not own Base/App/runtime readiness, domain truth, or package currentness; those remain on their owning Base, App, Package, and domain readbacks.
 

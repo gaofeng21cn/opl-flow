@@ -106,6 +106,17 @@ def check_workflow_policy(repo_root: Path) -> list[str]:
     conflict_ids = {item.get("id") for item in policy.get("conflicts", [])}
     if not {"upstream-superpowers", "ponytail", "codexcont-intelligence-enhancement"}.issubset(conflict_ids):
         errors.append("workflow policy must retire the known legacy global workflow conflicts")
+    migrations = [*policy.get("conflicts", []), *policy.get("retires", [])]
+    if any(not isinstance(item.get("config_markers"), list) or not isinstance(item.get("service_ids"), list) for item in migrations):
+        errors.append("workflow migrations must declare config_markers and service_ids")
+    migration_policy = policy.get("migration_policy", {})
+    if not migration_policy.get("discovery_root_ids"):
+        errors.append("workflow migration policy must declare bounded discovery roots")
+    if migration_policy.get("profile_optimization", {}).get("default_mode") != "codex_semantic_merge":
+        errors.append("workflow profile optimization must default to Codex semantic merge")
+    fingerprints = policy.get("historical_fingerprints", {})
+    if not fingerprints.get("agents_marker_pairs") or not fingerprints.get("agents_legacy_section_headings"):
+        errors.append("workflow policy must declare historical AGENTS markers and section headings")
     precedence = policy.get("codex_model_policy", {}).get("override_precedence", [])
     if not precedence or precedence[0] != "explicit_user_override":
         errors.append("explicit user model override must have highest precedence")
@@ -176,15 +187,16 @@ def check_docs(repo_root: Path) -> list[str]:
     skill = (repo_root / "skills" / "opl-flow" / "SKILL.md").read_text(encoding="utf-8")
     required = (
         (readme, "Compatibility With OPL App Full", "README must document OPL App Full compatibility"),
-        (readme, "apply route returned by the package command", "README must route semantic-merge apply through the package lifecycle"),
+        (readme, "profile-apply opl-flow --packet", "README must document the semantic-merge fallback route"),
         (readme, "opl packages install opl-flow", "README must document the package install route"),
         (readme, "opl packages update opl-flow", "README must document the package update route"),
+        (readme, "opl packages optimize opl-flow", "README must document the package optimize route"),
         (setup, "opl packages install opl-flow", "setup guide must document the package install route"),
         (setup, "rollback receipt", "setup guide must document migration recovery"),
-        (setup, "returns the review/apply route", "setup guide must route semantic-merge apply through the package lifecycle"),
+        (setup, "returns the review/apply route", "setup guide must document the semantic-merge fallback route"),
         (setup, "opl-flow@opl-agent-opl-flow-local", "setup guide must document the normal package plugin identity"),
         (skill, "minimal Codex preference profile", "skill must define its minimal-profile boundary"),
-        (skill, "review/apply route returned by the package command", "skill must route semantic-merge apply through the package lifecycle"),
+        (skill, "review/apply fallback route returned by the package command", "skill must route semantic-merge fallback through the package lifecycle"),
         (compatibility, "model-native", "compatibility doc must cover model-native development"),
         (compatibility, "OPL Base", "compatibility doc must cover the Base boundary"),
         (compatibility, "Retired conflict", "compatibility doc must cover retired workflow conflicts"),
