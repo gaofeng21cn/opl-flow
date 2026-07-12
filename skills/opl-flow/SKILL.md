@@ -5,7 +5,7 @@ description: "Use when installing, syncing, diagnosing, or explaining the OPL Fl
 
 # OPL Flow
 
-OPL Flow distributes the user's minimal Codex preference profile. It owns the user-level `AGENTS.md`, non-runtime `TASTE.md`, plugin payload, and installation/readback contract.
+OPL Flow distributes the user's minimal Codex preference profile. It owns the user-level `AGENTS.md`, non-runtime `TASTE.md`, plugin payload semantics, workflow policy, and model recommendation.
 
 Keep project facts and development procedures out of the user-level profile. Repo-local instructions, contracts, source, tests, and runtime surfaces remain authoritative for the project.
 
@@ -24,7 +24,7 @@ opl packages install opl-flow
 opl packages update opl-flow
 ```
 
-The package lifecycle owns install, update, rollback, and package currentness. `scripts/install_local_plugin.py` is only a repository developer/local-source tool for staging and verifying a checkout; it is not the normal user installer or package authority.
+The package lifecycle owns dependency resolution, conflict retirement, install, update, rollback, Codex configuration, receipts, and package currentness. Explicit install or update authorizes the policy migration in `contracts/workflow-policy.json`; use the command's keep override only for intentionally retained conflicts. `scripts/install_local_plugin.py` is only a repository developer/local-source tool for staging and verifying a checkout; it is not the normal user installer or package authority.
 
 The installed surfaces have different authority:
 
@@ -32,6 +32,8 @@ The installed surfaces have different authority:
 - Non-runtime authoring source: `~/.codex/TASTE.md`
 
 Existing user `AGENTS.md` content requires semantic merge. Follow the review/apply route returned by the package command; restart Codex after installation so plugin and skill discovery refresh.
+
+OPL Flow declares recommended dependencies and incompatibilities; OPL Framework executes them. OPL App may bundle the manifest's Full dependency closure and present user overrides, but it must not maintain a second skill list or model policy.
 
 ## Repo Profile Sync
 
@@ -42,10 +44,6 @@ python3 scripts/repo_profile.py sync --repo-root <repo-root> --apply
 ```
 
 `sync` is dry-run unless `--apply` is provided. Apply mode may update the OPL Flow managed block and profile contract, while preserving repo-specific guidance outside that block.
-
-## Optional Intelligence Enhancement
-
-OPL Flow may declare optional CodexCont-style continuation intent. OPL Base/System and Managed Update own dependency installation, Codex configuration, launchd/systemd/container service lifecycle, status, repair, rollback, and removal. Do not operate that lifecycle from this repository.
 
 ## Readback Boundary
 

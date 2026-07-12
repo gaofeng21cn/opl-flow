@@ -64,17 +64,13 @@ When a semantic merge is required, follow the merge packet and apply route retur
 
 `~/.codex/TASTE.md` is the human-maintained preference authoring source, not a session input. Its stable digest is compiled into `AGENTS.md`; its absence or drift does not fail runtime readiness. Repo-specific facts, local boundaries, and project development rules belong in `AGENTS.md`, docs, contracts, source, tests, and runtime/readback evidence.
 
-OPL App does not package or auto-install Superpowers. Independently installed specialist skills remain available through their own narrow frontmatter triggers.
+Installing or updating OPL Flow applies the manifest migration policy and records every archived legacy surface in a rollback receipt. Explicit `--keep` overrides are preserved in the same package transaction.
 
 Use the package command's readback for installed version and package currentness. OPL Flow does not maintain a second companion or readiness checker.
 
 Restart Codex after installation.
 
-## Optional Intelligence Enhancement
-
-OPL Flow may declare a preference for optional CodexCont-style continuation support. OPL Base/System and Managed Update own dependency installation, Codex configuration, launchd/systemd/container service lifecycle, status, repair, rollback, and removal. This repository does not install or operate that service.
-
-For a complete new-machine setup that installs the OPL runtime, One Person Lab App, MAS/MAG/RCA/OMA agent surfaces, OPL Flow, OPL Doc, and companion tools, use the [One Person Lab new-machine Codex bootstrap guide](https://github.com/gaofeng21cn/one-person-lab/blob/main/docs/references/current-support/opl-new-machine-codex-bootstrap.md). BookForge is tracked as a new OPL-standard repo, but default Connect/App visibility needs separate admission evidence.
+For a complete new-machine setup covering OPL Base, the optional OPL App, and selected OPL Packages, use the [One Person Lab new-machine Codex bootstrap guide](https://github.com/gaofeng21cn/one-person-lab/blob/main/docs/references/current-support/opl-new-machine-codex-bootstrap.md).
 
 You can paste this into Codex on the new machine:
 
@@ -128,31 +124,30 @@ Use OPL Flow for this task.
 
 Codex uses the minimal profile as preferences, not as a task router. Planning, implementation, diagnosis, and verification remain model-native. Independently installed specialist skills are loaded only when their own explicit or narrow triggers apply.
 
+`contracts/workflow-policy.json` is the machine-readable policy owner for recommended dependencies, Full offline closure, conflicts, retired workflow surfaces, and the recommended Codex model/reasoning defaults. OPL Framework executes that policy; OPL App only displays package state and user overrides.
+
 The runtime profile does not read `~/.codex/TASTE.md`. OPL Flow compiles its stable preference digest into `AGENTS.md`; the full TASTE file remains available for human maintenance. Repo-local `TASTE.md` files are not required.
 
 ## Compatibility With OPL App Full
 
-OPL Flow is a required workflow plugin package in One Person Lab App Standard and Full. It participates in the managed OPL Package lifecycle for plugin delivery and readback, while owning only Workflow Profile semantics and never becoming part of Runtime Substrate. Treat the layers separately:
+OPL Flow is an official OPL Package. App Standard or Full may select it, but Base installation never requires it. The user-facing lifecycle has only three objects:
 
-- Installation Carrier updates are owned by One Person Lab App and the host/container carrier: macOS standard updater/Homebrew, Docker/WebUI image host route, or Linux package carrier.
-- Runtime Substrate updates cover App-owned runtime payloads such as the embedded Codex executor, Temporal archive, Node/Python/uv, native helpers, and OPL Framework runtime.
-- Capability Packages cover MAS/MAG/RCA/OMA/BookForge/ScholarSkills managed modules and the separately typed OPL Flow workflow plugin package.
-- Companion Tools and support skills cover OfficeCLI, MinerU, UI/UX, and similar helpers; official OpenAI Primary Runtime PDF/Office capabilities are not mirrored as OPL skills.
-- Codex Surface sync covers plugin registry, plugin-packaged skills, generated OPL plugin surfaces, and reload guidance.
-- OPL Flow owns only the minimal `AGENTS.md` preference profile, TASTE authoring source, plugin, and installation/readback contract.
-- On a fresh machine with no user-level `~/.codex/AGENTS.md`, App-managed initialization can install the OPL Flow plugin and rendered user profile directly.
-- On a machine that already has Codex and user-level `AGENTS.md`, App-managed initialization must use OPL Flow's non-overwrite install path: install or stage the plugin payload, generate the merge packet, and let Codex perform the semantic merge before any profile apply.
-- OPL Flow installs the user-level preference profile and `opl-flow@opl-flow-local`; its optional utilities are not profile dependencies or readiness signals.
+- OPL Base owns `opl`, Temporal-backed runtime dependencies, package lifecycle, and dependency/integration status.
+- OPL App is the optional GUI for installing, inspecting, updating, and repairing Base and Packages; App/host carriers update the GUI itself.
+- OPL Packages include MAS/MAG/RCA/OMA/BookForge/ScholarSkills and OPL Flow. Plugin/skill/profile materialization is internal package projection, not another user lifecycle.
+- OPL Flow owns only the minimal `AGENTS.md` preference profile, TASTE authoring source, and package payload semantics.
+- On a fresh machine with no user-level `~/.codex/AGENTS.md`, `opl packages install opl-flow` installs the plugin and rendered user profile directly.
+- On a machine that already has `AGENTS.md`, the same package transaction preserves it, creates one current merge packet, and requires explicit `opl packages profile apply` after semantic review.
+- Normal package installation registers `opl-flow@opl-agent-opl-flow-local`; `opl-flow@opl-flow-local` is reserved for the repository developer/local-source tool.
 - OPL Flow should not overwrite user-owned `AGENTS.md`, and OPL App session context should respect existing user profile files.
-- OPL App does not package or auto-install Superpowers; independently installed specialist skills remain user-owned.
-- OPL Flow does not own OPL App/runtime readiness. Runtime substrate, companion tools, domain module health, GUI shell, App first-run state, and Full readiness belong to One Person Lab App / OPL Framework surfaces and should be checked there, not treated as OPL Flow profile gaps.
-- OPL App update management for OPL Flow must split plugin payload updates from profile updates. Plugin payloads can be staged and verified; user-level profile changes require a Codex semantic merge packet, review/apply, and rollback evidence.
+- App Full packages the OPL Flow `offline_bundle=full` dependency closure; Framework applies the same package's migration and rollback policy.
+- OPL Flow does not own Base/App/runtime readiness, domain truth, or package currentness; those remain on their owning Base, App, Package, and domain readbacks.
 
 See [docs/compatibility.md](docs/compatibility.md) for the positioning matrix against Codex customization and adjacent workflow layers.
 
 ## Relationship To OPL Doc
 
-OPL Flow is the generic workflow layer. OPL Doc is the domain skill that governs OPL-family developer documentation lifecycle. OPL Doc can use OPL Flow's Durable writeback, subagent contract, and verifier gates, but the two should stay separate.
+OPL Flow is the generic preference-profile Package. OPL Doc is a separate developer support repo for OPL-family documentation governance; it is not a normal-user dependency of OPL Flow or OPL Base.
 
 For plugin-native repos, OPL Flow owns the workflow managed block while OPL Doc
 owns documentation lifecycle profile checks. The shared machine pointer is

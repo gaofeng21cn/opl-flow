@@ -21,7 +21,7 @@ RUNTIME_PROFILE_NAMES = ("AGENTS.md",)
 AUTHORING_SOURCE_NAMES = ("TASTE.md",)
 MERGE_PACKET_SCHEMA = "opl_flow_profile_merge_packet.v2"
 PROFILE_RECEIPT_SCHEMA = "opl_flow_profile_install_receipt.v2"
-COPY_IGNORE_NAMES = (".git", ".worktrees", ".pytest_cache", "__pycache__", ".DS_Store")
+COPY_IGNORE_NAMES = (".git", ".worktrees", ".codegraph", ".pytest_cache", "__pycache__", ".DS_Store")
 PLUGIN_REQUIRED_FILES = (
     ".agents/plugins/marketplace.json",
     ".codex-plugin/plugin.json",

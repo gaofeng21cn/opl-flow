@@ -63,6 +63,19 @@ class InstallLocalPluginTests(unittest.TestCase):
         )
         (output / "merge-report.md").write_text("approved test merge\n", encoding="utf-8")
 
+    def test_copy_tree_ignores_codegraph_runtime_state(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            repo = root / "repo"
+            (repo / ".codegraph").mkdir(parents=True)
+            (repo / ".codegraph" / "daemon.sock").write_text("runtime state\n", encoding="utf-8")
+            (repo / "README.md").write_text("plugin source\n", encoding="utf-8")
+
+            plugin_root = install_local_plugin.copy_tree(repo, root / "plugins")
+
+            self.assertTrue((plugin_root / "README.md").exists())
+            self.assertFalse((plugin_root / ".codegraph").exists())
+
     def test_install_codex_plugin_refreshes_already_installed_payload(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
@@ -108,7 +121,7 @@ class InstallLocalPluginTests(unittest.TestCase):
             shutil.copytree(
                 REPO_ROOT,
                 repo,
-                ignore=shutil.ignore_patterns(".git", ".worktrees", ".pytest_cache", "__pycache__", ".DS_Store"),
+                ignore=shutil.ignore_patterns(".git", ".worktrees", ".codegraph", ".pytest_cache", "__pycache__", ".DS_Store"),
             )
             plugin_root = install_local_plugin.copy_tree(repo, plugins_dir)
             codex_bin = self.write_fake_codex(root, plugin_root)

@@ -1,0 +1,213 @@
+{
+  "$schema": "./workflow-policy.schema.json",
+  "schema": "opl_flow_workflow_policy.v1",
+  "package": {
+    "id": "opl-flow",
+    "version": "0.1.15",
+    "owner": "opl-flow",
+    "kind": "workflow_profile"
+  },
+  "workflow_generation": "model-native-gpt-5.6",
+  "requires": [
+    {
+      "id": "opl-base",
+      "kind": "base",
+      "offline_bundle": "full",
+      "online_install_default": true,
+      "activation": "always",
+      "source": "gaofeng21cn/one-person-lab"
+    }
+  ],
+  "recommends": [
+    {
+      "id": "officecli",
+      "kind": "codex_skill",
+      "offline_bundle": "full",
+      "online_install_default": true,
+      "activation": "task_routed",
+      "source": "skills-manager:officecli"
+    },
+    {
+      "id": "officecli-docx",
+      "kind": "codex_skill",
+      "offline_bundle": "full",
+      "online_install_default": true,
+      "activation": "task_routed",
+      "source": "skills-manager:officecli-docx"
+    },
+    {
+      "id": "officecli-pptx",
+      "kind": "codex_skill",
+      "offline_bundle": "full",
+      "online_install_default": true,
+      "activation": "task_routed",
+      "source": "skills-manager:officecli-pptx"
+    },
+    {
+      "id": "officecli-xlsx",
+      "kind": "codex_skill",
+      "offline_bundle": "full",
+      "online_install_default": true,
+      "activation": "task_routed",
+      "source": "skills-manager:officecli-xlsx"
+    },
+    {
+      "id": "officecli-academic-paper",
+      "kind": "codex_skill",
+      "offline_bundle": "full",
+      "online_install_default": true,
+      "activation": "task_routed",
+      "source": "skills-manager:officecli-academic-paper"
+    },
+    {
+      "id": "officecli-data-dashboard",
+      "kind": "codex_skill",
+      "offline_bundle": "full",
+      "online_install_default": true,
+      "activation": "task_routed",
+      "source": "skills-manager:officecli-data-dashboard"
+    },
+    {
+      "id": "officecli-financial-model",
+      "kind": "codex_skill",
+      "offline_bundle": "full",
+      "online_install_default": true,
+      "activation": "task_routed",
+      "source": "skills-manager:officecli-financial-model"
+    },
+    {
+      "id": "officecli-pitch-deck",
+      "kind": "codex_skill",
+      "offline_bundle": "full",
+      "online_install_default": true,
+      "activation": "task_routed",
+      "source": "skills-manager:officecli-pitch-deck"
+    },
+    {
+      "id": "mineru-document-extractor",
+      "kind": "codex_skill",
+      "offline_bundle": "full",
+      "online_install_default": true,
+      "activation": "task_routed",
+      "source": "skills-manager:mineru-document-extractor"
+    },
+    {
+      "id": "ui-ux-pro-max",
+      "kind": "codex_skill",
+      "offline_bundle": "full",
+      "online_install_default": true,
+      "activation": "explicit",
+      "source": "skills-manager:ui-ux-pro-max"
+    },
+    {
+      "id": "officecli",
+      "kind": "cli",
+      "offline_bundle": "full",
+      "online_install_default": true,
+      "activation": "task_routed",
+      "source": "officecli"
+    },
+    {
+      "id": "mineru-open-api",
+      "kind": "cli",
+      "offline_bundle": "full",
+      "online_install_default": true,
+      "activation": "task_routed",
+      "source": "mineru-open-api"
+    }
+  ],
+  "compatible_optional": [
+    {
+      "id": "codex-ops-kit",
+      "kind": "codex_skill",
+      "offline_bundle": "full",
+      "online_install_default": false,
+      "activation": "explicit",
+      "source": "opl-flow:skills/codex-ops-kit"
+    },
+    {
+      "id": "openai-primary-runtime-office-pdf",
+      "kind": "runtime_capability",
+      "offline_bundle": "none",
+      "online_install_default": false,
+      "activation": "task_routed",
+      "source": "openai-primary-runtime"
+    }
+  ],
+  "conflicts": [
+    {
+      "id": "upstream-superpowers",
+      "discovery_ids": ["superpowers", "using-superpowers"],
+      "auto_retire_on_optimize": true,
+      "reason": "Umbrella development methodology overrides model-native task handling and duplicates Codex orchestration."
+    },
+    {
+      "id": "ponytail",
+      "discovery_ids": ["ponytail", "ponytail-audit", "ponytail-review"],
+      "auto_retire_on_optimize": true,
+      "reason": "Global persona hooks and mode routing are no longer part of the minimal OPL Flow profile."
+    },
+    {
+      "id": "codexcont-intelligence-enhancement",
+      "discovery_ids": ["codexcont", "intelligence_enhancement"],
+      "auto_retire_on_optimize": true,
+      "reason": "The legacy continuation proxy changes provider and service behavior outside the minimal workflow profile."
+    }
+  ],
+  "retires": [
+    {
+      "id": "superpowers-local-method-profile",
+      "discovery_ids": ["superpowers-lite", "systematic-debugging", "test-driven-development", "verification-before-completion"],
+      "auto_retire_on_optimize": true,
+      "reason": "These GPT-5.5-era process skills remain available for independent explicit installation but are not part of the recommended OPL Flow environment."
+    },
+    {
+      "id": "legacy-development-role-prompts",
+      "discovery_ids": ["planner", "executor", "debugger", "verifier"],
+      "auto_retire_on_optimize": true,
+      "reason": "Global role prompts duplicate the current model's native planning, implementation, debugging, and verification behavior."
+    }
+  ],
+  "codex_model_policy": {
+    "authority": "opl-flow",
+    "mode_default": "auto",
+    "configured_default": {
+      "model": "gpt-5.6-sol",
+      "reasoning_effort": "max"
+    },
+    "override_precedence": [
+      "explicit_user_override",
+      "opl_flow_recommendation",
+      "fresh_codex_model_catalog",
+      "framework_bundled_fallback"
+    ],
+    "catalog_policy": {
+      "source": "codex_cli_model_list",
+      "prefer_live_default_when_user_has_not_pinned": true,
+      "unknown_model_reasoning_effort": "highest_supported",
+      "preserve_unavailable_fixed_selection_until_user_changes_it": true
+    }
+  },
+  "migration_policy": {
+    "trigger": "explicit_opl_flow_install_or_update",
+    "default_action": "backup_disable_and_remove_from_discovery",
+    "physical_delete": false,
+    "receipt_owner": "opl-framework",
+    "rollback_required": true,
+    "keep_override_supported": true,
+    "fresh_discovery_required": true
+  },
+  "historical_fingerprints": {
+    "plugin_ids": ["superpowers", "ponytail@ponytail", "opl-flow@opl-flow-local"],
+    "skill_ids": [
+      "using-superpowers",
+      "superpowers-lite",
+      "systematic-debugging",
+      "test-driven-development",
+      "verification-before-completion"
+    ],
+    "service_ids": ["codexcont", "com.opl.codexcont"],
+    "config_markers": ["ponytail", "codexcont", "intelligence_enhancement"],
+    "legacy_prompt_ids": ["planner", "executor", "debugger", "verifier"]
+  }
+}

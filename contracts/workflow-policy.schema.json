@@ -1,0 +1,98 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/gaofeng21cn/opl-flow/contracts/workflow-policy.schema.json",
+  "title": "OPL Flow workflow policy",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "package",
+    "workflow_generation",
+    "requires",
+    "recommends",
+    "compatible_optional",
+    "conflicts",
+    "retires",
+    "codex_model_policy",
+    "migration_policy",
+    "historical_fingerprints"
+  ],
+  "properties": {
+    "schema": { "const": "opl_flow_workflow_policy.v1" },
+    "package": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "version", "owner", "kind"],
+      "properties": {
+        "id": { "const": "opl-flow" },
+        "version": { "type": "string", "minLength": 1 },
+        "owner": { "const": "opl-flow" },
+        "kind": { "const": "workflow_profile" }
+      }
+    },
+    "workflow_generation": { "type": "string", "minLength": 1 },
+    "requires": { "$ref": "#/$defs/dependencies" },
+    "recommends": { "$ref": "#/$defs/dependencies" },
+    "compatible_optional": { "$ref": "#/$defs/dependencies" },
+    "conflicts": { "$ref": "#/$defs/migrations" },
+    "retires": { "$ref": "#/$defs/migrations" },
+    "codex_model_policy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["authority", "mode_default", "configured_default", "override_precedence", "catalog_policy"],
+      "properties": {
+        "authority": { "const": "opl-flow" },
+        "mode_default": { "const": "auto" },
+        "configured_default": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["model", "reasoning_effort"],
+          "properties": {
+            "model": { "type": "string", "minLength": 1 },
+            "reasoning_effort": { "type": "string", "minLength": 1 }
+          }
+        },
+        "override_precedence": {
+          "type": "array",
+          "minItems": 3,
+          "items": { "type": "string", "minLength": 1 }
+        },
+        "catalog_policy": { "type": "object" }
+      }
+    },
+    "migration_policy": { "type": "object" },
+    "historical_fingerprints": { "type": "object" }
+  },
+  "$defs": {
+    "dependencies": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "kind", "offline_bundle", "online_install_default", "activation", "source"],
+        "properties": {
+          "id": { "type": "string", "minLength": 1 },
+          "kind": { "enum": ["base", "codex_skill", "cli", "runtime_capability"] },
+          "offline_bundle": { "enum": ["none", "full"] },
+          "online_install_default": { "type": "boolean" },
+          "activation": { "enum": ["always", "task_routed", "explicit"] },
+          "source": { "type": "string", "minLength": 1 }
+        }
+      }
+    },
+    "migrations": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "discovery_ids", "auto_retire_on_optimize", "reason"],
+        "properties": {
+          "id": { "type": "string", "minLength": 1 },
+          "discovery_ids": { "type": "array", "items": { "type": "string", "minLength": 1 } },
+          "auto_retire_on_optimize": { "type": "boolean" },
+          "reason": { "type": "string", "minLength": 1 }
+        }
+      }
+    }
+  }
+}

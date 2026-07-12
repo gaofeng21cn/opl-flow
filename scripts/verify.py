@@ -12,6 +12,8 @@ from pathlib import Path
 REQUIRED_FILES = (
     ".agents/plugins/marketplace.json",
     ".codex-plugin/plugin.json",
+    "contracts/workflow-policy.json",
+    "contracts/workflow-policy.schema.json",
     "README.md",
     "docs/compatibility.md",
     "docs/new-machine-codex-setup.md",
@@ -55,6 +57,9 @@ def check_plugin_json(repo_root: Path) -> list[str]:
         errors.append("plugin name must be opl-flow")
     if manifest.get("skills") != "./skills/":
         errors.append("plugin skills path must be ./skills/")
+    policy = json.loads((repo_root / "contracts" / "workflow-policy.json").read_text(encoding="utf-8"))
+    if manifest.get("version") != policy.get("package", {}).get("version"):
+        errors.append("plugin version must match contracts/workflow-policy.json package.version")
     description = manifest.get("description")
     if not isinstance(description, str) or "minimal Codex preference profile" not in description:
         errors.append("plugin description must advertise the minimal preference profile")
@@ -64,6 +69,41 @@ def check_plugin_json(repo_root: Path) -> list[str]:
     default_prompt = interface.get("defaultPrompt")
     if not default_prompt or len(default_prompt) > 128:
         errors.append("interface.defaultPrompt must exist and be at most 128 characters")
+    return errors
+
+
+def check_workflow_policy(repo_root: Path) -> list[str]:
+    errors: list[str] = []
+    policy = json.loads((repo_root / "contracts" / "workflow-policy.json").read_text(encoding="utf-8"))
+    if policy.get("schema") != "opl_flow_workflow_policy.v1":
+        errors.append("workflow policy schema must be opl_flow_workflow_policy.v1")
+    if policy.get("package", {}).get("id") != "opl-flow":
+        errors.append("workflow policy package id must be opl-flow")
+    required_sections = (
+        "requires", "recommends", "compatible_optional", "conflicts", "retires",
+        "codex_model_policy", "migration_policy", "historical_fingerprints",
+    )
+    for section in required_sections:
+        if section not in policy:
+            errors.append(f"workflow policy missing {section}")
+    recommended_ids = {
+        item.get("id") for item in policy.get("recommends", [])
+        if item.get("kind") == "codex_skill" and item.get("offline_bundle") == "full"
+    }
+    expected = {
+        "officecli", "officecli-docx", "officecli-pptx", "officecli-xlsx",
+        "officecli-academic-paper", "officecli-data-dashboard",
+        "officecli-financial-model", "officecli-pitch-deck",
+        "mineru-document-extractor", "ui-ux-pro-max",
+    }
+    if recommended_ids != expected:
+        errors.append("workflow policy Full skill closure is incomplete or contains duplicates")
+    conflict_ids = {item.get("id") for item in policy.get("conflicts", [])}
+    if not {"upstream-superpowers", "ponytail", "codexcont-intelligence-enhancement"}.issubset(conflict_ids):
+        errors.append("workflow policy must retire the known legacy global workflow conflicts")
+    precedence = policy.get("codex_model_policy", {}).get("override_precedence", [])
+    if not precedence or precedence[0] != "explicit_user_override":
+        errors.append("explicit user model override must have highest precedence")
     return errors
 
 
@@ -134,14 +174,15 @@ def check_docs(repo_root: Path) -> list[str]:
         (readme, "apply route returned by the package command", "README must route semantic-merge apply through the package lifecycle"),
         (readme, "opl packages install opl-flow", "README must document the package install route"),
         (readme, "opl packages update opl-flow", "README must document the package update route"),
-        (setup, "OPL App does not package or auto-install Superpowers", "setup guide must document the App boundary"),
+        (setup, "opl packages install opl-flow", "setup guide must document the package install route"),
+        (setup, "rollback receipt", "setup guide must document migration recovery"),
         (setup, "returns the review/apply route", "setup guide must route semantic-merge apply through the package lifecycle"),
-        (setup, "opl-flow@opl-flow-local", "setup guide must document exact plugin identity"),
+        (setup, "opl-flow@opl-agent-opl-flow-local", "setup guide must document the normal package plugin identity"),
         (skill, "minimal Codex preference profile", "skill must define its minimal-profile boundary"),
         (skill, "review/apply route returned by the package command", "skill must route semantic-merge apply through the package lifecycle"),
         (compatibility, "model-native", "compatibility doc must cover model-native development"),
-        (compatibility, "Runtime Substrate", "compatibility doc must cover runtime boundary"),
-        (compatibility, "Ponytail", "compatibility doc must cover Ponytail"),
+        (compatibility, "OPL Base", "compatibility doc must cover the Base boundary"),
+        (compatibility, "Retired conflict", "compatibility doc must cover retired workflow conflicts"),
     )
     for text, needle, message in required:
         require(text, needle, message, errors)
@@ -197,6 +238,7 @@ def main() -> int:
     errors: list[str] = []
     errors.extend(check_required_files(repo_root))
     errors.extend(check_plugin_json(repo_root))
+    errors.extend(check_workflow_policy(repo_root))
     errors.extend(check_skill_metadata(repo_root))
     errors.extend(check_profile(repo_root))
     errors.extend(check_docs(repo_root))

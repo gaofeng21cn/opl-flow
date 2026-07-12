@@ -17,10 +17,12 @@ OPL Flow installs:
 
 - the minimal user-level `~/.codex/AGENTS.md` preference profile;
 - the non-runtime `~/.codex/TASTE.md` authoring source;
-- the exact `opl-flow@opl-flow-local` plugin payload;
-- the optional `codex-ops-kit` utility, discoverable only for explicit lane or public-release audit requests.
+- the normal package plugin identity `opl-flow@opl-agent-opl-flow-local`;
+- the explicit-only `codex-ops-kit` utility.
 
-It does not install task tiers, planner/executor/debugger/verifier prompts, a development methodology, a startup coding persona, Superpowers, or Ponytail. OPL App does not package or auto-install Superpowers.
+The Framework package transaction applies the policy's declared conflict migration: matching legacy workflow surfaces are backed up, removed from active discovery and recorded in a rollback receipt. A migration id can be retained explicitly with `--keep`.
+
+The same transaction resolves `contracts/workflow-policy.json` recommendations, installs the online dependency closure, applies the OPL Flow model recommendation without overriding a user-pinned model, and writes a rollback receipt. App Full bundles the manifest's `offline_bundle=full` closure for offline installation.
 
 If `~/.codex/AGENTS.md` already exists, the package lifecycle does not overwrite it. It creates a merge packet and returns the review/apply route. OPL Framework remains the install, update, rollback, and package-currentness owner.
 
@@ -35,10 +37,6 @@ codegraph init .
 ```
 
 The repository must Git-ignore `.codegraph/` and keep a concise repo-local CodeGraph block in `AGENTS.md`. Structural searches should use CodeGraph; literal text searches should use `rg`.
-
-## Optional Intelligence Enhancement
-
-OPL Flow can declare optional CodexCont-style continuation intent. OPL Base/System and Managed Update own dependency installation, Codex configuration, service lifecycle, status, repair, rollback, and removal. OPL Flow provides no independent companion updater or readiness checker.
 
 ## Verification Boundary
 
