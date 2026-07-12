@@ -18,6 +18,7 @@
     "historical_fingerprints"
   ],
   "properties": {
+    "$schema": { "const": "./workflow-policy.schema.json" },
     "schema": { "const": "opl_flow_workflow_policy.v1" },
     "package": {
       "type": "object",

@@ -75,6 +75,11 @@ def check_plugin_json(repo_root: Path) -> list[str]:
 def check_workflow_policy(repo_root: Path) -> list[str]:
     errors: list[str] = []
     policy = json.loads((repo_root / "contracts" / "workflow-policy.json").read_text(encoding="utf-8"))
+    schema = json.loads((repo_root / "contracts" / "workflow-policy.schema.json").read_text(encoding="utf-8"))
+    if policy.get("$schema") != "./workflow-policy.schema.json":
+        errors.append("workflow policy must point to ./workflow-policy.schema.json")
+    if "$schema" not in schema.get("properties", {}):
+        errors.append("workflow policy schema must admit the policy $schema pointer")
     if policy.get("schema") != "opl_flow_workflow_policy.v1":
         errors.append("workflow policy schema must be opl_flow_workflow_policy.v1")
     if policy.get("package", {}).get("id") != "opl-flow":
