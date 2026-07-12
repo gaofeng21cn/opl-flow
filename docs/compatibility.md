@@ -46,12 +46,12 @@ or domain systems ready by itself.
 - Existing Codex machine: `opl packages update opl-flow` owns package update and runs the same optimize transaction after source refresh.
 - Script merge policy: scripts remove only policy-declared marker blocks. Codex handles unmarked semantic reconciliation; target-hash validation, backup, receipt, and rollback protect the applied result.
 - OPL App Full initialization can include OPL Flow alongside other payloads, but OPL Flow remains the workflow-profile lifecycle. Fresh machines use the direct profile path; existing Codex machines use the merge-packet path.
-- A successful OPL App update may request `opl packages update opl-flow`; Framework first refreshes legacy immutable Full-bundle policy into the managed package checkout, then performs the dependency, conflict, profile, receipt, and rollback transaction. The App does not duplicate its policy or mutate `AGENTS.md` directly.
+- After any successful OPL App carrier version change, the App requests generic Framework reconciliation for OPL Base and all installed Packages. If OPL Flow is installed, Framework performs its ordinary dependency, conflict, profile, receipt, and rollback transaction. The App does not duplicate Flow policy, maintain a second dependency list, or mutate `AGENTS.md` directly.
 
 ## Verification Boundary
 
 - `scripts/install_local_plugin.py --verify-only` is a repository developer/local-source check for the AGENTS profile, staged plugin, exact installed plugin identity, and versioned cache payload. It is not the package currentness authority.
-- It does not score project readiness or domain quality. OPL Framework reads its conflict/retirement policy only during an explicit OPL Flow package install, update, optimize, or post-App-update reconcile.
+- It does not score project readiness or domain quality. OPL Framework reads its conflict/retirement policy during an explicit OPL Flow package install, update, optimize, or generic post-App-update reconciliation of installed Packages.
 - Framework migration backs up and retires the historical surfaces declared by the workflow policy.
 - Base runtime/dependencies, App release/currentness, other Packages, MAS/MAG/RCA/BookForge domain truth, and owner-route status remain on their owning surfaces.
 

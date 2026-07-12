@@ -34,7 +34,9 @@ The installed surfaces have different authority:
 
 Existing user `AGENTS.md` content is merged semantically by Codex inside the package transaction. Scripts remove only known marker blocks. If Codex cannot produce a valid merge, follow the review/apply fallback route returned by the package command. Restart Codex after installation so plugin and skill discovery refresh.
 
-OPL Flow declares recommended dependencies and incompatibilities; OPL Framework executes them. OPL App may bundle the manifest's Full dependency closure and present user overrides, but it must not maintain a second skill list or model policy.
+OPL Flow declares dependencies and incompatibilities; OPL Framework executes them. Entries under `recommends` with `online_install_default=true` are managed dependencies, not advisory text: Framework installs and updates them with OPL Flow, and App Full bundles the same `offline_bundle=full` closure. OPL App may present user overrides, but it must not maintain a second skill list or model policy.
+
+After any App carrier changes version, App requests generic Framework reconciliation for OPL Base and all installed OPL Packages. If OPL Flow is installed, the ordinary package update transaction refreshes its dependency closure, retires declared conflicts, and reconciles the user profile. OPL Flow does not provide an App-specific updater.
 
 ## Repo Profile Sync
 

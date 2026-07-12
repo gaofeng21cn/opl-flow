@@ -66,7 +66,7 @@ under the Framework state directory. The command returns the exact
 
 `~/.codex/TASTE.md` is the human-maintained preference authoring source, not a session input. Its stable digest is compiled into `AGENTS.md`; its absence or drift does not fail runtime readiness. Repo-specific facts, local boundaries, and project development rules belong in `AGENTS.md`, docs, contracts, source, tests, and runtime/readback evidence.
 
-Installing, updating, or optimizing OPL Flow applies the manifest migration policy and records every archived legacy surface in a rollback receipt. Explicit `--keep` overrides are preserved in the same package transaction. `optimize` reuses the installed source without pulling it for an explicit local-only reconciliation. After an App version switch, OPL App requests Framework-owned `opl packages update opl-flow`, so legacy immutable Full-bundle policy is refreshed into the managed package checkout before the same migration transaction runs.
+Installing, updating, or optimizing OPL Flow applies the manifest migration policy and records every archived legacy surface in a rollback receipt. Explicit `--keep` overrides are preserved in the same package transaction. `optimize` reuses the installed source without pulling it for an explicit local-only reconciliation. After any App carrier changes version, OPL App requests generic Framework reconciliation for OPL Base and every installed OPL Package. If OPL Flow is installed, its ordinary package transaction refreshes the managed source and dependency closure before applying conflict retirement and profile migration; there is no Flow-specific App updater.
 
 Use the package command's readback for installed version and package currentness. OPL Flow does not maintain a second companion or readiness checker.
 
@@ -126,7 +126,7 @@ Use OPL Flow for this task.
 
 Codex uses the minimal profile as preferences, not as a task router. Planning, implementation, diagnosis, and verification remain model-native. Independently installed specialist skills are loaded only when their own explicit or narrow triggers apply.
 
-`contracts/workflow-policy.json` is the machine-readable policy owner for recommended dependencies, Full offline closure, conflicts, retired workflow surfaces, and the recommended Codex model/reasoning defaults. OPL Framework executes that policy; OPL App only displays package state and user overrides.
+`contracts/workflow-policy.json` is the machine-readable policy owner for dependencies, Full offline closure, conflicts, retired workflow surfaces, and the recommended Codex model/reasoning defaults. A `recommends` entry with `online_install_default=true` is part of the default managed dependency closure: Framework installs and updates it with OPL Flow. App Full bundles the same entries marked `offline_bundle=full`; the App does not maintain another inventory. OPL Framework executes the policy, while OPL App only requests reconciliation and displays package state and user overrides.
 
 The runtime profile does not read `~/.codex/TASTE.md`. OPL Flow compiles its stable preference digest into `AGENTS.md`; the full TASTE file remains available for human maintenance. Repo-local `TASTE.md` files are not required.
 

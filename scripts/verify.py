@@ -103,6 +103,11 @@ def check_workflow_policy(repo_root: Path) -> list[str]:
     }
     if recommended_ids != expected:
         errors.append("workflow policy Full skill closure is incomplete or contains duplicates")
+    if any(
+        not item.get("online_install_default") or item.get("offline_bundle") != "full"
+        for item in policy.get("recommends", [])
+    ):
+        errors.append("workflow policy recommendations must remain default managed dependencies in the Full closure")
     conflict_ids = {item.get("id") for item in policy.get("conflicts", [])}
     if not {"upstream-superpowers", "ponytail", "codexcont-intelligence-enhancement"}.issubset(conflict_ids):
         errors.append("workflow policy must retire the known legacy global workflow conflicts")
@@ -197,6 +202,8 @@ def check_docs(repo_root: Path) -> list[str]:
         (setup, "opl-flow@opl-agent-opl-flow-local", "setup guide must document the normal package plugin identity"),
         (skill, "minimal Codex preference profile", "skill must define its minimal-profile boundary"),
         (skill, "review/apply fallback route returned by the package command", "skill must route semantic-merge fallback through the package lifecycle"),
+        (skill, "managed dependencies, not advisory text", "skill must define recommendation dependency semantics"),
+        (readme, "generic Framework reconciliation", "README must document carrier-neutral App reconciliation"),
         (compatibility, "model-native", "compatibility doc must cover model-native development"),
         (compatibility, "OPL Base", "compatibility doc must cover the Base boundary"),
         (compatibility, "Retired conflict", "compatibility doc must cover retired workflow conflicts"),

@@ -1,6 +1,6 @@
 {
   "name": "opl-flow",
-  "version": "0.1.16",
+  "version": "0.1.17",
   "description": "OPL Flow installs a minimal Codex preference profile and optional repository CodeGraph bootstrap guidance.",
   "author": {
     "name": "Gaofeng"
