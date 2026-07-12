@@ -19,40 +19,18 @@ MARKETPLACE_NAME = "opl-flow-local"
 MARKETPLACE_MANIFEST = Path(".agents/plugins/marketplace.json")
 RUNTIME_PROFILE_NAMES = ("AGENTS.md",)
 AUTHORING_SOURCE_NAMES = ("TASTE.md",)
-COMPATIBILITY_PROMPT_NAMES = ("planner.md", "executor.md", "debugger.md", "verifier.md")
 MERGE_PACKET_SCHEMA = "opl_flow_profile_merge_packet.v2"
 PROFILE_RECEIPT_SCHEMA = "opl_flow_profile_install_receipt.v2"
-GUARDRAIL_SKILLS = ("codex-ops-kit",)
 COPY_IGNORE_NAMES = (".git", ".worktrees", ".pytest_cache", "__pycache__", ".DS_Store")
 PLUGIN_REQUIRED_FILES = (
     ".agents/plugins/marketplace.json",
     ".codex-plugin/plugin.json",
     "skills/opl-flow/SKILL.md",
     "skills/opl-flow/agents/openai.yaml",
-    "skills/codex-ops-kit/SKILL.md",
-    "skills/codex-ops-kit/agents/openai.yaml",
-    "skills/codex-ops-kit/scripts/codex_ops_gate.py",
-    "skills/codex-ops-kit/scripts/worktree_absorption_audit.py",
-    "skills/codex-ops-kit/scripts/release_url_audit.py",
-    "skills/codex-ops-kit/references/lane-closeout.md",
-    "skills/codex-ops-kit/references/release-currentness.md",
-    "compat/ponytail-gpt56.patch",
     "profile/manifest.json",
     "profile/modules/01-user-preferences.md",
-    "profile/modules/02-role-baseline.md",
-    "profile/modules/03-workflow-core.md",
-    "profile/modules/04-guardrails.md",
-    "profile/modules/05-ops-authority-core.md",
-    "profile/modules/06-capability-adapters.md",
-    "profile/modules/07-tool-preferences.md",
-    "profile/modules/08-managed-block-policy.md",
     "templates/AGENTS.md",
     "templates/TASTE.md",
-    "templates/prompts/planner.md",
-    "templates/prompts/executor.md",
-    "templates/prompts/debugger.md",
-    "templates/prompts/verifier.md",
-    "scripts/intelligence_enhancement.py",
     "scripts/profile_compose.py",
 )
 
@@ -223,12 +201,7 @@ def profile_checks(repo_root: Path, codex_home: Path) -> list[tuple[Path, Path]]
 
 def support_checks(repo_root: Path, codex_home: Path) -> list[tuple[Path, Path]]:
     templates = repo_root / "templates"
-    checks = [(templates / name, codex_home / name) for name in AUTHORING_SOURCE_NAMES]
-    checks.extend(
-        (templates / "prompts" / name, codex_home / "prompts" / name)
-        for name in COMPATIBILITY_PROMPT_NAMES
-    )
-    return checks
+    return [(templates / name, codex_home / name) for name in AUTHORING_SOURCE_NAMES]
 
 
 def install_missing_support_surfaces(repo_root: Path, codex_home: Path) -> list[str]:
@@ -271,17 +244,6 @@ def tree_mismatches(
         if not filecmp.cmp(source / path, target / path, shallow=False)
     )
     return mismatches
-
-
-def local_guardrail_mismatches(repo_root: Path, codex_home: Path) -> list[str]:
-    local_mismatches: list[str] = []
-    for skill_id in GUARDRAIL_SKILLS:
-        source = repo_root / "skills" / skill_id
-        label = f"skills/{skill_id}"
-        local = codex_home / "skills" / skill_id
-        if local.exists():
-            local_mismatches.extend(tree_mismatches(source, local, label))
-    return local_mismatches
 
 
 def plugin_version(plugin_path: Path) -> str:
@@ -449,8 +411,6 @@ def copy_candidate_profile(repo_root: Path, packet: Path) -> None:
     candidate = packet / "candidate"
     for name in (*RUNTIME_PROFILE_NAMES, *AUTHORING_SOURCE_NAMES):
         copy_if_exists(templates / name, candidate / name)
-    for name in COMPATIBILITY_PROMPT_NAMES:
-        copy_if_exists(templates / "prompts" / name, candidate / "prompts" / name)
     copy_if_exists(repo_root / "profile" / "manifest.json", candidate / "profile" / "manifest.json")
     modules_root = repo_root / "profile" / "modules"
     if modules_root.exists():
@@ -463,10 +423,6 @@ def copy_existing_profile(codex_home: Path, packet: Path) -> list[str]:
     for name in (*RUNTIME_PROFILE_NAMES, *AUTHORING_SOURCE_NAMES):
         if copy_if_exists(codex_home / name, existing / name):
             copied.append(name)
-    for name in COMPATIBILITY_PROMPT_NAMES:
-        rel = f"prompts/{name}"
-        if copy_if_exists(codex_home / "prompts" / name, existing / rel):
-            copied.append(rel)
     return copied
 
 
@@ -480,7 +436,6 @@ Read these inputs:
 - `existing/AGENTS.md` and any other files under `existing/`
 - `candidate/AGENTS.md`
 - `candidate/TASTE.md` (non-runtime authoring source)
-- `candidate/prompts/*.md` (explicit compatibility prompts)
 - `candidate/profile/manifest.json`
 - `candidate/profile/modules/*.md`
 
@@ -489,18 +444,16 @@ Rules:
 1. Do not mechanically concatenate the files.
 2. Preserve user-specific preferences and local machine rules unless they clearly conflict with higher-priority user instructions.
 3. Treat `AGENTS.md` as the only runtime profile. Preserve user-specific runtime rules there.
-4. Treat `TASTE.md` as a non-runtime authoring source and the four prompts as explicit compatibility surfaces.
+4. Treat `TASTE.md` as a non-runtime authoring source.
 5. Do not hardcode project/domain instance facts into the user-level `AGENTS.md`; route them to the owning repo `AGENTS.md`, docs, contracts, runtime/readback, or explicit context overlay.
 6. Preserve official marker blocks and managed tool blocks unless the corresponding tool is confirmed retired.
-7. Preserve OPL Flow's risk-aware evidence, verifier, fresh-evidence, root-cause, ops, and completion-audit guardrails.
-8. Preserve capability adapters such as RTK, CodeGraph, MinerU, agent-browser, Superpowers, and Ponytail as adapters, not project facts.
-9. Report any unresolved conflict instead of silently deleting or weakening behavior.
+7. Preserve concise user tool preferences such as RTK and CodeGraph without adding a development methodology.
+8. Report any unresolved conflict instead of silently choosing one side.
 
 Write outputs under `output/`:
 
 - `output/AGENTS.md`: merged user-level AGENTS profile
 - `output/TASTE.md` (optional): intentionally updated authoring source
-- `output/prompts/*.md` (optional): intentionally updated compatibility prompts
 - `output/merge-report.md`: what was preserved, changed, rejected, and why
 
 Do not apply the merge directly to `~/.codex`. The installer or operator will
@@ -586,10 +539,6 @@ def apply_merge_packet(repo_root: Path, codex_home: Path, packet: Path) -> dict[
     optional_output_files = [
         (output / name, codex_home / name) for name in AUTHORING_SOURCE_NAMES
     ]
-    optional_output_files.extend(
-        (output / "prompts" / name, codex_home / "prompts" / name)
-        for name in COMPATIBILITY_PROMPT_NAMES
-    )
     if any(source.is_file() for source, _ in optional_output_files):
         support_source_hashes, support_target_hashes, support_missing = support_hashes(
             repo_root,
@@ -798,7 +747,6 @@ def verify(
         "plugin",
         COPY_IGNORE_NAMES,
     )
-    local_skill_mismatches = local_guardrail_mismatches(repo_root, codex_home)
     cache_path = plugin_cache_path(codex_home, plugin_path)
     cache_mismatches = tree_mismatches(plugin_path, cache_path, "cache")
 
@@ -819,7 +767,6 @@ def verify(
     ok = (
         not missing
         and not source_plugin_mismatches
-        and not local_skill_mismatches
         and not cache_mismatches
         and marketplace_manifest_ok
         and marketplace_readback["ok"]
@@ -839,7 +786,6 @@ def verify(
         "missing": missing,
         "source_plugin_mismatches": source_plugin_mismatches,
         "cache_mismatches": cache_mismatches,
-        "local_skill_mismatches": local_skill_mismatches,
         "profile_status": profile_result["status"],
         "profile_mismatches": profile_mismatches,
         "profile_merge_packet": profile_result["merge_packet"],

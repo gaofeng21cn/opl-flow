@@ -3,4 +3,4 @@ interface:
   short_description: "Git lane 与 GitHub release 机械审计"
   default_prompt: "Use $codex-ops-kit to audit this Git lane or GitHub release with fresh, fail-closed readback."
 policy:
-  allow_implicit_invocation: true
+  allow_implicit_invocation: false

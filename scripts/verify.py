@@ -16,7 +16,6 @@ REQUIRED_FILES = (
     "docs/compatibility.md",
     "docs/new-machine-codex-setup.md",
     "LICENSE",
-    "compat/ponytail-gpt56.patch",
     "skills/opl-flow/SKILL.md",
     "skills/opl-flow/agents/openai.yaml",
     "skills/codex-ops-kit/SKILL.md",
@@ -28,24 +27,11 @@ REQUIRED_FILES = (
     "skills/codex-ops-kit/references/release-currentness.md",
     "templates/AGENTS.md",
     "templates/TASTE.md",
-    "templates/prompts/planner.md",
-    "templates/prompts/executor.md",
-    "templates/prompts/debugger.md",
-    "templates/prompts/verifier.md",
     "scripts/install_local_plugin.py",
-    "scripts/intelligence_enhancement.py",
-    "scripts/check_companion_skills.py",
     "scripts/repo_profile.py",
     "scripts/profile_compose.py",
     "profile/manifest.json",
     "profile/modules/01-user-preferences.md",
-    "profile/modules/02-role-baseline.md",
-    "profile/modules/03-workflow-core.md",
-    "profile/modules/04-guardrails.md",
-    "profile/modules/05-ops-authority-core.md",
-    "profile/modules/06-capability-adapters.md",
-    "profile/modules/07-tool-preferences.md",
-    "profile/modules/08-managed-block-policy.md",
 )
 
 def require(text: str, needle: str, message: str, errors: list[str]) -> None:
@@ -70,11 +56,11 @@ def check_plugin_json(repo_root: Path) -> list[str]:
     if manifest.get("skills") != "./skills/":
         errors.append("plugin skills path must be ./skills/")
     description = manifest.get("description")
-    if not isinstance(description, str) or "one thin Codex runtime profile" not in description:
-        errors.append("plugin description must advertise one thin runtime profile")
+    if not isinstance(description, str) or "minimal Codex preference profile" not in description:
+        errors.append("plugin description must advertise the minimal preference profile")
     interface = manifest.get("interface", {})
-    if "explicit planner/executor/debugger/verifier compatibility prompts" not in interface.get("longDescription", ""):
-        errors.append("interface.longDescription must identify explicit compatibility prompts")
+    if "minimal AGENTS.md preference profile" not in interface.get("longDescription", ""):
+        errors.append("interface.longDescription must identify the minimal preference profile")
     default_prompt = interface.get("defaultPrompt")
     if not default_prompt or len(default_prompt) > 128:
         errors.append("interface.defaultPrompt must exist and be at most 128 characters")
@@ -94,36 +80,16 @@ def check_skill_metadata(repo_root: Path) -> list[str]:
 def check_profile(repo_root: Path) -> list[str]:
     errors: list[str] = []
     agents = (repo_root / "templates" / "AGENTS.md").read_text(encoding="utf-8")
-    planner = (repo_root / "templates" / "prompts" / "planner.md").read_text(encoding="utf-8")
-    executor = (repo_root / "templates" / "prompts" / "executor.md").read_text(encoding="utf-8")
-    debugger = (repo_root / "templates" / "prompts" / "debugger.md").read_text(encoding="utf-8")
-    verifier = (repo_root / "templates" / "prompts" / "verifier.md").read_text(encoding="utf-8")
     taste = (repo_root / "templates" / "TASTE.md").read_text(encoding="utf-8")
 
     required = (
-        (agents, "验证强度匹配风险", "AGENTS.md must select evidence by risk"),
-        (agents, "codex-ops-kit", "AGENTS.md must route Git/release mechanics to codex-ops-kit"),
-        (agents, "完成度审计", "AGENTS.md must require Chinese completion audits"),
-        (agents, "Root-Cause Depth Gate", "AGENTS.md must preserve root-cause depth"),
-        (agents, "blocker-to-owner map", "AGENTS.md must preserve blocker-to-owner mapping"),
-        (agents, "ponytail-review", "AGENTS.md must route concrete complexity review"),
-        (agents, "ponytail-audit", "AGENTS.md must route cleanup discovery"),
-        (agents, "唯一默认运行时 workflow profile", "AGENTS.md must be the sole runtime profile"),
-        (agents, "显式兼容入口", "AGENTS.md must make lens prompts explicit compatibility surfaces"),
-        (agents, 'fork_turns="none"', "AGENTS.md must default self-contained subagents to no context fork"),
-        (agents, "不设固定两条上限", "AGENTS.md must avoid an arbitrary fixed implementation-lane cap"),
-        (agents, "仅由 root 在终局执行一次", "AGENTS.md must make completion audit root-only and once"),
-        (agents, "2-5 个代表页面", "AGENTS.md must require representative product samples"),
-        (agents, "commentary 采用事件驱动", "AGENTS.md must use event-driven commentary"),
-        (agents, "tests 是重要行为证据", "AGENTS.md must retain tests as behavior evidence"),
-        (agents, "fresh claim-appropriate evidence", "AGENTS.md must require claim-appropriate evidence"),
-        (agents, "<!-- CODEGRAPH_START -->", "AGENTS.md must preserve the CodeGraph marker block"),
-        (planner, "显式兼容入口", "planner prompt must be an explicit compatibility surface"),
-        (executor, "当前任务授权", "executor must require Git authority"),
-        (debugger, "显式兼容入口", "debugger prompt must be an explicit compatibility surface"),
-        (debugger, "跨面证据", "debugger must require cross-surface evidence"),
-        (verifier, "显式兼容入口", "verifier prompt must be an explicit compatibility surface"),
-        (verifier, "只由 root 在终局输出一次完成度审计", "verifier must preserve root-only completion audits"),
+        (agents, "你始终用中文回复", "AGENTS.md must preserve the language preference"),
+        (agents, "先给结论", "AGENTS.md must preserve outcome-first communication"),
+        (agents, "真实生效位置", "AGENTS.md must require current project context"),
+        (agents, "repo-local `AGENTS.md`", "AGENTS.md must defer to repository context"),
+        (agents, "Shell 默认使用 `rtk`", "AGENTS.md must preserve the RTK preference"),
+        (agents, "codegraph init .", "AGENTS.md must bootstrap CodeGraph for development repositories"),
+        (agents, "被 Git ignore", "AGENTS.md must keep CodeGraph state untracked"),
         (taste, "AI 先行，合同托底", "TASTE.md must prioritize AI execution"),
         (taste, "证据匹配风险", "TASTE.md must preserve risk-matched evidence"),
         (taste, "简单优先", "TASTE.md must preserve simplicity"),
@@ -132,16 +98,14 @@ def check_profile(repo_root: Path) -> list[str]:
     for text, needle, message in required:
         require(text, needle, message, errors)
 
-    combined_prompts = planner + executor + debugger + verifier
     forbidden = (
-        (executor, "顺手验证、提交、推送", "executor must not absorb unrelated changes"),
-        (planner, "给出 2-3 个可行方案", "planner must not force multiple options"),
-        (combined_prompts, "## 输出格式", "decision lenses must not force output templates"),
-        (agents, "自动提升到 `ponytail full`", "AGENTS.md must not claim mechanical Ponytail switching"),
-        (agents, "进入项目后读取用户级 `~/.codex/TASTE.md`", "AGENTS.md must not require runtime TASTE reads"),
-        (agents, "连续应用 planner、executor、debugger、verifier", "AGENTS.md must not require a prompt chain"),
-        (agents, "默认扩大到可安全并行的多 lane", "AGENTS.md must not expand fanout from target-state wording"),
-        (agents, "跨仓实现默认已授权", "AGENTS.md must not claim default cross-repo takeover"),
+        (agents, "## Guardrails", "AGENTS.md must not install a guardrail workflow"),
+        (agents, "## Ops And Authority Core", "AGENTS.md must not install an ops workflow"),
+        (agents, "## Capability Adapters", "AGENTS.md must not install capability routing"),
+        (agents, "完成度审计", "AGENTS.md must not install a completion ceremony"),
+        (agents, "Ponytail", "AGENTS.md must not route a coding persona"),
+        (agents, "Superpowers", "AGENTS.md must not route a development methodology"),
+        (agents, "## ", "AGENTS.md must remain an unsectioned flat profile"),
     )
     for text, needle, message in forbidden:
         forbid(text, needle, message, errors)
@@ -167,17 +131,15 @@ def check_docs(repo_root: Path) -> list[str]:
     skill = (repo_root / "skills" / "opl-flow" / "SKILL.md").read_text(encoding="utf-8")
     required = (
         (readme, "Compatibility With OPL App Full", "README must document OPL App Full compatibility"),
-        (readme, "--apply-merge-packet", "README must document semantic-merge apply"),
-        (readme, "scripts/intelligence_enhancement.py enable --bootstrap-opl", "README must document CodexCont"),
-        (setup, "OPL App Full / companion layers normally cover", "setup guide must document companion coverage"),
-        (setup, "--apply-merge-packet", "setup guide must document semantic-merge apply"),
+        (readme, "apply route returned by the package command", "README must route semantic-merge apply through the package lifecycle"),
+        (readme, "opl packages install opl-flow", "README must document the package install route"),
+        (readme, "opl packages update opl-flow", "README must document the package update route"),
+        (setup, "OPL App does not package or auto-install Superpowers", "setup guide must document the App boundary"),
+        (setup, "returns the review/apply route", "setup guide must route semantic-merge apply through the package lifecycle"),
         (setup, "opl-flow@opl-flow-local", "setup guide must document exact plugin identity"),
-        (skill, "compatible with One Person Lab App Full installs", "skill must describe App Full compatibility"),
-        (skill, "Workflow Profile layer only", "skill must define its authority boundary"),
-        (skill, "codex-ops-kit", "skill must name its mechanical guardrail"),
-        (skill, "--apply-merge-packet", "skill must document semantic-merge apply"),
-        (skill, "Route Ponytail by surface", "skill must route Ponytail by surface"),
-        (compatibility, "Superpowers", "compatibility doc must cover Superpowers"),
+        (skill, "minimal Codex preference profile", "skill must define its minimal-profile boundary"),
+        (skill, "review/apply route returned by the package command", "skill must route semantic-merge apply through the package lifecycle"),
+        (compatibility, "model-native", "compatibility doc must cover model-native development"),
         (compatibility, "Runtime Substrate", "compatibility doc must cover runtime boundary"),
         (compatibility, "Ponytail", "compatibility doc must cover Ponytail"),
     )

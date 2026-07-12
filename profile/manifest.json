@@ -9,59 +9,11 @@
     "path": "templates/TASTE.md",
     "runtime_required": false
   },
-  "explicit_compatibility_surfaces": [
-    "templates/prompts/planner.md",
-    "templates/prompts/executor.md",
-    "templates/prompts/debugger.md",
-    "templates/prompts/verifier.md"
-  ],
   "modules": [
     {
-      "id": "user_preferences",
+      "id": "minimal_profile",
       "path": "profile/modules/01-user-preferences.md",
       "category": "user_preference",
-      "default": true
-    },
-    {
-      "id": "role_baseline",
-      "path": "profile/modules/02-role-baseline.md",
-      "category": "workflow_core",
-      "default": true
-    },
-    {
-      "id": "workflow_core",
-      "path": "profile/modules/03-workflow-core.md",
-      "category": "workflow_core",
-      "default": true
-    },
-    {
-      "id": "guardrails",
-      "path": "profile/modules/04-guardrails.md",
-      "category": "guardrail_skill_pack",
-      "default": true
-    },
-    {
-      "id": "ops_authority_core",
-      "path": "profile/modules/05-ops-authority-core.md",
-      "category": "guardrail_skill_pack",
-      "default": true
-    },
-    {
-      "id": "capability_adapters",
-      "path": "profile/modules/06-capability-adapters.md",
-      "category": "capability_adapter",
-      "default": true
-    },
-    {
-      "id": "tool_preferences",
-      "path": "profile/modules/07-tool-preferences.md",
-      "category": "capability_adapter",
-      "default": true
-    },
-    {
-      "id": "managed_block_policy",
-      "path": "profile/modules/08-managed-block-policy.md",
-      "category": "managed_block_registry",
       "default": true
     }
   ]

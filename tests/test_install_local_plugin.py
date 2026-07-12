@@ -57,7 +57,6 @@ class InstallLocalPluginTests(unittest.TestCase):
         output = packet / "output"
         shutil.copy2(packet / "candidate" / "AGENTS.md", output / "AGENTS.md")
         shutil.copy2(packet / "candidate" / "TASTE.md", output / "TASTE.md")
-        shutil.copytree(packet / "candidate" / "prompts", output / "prompts", dirs_exist_ok=True)
         (output / "AGENTS.md").write_text(
             (output / "AGENTS.md").read_text(encoding="utf-8") + agents_suffix,
             encoding="utf-8",
@@ -100,7 +99,7 @@ class InstallLocalPluginTests(unittest.TestCase):
             self.assertFalse(result["ok"])
             self.assertIn("content:cache/README.md", result["cache_mismatches"])
 
-    def test_verify_rejects_unsynced_non_guardrail_source_payload(self) -> None:
+    def test_verify_rejects_unsynced_source_payload(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
             repo = root / "repo"
@@ -213,24 +212,18 @@ class InstallLocalPluginTests(unittest.TestCase):
             self.assertEqual(result["status"], "installed")
             self.assertTrue((codex_home / "AGENTS.md").exists())
             self.assertTrue((codex_home / "TASTE.md").exists())
-            self.assertTrue((codex_home / "prompts" / "planner.md").exists())
 
     def test_fresh_runtime_install_preserves_existing_support_surfaces(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             codex_home = Path(tmp) / "codex"
-            (codex_home / "prompts").mkdir(parents=True)
+            codex_home.mkdir()
             (codex_home / "TASTE.md").write_text("human authoring source\n", encoding="utf-8")
-            (codex_home / "prompts" / "planner.md").write_text("custom compatibility prompt\n", encoding="utf-8")
 
             result = install_local_plugin.install_profile(REPO_ROOT, codex_home)
 
             self.assertEqual(result["status"], "installed")
             self.assertTrue((codex_home / "AGENTS.md").exists())
             self.assertEqual((codex_home / "TASTE.md").read_text(encoding="utf-8"), "human authoring source\n")
-            self.assertEqual(
-                (codex_home / "prompts" / "planner.md").read_text(encoding="utf-8"),
-                "custom compatibility prompt\n",
-            )
             self.assertIn("TASTE.md", result["support"]["drift"])
 
     def test_support_surface_missing_or_drift_does_not_block_runtime_profile(self) -> None:
@@ -242,12 +235,11 @@ class InstallLocalPluginTests(unittest.TestCase):
             install_local_plugin.install_profile(repo, codex_home)
 
             (codex_home / "TASTE.md").write_text("local authoring edit\n", encoding="utf-8")
-            (codex_home / "prompts" / "planner.md").unlink()
             status = install_local_plugin.verify_profile(repo, codex_home, profile=True)
 
             self.assertEqual(status["status"], "current")
             self.assertIn("TASTE.md", status["support"]["drift"])
-            self.assertIn("prompts/planner.md", status["support"]["missing"])
+            self.assertEqual(status["support"]["missing"], [])
             self.assertFalse(status["support"]["runtime_required"])
 
     def test_merge_packet_only_requires_runtime_profile_and_report(self) -> None:
@@ -268,7 +260,6 @@ class InstallLocalPluginTests(unittest.TestCase):
 
             self.assertEqual(applied["status"], "applied")
             self.assertTrue((codex_home / "TASTE.md").exists())
-            self.assertTrue((codex_home / "prompts" / "verifier.md").exists())
 
     def test_old_receipt_schema_fails_closed_after_runtime_source_change(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
@@ -537,7 +528,7 @@ class InstallLocalPluginTests(unittest.TestCase):
         ):
             self.assertEqual(install_local_plugin.main(), 2)
 
-    def test_verify_rejects_stale_or_extra_ops_skill_files(self) -> None:
+    def test_verify_rejects_stale_or_extra_plugin_files(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
             codex_home = root / "codex"
@@ -552,14 +543,9 @@ class InstallLocalPluginTests(unittest.TestCase):
                 codex_bin=str(codex_bin),
             )
 
-            source_skill = REPO_ROOT / "skills" / "codex-ops-kit"
             plugin_skill = plugins_dir / "opl-flow" / "skills" / "codex-ops-kit"
             (plugin_skill / "SKILL.md").write_text("stale\n", encoding="utf-8")
             (plugin_skill / "scripts" / "rho_wrapper.py").write_text("retired\n", encoding="utf-8")
-
-            local_skill = codex_home / "skills" / "codex-ops-kit"
-            shutil.copytree(source_skill, local_skill)
-            (local_skill / "SKILL.md").write_text("stale local\n", encoding="utf-8")
 
             result = install_local_plugin.verify(
                 REPO_ROOT,
@@ -572,7 +558,6 @@ class InstallLocalPluginTests(unittest.TestCase):
             self.assertFalse(result["ok"])
             self.assertIn("content:plugin/skills/codex-ops-kit/SKILL.md", result["source_plugin_mismatches"])
             self.assertIn("unexpected:plugin/skills/codex-ops-kit/scripts/rho_wrapper.py", result["source_plugin_mismatches"])
-            self.assertIn("content:skills/codex-ops-kit/SKILL.md", result["local_skill_mismatches"])
 
 if __name__ == "__main__":
     unittest.main()

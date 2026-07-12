@@ -78,12 +78,15 @@ class RepoProfileTests(unittest.TestCase):
             self.assertEqual(second["planned_changes"], [])
             self.assertEqual(agents, (repo / "AGENTS.md").read_text(encoding="utf-8"))
 
-    def test_user_profile_templates_preserve_root_cause_supervision(self) -> None:
+    def test_user_profile_template_is_minimal_and_bootstraps_codegraph(self) -> None:
         agents = (REPO_ROOT / "templates" / "AGENTS.md").read_text(encoding="utf-8")
         taste = (REPO_ROOT / "templates" / "TASTE.md").read_text(encoding="utf-8")
 
-        self.assertIn("Root-Cause Depth Gate", agents)
-        self.assertIn("blocker-to-owner map", agents)
+        self.assertIn("先给结论", agents)
+        self.assertIn("codegraph init .", agents)
+        self.assertNotIn("## ", agents)
+        self.assertNotIn("## Guardrails", agents)
+        self.assertNotIn("## Ops And Authority Core", agents)
         self.assertIn("AI 先行，合同托底", taste)
         self.assertIn("交付推进", taste)
         self.assertIn("简单优先", taste)

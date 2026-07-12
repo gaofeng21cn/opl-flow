@@ -1,6 +1,6 @@
 ---
 name: codex-ops-kit
-description: "Deterministic, fail-closed evidence for high-risk Git lane lifecycle events and public GitHub release/install claims. Use before starting, resuming, delegating, absorbing, merging, deleting, or closing a worktree/subagent branch lane, or when verifying that published release URLs and install commands match live GitHub release assets. Do not use for ordinary edits, generic subagent coordination, retrospection/session audits, broad scans, cache freshness, runtime currentness, artifact QA, or phase tracking."
+description: "Run deterministic Git lane or public GitHub release audits with the bundled scripts. Use only when the user explicitly asks for codex-ops-kit, a lane lifecycle audit, an absorption audit, or a public release URL/asset/install-command audit."
 ---
 
 # Codex Ops Kit

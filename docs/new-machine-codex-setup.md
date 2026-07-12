@@ -3,239 +3,43 @@
 Owner: `gaofeng`
 Purpose: `new_machine_opl_flow_profile_setup`
 State: `active`
-Machine boundary: Human-readable bootstrap runbook. The executable truth remains each repository installer, App release asset, OPL CLI output, Codex plugin registry, and repo-native verification command.
 
-This page installs the OPL Flow Codex workflow profile only.
+This page installs the OPL Flow preference profile only. For the complete OPL family setup, use the canonical [One Person Lab bootstrap guide](https://github.com/gaofeng21cn/one-person-lab/blob/main/docs/references/current-support/opl-new-machine-codex-bootstrap.md).
 
-For the complete OPL family setup that installs the OPL runtime, One Person Lab App, MAS/MAG/RCA/OMA agent surfaces, OPL Flow, OPL Doc, and companion tools, use the canonical One Person Lab guide:
-
-https://github.com/gaofeng21cn/one-person-lab/blob/main/docs/references/current-support/opl-new-machine-codex-bootstrap.md
-
-## Copy This Into Codex
-
-只需要开启 CodexCont 智力增强模式时，可以直接说：
-
-```text
-安装并配置 gaofeng21cn/opl-flow 并开启智力增强模式。
-```
-
-Agent 应读取本页和 README，并在 `opl-flow` checkout 中执行：
+## Install
 
 ```bash
-python3 scripts/intelligence_enhancement.py enable --bootstrap-opl
-python3 scripts/intelligence_enhancement.py status
+opl packages install opl-flow
+opl packages update opl-flow
 ```
 
-下面是只安装 OPL Flow 工作流 profile 的完整提示：
+OPL Flow installs:
 
-```text
-请按 OPL Flow 帮我安装或刷新这台机器的 Codex 工作流 profile。
+- the minimal user-level `~/.codex/AGENTS.md` preference profile;
+- the non-runtime `~/.codex/TASTE.md` authoring source;
+- the exact `opl-flow@opl-flow-local` plugin payload;
+- the optional `codex-ops-kit` utility, discoverable only for explicit lane or public-release audit requests.
 
-Source of truth:
-- OPL Flow: https://github.com/gaofeng21cn/opl-flow/blob/main/docs/new-machine-codex-setup.md
+It does not install task tiers, planner/executor/debugger/verifier prompts, a development methodology, a startup coding persona, Superpowers, or Ponytail. OPL App does not package or auto-install Superpowers.
 
-目标:
-1. 安装并验证 OPL Flow，让 Codex 获得用户级 AGENTS.md 唯一运行时 profile、非运行时 TASTE authoring source、四个显式兼容 prompt 和 opl-flow 插件。
-2. 完成后报告安装路径、备份位置、验证命令输出摘要、仍需人工处理的权限或网络问题。
-
-约束:
-- 修改前读取当前机器已有 ~/.codex、已配置 marketplace、~/plugins 和 opl-flow checkout 状态。
-- 不覆盖用户已有配置；若安装器会替换用户级 profile，确认其备份路径。
-- 遇到鉴权、网络、macOS 权限、GitHub 登录或系统安装权限阻塞时，停止并给出精确恢复步骤。
-```
-
-## Install Order
-
-### 1. OPL Flow
-
-OPL Flow owns the Codex-side working profile: user-level `AGENTS.md` runtime profile, non-blocking TASTE authoring source, explicit compatibility prompts, risk-based evidence routing, high-risk Codex ops routing, Durable writeback, and terminal completion verification.
-
-```bash
-git clone https://github.com/gaofeng21cn/opl-flow.git
-cd opl-flow
-python3 scripts/install_local_plugin.py
-python3 scripts/install_local_plugin.py --verify-only
-python3 scripts/verify.py
-```
-
-If the machine already uses SSH keys for GitHub, the clone URL can be `git@github.com:gaofeng21cn/opl-flow.git`.
-
-If `~/.codex/AGENTS.md` does not exist, this installs the rendered OPL Flow
-profile directly. If `~/.codex/AGENTS.md` already exists, the installer must not
-overwrite it. It creates a merge packet under
-`~/.codex/state/opl-flow/profile-merge/<timestamp>/` and reports
-`requires_codex_semantic_merge`; Codex must read that packet and produce the
-semantic merge before any profile apply.
+If `~/.codex/AGENTS.md` already exists, the package lifecycle does not overwrite it. It creates a merge packet and returns the review/apply route. OPL Framework remains the install, update, rollback, and package-currentness owner.
 
 Restart Codex after installation so plugin and skill discovery refresh.
 
-If this machine is initialized through One Person Lab App Standard or Full, OPL Flow is a required
-workflow plugin package whose semantics are limited to the Workflow Profile layer. The App installs its plugin payload alongside App
-Binary, Runtime Substrate, Capability Packages, Companion Tools, and Codex
-Surface sync work, but those layers keep their own lifecycle and readiness
-evidence. On a fresh machine with no existing Codex profile, this is the same
-as a normal fresh OPL Flow install. On a machine that already has Codex, OPL
-Flow still follows the non-overwrite path: install or stage the plugin payload,
-generate the merge packet, and let Codex perform the semantic profile merge.
-The install remains non-terminal until the reviewed packet output is applied:
+## Development Repositories
+
+The installed global profile tells Codex to initialize CodeGraph when entering a development repository that lacks an index:
 
 ```bash
-python3 scripts/install_local_plugin.py --apply-merge-packet <packet-path>
-python3 scripts/install_local_plugin.py --verify-only
+codegraph init .
 ```
 
-If this machine was installed through One Person Lab App Full, the Superpowers execution surface and common companion skills are normally already packaged. OPL Flow is compatible with that setup and should not duplicate or replace those skills.
+The repository must Git-ignore `.codegraph/` and keep a concise repo-local CodeGraph block in `AGENTS.md`. Structural searches should use CodeGraph; literal text searches should use `rg`.
 
-OPL Flow should preserve the machine's current Superpowers profile. A local `lite` or `expanded` profile keeps upstream `using-superpowers` disabled and routes only selected skills into Codex discovery; official `full` Superpowers should be enabled only when the user explicitly asks for that mode.
+## Optional Intelligence Enhancement
 
-OPL Flow bundles one profile-native mechanical guardrail:
+OPL Flow can declare optional CodexCont-style continuation intent. OPL Base/System and Managed Update own dependency installation, Codex configuration, service lifecycle, status, repair, rollback, and removal. OPL Flow provides no independent companion updater or readiness checker.
 
-- `codex-ops-kit`
+## Verification Boundary
 
-Risk-aware evidence selection and narrow TDD routing live in `AGENTS.md` and specialist skills rather than a separate prose-router or mandatory verifier prompt.
-
-OPL App Full / companion layers normally cover:
-
-- `systematic-debugging`
-- `verification-before-completion`
-- `using-git-worktrees`
-- `test-driven-development`
-- `mineru-document-extractor`
-
-Optional machine-level enhancements:
-
-- `agent-browser`
-- Ponytail
-- RTK
-- CodeGraph MCP/index
-
-OPL Flow installs routing/profile files and its own Codex behavior guardrails. It does not vendor Superpowers, domain agent skills, companion tools, runtime substrate payloads, or Codex surface projections.
-
-### 2. 可选：开启智力增强模式
-
-OPL Flow 持有 CodexCont 智力增强模式的安装、配置和服务入口；One Person Lab /
-OPL App 只调用这个入口：
-
-```bash
-python3 scripts/intelligence_enhancement.py enable --bootstrap-opl
-python3 scripts/intelligence_enhancement.py status
-```
-
-脚本直接使用 CodexCont GitHub 源：
-
-```bash
-uvx --from git+https://github.com/ZhenHuangLab/CodexCont codexcont ...
-```
-
-修复、关闭和卸载入口：
-
-```bash
-python3 scripts/intelligence_enhancement.py repair
-python3 scripts/intelligence_enhancement.py disable
-python3 scripts/intelligence_enhancement.py uninstall --confirmation uninstall_codexcont
-```
-
-“一直在线”的可验证表述是注册为本机持久服务并通过 `status` 读回健康状态；
-系统睡眠、网络、上游服务或凭据问题仍可能让运行态需要 `repair` 或人工处理。
-
-Ponytail can be added when the user wants a live YAGNI / stdlib-first / over-engineering lens. Keep it optional and use the OPL Flow GPT-5.6 overlay so `lite` is short and root-only:
-
-```bash
-OPL_FLOW_ROOT="$(git rev-parse --show-toplevel)"
-mkdir -p ~/workspace
-git clone https://github.com/DietrichGebert/ponytail.git ~/workspace/ponytail
-git -C ~/workspace/ponytail checkout 14a0d79548d4de8fc2de95c1b94bb0de63a739d3
-git -C ~/workspace/ponytail switch -c local/gpt-5.6-lite
-git -C ~/workspace/ponytail apply "$OPL_FLOW_ROOT/compat/ponytail-gpt56.patch"
-npm --prefix ~/workspace/ponytail test
-mkdir -p ~/.config/ponytail
-printf '{\n  "defaultMode": "lite"\n}\n' > ~/.config/ponytail/config.json
-codex plugin marketplace add ~/workspace/ponytail
-codex plugin add ponytail@ponytail-local
-```
-
-After installation, `lite` activates once at root startup as a 5-10 line complexity delta. The Codex hook profile disables resume, compact, and subagent reinjection. On an existing machine, verify the local plugin before removing the old `ponytail@ponytail` install and marketplace. Use explicit level arguments to switch it, and `@ponytail-review` / `@ponytail-audit` as one-shot review surfaces. Ponytail must not replace scope, authority, fresh evidence, or runtime/release/currentness gates.
-
-Use `ponytail-audit` explicitly for whole-repo or cross-repo cleanup candidate discovery. Use `ponytail-review` explicitly for a concrete diff, PR, commit range, or worktree lane when the user asks for over-engineering review; it is not a default absorption gate.
-
-Check the current machine with:
-
-```bash
-python3 scripts/check_companion_skills.py
-```
-
-The default checker reports the profile, exact plugin, runtime guardrails, optional companion coverage, and active Superpowers profile. Use strict mode when a task needs to fail closed unless the profile, plugin, and runtime-discoverable guardrails are ready:
-
-```bash
-python3 scripts/check_companion_skills.py --strict
-```
-
-## What Gets Installed
-
-| Layer | Entry | Installs or refreshes |
-| --- | --- | --- |
-| Workflow Profile | `opl-flow` | `~/plugins/opl-flow` as the independent `opl-flow-local` marketplace, `opl-flow@opl-flow-local`, the `~/.codex/AGENTS.md` runtime profile, non-blocking TASTE/compatibility prompts, and `codex-ops-kit` |
-
-When an existing user-level `AGENTS.md` is present, the `~/.codex/AGENTS.md`
-entry above means "candidate profile plus Codex semantic merge packet", not
-silent replacement.
-
-Key behavior after install:
-
-- Chinese, direct, evidence-oriented communication.
-- Direct / Inline / Durable task classification.
-- Native planning / execution / diagnosis / verification; four prompt files are explicit compatibility entrypoints only.
-- Risk-based verification and TDD selection.
-- Fail-closed Git lane and GitHub release evidence through `codex-ops-kit`.
-- Fresh evidence boundaries for runtime truth, readiness, currentness, release, CI, and owner-route claims.
-- Root-Cause Depth Gate for repeated, flaky, cross-component, or initially unclear failures.
-- One root-only terminal Chinese "完成度审计" for target-state delivery, anchored to the frozen target.
-- Root-owned coordination with proactive subagent delegation for bounded independent work; implementation concurrency follows benefit, available capacity, and write-set isolation instead of a fixed lane count.
-- Durable writeback routing for reusable workflow lessons.
-- CodeGraph marker block preservation and RTK shell preference when available.
-- Compatibility with OPL App Full / Superpowers: OPL Flow routes to the execution surface already packaged by Full install and owns only the Workflow Profile layer.
-- Superpowers profile preservation: OPL Flow keeps the current local profile unless the user explicitly chooses official full Superpowers.
-- Optional Ponytail compatibility: OPL Flow can detect Ponytail and its default mode, but treats it only as a simplification lens.
-- Ponytail explicit review surfaces: use `ponytail-review` for concrete complexity review and `ponytail-audit` for discovery when requested.
-
-## Completion Checks
-
-Codex should not report the setup complete until it has run the checks that apply to the chosen path:
-
-```bash
-python3 ~/opl-flow/scripts/install_local_plugin.py --verify-only
-python3 ~/opl-flow/scripts/verify.py
-python3 ~/opl-flow/scripts/check_companion_skills.py
-python3 ~/opl-flow/scripts/intelligence_enhancement.py status
-```
-
-Use `python3 ~/opl-flow/scripts/check_companion_skills.py --strict` when claiming the profile, exact installed plugin, and runtime guardrails are ready.
-
-If checkout paths differ, use the actual clone location in place of `~/opl-flow`.
-
-## Optional Repo-Native Sync
-
-After the user-level profile is installed, a target OPL-compatible repository
-can declare that it follows OPL Flow:
-
-```bash
-python3 ~/opl-flow/scripts/repo_profile.py check --repo-root /path/to/repo
-python3 ~/opl-flow/scripts/repo_profile.py sync --repo-root /path/to/repo --apply
-```
-
-This writes only the workflow profile declaration and the managed `AGENTS.md`
-block. It does not install OPL runtime modules, create repo-local taste files,
-mutate domain contracts, or replace repo-specific rules.
-
-## Where This Fits
-
-`opl-flow` configures Codex behavior on a new machine. It owns the Workflow Profile layer, risk-based development flow, and high-risk Codex ops guardrails. It does not own Installation Carrier, Runtime Substrate, Capability Packages, Companion Tools, Codex Surface sync, user data/artifacts, MAS/MAG/RCA/BookForge domain authority, Temporal family runtime provider, native helpers, domain module health, GUI shell, App first-run state, or Full readiness. BookForge default visibility belongs to later One Person Lab App / OPL Framework admission evidence, not OPL Flow checks.
-
-If OPL Flow is managed by the OPL App update plane, treat plugin payload updates
-and user profile updates as separate operations. Payload updates may be staged
-and verified automatically; user profile changes must go through Codex semantic
-merge, review, apply, and rollback evidence.
-
-See `docs/compatibility.md` for the positioning matrix against Codex customization, Superpowers, Trellis, Claude Code skills/subagents/memory, and GitHub Agentic Workflows.
-
-`one-person-lab` is the canonical complete bootstrap owner. `one-person-lab-app` is the product and first-install owner. `opl-doc` is a domain skill for developer-document lifecycle governance.
+For repository development only, `scripts/install_local_plugin.py --verify-only` checks a locally staged checkout and exact plugin/cache payload. It is not a package-currentness claim.

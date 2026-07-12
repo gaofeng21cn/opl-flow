@@ -1,7 +1,7 @@
 {
   "name": "opl-flow",
-  "version": "0.1.10",
-  "description": "OPL Flow installs one thin Codex runtime profile, explicit compatibility prompts, risk-aware evidence rules, and narrow Git/release mechanical audits.",
+  "version": "0.1.14",
+  "description": "OPL Flow installs a minimal Codex preference profile and optional repository CodeGraph bootstrap guidance.",
   "author": {
     "name": "Gaofeng"
   },
@@ -9,18 +9,15 @@
   "interface": {
     "displayName": "OPL Flow",
     "shortDescription": "Pragmatic Codex workflow profile",
-    "longDescription": "OPL Flow packages a thin AGENTS.md runtime profile compatible with OPL App Full and Superpowers, plus explicit planner/executor/debugger/verifier compatibility prompts, risk-aware evidence selection, and fail-closed Git lane and GitHub release audits.",
+    "longDescription": "OPL Flow packages a minimal AGENTS.md preference profile, RTK preference, and concise repository-local CodeGraph bootstrap guidance.",
     "developerName": "Gaofeng",
     "category": "Developer Tools",
     "capabilities": [
       "workflow",
-      "explicit-compatibility-prompts",
-      "verification",
-      "risk-aware-evidence",
-      "superpowers-compatible",
-      "bounded-subagents"
+      "preferences",
+      "codegraph-bootstrap"
     ],
-    "defaultPrompt": "Use OPL Flow to install or diagnose the thin AGENTS.md runtime profile and its mechanical guardrails."
+    "defaultPrompt": "Use OPL Flow to install or diagnose the minimal AGENTS.md preference profile."
   },
   "homepage": "https://github.com/gaofeng21cn/opl-flow",
   "repository": "https://github.com/gaofeng21cn/opl-flow",
