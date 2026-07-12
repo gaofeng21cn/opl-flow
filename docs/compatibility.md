@@ -46,7 +46,7 @@ or domain systems ready by itself.
 - Existing Codex machine: `opl packages update opl-flow` owns package update and runs the same optimize transaction after source refresh.
 - Script merge policy: scripts remove only policy-declared marker blocks. Codex handles unmarked semantic reconciliation; target-hash validation, backup, receipt, and rollback protect the applied result.
 - OPL App Full initialization can include OPL Flow alongside other payloads, but OPL Flow remains the workflow-profile lifecycle. Fresh machines use the direct profile path; existing Codex machines use the merge-packet path.
-- A successful OPL App update may request `opl packages optimize opl-flow`; Framework performs the dependency, conflict, profile, receipt, and rollback transaction. The App does not duplicate its policy or mutate `AGENTS.md` directly.
+- A successful OPL App update may request `opl packages update opl-flow`; Framework first refreshes legacy immutable Full-bundle policy into the managed package checkout, then performs the dependency, conflict, profile, receipt, and rollback transaction. The App does not duplicate its policy or mutate `AGENTS.md` directly.
 
 ## Verification Boundary
 

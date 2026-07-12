@@ -66,7 +66,7 @@ under the Framework state directory. The command returns the exact
 
 `~/.codex/TASTE.md` is the human-maintained preference authoring source, not a session input. Its stable digest is compiled into `AGENTS.md`; its absence or drift does not fail runtime readiness. Repo-specific facts, local boundaries, and project development rules belong in `AGENTS.md`, docs, contracts, source, tests, and runtime/readback evidence.
 
-Installing, updating, or optimizing OPL Flow applies the manifest migration policy and records every archived legacy surface in a rollback receipt. Explicit `--keep` overrides are preserved in the same package transaction. `optimize` reuses the installed source without pulling it, so OPL App can request post-update reconciliation without owning workflow logic.
+Installing, updating, or optimizing OPL Flow applies the manifest migration policy and records every archived legacy surface in a rollback receipt. Explicit `--keep` overrides are preserved in the same package transaction. `optimize` reuses the installed source without pulling it for an explicit local-only reconciliation. After an App version switch, OPL App requests Framework-owned `opl packages update opl-flow`, so legacy immutable Full-bundle policy is refreshed into the managed package checkout before the same migration transaction runs.
 
 Use the package command's readback for installed version and package currentness. OPL Flow does not maintain a second companion or readiness checker.
 
