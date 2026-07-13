@@ -3,7 +3,7 @@
   "schema": "opl_flow_workflow_policy.v1",
   "package": {
     "id": "opl-flow",
-    "version": "0.1.18",
+    "version": "0.1.19",
     "owner": "opl-flow",
     "kind": "workflow_profile"
   },
