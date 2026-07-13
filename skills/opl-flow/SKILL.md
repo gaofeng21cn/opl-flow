@@ -38,6 +38,10 @@ OPL Flow declares dependencies and incompatibilities; OPL Framework executes the
 
 After any App carrier changes version, App requests generic Framework reconciliation for OPL Base and all installed OPL Packages. If OPL Flow is installed, the ordinary package update transaction refreshes its dependency closure, retires declared conflicts, and reconciles the user profile. OPL Flow does not provide an App-specific updater.
 
+While App is running, generic reconciliation runs after startup readiness and every 24 hours. OPL Packages refreshes Flow-managed Skills; OPL Base owns managed CLI currentness and updates. Managed Codex and Framework/Temporal generations activate on the next App process. External Homebrew, npm, PATH, or system installations are never silently overwritten; a verified original owner may be invoked only after explicit user confirmation, otherwise the App shows guidance.
+
+In Settings, Agents owns runnable Agent packages, Capabilities groups Flow-managed and manual/third-party Skills or Plugins, and Local Environment owns Base/App/Packages plus dependency currentness. Treat those surfaces as consumers of Framework readback, not additional lifecycle owners.
+
 ## Repo Profile Sync
 
 ```bash

@@ -68,6 +68,10 @@ under the Framework state directory. The command returns the exact
 
 Installing, updating, or optimizing OPL Flow applies the manifest migration policy and records every archived legacy surface in a rollback receipt. Explicit `--keep` overrides are preserved in the same package transaction. `optimize` reuses the installed source without pulling it for an explicit local-only reconciliation. After any App carrier changes version, OPL App requests generic Framework reconciliation for OPL Base and every installed OPL Package. If OPL Flow is installed, its ordinary package transaction refreshes the managed source and dependency closure before applying conflict retirement and profile migration; there is no Flow-specific App updater.
 
+When OPL App is running, managed reconciliation starts after core readiness and repeats every 24 hours. OPL Packages refreshes Flow-managed Skills from the installed typed dependency closure; OPL Base checks and updates managed CLI dependencies such as OfficeCLI and MinerU. OPL-managed Codex and Framework/Temporal generations are staged and switch on the next App process. A Homebrew, global npm, PATH, or system-owned Codex/Temporal installation is never included in silent apply: the App may offer an explicitly confirmed update through a verified original owner, or show guidance when that owner cannot be proven.
+
+Settings keeps the ownership visible: Agents manages runnable Agent packages, Capabilities separates OPL Flow-managed capabilities from manual and third-party Skills/Plugins, and Local Environment manages OPL Base, OPL App, OPL Packages, and dependency currentness. These pages consume Framework readback and do not maintain another dependency inventory.
+
 Use the package command's readback for installed version and package currentness. OPL Flow does not maintain a second companion or readiness checker.
 
 Restart Codex after installation.

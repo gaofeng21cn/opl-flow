@@ -32,6 +32,10 @@ Restart Codex after installation so plugin and skill discovery refresh.
 
 After any App carrier changes version, the App asks Framework to reconcile OPL Base and every installed OPL Package. An installed OPL Flow therefore receives the same dependency refresh, conflict retirement, and profile migration as an explicit package update. Package payload changes apply immediately, with a Codex restart required only to refresh plugin and skill discovery; Base runtime changes follow the Framework staging and restart-activation policy.
 
+The same generic reconciliation runs after App startup readiness and every 24 hours while App remains open. Flow-managed Skills update through OPL Packages. Managed OfficeCLI and MinerU CLI currentness belongs to OPL Base. Managed Codex and Framework/Temporal generations switch on the next App process. External Homebrew, global npm, PATH, or system-owned Codex/Temporal installations are detect-only during background maintenance; when the original owner is verified, Settings may offer an explicitly confirmed owner update, otherwise it shows manual guidance.
+
+Settings separates the objects by owner: Agents for runnable Agent packages, Capabilities for OPL Flow-managed and manual/third-party Skills or Plugins, and Local Environment for OPL Base, OPL App, OPL Packages, and dependency status.
+
 ## Development Repositories
 
 The installed global profile tells Codex to initialize CodeGraph when entering a development repository that lacks an index:
