@@ -3,6 +3,7 @@
 
 from __future__ import annotations
 
+import argparse
 import json
 import subprocess
 import sys
@@ -35,6 +36,15 @@ REQUIRED_FILES = (
     "profile/manifest.json",
     "profile/modules/01-user-preferences.md",
 )
+
+CORE_TEST_MODULES = (
+    "tests/test_install_local_plugin.py",
+    "tests/test_profile_compose.py",
+    "tests/test_repo_profile.py",
+    "tests/test_verify_lanes.py",
+)
+OPS_KIT_TEST_MODULES = ("tests/test_codex_ops_kit.py",)
+VERIFY_LANES = ("core", "ops-kit", "full")
 
 def require(text: str, needle: str, message: str, errors: list[str]) -> None:
     if needle not in text:
@@ -243,18 +253,24 @@ def check_retired_skill(repo_root: Path) -> list[str]:
     return errors
 
 
-def check_contract_tests(repo_root: Path) -> list[str]:
+def contract_test_modules(lane: str) -> tuple[str, ...]:
+    if lane == "core":
+        return CORE_TEST_MODULES
+    if lane == "ops-kit":
+        return OPS_KIT_TEST_MODULES
+    if lane == "full":
+        return (*CORE_TEST_MODULES, *OPS_KIT_TEST_MODULES)
+    raise ValueError(f"unknown verification lane: {lane}")
+
+
+def check_contract_tests(repo_root: Path, lane: str) -> list[str]:
     result = subprocess.run(
         [
             sys.executable,
             "-m",
             "unittest",
-            "discover",
-            "-s",
-            "tests",
-            "-p",
-            "*test*.py",
             "-v",
+            *contract_test_modules(lane),
         ],
         cwd=repo_root,
         check=False,
@@ -267,7 +283,14 @@ def check_contract_tests(repo_root: Path) -> list[str]:
     return ["contract tests failed: " + (result.stdout + result.stderr).strip()]
 
 
-def main() -> int:
+def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("lane", nargs="?", choices=VERIFY_LANES, default="core")
+    return parser.parse_args(argv)
+
+
+def main(argv: list[str] | None = None) -> int:
+    args = parse_args(argv)
     repo_root = Path(__file__).resolve().parents[1]
     errors: list[str] = []
     errors.extend(check_required_files(repo_root))
@@ -277,12 +300,12 @@ def main() -> int:
     errors.extend(check_profile(repo_root))
     errors.extend(check_docs(repo_root))
     errors.extend(check_retired_skill(repo_root))
-    errors.extend(check_contract_tests(repo_root))
+    errors.extend(check_contract_tests(repo_root, args.lane))
     if errors:
         for error in errors:
             print(f"ERROR: {error}", file=sys.stderr)
         return 1
-    print("OPL Flow verification passed")
+    print(f"OPL Flow {args.lane} verification passed")
     return 0
 
 

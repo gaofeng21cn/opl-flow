@@ -96,9 +96,16 @@ Verify local-source staging:
 ```bash
 python3 scripts/install_local_plugin.py --verify-only
 scripts/verify.sh
+scripts/verify.sh ops-kit
+scripts/verify.sh full
 ```
 
 This verification binds only the repository marketplace manifest, staged local plugin, exact Codex plugin readback, and versioned cache payload. It does not prove package lifecycle currentness.
+`scripts/verify.sh` defaults to the core OPL Flow contract and profile suite.
+The optional Codex Ops Kit has its own `ops-kit` lane; `full` runs the disjoint
+core and optional test sets together. Optional-tool tests are required in CI
+and when `optional-skills/codex-ops-kit/**` changes, but they do not tax ordinary
+profile or package-policy development.
 
 ## Repo Profile Sync
 
@@ -165,5 +172,6 @@ as a self-check for this repository.
 
 ```bash
 scripts/verify.sh
+scripts/verify.sh full
 python3 /Users/gaofeng/.codex/skills/.system/plugin-creator/scripts/validate_plugin.py .
 ```
