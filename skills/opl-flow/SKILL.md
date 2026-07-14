@@ -50,7 +50,7 @@ python3 scripts/repo_profile.py sync --repo-root <repo-root>
 python3 scripts/repo_profile.py sync --repo-root <repo-root> --apply
 ```
 
-`sync` is dry-run unless `--apply` is provided. Apply mode may update the OPL Flow managed block and profile contract, while preserving repo-specific guidance outside that block.
+`sync` is dry-run unless `--apply` is provided. Apply mode updates only the profile contract and removes any legacy OPL Flow managed block from `AGENTS.md`. Repo-local instructions remain entirely repository-owned; OPL Flow does not inject workflow prose into them.
 
 ## Readback Boundary
 

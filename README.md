@@ -113,7 +113,7 @@ profile or package-policy development.
 
 ## Repo Profile Sync
 
-OPL Flow can check or write the workflow portion of an OPL-native repo profile:
+OPL Flow can check or write the metadata portion of an OPL-native repo profile:
 
 ```bash
 python3 scripts/repo_profile.py check --repo-root /path/to/repo
@@ -121,11 +121,10 @@ python3 scripts/repo_profile.py sync --repo-root /path/to/repo
 python3 scripts/repo_profile.py sync --repo-root /path/to/repo --apply
 ```
 
-`sync` is a dry-run unless `--apply` is present. Apply mode preserves
-repo-specific prose and only updates `contracts/opl-native-profile.json` plus
-managed blocks in `AGENTS.md`. That managed block points to the
-profile and do not own contracts, source, tests, runtime output, or project
-truth.
+`sync` is a dry-run unless `--apply` is present. Apply mode updates
+`contracts/opl-native-profile.json` and removes any legacy OPL Flow managed
+block from `AGENTS.md`. Repo-local instructions remain repository-owned and
+receive no OPL Flow workflow injection.
 
 ## Usage
 
@@ -162,9 +161,9 @@ See [docs/compatibility.md](docs/compatibility.md) for the positioning matrix ag
 
 OPL Flow is the generic preference-profile Package. OPL Doc is a separate developer support repo for OPL-family documentation governance; it is not a normal-user dependency of OPL Flow or OPL Base.
 
-For plugin-native repos, OPL Flow owns the workflow managed block while OPL Doc
-owns documentation lifecycle profile checks. The shared machine pointer is
-`contracts/opl-native-profile.json`.
+For plugin-native repos, OPL Flow owns only its metadata entry in
+`contracts/opl-native-profile.json`; OPL Doc owns documentation lifecycle
+profile checks. Repo-local `AGENTS.md` stays with the repository.
 
 `opl-flow` itself is the source repository for that profile and is intentionally
 self-hosted without a repo-local `contracts/opl-native-profile.json`; its root

@@ -13,9 +13,8 @@ PLUGIN_NAME = "opl-flow"
 DEFAULT_FLOW_PROFILE = "opl_default"
 PROFILE_PATH = Path("contracts/opl-native-profile.json")
 AGENTS_PATH = Path("AGENTS.md")
-MANAGED_START = "<!-- OPL_FLOW_MANAGED_START -->"
-MANAGED_END = "<!-- OPL_FLOW_MANAGED_END -->"
-PROFILE_POINTER = "contracts/opl-native-profile.json"
+LEGACY_MANAGED_START = "<!-- OPL_FLOW_MANAGED_START -->"
+LEGACY_MANAGED_END = "<!-- OPL_FLOW_MANAGED_END -->"
 
 
 def _load_flow_version() -> str:
@@ -32,9 +31,7 @@ FLOW_VERSION = _load_flow_version()
 
 
 def managed_surfaces() -> list[dict[str, str]]:
-    return [
-        {"path": "AGENTS.md", "management": "managed_block", "kind": "repo_agent_instructions"},
-    ]
+    return []
 
 
 def load_profile(repo_root: Path) -> tuple[dict[str, Any] | None, str | None]:
@@ -77,47 +74,16 @@ def render_json(payload: dict[str, Any]) -> str:
     return json.dumps(payload, indent=2, sort_keys=True) + "\n"
 
 
-def managed_block(kind: str) -> str:
-    return (
-        f"{MANAGED_START}\n"
-        f"OPL Flow managed surface: {kind}\n"
-        f"Plugin: {PLUGIN_NAME}\n"
-        f"Plugin version: {FLOW_VERSION}\n"
-        f"Profile pointer: {PROFILE_POINTER}\n"
-        "本块只声明 OPL Flow 工作流 profile 指针；repo-specific 规则、项目事实、contracts、source、tests 和 runtime 输出继续归本仓既有 owner。\n"
-        "请只通过 OPL Flow repo_profile sync 更新本块；本块外内容由目标 repo 自己维护。\n"
-        f"{MANAGED_END}\n"
-    )
-
-
-def has_profile_pointer(text: str) -> bool:
-    return (
-        (MANAGED_START in text and MANAGED_END in text)
-        or (PROFILE_POINTER in text and ("OPL Flow" in text or PLUGIN_NAME in text))
-    )
-
-
-def upsert_managed_block(existing: str | None, block: str) -> str:
-    if existing is None or not existing:
-        return block
-    start = existing.find(MANAGED_START)
-    end = existing.find(MANAGED_END)
-    if start != -1 and end != -1 and end >= start:
-        end += len(MANAGED_END)
-        suffix = existing[end:]
-        if suffix.startswith("\n"):
-            suffix = suffix[1:]
-        updated = existing[:start].rstrip() + "\n\n" + block
-        if suffix:
-            updated += "\n" + suffix.lstrip("\n")
-        return updated
-    return existing.rstrip() + "\n\n" + block
-
-
-def surface_specs() -> list[tuple[Path, str]]:
-    return [
-        (AGENTS_PATH, "repo_agent_instructions"),
-    ]
+def remove_legacy_managed_block(existing: str) -> str:
+    start = existing.find(LEGACY_MANAGED_START)
+    end = existing.find(LEGACY_MANAGED_END)
+    if start == -1 or end == -1 or end < start:
+        return existing
+    end += len(LEGACY_MANAGED_END)
+    prefix = existing[:start].rstrip()
+    suffix = existing[end:].lstrip("\n")
+    parts = [part for part in (prefix, suffix.rstrip()) if part]
+    return "\n\n".join(parts) + ("\n" if parts else "")
 
 
 def planned_changes(repo_root: Path) -> tuple[list[dict[str, str]], dict[Path, str], list[str]]:
@@ -136,13 +102,13 @@ def planned_changes(repo_root: Path) -> tuple[list[dict[str, str]], dict[Path, s
         changes.append({"path": str(PROFILE_PATH), "action": "create" if current_profile_text is None else "update"})
         writes[PROFILE_PATH] = desired_text
 
-    for rel_path, kind in surface_specs():
-        path = repo_root / rel_path
-        current = path.read_text(encoding="utf-8") if path.exists() else None
-        desired_surface = upsert_managed_block(current, managed_block(kind))
-        if current != desired_surface:
-            changes.append({"path": str(rel_path), "action": "create" if current is None else "update"})
-            writes[rel_path] = desired_surface
+    agents_file = repo_root / AGENTS_PATH
+    if agents_file.exists():
+        current_agents = agents_file.read_text(encoding="utf-8")
+        desired_agents = remove_legacy_managed_block(current_agents)
+        if current_agents != desired_agents:
+            changes.append({"path": str(AGENTS_PATH), "action": "remove_legacy_managed_block"})
+            writes[AGENTS_PATH] = desired_agents
 
     return changes, writes, errors
 
@@ -177,13 +143,9 @@ def check_repo(repo_root: Path) -> dict[str, Any]:
                 if flow_entry.get("managed_surfaces") != managed_surfaces():
                     errors.append(f"{PROFILE_PATH} managed_by_plugins.{PLUGIN_NAME}.managed_surfaces are out of sync")
 
-    for rel_path, _kind in surface_specs():
-        path = repo_root / rel_path
-        if not path.exists():
-            missing.append(str(rel_path))
-            continue
-        if not has_profile_pointer(path.read_text(encoding="utf-8")):
-            errors.append(f"{rel_path} must declare OPL Flow managed block or profile pointer")
+    agents_file = repo_root / AGENTS_PATH
+    if agents_file.exists() and LEGACY_MANAGED_START in agents_file.read_text(encoding="utf-8"):
+        errors.append(f"{AGENTS_PATH} contains a legacy OPL Flow managed block")
 
     ok = not missing and not errors
     return {
