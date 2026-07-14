@@ -15,6 +15,8 @@ The pre-change state is recoverable from:
 - OPL App baseline: `41659008e9ebf115f7f48707469342c7a8175728`.
 - OPL Framework baseline: `5701930041fb5d2c4505006ebaafccb21e52301b`.
 
+Before the final package and multi-machine migration, a second restorable snapshot was frozen at `/Users/gaofeng/.codex/backups/opl-flow-gpt56-final-20260714T145843`. It contains the then-current Codex config/profile, OPL package receipts, relevant plugin payloads, the installed machine-sync skill, and Git bundles for OPL Flow and its private source. The bundle SHA-256 values are `aa5e236c422d9a4641d3e8abe47db30e52c08be3728a157cfc41d639736a1755` for OPL Flow and `7cf9fd946fd091df4106e153113bbb7e4a7d28a2947f331ec9452876172413c0` for the private skill source.
+
 Restore the repository with the recorded commit or bundle. Restore local profile files only after stopping Codex and reviewing archive paths; the archive intentionally contains workflow text/configuration, not credentials.
 
 ## Acceptance Boundary
@@ -22,7 +24,7 @@ Restore the repository with the recorded commit or bundle. Restore local profile
 - Keep user language/style preferences, ownership boundaries, protection of user changes, and claim-appropriate evidence.
 - Keep deterministic Git/release audits and official marker blocks.
 - Remove default methodology bootstraps, role/stage switching, broad automatic skill triggers, startup coding personas, and duplicate readiness concepts.
-- OPL App must stop packaging or auto-installing Superpowers. Existing user-owned installations are not deleted.
+- OPL App must stop packaging or auto-installing Superpowers. A later explicit user decision supersedes the original preserve-only boundary: when the user actively installs, updates, or optimizes OPL Flow, declared conflicts are backed up and removed from active discovery/configuration unless the user supplies a keep override.
 
 ## Detailed Assessment
 
