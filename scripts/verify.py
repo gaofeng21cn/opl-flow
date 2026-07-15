@@ -128,6 +128,20 @@ def check_workflow_policy(repo_root: Path) -> list[str]:
     if not {"upstream-superpowers", "ponytail", "codexcont-intelligence-enhancement"}.issubset(conflict_ids):
         errors.append("workflow policy must retire the known legacy global workflow conflicts")
     migrations = [*policy.get("conflicts", []), *policy.get("retires", [])]
+    ponytail_conflict = next(
+        (item for item in policy.get("conflicts", []) if item.get("id") == "ponytail"),
+        {},
+    )
+    expected_ponytail_conflicts = {"ponytail", "ponytail-local", "ponytail-ponytail"}
+    if set(ponytail_conflict.get("discovery_ids", [])) != expected_ponytail_conflicts:
+        errors.append("workflow policy must retire only Ponytail plugin and main-persona discovery aliases")
+    retired_discovery_ids = {
+        discovery_id
+        for item in migrations
+        for discovery_id in item.get("discovery_ids", [])
+    }
+    if {"ponytail-audit", "ponytail-review"} & retired_discovery_ids:
+        errors.append("explicit Ponytail audit and review skills must remain outside workflow retirement")
     if any(not isinstance(item.get("config_markers"), list) or not isinstance(item.get("service_ids"), list) for item in migrations):
         errors.append("workflow migrations must declare config_markers and service_ids")
     migration_policy = policy.get("migration_policy", {})

@@ -3,7 +3,7 @@
   "schema": "opl_flow_workflow_policy.v1",
   "package": {
     "id": "opl-flow",
-    "version": "0.1.20",
+    "version": "0.1.21",
     "owner": "opl-flow",
     "kind": "workflow_profile"
   },
@@ -145,7 +145,7 @@
     },
     {
       "id": "ponytail",
-      "discovery_ids": ["ponytail", "ponytail-local", "ponytail-ponytail", "ponytail-audit", "ponytail-review"],
+      "discovery_ids": ["ponytail", "ponytail-local", "ponytail-ponytail"],
       "config_markers": ["ponytail"],
       "service_ids": [],
       "auto_retire_on_optimize": true,
