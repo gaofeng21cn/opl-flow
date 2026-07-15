@@ -51,6 +51,7 @@ or domain systems ready by itself.
 ## Verification Boundary
 
 - `scripts/install_local_plugin.py --verify-only` is a repository developer/local-source check for the AGENTS profile, staged plugin, exact installed plugin identity, and versioned cache payload. It is not the package currentness authority.
+- Package readback keeps owner source/tag, Framework stable catalog, installed lock/payload, and fresh Codex discovery as separate evidence layers. Managed-Skill projection is current only when final payload validation passes and Codex plus Agents entrypoints resolve to the same declared authority.
 - It does not score project readiness or domain quality. OPL Framework reads its conflict/retirement policy during an explicit OPL Flow package install, update, optimize, or generic post-App-update reconciliation of installed Packages.
 - Framework migration backs up and retires the historical surfaces declared by the workflow policy.
 - Base runtime/dependencies, App release/currentness, other Packages, MAS/MAG/RCA/BookForge domain truth, and owner-route status remain on their owning surfaces.

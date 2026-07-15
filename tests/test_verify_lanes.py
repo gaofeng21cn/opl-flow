@@ -54,6 +54,32 @@ class VerifyLaneTests(unittest.TestCase):
             errors,
         )
 
+    def test_workflow_policy_requires_skills_manager_authority(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            repo_root = Path(temp_dir)
+            contracts = repo_root / "contracts"
+            contracts.mkdir()
+            policy = json.loads(
+                (REPO_ROOT / "contracts" / "workflow-policy.json").read_text(encoding="utf-8")
+            )
+            ui_ux = next(item for item in policy["recommends"] if item["id"] == "ui-ux-pro-max")
+            ui_ux["source"] = "github:nextlevelbuilder/ui-ux-pro-max-skill"
+            (contracts / "workflow-policy.json").write_text(
+                f"{json.dumps(policy, indent=2)}\n",
+                encoding="utf-8",
+            )
+            (contracts / "workflow-policy.schema.json").write_text(
+                (REPO_ROOT / "contracts" / "workflow-policy.schema.json").read_text(encoding="utf-8"),
+                encoding="utf-8",
+            )
+
+            errors = check_workflow_policy(repo_root)
+
+        self.assertIn(
+            "workflow policy managed skills must use their Skills Manager package authority",
+            errors,
+        )
+
 
 if __name__ == "__main__":
     unittest.main()

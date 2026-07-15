@@ -72,7 +72,9 @@ When OPL App is running, managed reconciliation starts after core readiness and 
 
 Settings keeps the ownership visible: Agents manages runnable Agent packages, Capabilities separates OPL Flow-managed capabilities from manual and third-party Skills/Plugins, and Local Environment manages OPL Base, OPL App, OPL Packages, and dependency currentness. These pages consume Framework readback and do not maintain another dependency inventory.
 
-Use the package command's readback for installed version and package currentness. OPL Flow does not maintain a second companion or readiness checker.
+Currentness has four distinct layers: owner source/tag, Framework stable catalog, installed package lock and payload, and fresh Codex discovery. Source or catalog currentness does not prove that the machine switched. Use `opl packages list --json` for catalog-versus-installed selection, `opl packages status --package-id opl-flow --json` for the installed lock, payload digest, managed-Skill validation, and resolved entrypoint authority, then `codex plugin list --json` for the active discovery version. OPL Flow does not maintain a second companion or readiness checker.
+
+Flow-managed Skills use their declared Skills Manager package as the primary physical authority. Framework may materialize a fallback only when that authority is absent; it validates the final `SKILL.md` frontmatter and referenced `references/`, `scripts/`, `templates/`, or `assets/` closure, excludes Python bytecode caches from payload hashes, and requires `~/.codex/skills` plus `~/.agents/skills` to resolve to the same source.
 
 Restart Codex after installation.
 

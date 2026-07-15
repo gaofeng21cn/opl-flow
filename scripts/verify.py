@@ -119,6 +119,14 @@ def check_workflow_policy(repo_root: Path) -> list[str]:
     }
     if recommended_ids != expected:
         errors.append("workflow policy Full skill closure is incomplete or contains duplicates")
+    recommended_skill_sources = {
+        item.get("id"): item.get("source")
+        for item in policy.get("recommends", [])
+        if item.get("kind") == "codex_skill"
+    }
+    expected_skill_sources = {skill_id: f"skills-manager:{skill_id}" for skill_id in expected}
+    if recommended_skill_sources != expected_skill_sources:
+        errors.append("workflow policy managed skills must use their Skills Manager package authority")
     if any(
         not item.get("online_install_default") or item.get("offline_bundle") != "full"
         for item in policy.get("recommends", [])

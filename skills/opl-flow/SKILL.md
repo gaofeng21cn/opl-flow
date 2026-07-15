@@ -54,4 +54,13 @@ python3 scripts/repo_profile.py sync --repo-root <repo-root> --apply
 
 ## Readback Boundary
 
-For repository development, `install_local_plugin.py --verify-only` checks the AGENTS profile, exact staged plugin, installed plugin identity, and versioned cache payload. Package lifecycle currentness remains with OPL Framework.
+Keep these currentness layers separate:
+
+1. Owner source: the OPL Flow repository commit and release tag.
+2. Framework catalog: the selected stable Package version and payload manifest.
+3. Installed projection: the package lock, installed payload digest, managed-Skill validation, and resolved entrypoint authority.
+4. Codex discovery: the plugin version returned by a fresh `codex plugin list --json` process.
+
+An owner tag or catalog entry does not prove that this machine has switched. Package currentness requires installed-lock and payload readback; active discovery additionally requires the fresh Codex readback. For managed Skills, Framework must prefer the declared Skills Manager authority, validate the final frontmatter and referenced-resource closure, ignore runtime bytecode caches when hashing, and converge Codex and Agents entrypoints on the same physical source.
+
+For repository development, `install_local_plugin.py --verify-only` checks the AGENTS profile, exact staged plugin, installed plugin identity, and versioned cache payload. It does not replace Framework package currentness or fresh Codex discovery.
