@@ -1,6 +1,6 @@
 # OPL Flow
 
-OPL Flow distributes a minimal Codex preference profile. It keeps ordinary design and development model-native and adds only concise CodeGraph bootstrap guidance for development repositories.
+OPL Flow distributes a minimal Codex preference profile. It keeps ordinary design and development model-native while adding only concise communication, repository-isolation, and tool-use preferences.
 
 ## Public Role Boundary
 
@@ -16,6 +16,7 @@ It stays Codex-first:
 
 - Chinese, conclusion-first, concise communication preferences.
 - Read the effective project location, call path, repo-local instructions, contracts, and implementation before editing.
+- Advance independent work in parallel; isolate Git writes in task-owned worktrees and serialize only real dependencies, overlapping write sets, or short main-integration windows.
 - RTK as a compact shell default, with native commands allowed when fidelity matters.
 - Initialize `.codegraph/` in development repositories, keep it Git-ignored, and add a concise repo-local CodeGraph block.
 

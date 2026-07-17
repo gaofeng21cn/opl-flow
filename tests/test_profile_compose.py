@@ -27,11 +27,14 @@ class ProfileComposeTests(unittest.TestCase):
 
         self.assertTrue(result["ok"], result)
 
-    def test_runtime_profile_keeps_parallel_worktree_invariants(self) -> None:
+    def test_runtime_profile_keeps_parallel_progress_and_worktree_invariants(self) -> None:
         profile = (REPO_ROOT / "templates" / "AGENTS.md").read_text(encoding="utf-8")
 
-        self.assertIn("Git 仓库写入任务默认使用任务自有 worktree", profile)
-        self.assertIn("唯一写入 owner 只约束精确写集", profile)
+        self.assertIn("在既定范围内合理拆分可独立任务并积极并行推进", profile)
+        self.assertIn("不因单个等待项阻塞其他可推进工作", profile)
+        self.assertIn("Git 写入任务默认在任务自有 worktree", profile)
+        self.assertIn("唯一写入 owner 仅约束精确写集", profile)
+        self.assertIn("不形成仓库级单一 writer", profile)
         self.assertIn("禁止用旧基线覆盖新主线", profile)
 
     def test_compose_validates_duplicate_module_ids(self) -> None:
