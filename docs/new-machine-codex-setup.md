@@ -3,6 +3,9 @@
 Owner: `gaofeng`
 Purpose: `new_machine_opl_flow_profile_setup`
 State: `active`
+Machine boundary: Human-readable setup runbook. Package installation, profile
+migration, installed currentness, and active discovery remain in Framework package
+transactions, receipts, package readback, and fresh Codex discovery output.
 
 This page installs the OPL Flow preference profile only. For the complete OPL family setup, use the canonical [One Person Lab bootstrap guide](https://github.com/gaofeng21cn/one-person-lab/blob/main/docs/references/current-support/opl-new-machine-codex-bootstrap.md).
 
