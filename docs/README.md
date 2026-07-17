@@ -17,10 +17,16 @@ owner, purpose, state, and machine boundary.
 | --- | --- | --- |
 | [Compatibility and positioning](./compatibility.md) | OPL Flow model-native boundary and optional specialist skills | Human-readable positioning; not OPL App/runtime/domain readiness |
 | [New machine Codex setup](./new-machine-codex-setup.md) | Bootstrap runbook for installing the Codex workflow profile | Human-readable runbook; real install truth comes from installer and verification output |
-| [Skill frontmatter trigger audit](./audits/2026-07-12-skill-frontmatter-trigger-audit.md) | Local skill overlap and mis-trigger assessment | Baseline and implementation record |
+
+## History
+
+[History and provenance](./history/README.md) contains dated baselines, completed
+audits, and implemented designs. These records explain prior decisions but do not
+define current package, installation, discovery, or readiness truth.
 
 ## Growth Rule
 
-Keep new docs in `docs/` while the repo remains this small. Add subdirectories
-only when there are at least two durable documents with the same lifecycle role
-and a stable owner.
+Keep current docs in `docs/` while the repo remains this small. Use
+`docs/history/` for completed or superseded provenance. Add no further taxonomy
+until at least two durable documents share another stable lifecycle role and
+owner.

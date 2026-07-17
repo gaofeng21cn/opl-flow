@@ -1,7 +1,13 @@
 # Local Skill Frontmatter Trigger Audit
 
+Owner: `gaofeng`
+Purpose: `local_skill_trigger_audit_provenance`
+State: `historical_provenance`
+Machine boundary: Frozen human-readable audit and implementation provenance. The
+counts and local discovery observations below are not current inventory or
+readiness truth; use canonical Skill sources, plugin/package policy, and fresh
+Codex discovery for current state.
 Date: 2026-07-12
-State: implemented; baseline counts describe the pre-cleanup state
 
 ## Scope And Counting
 

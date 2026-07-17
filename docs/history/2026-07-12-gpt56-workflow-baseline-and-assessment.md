@@ -1,5 +1,12 @@
 # GPT-5.6 Workflow Baseline And Assessment
 
+Owner: `gaofeng`
+Purpose: `gpt56_workflow_baseline_provenance`
+State: `historical_provenance`
+Machine boundary: Frozen human-readable baseline and decision provenance. Current
+OPL Flow behavior remains in `README.md`, `contracts/workflow-policy.json`, the
+plugin manifest, profile and Skill sources, tests, and fresh repo-native
+verification output.
 Date: 2026-07-12
 Scope: local Codex workflow profile, design/development workflow skills, OPL Flow, and OPL App Superpowers packaging.
 

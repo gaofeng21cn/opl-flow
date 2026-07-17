@@ -1,5 +1,13 @@
 # Codex Ops Kit Slim Design
 
+Owner: `gaofeng`
+Purpose: `codex_ops_kit_slim_design_provenance`
+State: `historical_provenance`
+Machine boundary: Implemented design provenance only. Current optional-skill
+behavior remains in `contracts/workflow-policy.json`,
+`optional-skills/codex-ops-kit/`, tests, and fresh repository verification.
+Date: 2026-07-10
+
 ## Goal
 
 Keep `codex-ops-kit` as a narrow compatibility entry for high-risk Git lane and
