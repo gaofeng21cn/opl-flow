@@ -29,7 +29,7 @@ next-round Agent prompt. It does not duplicate the durable product explanation i
 | Owner release | `0.1.22` | tag `v0.1.22` at `0e6be1220cddeed791e8e09b0170024d95e06f9f`; `.codex-plugin/plugin.json`; `contracts/workflow-policy.json` | No later OPL Flow release currently carries the post-`0.1.22` profile source. |
 | Framework catalog | `selected_0.1.22` | `opl packages list --json`; Framework `contracts/opl-framework/packages/opl-flow.json` and `contracts/opl-framework/bundled-full-runtime-package-catalog.json` | The catalog still selects owner source commit `0e6be122...`; it cannot be updated before a new owner release is fixed. |
 | Installed projection | `installed_0.1.22` | `opl packages status --package-id opl-flow --json` | The installed lock reports `0.1.22`, managed policy `current`, and profile migration `semantic_merge_applied`. Those results apply only to the released `0.1.22` payload; `reload_required=true` also means active discovery needs a fresh process after the next update. |
-| Fresh Codex discovery | `unverified` | `codex plugin list --json` currently fails while loading the unrelated `opl-agent-fixture` marketplace snapshot | Do not classify this external marketplace configuration failure as an OPL Flow source or package defect. |
+| Fresh Codex discovery | `discovered_0.1.22` | A fresh `codex plugin list --json` process reports enabled `opl-flow@opl-agent-opl-flow-local` version `0.1.22`. | This proves active discovery of the released `0.1.22` payload in that fresh process only; it does not project the unreleased owner-source delta into the installed plugin. |
 
 No additional OPL Flow profile, contract, or documentation behavior gap is selected
 from the current portfolio audit. The remaining work is the release/currentness chain
@@ -50,7 +50,7 @@ fresh Codex discovery remain separate evidence layers.
 | Gap | Existing state | Missing evidence | Required verification | Foldback target |
 | --- | --- | --- | --- | --- |
 | `installed-currentness` | Released `0.1.22` is installed and its managed policy readback is current. | No installed lock or payload readback can yet prove the unreleased source. | Run the ordinary Framework package update after catalog publication, then re-read package list, lock, payload digest, managed-Skill validation, resolved entrypoint authority, and profile migration. | This document |
-| `fresh-codex-discovery` | The package projection exists, but a fresh discovery process is blocked before it can list plugins. | Active plugin version from a successful fresh `codex plugin list --json` process. | Route the broken `opl-agent-fixture` marketplace to its real configuration owner, restart Codex after package update, and rerun discovery. | This document |
+| `post-release-fresh-codex-discovery` | A fresh process discovers enabled OPL Flow `0.1.22`. | Discovery of the future owner release after the package update and required restart. | After catalog publication and package update, restart Codex when requested and require the fresh discovery version to equal the new installed lock. | This document |
 
 ## Next-Round Agent Prompt
 
@@ -69,8 +69,8 @@ Write scope:
   `contracts/opl-framework/packages/payloads/opl-flow-<version>.json`, bundled catalog,
   release cohort/manifest inputs, and directly affected package-distribution tests.
 - `docs/status.md` only for final current-state and gap foldback.
-- Local installed state only through `opl packages update opl-flow`; marketplace
-  configuration only through the confirmed owner of `opl-agent-fixture`.
+- Local installed state only through `opl packages update opl-flow` and the required
+  fresh-process discovery readback after that transaction.
 
 Non-goals:
 
@@ -80,8 +80,6 @@ Non-goals:
   authority, and do not directly overwrite the user's `~/.codex/AGENTS.md`.
 - Do not infer active discovery from cache bytes, source tests, a tag, catalog output,
   or installed lock alone.
-- Do not delete or rewrite the broken marketplace snapshot until its owner and
-  disposable/test-fixture status are confirmed.
 - Do not claim App, Framework runtime, domain, release-set, owner acceptance, or
   production readiness from this package closeout.
 
@@ -110,9 +108,8 @@ Required actions:
    manifest digest, and payload digest.
 5. Run `opl packages update opl-flow`, inspect the resulting lock and physical payload,
    and restart Codex when the transaction reports reload required.
-6. Identify the owner of the invalid `opl-agent-fixture` marketplace snapshot and use
-   that owner's repair or retirement route. Start a fresh Codex process and verify the
-   discovered OPL Flow plugin version.
+6. Start a fresh Codex process after the package transaction and verify that the
+   discovered OPL Flow plugin version equals the installed package lock.
 7. Rewrite this document to remove closed gaps, retain any typed blocker, and leave the
    next prompt naming only remaining work.
 
@@ -160,6 +157,5 @@ Completion / foldback gate:
 - Archived, tombstoned, or deleted: none. Existing `docs/history/` records already have
   a provenance-only role and do not compete with current truth.
 - Unreviewed README/docs files in this repository: none.
-- Unresolved stale/retire candidates: none selected. The broken external marketplace
-  snapshot is a configuration-owner blocker, not an OPL Flow documentation surface.
+- Unresolved stale/retire candidates: none selected.
 - Next write scope: the release/currentness sequence in the prompt above.
