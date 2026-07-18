@@ -25,11 +25,11 @@ next-round Agent prompt. It does not duplicate the durable product explanation i
 
 | Area | Current state | Live evidence | Boundary |
 | --- | --- | --- | --- |
-| Owner source | `source_ahead_of_release` | `git log v0.1.22..main`; `profile/modules/01-user-preferences.md`; `templates/AGENTS.md`; `templates/TASTE.md`; `tests/test_profile_compose.py` | Current `main` adds parallel-progress and isolated-worktree preferences after the latest release. Repository source and tests do not prove publication or installation. |
-| Owner release | `0.1.22` | tag `v0.1.22` at `0e6be1220cddeed791e8e09b0170024d95e06f9f`; `.codex-plugin/plugin.json`; `contracts/workflow-policy.json` | No later OPL Flow release currently carries the post-`0.1.22` profile source. |
-| Framework catalog | `selected_0.1.22` | `opl packages list --json`; Framework `contracts/opl-framework/packages/opl-flow.json` and `contracts/opl-framework/bundled-full-runtime-package-catalog.json` | The catalog still selects owner source commit `0e6be122...`; it cannot be updated before a new owner release is fixed. |
+| Owner source | `released_0.1.23` | tag `v0.1.23`; `profile/modules/01-user-preferences.md`; `templates/AGENTS.md`; `tests/test_profile_compose.py`; `scripts/verify.py` | The immutable owner release contains the parallel-worktree/SSOT profile and physically retires the former Codex Ops Kit payload, dependency, verification lane, and active documentation surface. |
+| Owner release | `0.1.23` | tag `v0.1.23`; `.codex-plugin/plugin.json`; `contracts/workflow-policy.json` | Owner release truth is fixed; catalog and installed currentness remain separate downstream layers. |
+| Framework catalog | `selected_0.1.22` | `opl packages list --json`; Framework `contracts/opl-framework/packages/opl-flow.json` and `contracts/opl-framework/bundled-full-runtime-package-catalog.json` | The catalog still selects owner release `0.1.22` and must be updated from immutable `v0.1.23`. |
 | Installed projection | `installed_0.1.22` | `opl packages status --package-id opl-flow --json` | The installed lock reports `0.1.22`, managed policy `current`, and profile migration `semantic_merge_applied`. Those results apply only to the released `0.1.22` payload; `reload_required=true` also means active discovery needs a fresh process after the next update. |
-| Fresh Codex discovery | `discovered_0.1.22` | A fresh `codex plugin list --json` process reports enabled `opl-flow@opl-agent-opl-flow-local` version `0.1.22`. | This proves active discovery of the released `0.1.22` payload in that fresh process only; it does not project the unreleased owner-source delta into the installed plugin. |
+| Fresh Codex discovery | `discovered_0.1.22` | A fresh `codex plugin list --json` process reports enabled `opl-flow@opl-agent-opl-flow-local` version `0.1.22`. | This proves active discovery of the installed `0.1.22` payload only; it does not project owner release `0.1.23` into the running process. |
 
 No additional OPL Flow profile, contract, or documentation behavior gap is selected
 from the current portfolio audit. The remaining work is the release/currentness chain
@@ -42,29 +42,26 @@ fresh Codex discovery remain separate evidence layers.
 
 | Gap | Ideal state | Current state | Required change | Owner surface |
 | --- | --- | --- | --- | --- |
-| `post-0.1.22-owner-release` | The selected OPL Flow release contains the current minimal profile source. | `main` contains an unreleased profile-policy delta while both version surfaces and the latest tag remain `0.1.22`. | Cut the next OPL Flow release from current owner source, update both version surfaces together, run the full repository gate, and read back the pushed tag and source bytes. | `opl-flow` |
-| `framework-catalog-currentness` | Framework stable catalog and payload manifests select the new immutable owner release. | Framework selects `0.1.22` and owner commit `0e6be122...`. | After the owner release exists, update the Framework package manifest, payload manifest, catalog, release cohort inputs, hashes, and release-set evidence through Framework-owned tooling. | `one-person-lab` |
+| `framework-catalog-currentness` | Framework stable catalog and payload manifests select immutable owner release `0.1.23`. | Framework still selects `0.1.22`. | Update the Framework package manifest, payload manifest, catalog, release cohort inputs, hashes, and release-set evidence through Framework-owned tooling. | `one-person-lab` |
 
 ### Test / Evidence Gaps
 
 | Gap | Existing state | Missing evidence | Required verification | Foldback target |
 | --- | --- | --- | --- | --- |
-| `installed-currentness` | Released `0.1.22` is installed and its managed policy readback is current. | No installed lock or payload readback can yet prove the unreleased source. | Run the ordinary Framework package update after catalog publication, then re-read package list, lock, payload digest, managed-Skill validation, resolved entrypoint authority, and profile migration. | This document |
-| `post-release-fresh-codex-discovery` | A fresh process discovers enabled OPL Flow `0.1.22`. | Discovery of the future owner release after the package update and required restart. | After catalog publication and package update, restart Codex when requested and require the fresh discovery version to equal the new installed lock. | This document |
+| `installed-currentness` | Released `0.1.22` is installed and its managed policy readback is current. | No installed lock or payload readback yet proves owner release `0.1.23`. | Run the ordinary Framework package update after catalog publication, then re-read package list, lock, payload digest, managed-Skill validation, resolved entrypoint authority, and profile migration. | This document |
+| `post-release-fresh-codex-discovery` | A fresh process discovers enabled OPL Flow `0.1.22`. | Discovery of owner release `0.1.23` after the package update and required restart. | After catalog publication and package update, restart Codex when requested and require the fresh discovery version to equal the new installed lock. | This document |
 
 ## Next-Round Agent Prompt
 
 Objective:
 
-- Publish the current post-`0.1.22` OPL Flow profile source through its owner release,
-  propagate that immutable release through the OPL Framework stable package catalog,
+- Propagate immutable OPL Flow owner release `0.1.23` through the OPL Framework stable package catalog,
   update this machine through the ordinary package transaction, and close installed
   currentness plus fresh Codex discovery without creating a second lifecycle owner.
 
 Write scope:
 
-- OPL Flow: `.codex-plugin/plugin.json`, `contracts/workflow-policy.json`, and only
-  release metadata or tests required by the repository's release convention.
+- OPL Flow: `docs/status.md` only for final downstream currentness foldback.
 - OPL Framework: `contracts/opl-framework/packages/opl-flow.json`, the new immutable
   `contracts/opl-framework/packages/payloads/opl-flow-<version>.json`, bundled catalog,
   release cohort/manifest inputs, and directly affected package-distribution tests.
@@ -98,9 +95,7 @@ Required actions:
 
 1. Recheck both repositories' canonical `main`, remote relation, worktrees, and owner
    write sets; stop on overlapping release or package-catalog writes.
-2. Choose the next version from the live tag set, update the two OPL Flow version
-   surfaces together, run full OPL Flow verification, then commit, tag, push, and read
-   back the exact owner release commit and raw release bytes.
+2. Verify `v0.1.23`, both owner version surfaces, and remote release bytes agree.
 3. Generate or update the Framework package and payload manifests from that immutable
    owner release; do not reconstruct payload identity from a local cache or checkout.
 4. Run the Framework package-distribution and release-set gates, absorb and push the

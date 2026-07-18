@@ -21,13 +21,6 @@ REQUIRED_FILES = (
     "LICENSE",
     "skills/opl-flow/SKILL.md",
     "skills/opl-flow/agents/openai.yaml",
-    "optional-skills/codex-ops-kit/SKILL.md",
-    "optional-skills/codex-ops-kit/agents/openai.yaml",
-    "optional-skills/codex-ops-kit/scripts/codex_ops_gate.py",
-    "optional-skills/codex-ops-kit/scripts/worktree_absorption_audit.py",
-    "optional-skills/codex-ops-kit/scripts/release_url_audit.py",
-    "optional-skills/codex-ops-kit/references/lane-closeout.md",
-    "optional-skills/codex-ops-kit/references/release-currentness.md",
     "templates/AGENTS.md",
     "templates/TASTE.md",
     "scripts/install_local_plugin.py",
@@ -43,8 +36,7 @@ CORE_TEST_MODULES = (
     "tests/test_repo_profile.py",
     "tests/test_verify_lanes.py",
 )
-OPS_KIT_TEST_MODULES = ("tests/test_codex_ops_kit.py",)
-VERIFY_LANES = ("core", "ops-kit", "full")
+VERIFY_LANES = ("core", "full")
 
 def require(text: str, needle: str, message: str, errors: list[str]) -> None:
     if needle not in text:
@@ -163,6 +155,13 @@ def check_workflow_policy(repo_root: Path) -> list[str]:
     precedence = policy.get("codex_model_policy", {}).get("override_precedence", [])
     if not precedence or precedence[0] != "explicit_user_override":
         errors.append("explicit user model override must have highest precedence")
+    dependency_ids = {
+        item.get("id")
+        for section in ("requires", "recommends", "compatible_optional")
+        for item in policy.get(section, [])
+    }
+    if "codex-ops-kit" in dependency_ids:
+        errors.append("retired codex-ops-kit must not remain in workflow dependencies")
     return errors
 
 
@@ -170,7 +169,6 @@ def check_skill_metadata(repo_root: Path) -> list[str]:
     errors: list[str] = []
     skill_roots = {
         "opl-flow": repo_root / "skills" / "opl-flow",
-        "codex-ops-kit": repo_root / "optional-skills" / "codex-ops-kit",
     }
     for skill_id, skill_root in skill_roots.items():
         path = skill_root / "agents" / "openai.yaml"
@@ -260,6 +258,8 @@ def check_retired_skill(repo_root: Path) -> list[str]:
     errors: list[str] = []
     if (repo_root / "skills" / retired).exists():
         errors.append(f"retired skill directory still exists: skills/{retired}")
+    if (repo_root / "optional-skills" / "codex-ops-kit").exists():
+        errors.append("retired skill directory still exists: optional-skills/codex-ops-kit")
     roots = ("README.md", "docs", "profile", "templates", "skills", "optional-skills", "scripts", "tests", ".codex-plugin")
     for root_name in roots:
         root = repo_root / root_name
@@ -276,12 +276,8 @@ def check_retired_skill(repo_root: Path) -> list[str]:
 
 
 def contract_test_modules(lane: str) -> tuple[str, ...]:
-    if lane == "core":
+    if lane in {"core", "full"}:
         return CORE_TEST_MODULES
-    if lane == "ops-kit":
-        return OPS_KIT_TEST_MODULES
-    if lane == "full":
-        return (*CORE_TEST_MODULES, *OPS_KIT_TEST_MODULES)
     raise ValueError(f"unknown verification lane: {lane}")
 
 

@@ -7,7 +7,6 @@ import unittest
 
 from scripts.verify import (
     CORE_TEST_MODULES,
-    OPS_KIT_TEST_MODULES,
     check_workflow_policy,
     contract_test_modules,
 )
@@ -17,14 +16,44 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 
 
 class VerifyLaneTests(unittest.TestCase):
-    def test_default_lanes_keep_core_and_optional_tests_disjoint(self) -> None:
+    def test_full_lane_runs_the_complete_current_suite(self) -> None:
         core = contract_test_modules("core")
-        ops_kit = contract_test_modules("ops-kit")
 
         self.assertEqual(core, CORE_TEST_MODULES)
-        self.assertEqual(ops_kit, OPS_KIT_TEST_MODULES)
-        self.assertFalse(set(core) & set(ops_kit))
-        self.assertEqual(contract_test_modules("full"), (*core, *ops_kit))
+        self.assertEqual(contract_test_modules("full"), core)
+        with self.assertRaisesRegex(ValueError, "unknown verification lane: ops-kit"):
+            contract_test_modules("ops-kit")
+
+    def test_workflow_policy_rejects_retired_codex_ops_kit(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            repo_root = Path(temp_dir)
+            contracts = repo_root / "contracts"
+            contracts.mkdir()
+            policy = json.loads(
+                (REPO_ROOT / "contracts" / "workflow-policy.json").read_text(encoding="utf-8")
+            )
+            policy["compatible_optional"].append(
+                {
+                    "id": "codex-ops-kit",
+                    "kind": "codex_skill",
+                    "offline_bundle": "full",
+                    "online_install_default": False,
+                    "activation": "explicit",
+                    "source": "opl-flow:optional-skills/codex-ops-kit",
+                }
+            )
+            (contracts / "workflow-policy.json").write_text(
+                f"{json.dumps(policy, indent=2)}\n",
+                encoding="utf-8",
+            )
+            (contracts / "workflow-policy.schema.json").write_text(
+                (REPO_ROOT / "contracts" / "workflow-policy.schema.json").read_text(encoding="utf-8"),
+                encoding="utf-8",
+            )
+
+            errors = check_workflow_policy(repo_root)
+
+        self.assertIn("retired codex-ops-kit must not remain in workflow dependencies", errors)
 
     def test_workflow_policy_preserves_explicit_ponytail_skills(self) -> None:
         self.assertEqual(check_workflow_policy(REPO_ROOT), [])

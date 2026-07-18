@@ -3,7 +3,7 @@
   "schema": "opl_flow_workflow_policy.v1",
   "package": {
     "id": "opl-flow",
-    "version": "0.1.22",
+    "version": "0.1.23",
     "owner": "opl-flow",
     "kind": "workflow_profile"
   },
@@ -117,14 +117,6 @@
     }
   ],
   "compatible_optional": [
-    {
-      "id": "codex-ops-kit",
-      "kind": "codex_skill",
-      "offline_bundle": "full",
-      "online_install_default": false,
-      "activation": "explicit",
-      "source": "opl-flow:optional-skills/codex-ops-kit"
-    },
     {
       "id": "openai-primary-runtime-office-pdf",
       "kind": "runtime_capability",

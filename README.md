@@ -4,7 +4,7 @@ OPL Flow distributes a minimal Codex preference profile. It keeps ordinary desig
 
 ## Public Role Boundary
 
-OPL Flow owns the user-level `AGENTS.md` profile and its installation/readback contract. The repository retains `codex-ops-kit` under `optional-skills/` as an explicitly installable utility; the OPL Flow plugin does not expose it by default, and it is not a profile dependency or readiness signal.
+OPL Flow owns the user-level `AGENTS.md` profile and its installation/readback contract. It exposes only the `opl-flow` skill and does not package a separate Git lane or release-audit workflow; ordinary repository work follows the model-native profile plus repo-local truth.
 
 OPL Flow is not runtime truth, package truth, or domain truth. It does not own
 OPL App readiness, OPL Framework runtime behavior, OPL Packages lifecycle,
@@ -103,16 +103,13 @@ Verify local-source staging:
 ```bash
 python3 scripts/install_local_plugin.py --verify-only
 scripts/verify.sh
-scripts/verify.sh ops-kit
 scripts/verify.sh full
 ```
 
 This verification binds only the repository marketplace manifest, staged local plugin, exact Codex plugin readback, and versioned cache payload. It does not prove package lifecycle currentness.
 `scripts/verify.sh` defaults to the core OPL Flow contract and profile suite.
-The optional Codex Ops Kit has its own `ops-kit` lane; `full` runs the disjoint
-core and optional test sets together. Optional-tool tests are required in CI
-and when `optional-skills/codex-ops-kit/**` changes, but they do not tax ordinary
-profile or package-policy development.
+`full` is the release-facing alias for the complete current suite; OPL Flow has
+no separate optional workflow-tool lane.
 
 ## Repo Profile Sync
 
