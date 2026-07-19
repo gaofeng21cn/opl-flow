@@ -17,6 +17,13 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 
 
 class InstallLocalPluginTests(unittest.TestCase):
+    def test_merge_prompt_retires_unbounded_delegation(self) -> None:
+        prompt = install_local_plugin.merge_prompt()
+
+        self.assertIn("candidate delegation ceiling", prompt)
+        self.assertIn("proactive, unbounded, or recursive subagents", prompt)
+        self.assertIn("never infer approval for a higher limit from legacy profile text", prompt)
+
     def write_fake_codex(self, root: Path, plugin_root: Path) -> Path:
         version = json.loads(
             (REPO_ROOT / ".codex-plugin" / "plugin.json").read_text(encoding="utf-8")

@@ -27,22 +27,31 @@ class ProfileComposeTests(unittest.TestCase):
 
         self.assertTrue(result["ok"], result)
 
-    def test_runtime_profile_keeps_parallel_progress_and_worktree_invariants(self) -> None:
+    def test_runtime_profile_prioritizes_terminal_outcome_and_bounds_delegation(self) -> None:
         profile = (REPO_ROOT / "templates" / "AGENTS.md").read_text(encoding="utf-8")
 
-        self.assertIn("可独立任务积极并行", profile)
-        self.assertIn("不因单个等待项停工", profile)
-        self.assertIn("多对话只设一个主控", profile)
-        self.assertIn("不与执行任务共享普通写集", profile)
-        self.assertIn("每个 Git 写任务及写入型子任务必须独占自己的 worktree 和分支", profile)
-        self.assertIn("其他参与者默认只读", profile)
-        self.assertIn("精确作用域、唯一 owner 和恢复条件", profile)
-        self.assertIn("只有真实依赖、重叠写集、`main` 或发布集成窗口才串行", profile)
-        self.assertIn("同步并复核最新 canonical `main` 与远端 currentness", profile)
-        self.assertIn("按当前 SSOT 解决冲突", profile)
-        self.assertIn("禁止旧基线覆盖新主线", profile)
-        self.assertIn("吸收后验证最终 `main` 字节", profile)
-        self.assertIn("清理任务 worktree、临时分支、stash 和 patch", profile)
+        self.assertIn("默认直接完成", profile)
+        self.assertIn("用户最高优先级目标及其可验收终态", profile)
+        self.assertIn("计划、审计、修复、测试和 handoff 均不得替代终态", profile)
+        self.assertIn("只处理关键路径、确定性阻断和必需验证", profile)
+        self.assertIn("其他发现延后，阻断闭合即回主线", profile)
+        self.assertIn("超出预期时立即收缩范围，不得继续扩项", profile)
+        self.assertIn("同一目标只设一个主控", profile)
+        self.assertIn("仅在任务独立、可验收且能缩短关键路径时单层委派", profile)
+        self.assertIn("并发默认 4", profile)
+        self.assertIn("分批证明有益后可到 8", profile)
+        self.assertIn("超过 8 须用户明确授权", profile)
+        self.assertIn("子智能体不得再委派", profile)
+        self.assertIn("完成或阻塞时立即回报并收拢", profile)
+        self.assertNotIn("可独立任务积极并行", profile)
+        self.assertNotIn("不因单个等待项停工", profile)
+        self.assertIn("Git 写任务使用独立 worktree 和分支", profile)
+        self.assertIn("按精确写集设唯一 owner", profile)
+        self.assertIn("仅在依赖、写集重叠、`main` 或发布集成时串行", profile)
+        self.assertIn("同步远端 `main` 并按当前 SSOT 解决冲突", profile)
+        self.assertIn("吸收后验证最终 `main`", profile)
+        self.assertIn("清理本任务的临时 Git 表面", profile)
+        self.assertLessEqual(len(profile.splitlines()), 10)
 
     def test_compose_validates_duplicate_module_ids(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:

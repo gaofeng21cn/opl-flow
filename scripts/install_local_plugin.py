@@ -448,7 +448,8 @@ Rules:
 5. Do not hardcode project/domain instance facts into the user-level `AGENTS.md`; route them to the owning repo `AGENTS.md`, docs, contracts, runtime/readback, or explicit context overlay.
 6. Preserve official marker blocks and managed tool blocks unless the corresponding tool is confirmed retired.
 7. Preserve concise user tool preferences such as RTK and CodeGraph without adding a development methodology.
-8. Report any unresolved conflict instead of silently choosing one side.
+8. Treat the candidate delegation ceiling as a safety boundary. Replace older OPL Flow wording that enables proactive, unbounded, or recursive subagents; never infer approval for a higher limit from legacy profile text. Preserve a higher limit only when the user explicitly authored it as a current preference.
+9. Report any unresolved conflict instead of silently choosing one side.
 
 Write outputs under `output/`:
 
