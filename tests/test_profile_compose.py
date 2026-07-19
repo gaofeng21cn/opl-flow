@@ -30,19 +30,19 @@ class ProfileComposeTests(unittest.TestCase):
     def test_runtime_profile_keeps_parallel_progress_and_worktree_invariants(self) -> None:
         profile = (REPO_ROOT / "templates" / "AGENTS.md").read_text(encoding="utf-8")
 
-        self.assertIn("在既定范围内合理拆分可独立任务并积极并行推进", profile)
-        self.assertIn("不因单个等待项阻塞其他可推进工作", profile)
-        self.assertIn("共享集成窗口才串行", profile)
-        self.assertIn("Git 写入任务默认在任务自有 worktree", profile)
-        self.assertIn("唯一写入 owner 仅约束精确写集", profile)
-        self.assertIn("重叠写集必须明确交接", profile)
-        self.assertIn("根仓 `main` 只用于短时集成", profile)
-        self.assertIn("不形成仓库级单一 writer", profile)
-        self.assertIn("复核最新 canonical `main` 与远端 currentness", profile)
+        self.assertIn("可独立任务积极并行", profile)
+        self.assertIn("不因单个等待项停工", profile)
+        self.assertIn("多对话只设一个主控", profile)
+        self.assertIn("不与执行任务共享普通写集", profile)
+        self.assertIn("每个 Git 写任务及写入型子任务必须独占自己的 worktree 和分支", profile)
+        self.assertIn("其他参与者默认只读", profile)
+        self.assertIn("精确作用域、唯一 owner 和恢复条件", profile)
+        self.assertIn("只有真实依赖、重叠写集、`main` 或发布集成窗口才串行", profile)
+        self.assertIn("同步并复核最新 canonical `main` 与远端 currentness", profile)
         self.assertIn("按当前 SSOT 解决冲突", profile)
-        self.assertIn("禁止用旧基线覆盖新主线", profile)
-        self.assertIn("吸收后在最终 `main` 字节上验证", profile)
-        self.assertIn("清理任务自有 worktree、临时分支、stash 和 patch", profile)
+        self.assertIn("禁止旧基线覆盖新主线", profile)
+        self.assertIn("吸收后验证最终 `main` 字节", profile)
+        self.assertIn("清理任务 worktree、临时分支、stash 和 patch", profile)
 
     def test_compose_validates_duplicate_module_ids(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
