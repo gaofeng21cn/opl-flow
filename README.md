@@ -17,6 +17,7 @@ It stays Codex-first:
 - Chinese, conclusion-first, concise communication preferences.
 - Read the effective project location, call path, repo-local instructions, contracts, and implementation before editing.
 - Keep the user's highest-priority verifiable outcome on the critical path; defer non-blocking findings and contract scope when work overruns.
+- Depend only on prerequisites that have reached their authoritative source and taken effect; repair inverted dependency order before continuing.
 - Work directly by default. Delegate independent critical-path work only, one level deep; cap concurrency at 4 by default, raise it to 8 only after a useful batch, and require explicit user approval above 8.
 - RTK as a compact shell default, with native commands allowed when fidelity matters.
 - Initialize `.codegraph/` in development repositories, keep it Git-ignored, and add a concise repo-local CodeGraph block.

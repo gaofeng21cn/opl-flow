@@ -36,6 +36,9 @@ class ProfileComposeTests(unittest.TestCase):
         self.assertIn("只处理关键路径、确定性阻断和必需验证", profile)
         self.assertIn("其他发现延后，阻断闭合即回主线", profile)
         self.assertIn("超出预期时立即收缩范围，不得继续扩项", profile)
+        self.assertIn("已进入真实权威来源并实际生效的前置成果", profile)
+        self.assertIn("候选、handoff 或测试通过不算完成", profile)
+        self.assertIn("发现顺序倒置时，先恢复正确依赖再回到主线", profile)
         self.assertIn("同一目标只设一个主控", profile)
         self.assertIn("仅在任务独立、可验收且能缩短关键路径时单层委派", profile)
         self.assertIn("并发默认 4", profile)
@@ -51,7 +54,7 @@ class ProfileComposeTests(unittest.TestCase):
         self.assertIn("同步远端 `main` 并按当前 SSOT 解决冲突", profile)
         self.assertIn("吸收后验证最终 `main`", profile)
         self.assertIn("清理本任务的临时 Git 表面", profile)
-        self.assertLessEqual(len(profile.splitlines()), 10)
+        self.assertLessEqual(len(profile.splitlines()), 11)
 
     def test_compose_validates_duplicate_module_ids(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:

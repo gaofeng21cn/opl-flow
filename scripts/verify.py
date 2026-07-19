@@ -194,6 +194,8 @@ def check_profile(repo_root: Path) -> list[str]:
         (agents, "只处理关键路径、确定性阻断和必需验证", "AGENTS.md must defer non-critical expansion"),
         (agents, "阻断闭合即回主线", "AGENTS.md must return to the primary task after blockers close"),
         (agents, "超出预期时立即收缩范围", "AGENTS.md must contract scope when work overruns"),
+        (agents, "已进入真实权威来源并实际生效", "AGENTS.md must require effective prerequisites"),
+        (agents, "发现顺序倒置时", "AGENTS.md must repair inverted dependency order"),
         (agents, "并发默认 4", "AGENTS.md must bound default subagent concurrency"),
         (agents, "超过 8 须用户明确授权", "AGENTS.md must require approval above the concurrency ceiling"),
         (agents, "子智能体不得再委派", "AGENTS.md must prohibit recursive delegation"),
@@ -205,6 +207,7 @@ def check_profile(repo_root: Path) -> list[str]:
         (taste, "简单优先", "TASTE.md must preserve simplicity"),
         (taste, "精准改动", "TASTE.md must preserve scoped changes"),
         (taste, "最高优先级目标及其可验收终态", "TASTE.md must preserve primary-outcome priority"),
+        (taste, "真实权威来源并实际生效", "TASTE.md must preserve effective-prerequisite ordering"),
     )
     for text, needle, message in required:
         require(text, needle, message, errors)
