@@ -23,38 +23,49 @@ next-round Agent prompt. It does not duplicate the durable product explanation i
 
 ## Current State Summary
 
-| Area | Current state | Live evidence | Boundary |
-| --- | --- | --- | --- |
-| Owner source | `released_0.1.23` | tag `v0.1.23`; commit `a8cf79ee7b751ea9f6d704a703019955379a1b43`; AGENTS template SHA-256 `bf83abd15102e88175a0139506778db176bbec12af260c202a09d6783841508d` | The immutable owner release contains the parallel-worktree/SSOT profile and retires the former Codex Ops Kit payload, dependency, verification lane, and active documentation surface. |
-| Framework catalog | `selected_0.1.23` | stable Release Set `26.7.18`; package manifest SHA-256 `549b676dcb36d58bb618a1534e2aa171b22b86a22043b15f698efba3c8ed3b18`; package artifact digest `sha256:f973b4b784817d926ca9d15210ed4d417f432d949898e8868aa3066f1e34e4c5` | Framework selects the immutable owner commit and remains the only normal install/update owner. |
-| Installed projection | `current_0.1.23` | authority installation reports package lock `0.1.23`, matching profile and managed-policy hashes, and ten managed Skills with no failed dependency; two independent stable consumer readbacks report the same owner commit and artifact digest | Private machine inventory, SSH orchestration, and personal overlays are outside this public repository. A developer-checkout projection may deliberately expose `0.1.23-dev-*` while preserving the same owner commit. |
-| Fresh Codex discovery | `discovered_0.1.23` | fresh stable consumer processes report enabled `opl-flow` version `0.1.23`; the authority developer process reports the matching `0.1.23-dev-*` projection | Discovery proves only the process and projection queried; it does not replace catalog or installed-lock evidence. |
-| Framework runtime | `channel_current` | two independent consumer readbacks report Release Set `26.7.18`, Framework source commit `0d1f90b8646cbc66953fada15cead239372ac476`, source archive SHA-256 `75fdec03c75c5d71d83c3eb0eb8392b7f62c06d929dc0e50770ebf07ec5e3038`, `channel_artifact_current=true`, and no update available | This confirms the downstream package carrier is current; it does not make OPL Flow an App or Framework lifecycle owner. |
-
-No additional OPL Flow profile, contract, catalog, install, or discovery gap is
-selected from the current portfolio audit. Owner release, Framework catalog,
-installed package readback, and fresh Codex discovery remain separate evidence
-layers even though they currently agree.
+| Area | Durable current fact | Authority / readback |
+| --- | --- | --- |
+| Owner source | The plugin manifest and workflow policy carry one package identity and version; the profile manifest renders one model-native preference module into `templates/AGENTS.md`. | `.codex-plugin/plugin.json`, `contracts/workflow-policy.json`, `profile/manifest.json`, `profile/modules/01-user-preferences.md`, and `scripts/profile_compose.py` |
+| Retired workflow surfaces | The workflow policy retires legacy role prompts, the repository-local marketplace identity, and the former process-skill defaults through Framework-owned migration with backup and rollback. No Codex Ops Kit payload, dependency, or active verification lane remains in this repository. | `contracts/workflow-policy.json#retires` and `#migration_policy`; repo source and tests guard against resurrection. |
+| Package lifecycle | OPL Framework is the sole normal install, update, optimize, rollback, and currentness owner. The repository installer is development-only and does not establish package currentness. | `opl packages list --json` and `opl packages status --package-id opl-flow --json` must be read live. |
+| Effective discovery | Owner source/tag, Framework catalog, installed lock/payload, and Codex discovery are four independent currentness layers. This document does not freeze their versions, refs, digests, or ready state. | Fresh remote tag/ref readback, Framework package JSON, and `codex plugin list --json` from the target process. |
+| Authority boundary | OPL Flow owns only the minimal preference profile, its package payload semantics, and the OPL Flow skill. It does not own App, Framework, release, machine, project, or domain readiness. | `README.md`, `AGENTS.md`, and `skills/opl-flow/SKILL.md` |
 
 ## Current-State vs Ideal-State Gaps
 
-None selected as of the `0.1.23` / Release Set `26.7.18` closeout.
-
-Future owner releases must reopen catalog, installed-projection, and fresh-discovery
-currentness as separate rows until each layer is proven again.
+No confirmed repository functional or structural gap is open in the current source
+snapshot. Package selection, installed projection, and fresh discovery are live
+currentness questions, not durable closed rows. A future source release or target
+machine audit must read all four currentness layers again and preserve any mismatch
+as an owner-routed blocker rather than updating this document with another frozen
+closeout packet.
 
 ## Next-Round Agent Prompt
 
-No active implementation or release task is carried forward.
+Goal: audit the next evidence-backed OPL Flow source or currentness gap without
+creating a second lifecycle owner or freezing one machine's proof into active docs.
 
-For the next owner release:
-
-1. Recheck the owner tag and commit, Framework catalog selection, installed lock,
-   payload digest, profile/policy currentness, and fresh Codex discovery separately.
-2. Use only `opl packages install|update|optimize opl-flow` for normal lifecycle work.
-3. Keep private overlays, machine targets, credentials, caches, and SSH orchestration
-   outside this public repository.
-4. Reopen this document only for a typed gap backed by fresh evidence.
+- Write scope: `.codex-plugin/`, `contracts/`, `profile/`, `templates/`, `skills/`,
+  tests, scripts, README, and this status owner only when fresh evidence requires it.
+- Non-goals: do not add a package installer/updater, readiness checker, Git lane,
+  release auditor, private overlay, machine inventory, SSH orchestration, or App,
+  Framework, project, release, and domain truth.
+- Live truth inputs: exact owner ref/tag, plugin manifest, workflow policy, profile
+  source and rendered bytes, repo tests, Framework package catalog/status JSON, and
+  Codex discovery output from the target process.
+- Required actions: check branch/remote/dirty/worktrees and owner write sets; classify
+  source, catalog, installed, and discovery currentness separately; select only a
+  narrow owner-backed gap; route package lifecycle changes through `opl packages`;
+  keep missing evidence or mismatches fail-closed.
+- Verification commands: use the commands below, narrowed to the changed authority
+  surface and expanded to full verification before release.
+- Completion gate: verified source bytes are on remote `main`; any required package
+  or discovery effect has its own fresh readback; no ready/current claim is inferred
+  from docs, tests, a clean queue, or a pushed commit.
+- Foldback target: durable behavior goes to its manifest/policy/source owner and
+  `README.md`; only current gaps and the next legal entry remain in this document;
+  one-run refs, digests, receipts, and closeout detail stay in receipts, history, or
+  Git history.
 
 ## Verification Commands
 
@@ -62,17 +73,17 @@ For the next owner release:
 # OPL Flow checkout
 scripts/verify.sh full
 python3 "${CODEX_HOME:-$HOME/.codex}/skills/.system/plugin-creator/scripts/validate_plugin.py" .
-opl-doc-doctor doctor . --format json
+python3 /Users/gaofeng/workspace/opl-doc/scripts/opl_doc_doctor.py doctor . --format json
 git diff --check
 
-# Framework checkout
+# Framework checkout, only when package catalog or lifecycle is in scope
 bun test tests/src/cli/cases/package-distribution-cases/manifest.test.ts
 bun test tests/src/cli/cases/package-distribution-cases/archive-and-first-party.test.ts
 bun test tests/src/cli/cases/packages-cases/guards-and-identities.test.ts
 node scripts/package-release-discipline.mjs
 git diff --check
 
-# Installed and discovery readback
+# Installed and discovery readback, only for the target installation/process
 opl packages list --json
 opl packages status --package-id opl-flow --json
 opl update check --json
@@ -81,22 +92,20 @@ codex plugin list --json
 
 ## Completion / Foldback Gate
 
-- OPL Flow release tag, remote commit, manifest versions, and raw release bytes agree.
-- Framework stable catalog, immutable payload manifest, owner commit, and digests agree.
-- Installed package lock and materialized payload select that same release; managed
-  policy and entrypoint authority are current.
-- A fresh Codex process discovers the expected stable or developer projection.
+- Changed source and rendered profile bytes agree with their machine owners and tests.
+- When package/install/discovery currentness is in scope, owner ref, Framework catalog,
+  installed lock/payload, and target-process discovery are each read back independently.
 - Any remaining blocker names its owner, evidence, legal re-entry route, and stop
   condition.
-- Both repositories are verified on final absorbed `main`; task worktrees and
-  temporary branches are cleaned only after absorption/currentness readback.
+- Changed repositories are verified on final absorbed `main`; task worktrees and
+  temporary branches are cleaned only after remote readback.
 
 ## Coverage And Carry-Forward
 
-- Reviewed: owner release, profile/template hash, Framework package and payload
-  manifests, stable Release Set evidence, installed package readback, Framework
-  channel currentness, and fresh Codex discovery.
-- Edited in this tranche: this document only.
-- Archived, tombstoned, or deleted: none.
-- Unresolved stale/retire candidates: none selected.
-- Next write scope: none until a fresh typed gap is observed.
+- Current owners covered: product/package boundary, profile source/rendering, workflow
+  policy, plugin/skill carrier, repository verification, Framework lifecycle route,
+  and target-process discovery route.
+- Retired surface provenance belongs in `docs/history/**`, policy retirement rows, and
+  Git history; it does not return to this Active Truth owner as a current proof table.
+- No additional stale or retirement candidate is established by the current source
+  snapshot. Reopen only from fresh owner/source/caller/readback evidence.
