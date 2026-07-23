@@ -41,7 +41,7 @@ class ProfileComposeTests(unittest.TestCase):
         self.assertIn("发现顺序倒置时，先恢复正确依赖再回到主线", profile)
         self.assertIn("同一目标只设一个主控", profile)
         self.assertIn("仅在任务独立、可验收且能缩短关键路径时单层委派", profile)
-        self.assertIn("并发默认 4", profile)
+        self.assertIn("子智能体并发默认 4", profile)
         self.assertIn("分批证明有益后可到 8", profile)
         self.assertIn("超过 8 须用户明确授权", profile)
         self.assertIn("子智能体不得再委派", profile)
