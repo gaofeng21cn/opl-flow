@@ -7,6 +7,8 @@ import unittest
 
 from scripts.verify import (
     CORE_TEST_MODULES,
+    check_plugin_json,
+    check_skill_metadata,
     check_workflow_policy,
     contract_test_modules,
 )
@@ -16,6 +18,24 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 
 
 class VerifyLaneTests(unittest.TestCase):
+    def test_plugin_exposes_the_two_bounded_flow_skills(self) -> None:
+        self.assertEqual(check_plugin_json(REPO_ROOT), [])
+        self.assertEqual(check_skill_metadata(REPO_ROOT), [])
+
+        discoverable = {
+            path.name
+            for path in (REPO_ROOT / "skills").iterdir()
+            if path.is_dir() and (path / "SKILL.md").exists()
+        }
+        self.assertEqual(discoverable, {"coordinate-concurrent-tasks", "opl-flow"})
+
+        coordination = (REPO_ROOT / "skills" / "coordinate-concurrent-tasks" / "SKILL.md").read_text(
+            encoding="utf-8"
+        )
+        self.assertIn("set_thread_archived(true)", coordination)
+        self.assertIn("archive_performed=false", coordination)
+        self.assertIn("user_approval_required=true", coordination)
+
     def test_full_lane_runs_the_complete_current_suite(self) -> None:
         core = contract_test_modules("core")
 

@@ -1,7 +1,7 @@
 {
   "name": "opl-flow",
   "version": "0.1.24",
-  "description": "OPL Flow installs a minimal Codex preference profile and optional repository CodeGraph bootstrap guidance.",
+  "description": "OPL Flow installs a minimal Codex preference profile and a bounded concurrent-task coordination skill.",
   "author": {
     "name": "Gaofeng"
   },
@@ -9,15 +9,16 @@
   "interface": {
     "displayName": "OPL Flow",
     "shortDescription": "Pragmatic Codex workflow profile",
-    "longDescription": "OPL Flow packages a minimal AGENTS.md preference profile, RTK preference, and concise repository-local CodeGraph bootstrap guidance.",
+    "longDescription": "OPL Flow packages a minimal AGENTS.md preference profile, RTK and CodeGraph guidance, plus bounded multi-task coordination with user-approved archival.",
     "developerName": "Gaofeng",
     "category": "Developer Tools",
     "capabilities": [
       "workflow",
       "preferences",
+      "task-coordination",
       "codegraph-bootstrap"
     ],
-    "defaultPrompt": "Use OPL Flow to install or diagnose the minimal AGENTS.md preference profile."
+    "defaultPrompt": "Use OPL Flow to install or diagnose the profile, or coordinate concurrent Codex tasks safely."
   },
   "homepage": "https://github.com/gaofeng21cn/opl-flow",
   "repository": "https://github.com/gaofeng21cn/opl-flow",

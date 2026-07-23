@@ -12,6 +12,7 @@ Keep project facts and development procedures out of the user-level profile. Rep
 ## Route
 
 - Use this skill for OPL Flow profile explanation, repository-local profile sync, or diagnosis of its package-delivered profile and plugin payload.
+- Use `$coordinate-concurrent-tasks` for multi-thread ownership, parallel execution, fresh-SSOT integration, task-gap auditing, and archive-readiness review. It coordinates existing authorities; it does not grant Git, release, package, or thread-archive permission.
 - For ordinary repo work, follow the active `AGENTS.md` and repo-native facts.
 - Let the model handle ordinary design and development directly.
 

@@ -22,8 +22,9 @@ OPL Flow installs:
 - the minimal user-level `~/.codex/AGENTS.md` preference profile;
 - the non-runtime `~/.codex/TASTE.md` authoring source;
 - the normal package plugin identity `opl-flow@opl-agent-opl-flow-local`;
+- the bundled `opl-flow` and `coordinate-concurrent-tasks` skills.
 
-The plugin exposes only the `opl-flow` skill. Git lane coordination, absorption, release readback, and cleanup use the model-native profile plus each repository's current contracts and native tools; no companion workflow skill is installed.
+The `coordinate-concurrent-tasks` skill coordinates owners, parallel work, fresh-main absorption, completion gaps, and archive-readiness evidence across Codex conversations. It does not own Git lanes, release readback, package lifecycle, or cleanup mutation, and it never archives a task before the user reviews and explicitly accepts that task.
 
 The Framework package transaction applies the policy's declared conflict migration: matching legacy workflow surfaces are backed up, removed from active discovery and recorded in a rollback receipt. A migration id can be retained explicitly with `--keep`.
 

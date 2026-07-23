@@ -1,0 +1,4 @@
+interface:
+  display_name: "并发任务协调"
+  short_description: "协调多对话并行执行、冲突吸收、任务缺口审计与用户验收归档"
+  default_prompt: "使用 $coordinate-concurrent-tasks 重组所有活跃任务，消除等待状态并制定并行推进与最终吸收方案；SAFE_TO_ARCHIVE 只改标题和登记证据，实际归档必须等待用户 fresh 验收。"

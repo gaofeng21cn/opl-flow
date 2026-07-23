@@ -4,7 +4,7 @@ OPL Flow distributes a minimal Codex preference profile. It keeps ordinary desig
 
 ## Public Role Boundary
 
-OPL Flow owns the user-level `AGENTS.md` profile and its installation/readback contract. It exposes only the `opl-flow` skill and does not package a separate Git lane or release-audit workflow; ordinary repository work follows the model-native profile plus repo-local truth.
+OPL Flow owns the user-level `AGENTS.md` profile and its installation/readback contract. It exposes two bounded skills: `opl-flow` for profile installation and diagnosis, and `coordinate-concurrent-tasks` for multi-task ownership, parallel execution, fresh-SSOT integration, and user-reviewed archive readiness. The coordination skill does not create a separate Git lane, release authority, package lifecycle, or project truth; ordinary repository work still follows the model-native profile plus repo-local contracts.
 
 OPL Flow is not runtime truth, package truth, or domain truth. It does not own
 OPL App readiness, OPL Framework runtime behavior, OPL Packages lifecycle,
@@ -52,6 +52,7 @@ opl packages optimize opl-flow
 The OPL Framework package lifecycle owns installation, update, rollback, and package currentness. It installs:
 
 - the managed OPL Flow plugin payload and Codex discovery entry
+- the bundled `opl-flow` and `coordinate-concurrent-tasks` skills
 - Runtime workflow profile: `~/.codex/AGENTS.md`
 - Non-runtime authoring source: `~/.codex/TASTE.md`
 
@@ -137,6 +138,14 @@ Use OPL Flow for this task.
 ```
 
 Codex uses the minimal profile as preferences, not as a task router. Planning, implementation, diagnosis, and verification remain model-native. Independently installed specialist skills are loaded only when their own explicit or narrow triggers apply.
+
+For several active Codex conversations, repositories, or worktrees, ask:
+
+```text
+Use $coordinate-concurrent-tasks to rebuild the active execution graph, run independent work in parallel, integrate against fresh SSOT, and mark completed tasks SAFE_TO_ARCHIVE without archiving them before my review.
+```
+
+The coordination skill can assign owners, identify gaps, and review archive readiness. It cannot infer approval for Git/release/package mutation or for actual thread archival.
 
 `contracts/workflow-policy.json` is the machine-readable policy owner for dependencies, Full offline closure, conflicts, retired workflow surfaces, and the recommended Codex model/reasoning defaults. A `recommends` entry with `online_install_default=true` is part of the default managed dependency closure: Framework installs and updates it with OPL Flow. App Full bundles the same entries marked `offline_bundle=full`; the App does not maintain another inventory. OPL Framework executes the policy, while OPL App only requests reconciliation and displays package state and user overrides.
 

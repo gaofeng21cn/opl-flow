@@ -30,6 +30,7 @@ or domain systems ready by itself.
 | Runtime workflow profile | OPL Flow | `~/.codex/AGENTS.md` |
 | Preference authoring | OPL Flow | Non-blocking `~/.codex/TASTE.md` |
 | Generic OPL Flow skill | OPL Flow | `skills/opl-flow` |
+| Concurrent task coordination | OPL Flow | `skills/coordinate-concurrent-tasks`; coordinates existing owners and fresh-SSOT integration, while actual task archival requires explicit user review |
 | CodeGraph bootstrap | OPL Flow profile | Initialize and Git-ignore `.codegraph/`; keep detailed tool guidance repo-local |
 | Specialist debugging / verification | Independent skills | Not vendored or measured by OPL Flow; routed only by narrow triggers |
 | Simplification / over-engineering review | Model-native or independent explicit Ponytail skills | No global persona or hook dependency; `ponytail-audit` and `ponytail-review` are not retired by OPL Flow |

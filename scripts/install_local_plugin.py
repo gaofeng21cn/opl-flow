@@ -25,6 +25,8 @@ COPY_IGNORE_NAMES = (".git", ".worktrees", ".codegraph", ".pytest_cache", "__pyc
 PLUGIN_REQUIRED_FILES = (
     ".agents/plugins/marketplace.json",
     ".codex-plugin/plugin.json",
+    "skills/coordinate-concurrent-tasks/SKILL.md",
+    "skills/coordinate-concurrent-tasks/agents/openai.yaml",
     "skills/opl-flow/SKILL.md",
     "skills/opl-flow/agents/openai.yaml",
     "profile/manifest.json",

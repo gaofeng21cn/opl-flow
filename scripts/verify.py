@@ -19,6 +19,8 @@ REQUIRED_FILES = (
     "docs/compatibility.md",
     "docs/new-machine-codex-setup.md",
     "LICENSE",
+    "skills/coordinate-concurrent-tasks/SKILL.md",
+    "skills/coordinate-concurrent-tasks/agents/openai.yaml",
     "skills/opl-flow/SKILL.md",
     "skills/opl-flow/agents/openai.yaml",
     "templates/AGENTS.md",
@@ -63,8 +65,8 @@ def check_plugin_json(repo_root: Path) -> list[str]:
         path.name for path in (repo_root / "skills").iterdir()
         if path.is_dir() and (path / "SKILL.md").exists()
     }
-    if discoverable_skills != {"opl-flow"}:
-        errors.append("default plugin must expose only the opl-flow skill")
+    if discoverable_skills != {"coordinate-concurrent-tasks", "opl-flow"}:
+        errors.append("default plugin must expose exactly the opl-flow and coordinate-concurrent-tasks skills")
     policy = json.loads((repo_root / "contracts" / "workflow-policy.json").read_text(encoding="utf-8"))
     if manifest.get("version") != policy.get("package", {}).get("version"):
         errors.append("plugin version must match contracts/workflow-policy.json package.version")
@@ -168,6 +170,7 @@ def check_workflow_policy(repo_root: Path) -> list[str]:
 def check_skill_metadata(repo_root: Path) -> list[str]:
     errors: list[str] = []
     skill_roots = {
+        "coordinate-concurrent-tasks": repo_root / "skills" / "coordinate-concurrent-tasks",
         "opl-flow": repo_root / "skills" / "opl-flow",
     }
     for skill_id, skill_root in skill_roots.items():
@@ -175,6 +178,21 @@ def check_skill_metadata(repo_root: Path) -> list[str]:
         text = path.read_text(encoding="utf-8")
         for needle in ("interface:", "display_name:", "short_description:", "default_prompt:", f"${skill_id}"):
             require(text, needle, f"{path.relative_to(repo_root)} must contain {needle}", errors)
+    coordination = (skill_roots["coordinate-concurrent-tasks"] / "SKILL.md").read_text(encoding="utf-8")
+    for needle in (
+        "parallel_work_serialized_integration",
+        "SAFE_TO_ARCHIVE",
+        "set_thread_archived(true)",
+        "fresh 验收",
+        "archive_performed=false",
+        "user_approval_required=true",
+    ):
+        require(
+            coordination,
+            needle,
+            f"skills/coordinate-concurrent-tasks/SKILL.md must preserve {needle}",
+            errors,
+        )
     return errors
 
 
@@ -256,8 +274,12 @@ def check_docs(repo_root: Path) -> list[str]:
         (skill, "minimal Codex preference profile", "skill must define its minimal-profile boundary"),
         (skill, "review/apply fallback route returned by the package command", "skill must route semantic-merge fallback through the package lifecycle"),
         (skill, "managed dependencies, not advisory text", "skill must define recommendation dependency semantics"),
+        (skill, "$coordinate-concurrent-tasks", "skill must route bounded multi-task coordination to the bundled coordination skill"),
         (readme, "generic Framework reconciliation", "README must document carrier-neutral App reconciliation"),
+        (readme, "`coordinate-concurrent-tasks`", "README must document the bundled coordination skill"),
+        (setup, "`coordinate-concurrent-tasks`", "setup guide must document the bundled coordination skill"),
         (compatibility, "model-native", "compatibility doc must cover model-native development"),
+        (compatibility, "`skills/coordinate-concurrent-tasks`", "compatibility doc must identify the coordination skill owner"),
         (compatibility, "OPL Base", "compatibility doc must cover the Base boundary"),
         (compatibility, "Retired conflict", "compatibility doc must cover retired workflow conflicts"),
     )
