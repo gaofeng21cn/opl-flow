@@ -6,7 +6,7 @@ OPL Flow distributes a minimal Codex preference profile. It keeps ordinary desig
 
 OPL Flow owns the user-level `AGENTS.md` profile and its installation/readback contract. It exposes two bounded skills: `opl-flow` for profile installation and diagnosis, and `coordinate-concurrent-tasks` for multi-task ownership, parallel execution, fresh-SSOT integration, and user-reviewed archive readiness. The coordination skill does not create a separate Git lane, release authority, package lifecycle, or project truth; ordinary repository work still follows the model-native profile plus repo-local contracts.
 
-OPL Flow is also the unique declaration authority for the managed Codex capability graph: what is provided, required, default-installed, activated, preserved, and carried for offline installation. OPL Base / Framework owns lifecycle execution and receipts. OPL App owns GUI and release-frozen projections and does not keep another managed Skill, Plugin, CLI, or MCP inventory. See [capability governance](docs/capability-governance.md).
+OPL Flow is also the unique declaration authority for the managed Codex capability graph: what is provided, required, recommended, activated, and preserved. OPL Base / Framework owns lifecycle execution and receipts. OPL App owns GUI and optional distribution carriers and does not keep another managed Skill, Plugin, CLI, or MCP inventory. See [capability governance](docs/capability-governance.md).
 
 OPL Flow is not runtime truth, package truth, or domain truth. It does not own
 OPL App readiness, OPL Framework runtime behavior, OPL Packages lifecycle,
@@ -58,7 +58,7 @@ The OPL Framework package lifecycle owns installation, update, rollback, and pac
 - Runtime workflow profile: `~/.codex/AGENTS.md`
 - Non-runtime authoring source: `~/.codex/TASTE.md`
 
-OPL App Standard and Full both install the same default Flow capability closure. Standard resolves the release cohort's exact bytes online; Full embeds the same exact bytes for offline use. They are delivery modes, not feature editions, and Framework must produce equivalent final locks and discovery projections.
+OPL App may include OPL Flow in its default capability package. Standard resolves available compatible capabilities over time; Full may carry capabilities available at build time. Neither carrier is a prerequisite for Flow, and missing payload bytes do not invalidate the composition.
 
 On a machine without `~/.codex/AGENTS.md`, the package lifecycle writes the rendered OPL
 Flow profile directly. On a machine that already has user-level `AGENTS.md`, the same
@@ -151,9 +151,9 @@ Use $coordinate-concurrent-tasks to rebuild the active execution graph, run inde
 
 The coordination skill can assign owners, identify gaps, and review archive readiness. It cannot infer approval for Git/release/package mutation or for actual thread archival.
 
-`contracts/workflow-policy.json` is the machine-readable policy owner for provided capabilities, dependencies, Standard/Full convergence, conflicts, retired workflow surfaces, credential policy, and the recommended Codex model/reasoning defaults. Capability identity is `(kind, id)`, so a Skill and CLI may share a textual id without collapsing. A `recommends` entry with `online_install_default=true` is part of the default managed dependency closure: Framework installs and updates it with OPL Flow. Every such entry is also `offline_bundle=full`; App Full embeds the same release-locked bytes instead of maintaining another inventory. OPL Framework executes the policy, while OPL App only requests reconciliation and displays package state and user overrides.
+`contracts/workflow-policy.json` is the machine-readable owner for provided, required, recommended, and compatible capabilities. Capability identity is `(kind, id)`, so a Skill and CLI may share a textual id without collapsing. Framework reuses an available compatible source or projects a generic action for a missing capability. Version, install-source, lock, and payload metadata are optional resolution hints or concrete artifact evidence, not composition prerequisites.
 
-The v2 policy admits `codex_plugin` and `mcp_server`, but declaration is not installation proof. A default dependency without a Framework lifecycle adapter fails closed. Flow never packages API keys, OAuth tokens, or account state, and reconciliation preserves user-managed or third-party MCP surfaces not declared by Flow.
+The policy requires `agent-reach` as a default Skill. This does not make App, Full, a release lock, or an embedded payload a Flow prerequisite. Flow never packages credentials, and reconciliation preserves user-managed or third-party MCP surfaces not declared by Flow.
 
 The runtime profile does not read `~/.codex/TASTE.md`. OPL Flow compiles its stable preference digest into `AGENTS.md`; the full TASTE file remains available for human maintenance. Repo-local `TASTE.md` files are not required.
 
@@ -169,8 +169,8 @@ OPL Flow is an official OPL Package installed by default with both OPL App Stand
 - On a machine that already has `AGENTS.md`, the same package transaction uses Codex to preserve distinct user preferences while removing conflicting or redundant legacy workflow prose; packet review/apply is the failure fallback.
 - Normal package installation registers `opl-flow@opl-agent-opl-flow-local`; `opl-flow@opl-flow-local` is reserved for the repository developer/local-source tool.
 - OPL Flow changes user-owned `AGENTS.md` only after semantic merge, target-hash validation, backup, and receipt creation; OPL App only requests the Framework transaction.
-- App Standard resolves the frozen exact Flow closure online; App Full packages the same `offline_bundle=full` bytes. Framework applies one migration, lock, currentness, and rollback contract to both.
-- Standard and Full are accepted only when their final managed versions, digests, locks, Skill/Plugin discovery, and capability projections are equivalent.
+- App Standard and Full may obtain the desired capabilities from different compatible sources and versions. Full may carry available payloads as a convenience.
+- A missing lock or payload never blocks Flow composition. Concrete published and installed artifacts retain their own lock, currentness, and rollback evidence.
 - Credentials remain user/provider-owned and are never embedded in Full; unknown user and third-party MCP configuration is preserved.
 - OPL Flow does not own Base/App/runtime readiness, domain truth, or package currentness; those remain on their owning Base, App, Package, and domain readbacks.
 

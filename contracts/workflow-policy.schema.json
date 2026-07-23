@@ -12,7 +12,6 @@
     "requires",
     "recommends",
     "compatible_optional",
-    "installation_convergence",
     "conflicts",
     "retires",
     "codex_model_policy",
@@ -21,7 +20,7 @@
   ],
   "properties": {
     "$schema": { "const": "./workflow-policy.schema.json" },
-    "schema": { "const": "opl_flow_workflow_policy.v2" },
+    "schema": { "const": "opl_flow_workflow_policy.v3" },
     "package": {
       "type": "object",
       "additionalProperties": false,
@@ -38,30 +37,6 @@
     "requires": { "$ref": "#/$defs/dependencies" },
     "recommends": { "$ref": "#/$defs/dependencies" },
     "compatible_optional": { "$ref": "#/$defs/dependencies" },
-    "installation_convergence": {
-      "type": "object",
-      "additionalProperties": false,
-      "required": [
-        "standard_target_closure",
-        "full_target_closure",
-        "standard_source",
-        "full_source",
-        "final_projection_equivalence_required",
-        "default_dependencies_require_full_bundle",
-        "secrets_bundled",
-        "user_third_party_surfaces_policy"
-      ],
-      "properties": {
-        "standard_target_closure": { "const": "workflow_policy_release_lock" },
-        "full_target_closure": { "const": "workflow_policy_release_lock" },
-        "standard_source": { "const": "online_exact_release_lock" },
-        "full_source": { "const": "embedded_exact_release_lock" },
-        "final_projection_equivalence_required": { "const": true },
-        "default_dependencies_require_full_bundle": { "const": true },
-        "secrets_bundled": { "const": false },
-        "user_third_party_surfaces_policy": { "const": "preserve" }
-      }
-    },
     "conflicts": { "$ref": "#/$defs/migrations" },
     "retires": { "$ref": "#/$defs/migrations" },
     "codex_model_policy": {
@@ -98,16 +73,8 @@
       "required": [
         "id",
         "kind",
-        "owner",
-        "version_requirement",
-        "source",
-        "install_source",
-        "lifecycle_owner",
         "online_install_default",
-        "offline_bundle",
-        "activation",
-        "conflict_policy",
-        "credential_policy"
+        "activation"
       ],
       "properties": {
         "id": { "type": "string", "minLength": 1 },
@@ -115,7 +82,7 @@
         "owner": { "type": "string", "minLength": 1 },
         "version_requirement": { "type": "string", "minLength": 1 },
         "source": { "type": "string", "minLength": 1 },
-        "install_source": { "enum": ["package_payload", "framework_managed_release_lock", "codex_builtin", "user_managed"] },
+        "install_source": { "type": "string", "minLength": 1 },
         "lifecycle_owner": { "type": "string", "minLength": 1 },
         "online_install_default": { "type": "boolean" },
         "offline_bundle": { "enum": ["none", "full"] },
@@ -134,11 +101,7 @@
           {
             "properties": {
               "kind": { "enum": ["codex_skill", "codex_plugin"] },
-              "install_source": { "const": "package_payload" },
-              "lifecycle_owner": { "const": "opl-framework" },
-              "online_install_default": { "const": true },
-              "offline_bundle": { "const": "full" },
-              "credential_policy": { "const": "none" }
+              "online_install_default": { "const": true }
             }
           }
         ]

@@ -28,11 +28,11 @@ The `coordinate-concurrent-tasks` skill coordinates owners, parallel work, fresh
 
 The Framework package transaction applies the policy's declared conflict migration: matching legacy workflow surfaces are backed up, removed from active discovery and recorded in a rollback receipt. A migration id can be retained explicitly with `--keep`.
 
-The same transaction resolves `contracts/workflow-policy.json`. Every `recommends` entry with `online_install_default=true` is a managed dependency: Framework installs and updates it with OPL Flow, applies the model recommendation without overriding a user-pinned model, and writes a rollback receipt. App Full bundles the same entries marked `offline_bundle=full` for offline installation; it does not keep a separate skill or tool list.
+The same transaction resolves `contracts/workflow-policy.json`. Framework reuses an available compatible capability first and otherwise returns a generic install or repair action. Required and recommended entries do not require exact versions, locks, or embedded payloads.
 
-OPL App Standard and Full target the same release-locked capability closure. Standard obtains the exact bytes online, while Full carries those bytes in the installer. Completion requires equivalent versions, digests, locks, and Codex discovery after Framework reconciliation; opening the GUI is not completion evidence.
+The policy declares `agent-reach` as a required default Skill. It may already exist, be resolved from its source hint, or remain a visible action until installation is possible. OPL App and Full are not prerequisites.
 
-The policy can describe Skills, Plugins, MCP servers, CLIs, runtime capabilities, and Base by `(kind, id)`. A default entry without a Framework lifecycle adapter fails closed. API keys, OAuth tokens, and account state are never part of the Full payload, and Flow reconciliation preserves user-managed and third-party MCP configuration.
+Standard and Full may use different compatible sources and versions. Full may carry available public payloads for convenience. API keys, OAuth tokens, and account state are never bundled, and Flow reconciliation preserves user-managed and third-party MCP configuration.
 
 If `~/.codex/AGENTS.md` already exists, the package lifecycle backs it up and asks Codex to merge the minimal profile with distinct user preferences. Known marker blocks are removed deterministically; unmarked prose is never rewritten by a heuristic script. A target-hash check precedes apply. If Codex cannot complete a valid merge, the original file remains unchanged and the package command returns the review/apply route for its merge packet.
 

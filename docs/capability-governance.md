@@ -3,59 +3,43 @@
 Owner: `opl-flow`
 Purpose: `opl_capability_graph_authority`
 State: `active`
-Machine boundary: `contracts/workflow-policy.json` is the declaration authority. Framework package locks, lifecycle receipts, currentness readback, and Codex discovery are the execution evidence.
+Machine boundary: `contracts/workflow-policy.json` declares the desired capability composition. Framework readback records what a particular machine resolved.
 
 ## Authority
 
 | Layer | Owns | Must not own |
 | --- | --- | --- |
-| OPL Flow | Required capability graph, source and version requirements, default installation, activation, offline-carrier policy, conflicts, and credential policy | Installation state, package locks, user secrets, App UI state, or release execution |
-| OPL Base / Framework | Install, update, rollback, release-lock resolution, currentness, reconciliation, receipts, and projections | A competing capability inventory or domain-specific capability decisions |
-| OPL App | GUI, installation progress, user controls, carrier selection, and release-frozen projections | Skill, Plugin, CLI, or MCP lifecycle truth |
+| OPL Flow | Capability identity, required or recommended status, activation, source hints, conflicts, and model recommendation | Installed bytes, package locks, App payloads, user secrets, or release execution |
+| OPL Base / Framework | Generic discovery, compatible-source selection, install actions, reconciliation, receipts, and projections | An OPL Flow-specific catalog or a second capability policy |
+| OPL App | GUI, default package presentation, user choices, and optional distribution payloads | Dependency truth or a second Skill, Plugin, CLI, or MCP inventory |
 
-An internally developed capability is built into OPL Flow only when it is generic Codex workflow behavior and shares the Flow release lifecycle. Authorship alone does not make a capability built in. `opl-flow` and `coordinate-concurrent-tasks` satisfy this rule and appear under `provides`.
+Capability identity is `(kind, id)`. The same textual id can name different surfaces, such as `codex_skill:officecli` and `cli:officecli`.
 
-## Capability Identity
+## Open Composition
 
-Capability identity is the tuple `(kind, id)`. The same textual id may identify different surfaces, such as `codex_skill:officecli` and `cli:officecli`. Policy consumers must preserve the tuple and must not collapse it into an id-only inventory.
+Flow states what is useful. Framework resolves it from any available compatible source:
 
-Supported kinds are `base`, `codex_skill`, `codex_plugin`, `mcp_server`, `cli`, and `runtime_capability`. A default dependency is not considered installed or current unless Framework has a lifecycle adapter and produces the required lock and receipt. An unknown default Plugin or MCP dependency fails closed.
+1. Reuse an already available capability.
+2. Otherwise use a declared or generally discoverable source.
+3. If it is still missing, project a generic install or repair action.
 
-Each declaration records:
+A missing optional source hint is not a malformed policy. A missing installed capability is a machine state to resolve, not a reason to reject the capability graph.
 
-- owner, version requirement, and source;
-- install source and lifecycle owner;
-- default-install, offline-carrier, and activation policies;
-- conflict and credential policies.
+`requires` means the intended Flow experience needs the capability. `recommends` means it belongs in the default convenient setup. Neither term requires a particular version, lock, carrier, or payload.
 
-## Standard And Full
+A lock records a resolution for one concrete install or release. It is not part of capability identity and is never required merely because Flow declares a dependency.
 
-Standard and Full are delivery modes for one target installation, not different feature editions.
+## Distribution
 
-```text
-standard_target_closure == full_target_closure
-standard_source = online_exact_release_lock
-full_source = embedded_exact_release_lock
-standard_final_projection == full_final_projection
-```
+Standard, Full, direct Framework installation, and third-party carriers may assemble the same useful capabilities from different compatible sources and versions. They do not need byte-identical payloads or identical locks.
 
-Every default dependency must therefore use `offline_bundle=full`. Standard resolves the release cohort's exact bytes online. Full embeds those same exact bytes and can install without network access. Final version, digest, lock, Skill/Plugin discovery, and capability projection must match at the reconciliation receipt. GUI launch alone is not proof of convergence.
+Full may carry capabilities that are available when it is built. Missing payloads do not invalidate Flow, Standard, Full, or App. A carrier manifest describes what that carrier actually contains; it does not become another dependency authority.
 
-Full never bundles API keys, OAuth tokens, account state, or other secrets. It may bundle public binaries and configuration templates. Credential values remain user- or provider-owned.
+Full never bundles API keys, credentials, OAuth state, or account data. They remain user- or provider-owned. Unknown user and third-party MCP configuration is preserved.
 
-## Plugins And MCP
+## App Projection
 
-Flow may declare a Codex Plugin or MCP server through the same capability graph, but declaration does not bypass Framework lifecycle support. A default Plugin or MCP requires an exact source, release-lock resolution, install/update/rollback/currentness receipts, and a credential policy before it can enter the default closure.
-
-Flow-managed MCP surfaces are projected separately from user-managed and third-party MCP surfaces. Reconciliation preserves unknown user surfaces and never copies, deletes, or overwrites their credentials merely because they are absent from Flow policy.
-
-No external default MCP server is declared in the current policy. The v2 type exists so a future dependency must satisfy these requirements before installation is allowed.
-
-## App Projections
-
-App Settings consumes Framework's unified capability projection. It may group managed, manual, and third-party capabilities, but it must not maintain a second managed inventory.
-
-The App Full third-party source manifest is a release-frozen projection generated from the selected Flow policy plus Base/Framework toolchain closure. It binds exact refs, digests, and receipts for reproducibility; it is not dependency lifecycle authority.
+App consumes Framework's unified capability projection. It may group, label, and offer user choices, but it does not infer installation state from Flow declarations or package its own mandatory dependency list.
 
 Model selection follows:
 
@@ -66,19 +50,15 @@ explicit user selection
 > App fallback when Flow is unavailable
 ```
 
-The App fallback is availability behavior only and never competes with an installed Flow recommendation.
-
 ## Workflow Status Boundary
 
-OPL Flow may define coordination semantics such as `ACTIVE` and `SAFE_TO_ARCHIVE`. `SAFE_TO_ARCHIVE` authorizes title and evidence updates only. Actual conversation archival requires fresh user acceptance for the named task or thread. Git, package, install, release, and archive mutation permissions remain with their owning surfaces.
+OPL Flow may define coordination semantics such as `ACTIVE` and `SAFE_TO_ARCHIVE`. `SAFE_TO_ARCHIVE` does not archive a conversation. Actual archival still requires fresh user acceptance.
 
 ## Acceptance
 
-A release closes this boundary only when all of the following are true:
-
-- policy and schema validate, and provided Skills exactly match the package manifest;
-- Standard and Full resolve the same default `(kind, id)` closure and exact release lock;
-- every managed dependency has install, update, rollback, and currentness evidence;
-- Full embedded bytes match the release lock without bundled secrets;
-- Framework readback is current and App has no second managed inventory;
-- fresh Codex discovery reports the packaged Plugin and every required Skill.
+- Policy and schema validate.
+- Provided Skills match the package manifest.
+- `agent-reach` is declared as a required default Skill without a lock or payload prerequisite.
+- Framework can reuse an existing compatible Skill or project a generic action when it is absent.
+- App consumes Framework projection and does not own a duplicate dependency inventory.
+- Published or installed artifacts use their own receipts and locks only when those artifacts actually exist.

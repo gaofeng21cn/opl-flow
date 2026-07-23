@@ -11,7 +11,7 @@ profile sources, tests, Framework package readback, and fresh Codex discovery ou
 
 - `README.md` owns the public product and package boundary.
 - `skills/opl-flow/SKILL.md` owns the operator route and currentness-layer model; `skills/coordinate-concurrent-tasks/SKILL.md` owns bounded multi-task coordination and the user-approval archive boundary.
-- `contracts/workflow-policy.json` owns the `(kind, id)` capability graph and Standard/Full target closure; `docs/capability-governance.md` explains the Flow/Framework/App authority split.
+- `contracts/workflow-policy.json` owns the open `(kind, id)` capability graph; `docs/capability-governance.md` explains the Flow/Framework/App authority split.
 - `.codex-plugin/plugin.json`, `contracts/workflow-policy.json`, `profile/`,
   `templates/`, and tests own executable repository behavior.
 - The target is a minimal model-native Codex preference profile distributed through
@@ -104,7 +104,7 @@ codex plugin list --json
 ## Coverage And Carry-Forward
 
 - Current owners covered: product/package boundary, profile source/rendering, capability
-  graph, plugin/skill carrier, Standard/Full convergence, repository verification,
+  graph, plugin/skill carrier, open composition, repository verification,
   Framework lifecycle route, App projection boundary, and target-process discovery route.
 - Retired surface provenance belongs in `docs/history/**`, policy retirement rows, and
   Git history; it does not return to this Active Truth owner as a current proof table.
