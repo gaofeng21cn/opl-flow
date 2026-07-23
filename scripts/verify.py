@@ -90,17 +90,56 @@ def check_workflow_policy(repo_root: Path) -> list[str]:
         errors.append("workflow policy must point to ./workflow-policy.schema.json")
     if "$schema" not in schema.get("properties", {}):
         errors.append("workflow policy schema must admit the policy $schema pointer")
-    if policy.get("schema") != "opl_flow_workflow_policy.v1":
-        errors.append("workflow policy schema must be opl_flow_workflow_policy.v1")
+    if policy.get("schema") != "opl_flow_workflow_policy.v2":
+        errors.append("workflow policy schema must be opl_flow_workflow_policy.v2")
     if policy.get("package", {}).get("id") != "opl-flow":
         errors.append("workflow policy package id must be opl-flow")
     required_sections = (
-        "requires", "recommends", "compatible_optional", "conflicts", "retires",
-        "codex_model_policy", "migration_policy", "historical_fingerprints",
+        "provides", "requires", "recommends", "compatible_optional",
+        "installation_convergence", "conflicts", "retires", "codex_model_policy",
+        "migration_policy", "historical_fingerprints",
     )
     for section in required_sections:
         if section not in policy:
             errors.append(f"workflow policy missing {section}")
+    capabilities = [
+        item
+        for section in ("provides", "requires", "recommends", "compatible_optional")
+        for item in policy.get(section, [])
+    ]
+    capability_keys = [(item.get("kind"), item.get("id")) for item in capabilities]
+    if len(capability_keys) != len(set(capability_keys)):
+        errors.append("workflow capability identity must be unique by (kind, id)")
+    required_metadata = {
+        "owner", "version_requirement", "source", "install_source", "lifecycle_owner",
+        "online_install_default", "offline_bundle", "activation", "conflict_policy",
+        "credential_policy",
+    }
+    if any(not required_metadata.issubset(item) for item in capabilities):
+        errors.append("workflow policy v2 capabilities must declare complete lifecycle metadata")
+    expected_provides = {
+        ("codex_plugin", "opl-flow"),
+        ("codex_skill", "opl-flow"),
+        ("codex_skill", "coordinate-concurrent-tasks"),
+    }
+    provides = policy.get("provides", [])
+    if {(item.get("kind"), item.get("id")) for item in provides} != expected_provides:
+        errors.append("workflow policy provided Plugin and Skills must match the package payload")
+    if any(
+        item.get("install_source") != "package_payload"
+        or item.get("lifecycle_owner") != "opl-framework"
+        or item.get("offline_bundle") != "full"
+        or item.get("online_install_default") is not True
+        or item.get("credential_policy") != "none"
+        for item in provides
+    ):
+        errors.append("provided capabilities must be Framework-managed package payload surfaces")
+    schema_kind_enum = (
+        schema.get("$defs", {}).get("capability", {}).get("properties", {})
+        .get("kind", {}).get("enum", [])
+    )
+    if not {"codex_plugin", "mcp_server"}.issubset(schema_kind_enum):
+        errors.append("workflow policy schema must admit codex_plugin and mcp_server capabilities")
     recommended_ids = {
         item.get("id") for item in policy.get("recommends", [])
         if item.get("kind") == "codex_skill" and item.get("offline_bundle") == "full"
@@ -126,6 +165,31 @@ def check_workflow_policy(repo_root: Path) -> list[str]:
         for item in policy.get("recommends", [])
     ):
         errors.append("workflow policy recommendations must remain default managed dependencies in the Full closure")
+    default_dependencies = [
+        item
+        for section in ("requires", "recommends")
+        for item in policy.get(section, [])
+        if item.get("online_install_default") is True
+    ]
+    if any(
+        item.get("offline_bundle") != "full"
+        or item.get("lifecycle_owner") != "opl-framework"
+        or item.get("version_requirement") != "release_lock_exact"
+        for item in default_dependencies
+    ):
+        errors.append("default dependencies must use one Framework-owned exact Standard/Full closure")
+    expected_convergence = {
+        "standard_target_closure": "workflow_policy_release_lock",
+        "full_target_closure": "workflow_policy_release_lock",
+        "standard_source": "online_exact_release_lock",
+        "full_source": "embedded_exact_release_lock",
+        "final_projection_equivalence_required": True,
+        "default_dependencies_require_full_bundle": True,
+        "secrets_bundled": False,
+        "user_third_party_surfaces_policy": "preserve",
+    }
+    if policy.get("installation_convergence") != expected_convergence:
+        errors.append("workflow policy Standard and Full convergence contract is invalid")
     conflict_ids = {item.get("id") for item in policy.get("conflicts", [])}
     if not {"upstream-superpowers", "ponytail", "codexcont-intelligence-enhancement"}.issubset(conflict_ids):
         errors.append("workflow policy must retire the known legacy global workflow conflicts")
@@ -155,8 +219,14 @@ def check_workflow_policy(repo_root: Path) -> list[str]:
     if not fingerprints.get("agents_marker_pairs") or not fingerprints.get("agents_legacy_section_headings"):
         errors.append("workflow policy must declare historical AGENTS markers and section headings")
     precedence = policy.get("codex_model_policy", {}).get("override_precedence", [])
-    if not precedence or precedence[0] != "explicit_user_override":
-        errors.append("explicit user model override must have highest precedence")
+    expected_precedence = [
+        "explicit_user_override",
+        "opl_flow_recommendation",
+        "fresh_codex_model_catalog",
+        "app_fallback_when_flow_unavailable",
+    ]
+    if precedence != expected_precedence:
+        errors.append("model precedence must be user, installed Flow, live Codex, then App fallback")
     dependency_ids = {
         item.get("id")
         for section in ("requires", "recommends", "compatible_optional")
@@ -260,6 +330,7 @@ def check_docs(repo_root: Path) -> list[str]:
     readme = (repo_root / "README.md").read_text(encoding="utf-8")
     setup = (repo_root / "docs" / "new-machine-codex-setup.md").read_text(encoding="utf-8")
     compatibility = (repo_root / "docs" / "compatibility.md").read_text(encoding="utf-8")
+    capability_governance = (repo_root / "docs" / "capability-governance.md").read_text(encoding="utf-8")
     skill = (repo_root / "skills" / "opl-flow" / "SKILL.md").read_text(encoding="utf-8")
     required = (
         (readme, "Compatibility With OPL App Full", "README must document OPL App Full compatibility"),
@@ -282,6 +353,12 @@ def check_docs(repo_root: Path) -> list[str]:
         (compatibility, "`skills/coordinate-concurrent-tasks`", "compatibility doc must identify the coordination skill owner"),
         (compatibility, "OPL Base", "compatibility doc must cover the Base boundary"),
         (compatibility, "Retired conflict", "compatibility doc must cover retired workflow conflicts"),
+        (capability_governance, "OPL Flow", "capability governance must name the declaration authority"),
+        (capability_governance, "OPL Base / Framework", "capability governance must name the lifecycle authority"),
+        (capability_governance, "OPL App", "capability governance must name the GUI projection boundary"),
+        (capability_governance, "standard_target_closure == full_target_closure", "capability governance must require Standard/Full target parity"),
+        (capability_governance, "never bundles API keys", "capability governance must forbid bundled credentials"),
+        (capability_governance, "fresh user acceptance", "capability governance must preserve the archive approval boundary"),
     )
     for text, needle, message in required:
         require(text, needle, message, errors)

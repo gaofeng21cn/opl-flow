@@ -1,131 +1,269 @@
 {
   "$schema": "./workflow-policy.schema.json",
-  "schema": "opl_flow_workflow_policy.v1",
+  "schema": "opl_flow_workflow_policy.v2",
   "package": {
     "id": "opl-flow",
-    "version": "0.1.24",
+    "version": "0.1.25",
     "owner": "opl-flow",
     "kind": "workflow_profile"
   },
   "workflow_generation": "model-native-gpt-5.6",
+  "provides": [
+    {
+      "id": "opl-flow",
+      "kind": "codex_plugin",
+      "owner": "opl-flow",
+      "version_requirement": "=0.1.25",
+      "source": "package:opl-flow",
+      "install_source": "package_payload",
+      "lifecycle_owner": "opl-framework",
+      "online_install_default": true,
+      "offline_bundle": "full",
+      "activation": "always",
+      "conflict_policy": "fail_closed_on_collision",
+      "credential_policy": "none"
+    },
+    {
+      "id": "opl-flow",
+      "kind": "codex_skill",
+      "owner": "opl-flow",
+      "version_requirement": "=0.1.25",
+      "source": "package:opl-flow/skills/opl-flow",
+      "install_source": "package_payload",
+      "lifecycle_owner": "opl-framework",
+      "online_install_default": true,
+      "offline_bundle": "full",
+      "activation": "task_routed",
+      "conflict_policy": "fail_closed_on_collision",
+      "credential_policy": "none"
+    },
+    {
+      "id": "coordinate-concurrent-tasks",
+      "kind": "codex_skill",
+      "owner": "opl-flow",
+      "version_requirement": "=0.1.25",
+      "source": "package:opl-flow/skills/coordinate-concurrent-tasks",
+      "install_source": "package_payload",
+      "lifecycle_owner": "opl-framework",
+      "online_install_default": true,
+      "offline_bundle": "full",
+      "activation": "task_routed",
+      "conflict_policy": "fail_closed_on_collision",
+      "credential_policy": "none"
+    }
+  ],
   "requires": [
     {
       "id": "opl-base",
       "kind": "base",
+      "owner": "one-person-lab",
+      "version_requirement": "release_lock_exact",
+      "install_source": "framework_managed_release_lock",
+      "lifecycle_owner": "opl-framework",
       "offline_bundle": "full",
       "online_install_default": true,
       "activation": "always",
-      "source": "gaofeng21cn/one-person-lab"
+      "source": "gaofeng21cn/one-person-lab",
+      "conflict_policy": "managed_reconcile",
+      "credential_policy": "none"
     }
   ],
   "recommends": [
     {
       "id": "officecli",
       "kind": "codex_skill",
+      "owner": "iofficeai",
+      "version_requirement": "release_lock_exact",
+      "install_source": "framework_managed_release_lock",
+      "lifecycle_owner": "opl-framework",
       "offline_bundle": "full",
       "online_install_default": true,
       "activation": "task_routed",
-      "source": "skills-manager:officecli"
+      "source": "skills-manager:officecli",
+      "conflict_policy": "managed_reconcile",
+      "credential_policy": "none"
     },
     {
       "id": "officecli-docx",
       "kind": "codex_skill",
+      "owner": "iofficeai",
+      "version_requirement": "release_lock_exact",
+      "install_source": "framework_managed_release_lock",
+      "lifecycle_owner": "opl-framework",
       "offline_bundle": "full",
       "online_install_default": true,
       "activation": "task_routed",
-      "source": "skills-manager:officecli-docx"
+      "source": "skills-manager:officecli-docx",
+      "conflict_policy": "managed_reconcile",
+      "credential_policy": "none"
     },
     {
       "id": "officecli-pptx",
       "kind": "codex_skill",
+      "owner": "iofficeai",
+      "version_requirement": "release_lock_exact",
+      "install_source": "framework_managed_release_lock",
+      "lifecycle_owner": "opl-framework",
       "offline_bundle": "full",
       "online_install_default": true,
       "activation": "task_routed",
-      "source": "skills-manager:officecli-pptx"
+      "source": "skills-manager:officecli-pptx",
+      "conflict_policy": "managed_reconcile",
+      "credential_policy": "none"
     },
     {
       "id": "officecli-xlsx",
       "kind": "codex_skill",
+      "owner": "iofficeai",
+      "version_requirement": "release_lock_exact",
+      "install_source": "framework_managed_release_lock",
+      "lifecycle_owner": "opl-framework",
       "offline_bundle": "full",
       "online_install_default": true,
       "activation": "task_routed",
-      "source": "skills-manager:officecli-xlsx"
+      "source": "skills-manager:officecli-xlsx",
+      "conflict_policy": "managed_reconcile",
+      "credential_policy": "none"
     },
     {
       "id": "officecli-academic-paper",
       "kind": "codex_skill",
+      "owner": "iofficeai",
+      "version_requirement": "release_lock_exact",
+      "install_source": "framework_managed_release_lock",
+      "lifecycle_owner": "opl-framework",
       "offline_bundle": "full",
       "online_install_default": true,
       "activation": "task_routed",
-      "source": "skills-manager:officecli-academic-paper"
+      "source": "skills-manager:officecli-academic-paper",
+      "conflict_policy": "managed_reconcile",
+      "credential_policy": "none"
     },
     {
       "id": "officecli-data-dashboard",
       "kind": "codex_skill",
+      "owner": "iofficeai",
+      "version_requirement": "release_lock_exact",
+      "install_source": "framework_managed_release_lock",
+      "lifecycle_owner": "opl-framework",
       "offline_bundle": "full",
       "online_install_default": true,
       "activation": "task_routed",
-      "source": "skills-manager:officecli-data-dashboard"
+      "source": "skills-manager:officecli-data-dashboard",
+      "conflict_policy": "managed_reconcile",
+      "credential_policy": "none"
     },
     {
       "id": "officecli-financial-model",
       "kind": "codex_skill",
+      "owner": "iofficeai",
+      "version_requirement": "release_lock_exact",
+      "install_source": "framework_managed_release_lock",
+      "lifecycle_owner": "opl-framework",
       "offline_bundle": "full",
       "online_install_default": true,
       "activation": "task_routed",
-      "source": "skills-manager:officecli-financial-model"
+      "source": "skills-manager:officecli-financial-model",
+      "conflict_policy": "managed_reconcile",
+      "credential_policy": "none"
     },
     {
       "id": "officecli-pitch-deck",
       "kind": "codex_skill",
+      "owner": "iofficeai",
+      "version_requirement": "release_lock_exact",
+      "install_source": "framework_managed_release_lock",
+      "lifecycle_owner": "opl-framework",
       "offline_bundle": "full",
       "online_install_default": true,
       "activation": "task_routed",
-      "source": "skills-manager:officecli-pitch-deck"
+      "source": "skills-manager:officecli-pitch-deck",
+      "conflict_policy": "managed_reconcile",
+      "credential_policy": "none"
     },
     {
       "id": "mineru-document-extractor",
       "kind": "codex_skill",
+      "owner": "mineru",
+      "version_requirement": "release_lock_exact",
+      "install_source": "framework_managed_release_lock",
+      "lifecycle_owner": "opl-framework",
       "offline_bundle": "full",
       "online_install_default": true,
       "activation": "task_routed",
-      "source": "skills-manager:mineru-document-extractor"
+      "source": "skills-manager:mineru-document-extractor",
+      "conflict_policy": "managed_reconcile",
+      "credential_policy": "user_or_provider_owned_not_bundled"
     },
     {
       "id": "ui-ux-pro-max",
       "kind": "codex_skill",
+      "owner": "nextlevelbuilder",
+      "version_requirement": "release_lock_exact",
+      "install_source": "framework_managed_release_lock",
+      "lifecycle_owner": "opl-framework",
       "offline_bundle": "full",
       "online_install_default": true,
       "activation": "explicit",
-      "source": "skills-manager:ui-ux-pro-max"
+      "source": "skills-manager:ui-ux-pro-max",
+      "conflict_policy": "managed_reconcile",
+      "credential_policy": "none"
     },
     {
       "id": "officecli",
       "kind": "cli",
+      "owner": "iofficeai",
+      "version_requirement": "release_lock_exact",
+      "install_source": "framework_managed_release_lock",
+      "lifecycle_owner": "opl-framework",
       "offline_bundle": "full",
       "online_install_default": true,
       "activation": "task_routed",
-      "source": "officecli"
+      "source": "officecli",
+      "conflict_policy": "managed_reconcile",
+      "credential_policy": "none"
     },
     {
       "id": "mineru-open-api",
       "kind": "cli",
+      "owner": "mineru",
+      "version_requirement": "release_lock_exact",
+      "install_source": "framework_managed_release_lock",
+      "lifecycle_owner": "opl-framework",
       "offline_bundle": "full",
       "online_install_default": true,
       "activation": "task_routed",
-      "source": "mineru-open-api"
+      "source": "mineru-open-api",
+      "conflict_policy": "managed_reconcile",
+      "credential_policy": "user_or_provider_owned_not_bundled"
     }
   ],
   "compatible_optional": [
     {
       "id": "openai-primary-runtime-office-pdf",
       "kind": "runtime_capability",
+      "owner": "openai",
+      "version_requirement": "codex_release_exact",
+      "install_source": "codex_builtin",
+      "lifecycle_owner": "codex",
       "offline_bundle": "none",
       "online_install_default": false,
       "activation": "task_routed",
-      "source": "openai-primary-runtime"
+      "source": "openai-primary-runtime",
+      "conflict_policy": "preserve_user_surface",
+      "credential_policy": "none"
     }
   ],
+  "installation_convergence": {
+    "standard_target_closure": "workflow_policy_release_lock",
+    "full_target_closure": "workflow_policy_release_lock",
+    "standard_source": "online_exact_release_lock",
+    "full_source": "embedded_exact_release_lock",
+    "final_projection_equivalence_required": true,
+    "default_dependencies_require_full_bundle": true,
+    "secrets_bundled": false,
+    "user_third_party_surfaces_policy": "preserve"
+  },
   "conflicts": [
     {
       "id": "upstream-superpowers",
@@ -189,7 +327,7 @@
       "explicit_user_override",
       "opl_flow_recommendation",
       "fresh_codex_model_catalog",
-      "framework_bundled_fallback"
+      "app_fallback_when_flow_unavailable"
     ],
     "catalog_policy": {
       "source": "codex_cli_model_list",

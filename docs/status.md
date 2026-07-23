@@ -11,6 +11,7 @@ profile sources, tests, Framework package readback, and fresh Codex discovery ou
 
 - `README.md` owns the public product and package boundary.
 - `skills/opl-flow/SKILL.md` owns the operator route and currentness-layer model; `skills/coordinate-concurrent-tasks/SKILL.md` owns bounded multi-task coordination and the user-approval archive boundary.
+- `contracts/workflow-policy.json` owns the `(kind, id)` capability graph and Standard/Full target closure; `docs/capability-governance.md` explains the Flow/Framework/App authority split.
 - `.codex-plugin/plugin.json`, `contracts/workflow-policy.json`, `profile/`,
   `templates/`, and tests own executable repository behavior.
 - The target is a minimal model-native Codex preference profile distributed through
@@ -29,7 +30,7 @@ next-round Agent prompt. It does not duplicate the durable product explanation i
 | Retired workflow surfaces | The workflow policy retires legacy role prompts, the repository-local marketplace identity, and the former process-skill defaults through Framework-owned migration with backup and rollback. No Codex Ops Kit payload, dependency, or active verification lane remains in this repository. | `contracts/workflow-policy.json#retires` and `#migration_policy`; repo source and tests guard against resurrection. |
 | Package lifecycle | OPL Framework is the sole normal install, update, optimize, rollback, and currentness owner. The repository installer is development-only and does not establish package currentness. | `opl packages list --json` and `opl packages status --package-id opl-flow --json` must be read live. |
 | Effective discovery | Owner source/tag, Framework catalog, installed lock/payload, and Codex discovery are four independent currentness layers. This document does not freeze their versions, refs, digests, or ready state. | Fresh remote tag/ref readback, Framework package JSON, and `codex plugin list --json` from the target process. |
-| Authority boundary | OPL Flow owns only the minimal preference profile, its package payload semantics, and its two bounded workflow skills. The coordination skill organizes existing owners but does not own App, Framework, release, machine, project, domain readiness, or actual thread archival. | `README.md`, `AGENTS.md`, `skills/opl-flow/SKILL.md`, and `skills/coordinate-concurrent-tasks/SKILL.md` |
+| Authority boundary | OPL Flow owns the minimal preference profile, its two bounded workflow skills, and the managed capability graph. Framework owns lifecycle execution and App owns GUI/release projections. The coordination skill does not own App, Framework, release, machine, project, domain readiness, or actual thread archival. | `README.md`, `docs/capability-governance.md`, `skills/opl-flow/SKILL.md`, and `skills/coordinate-concurrent-tasks/SKILL.md` |
 
 ## Current-State vs Ideal-State Gaps
 
@@ -102,9 +103,9 @@ codex plugin list --json
 
 ## Coverage And Carry-Forward
 
-- Current owners covered: product/package boundary, profile source/rendering, workflow
-  policy, plugin/skill carrier, repository verification, Framework lifecycle route,
-  and target-process discovery route.
+- Current owners covered: product/package boundary, profile source/rendering, capability
+  graph, plugin/skill carrier, Standard/Full convergence, repository verification,
+  Framework lifecycle route, App projection boundary, and target-process discovery route.
 - Retired surface provenance belongs in `docs/history/**`, policy retirement rows, and
   Git history; it does not return to this Active Truth owner as a current proof table.
 - No additional stale or retirement candidate is established by the current source

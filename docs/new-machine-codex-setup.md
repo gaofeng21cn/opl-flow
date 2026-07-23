@@ -30,6 +30,10 @@ The Framework package transaction applies the policy's declared conflict migrati
 
 The same transaction resolves `contracts/workflow-policy.json`. Every `recommends` entry with `online_install_default=true` is a managed dependency: Framework installs and updates it with OPL Flow, applies the model recommendation without overriding a user-pinned model, and writes a rollback receipt. App Full bundles the same entries marked `offline_bundle=full` for offline installation; it does not keep a separate skill or tool list.
 
+OPL App Standard and Full target the same release-locked capability closure. Standard obtains the exact bytes online, while Full carries those bytes in the installer. Completion requires equivalent versions, digests, locks, and Codex discovery after Framework reconciliation; opening the GUI is not completion evidence.
+
+The policy can describe Skills, Plugins, MCP servers, CLIs, runtime capabilities, and Base by `(kind, id)`. A default entry without a Framework lifecycle adapter fails closed. API keys, OAuth tokens, and account state are never part of the Full payload, and Flow reconciliation preserves user-managed and third-party MCP configuration.
+
 If `~/.codex/AGENTS.md` already exists, the package lifecycle backs it up and asks Codex to merge the minimal profile with distinct user preferences. Known marker blocks are removed deterministically; unmarked prose is never rewritten by a heuristic script. A target-hash check precedes apply. If Codex cannot complete a valid merge, the original file remains unchanged and the package command returns the review/apply route for its merge packet.
 
 Restart Codex after installation so plugin and skill discovery refresh.
@@ -39,6 +43,8 @@ After any App carrier changes version, the App asks Framework to reconcile OPL B
 The same generic reconciliation runs after App startup readiness and every 24 hours while App remains open. Flow-managed Skills update through OPL Packages. Managed OfficeCLI and MinerU CLI currentness belongs to OPL Base. Managed Codex and Framework/Temporal generations switch on the next App process. External Homebrew, global npm, PATH, or system-owned Codex/Temporal installations are detect-only during background maintenance; when the original owner is verified, Settings may offer an explicitly confirmed owner update, otherwise it shows manual guidance.
 
 Settings separates the objects by owner: Agents for runnable Agent packages, Capabilities for OPL Flow-managed and manual/third-party Skills or Plugins, and Local Environment for OPL Base, OPL App, OPL Packages, and dependency status.
+
+Model selection precedence is explicit user choice, installed OPL Flow recommendation, fresh Codex live default, then App fallback when Flow is unavailable. The App fallback is not a second model-policy authority.
 
 ## Development Repositories
 

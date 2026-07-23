@@ -12,6 +12,8 @@ runtime, package, or domain authority. It may guide how Codex works, verifies,
 and records evidence, but it cannot make OPL App, OPL Framework, OPL Packages,
 or domain systems ready by itself.
 
+Its machine-readable capability graph is nevertheless authoritative for what the OPL Codex workflow needs. Framework executes that graph; App displays and freezes projections from it. Neither layer may create a competing managed inventory.
+
 ## Positioning Matrix
 
 | System | Mature practice to absorb | OPL Flow boundary |
@@ -31,6 +33,9 @@ or domain systems ready by itself.
 | Preference authoring | OPL Flow | Non-blocking `~/.codex/TASTE.md` |
 | Generic OPL Flow skill | OPL Flow | `skills/opl-flow` |
 | Concurrent task coordination | OPL Flow | `skills/coordinate-concurrent-tasks`; coordinates existing owners and fresh-SSOT integration, while actual task archival requires explicit user review |
+| Flow capability graph | OPL Flow | `(kind, id)` declarations in `contracts/workflow-policy.json`, including source, version, activation, offline, conflict, and credential policy |
+| Capability lifecycle | OPL Framework | Install/update/rollback/currentness, release locks, receipts, and unified projections; unsupported default adapters fail closed |
+| Capability UI and release projection | OPL App | Consumes Framework readback and freezes exact carrier bytes; never owns another managed inventory |
 | CodeGraph bootstrap | OPL Flow profile | Initialize and Git-ignore `.codegraph/`; keep detailed tool guidance repo-local |
 | Specialist debugging / verification | Independent skills | Not vendored or measured by OPL Flow; routed only by narrow triggers |
 | Simplification / over-engineering review | Model-native or independent explicit Ponytail skills | No global persona or hook dependency; `ponytail-audit` and `ponytail-review` are not retired by OPL Flow |
@@ -44,9 +49,11 @@ or domain systems ready by itself.
 
 - Fresh machine: `opl packages install opl-flow` owns package installation and can install the rendered profile when user-level `~/.codex/AGENTS.md` does not exist.
 - Existing Codex machine: `opl packages update opl-flow` owns package update and runs the same optimize transaction after source refresh.
+- OPL App Standard and Full install the same default capability graph. Standard fetches the release-locked bytes online; Full embeds those bytes for offline use. Their final lock, digest, and discovery projections must be equivalent.
 - Script merge policy: scripts remove only policy-declared marker blocks. Codex handles unmarked semantic reconciliation; target-hash validation, backup, receipt, and rollback protect the applied result.
-- OPL App Full initialization can include OPL Flow alongside other payloads, but OPL Flow remains the workflow-profile lifecycle. Fresh machines use the direct profile path; existing Codex machines use the merge-packet path.
+- OPL App Full initialization includes OPL Flow alongside the same default dependency closure as Standard, but OPL Flow remains the workflow-profile lifecycle. Fresh machines use the direct profile path; existing Codex machines use the merge-packet path.
 - After any successful OPL App carrier version change, the App requests generic Framework reconciliation for OPL Base and all installed Packages. If OPL Flow is installed, Framework performs its ordinary dependency, conflict, profile, receipt, and rollback transaction. The App does not duplicate Flow policy, maintain a second dependency list, or mutate `AGENTS.md` directly.
+- Flow-managed MCP is distinct from manual or third-party MCP. Full never embeds credentials, and Framework reconciliation preserves unknown user configuration.
 
 ## Verification Boundary
 
