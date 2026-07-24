@@ -33,6 +33,10 @@ class ProfileComposeTests(unittest.TestCase):
         self.assertIn("默认直接完成", profile)
         self.assertIn("用户最高优先级目标及其可验收终态", profile)
         self.assertIn("计划、审计、修复、测试和 handoff 均不得替代终态", profile)
+        self.assertIn("开发环境默认 progress-first", profile)
+        self.assertIn("非致命的工具、test harness、CI、文档或自动化缺陷不得自动阻断交付", profile)
+        self.assertIn("永久修复独立并行或后续收尾", profile)
+        self.assertIn("外部写入结果 unknown", profile)
         self.assertIn("只处理关键路径、确定性阻断和必需验证", profile)
         self.assertIn("其他发现延后，阻断闭合即回主线", profile)
         self.assertIn("超出预期时立即收缩范围，不得继续扩项", profile)
@@ -54,7 +58,7 @@ class ProfileComposeTests(unittest.TestCase):
         self.assertIn("同步远端 `main` 并按当前 SSOT 解决冲突", profile)
         self.assertIn("吸收后验证最终 `main`", profile)
         self.assertIn("清理本任务的临时 Git 表面", profile)
-        self.assertLessEqual(len(profile.splitlines()), 11)
+        self.assertLessEqual(len(profile.splitlines()), 12)
 
     def test_compose_validates_duplicate_module_ids(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
