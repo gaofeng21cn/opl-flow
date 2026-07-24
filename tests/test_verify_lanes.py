@@ -138,12 +138,7 @@ class VerifyLaneTests(unittest.TestCase):
             policy = json.loads(
                 (REPO_ROOT / "contracts" / "workflow-policy.json").read_text(encoding="utf-8")
             )
-            provided = next(
-                item
-                for item in policy["provides"]
-                if item["kind"] == "codex_skill" and item["id"] == "opl-flow"
-            )
-            mutate(provided)
+            mutate(policy)
             (contracts / "workflow-policy.json").write_text(
                 f"{json.dumps(policy, indent=2)}\n",
                 encoding="utf-8",
@@ -157,7 +152,11 @@ class VerifyLaneTests(unittest.TestCase):
 
     def test_every_skill_requires_original_github_source(self) -> None:
         errors = self.workflow_policy_errors_after(
-            lambda item: item.update(source="package:opl-flow/skills/opl-flow")
+            lambda policy: next(
+                item
+                for item in policy["provides"]
+                if item["kind"] == "codex_skill" and item["id"] == "opl-flow"
+            ).update(source="package:opl-flow/skills/opl-flow")
         )
         self.assertIn(
             "all codex_skill capabilities must declare their original GitHub source "
@@ -169,13 +168,34 @@ class VerifyLaneTests(unittest.TestCase):
         for invalid_path in ("../skills/opl-flow", "/skills/opl-flow", r"skills\opl-flow"):
             with self.subTest(source_path=invalid_path):
                 errors = self.workflow_policy_errors_after(
-                    lambda item, value=invalid_path: item.update(source_path=value)
+                    lambda policy, value=invalid_path: next(
+                        item
+                        for item in policy["provides"]
+                        if item["kind"] == "codex_skill" and item["id"] == "opl-flow"
+                    ).update(source_path=value)
                 )
                 self.assertIn(
                     "all codex_skill capabilities must declare their original GitHub source "
                     "and repository-relative source_path",
                     errors,
                 )
+
+    def test_agent_reach_accepts_optional_open_composition_metadata(self) -> None:
+        errors = self.workflow_policy_errors_after(
+            lambda policy: next(
+                item
+                for item in policy["requires"]
+                if item["kind"] == "codex_skill" and item["id"] == "agent-reach"
+            ).update(
+                version_requirement=">=0.0.0",
+                install_source="github",
+                offline_bundle="none",
+                lifecycle_owner="opl-framework",
+                credential_policy="user_or_provider_owned_not_bundled",
+            )
+        )
+
+        self.assertEqual(errors, [])
 
     def test_skill_source_schema_patterns_reject_non_github_and_unsafe_paths(self) -> None:
         schema = json.loads(
