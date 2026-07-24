@@ -20,18 +20,25 @@ OPL Package     ~= R Package
 OPL Flow        = OPL Package(kind=workflow_profile)
 ```
 
-Package, carrier, and executor are independent:
+Package, carrier, and executor are independent. Publication is a separate axis:
 
 ```text
-Package  = stable identity, capabilities and dependency intent
-Carrier  = GHCR/Git/Codex Plugin Manager/OS or local platform
-Executor = Codex CLI/Claude Code/Hermes Agent/future route
+Package     = stable identity, capabilities and dependency intent
+Publication = owner source/tag plus the official GHCR byte source
+Carrier     = local install/update/remove and fresh installed readback
+Executor    = the route that discovers and runs installed capabilities
 ```
 
-Codex Plugin Manager is the first Flow carrier adapter, not Flow's identity or
-installed truth. Codex CLI is the current first executor. Changing executor
-must not reinstall Flow or discard the user's Profile, preferences, or existing
-task state.
+GHCR stores and serves published bytes; it is not a carrier and cannot report
+what a machine has installed. Codex Plugin Manager is the current carrier
+adapter, and Codex CLI is the only formal production executor today. This
+Codex-first path keeps implementation and maintenance small while the
+Package identity, Profile, preferences, tasks, and public status/actions remain
+OPL-owned and executor-neutral.
+
+A minimal Git/local adapter proof may exercise the neutral Package/carrier
+contract so Codex-private fields cannot enter the public boundary. It is a
+conformance test, not a second supported carrier or Claude/Hermes product.
 
 For the complete ownership, GHCR, dependency, App, Full, Profile-safety, and
 migration boundary, use
@@ -110,19 +117,22 @@ The target online publication and update path is:
 Flow owner source/tag
   -> ghcr.io/<owner>/one-person-lab-packages/opl-flow:<immutable-tag>
   -> ghcr.io/<owner>/one-person-lab-packages/opl-flow:latest-stable
-  -> thin Base OCI/native adapter
-  -> carrier install/update
-  -> fresh installed and executor-callable readback
+  -> thin Base OCI download/verify and byte handoff
+  -> configured carrier install/update/remove
+  -> fresh carrier installed readback
+  -> Codex executor discovery/callability
 ```
 
 The Flow owner advances its own `latest-stable` independently. The shared
 `one-person-lab-manifest:latest-stable` is only a Full/offline/integration-test/
-QA snapshot, not ordinary Flow currentness.
+QA snapshot, not ordinary Flow currentness. Neither GHCR nor the shared
+snapshot is local installed truth.
 
 Codex Plugin Manager owns Codex Plugin/config/cache mechanics. Base may retain
-one thin OCI download adapter because Codex does not consume GHCR OCI directly,
-but it must install and read back the complete Flow Package rather than only
-the Plugin subtree.
+one thin OCI downloader because Codex does not consume GHCR OCI directly, but
+the downloader stops after verified byte handoff. The configured carrier runs
+the Package runtime adapter and reads back the complete Flow Package, including
+non-Plugin Profile surfaces.
 
 Restart the selected executor when its native discovery requires it.
 
@@ -137,12 +147,14 @@ Breaking capability interfaces use a new identity or an owner-side adapter.
 Missing dependencies affect Flow only; they do not make Base, App, Full, plain
 Codex, or unrelated Packages unavailable.
 
-`contracts/workflow-policy.json` is still the current executable policy and
-contains a fixed capability graph plus migration metadata. It remains
-transitional machine truth until dual-read migration and terminal platform
-proof allow its lifecycle fields to be removed. OPL App must not parse this
-file or maintain a companion Skill/Tool/Plugin/MCP list from it. App consumes
-only the generic Framework projection of actual platform state.
+`contracts/workflow-policy.json` v3 has already removed exact version,
+install-source, lifecycle-owner and Standard/Full convergence requirements from
+normal capability declarations. It still contains a fixed capability graph,
+source metadata and migration policy. Framework runtime also still emits legacy
+resolver/lock/payload/receipt fields. This is a partial contract migration, not
+terminal platform completion. OPL App must not parse this file or maintain a
+companion Skill/Tool/Plugin/MCP list from it; App consumes only the generic
+Framework projection of actual platform state.
 
 Model precedence remains:
 
@@ -161,7 +173,7 @@ configuration are never bundled or overwritten.
 Keep these independent:
 
 1. Owner publication: source/tag and per-Package GHCR `latest-stable`.
-2. Carrier installed truth: what the actual platform reports installed and
+2. Carrier installed truth: what the local platform reports installed and
    healthy for the complete Package.
 3. Executor route: whether the selected executor can discover and call it.
 4. Full/QA snapshot: the exact bytes selected for one reproducible build only.
@@ -189,10 +201,10 @@ OPL Flow can be a default root in the single App Official Profile:
 - Maintenance updates only Packages still reported installed by their carrier.
 - Flow failure remains local and does not block other roots.
 
-After an App carrier changes, the current implementation may request generic Framework reconciliation
-for already installed Packages. The target keeps the generic scheduling and
-readback result while delegating each physical update to its platform; it never
-treats Official Profile drift as reinstall permission.
+After an App carrier changes, the current implementation may request
+generic Framework reconciliation for already installed Packages. The target keeps the
+generic scheduling and readback result while delegating each physical update to its
+carrier; it never treats Official Profile drift as reinstall permission.
 
 ## Developer Local-Source Tool
 
@@ -250,16 +262,17 @@ acceptance.
 
 ## Compatibility With OPL App Full
 
-Full is an optional offline carrier for the same App Official Profile. It is not
-a second Flow edition, dependency authority, or update channel. Missing embedded
-Flow bytes do not invalidate Base/App; Full must report the root failure
-locally. Once online, the installed Package follows its owner
+Full is an optional offline seed for the same App Official Profile. It is not a
+carrier, second Flow edition, dependency authority, or update channel. Missing
+embedded Flow bytes do not invalidate Base/App; Full must report the root
+failure locally. Once online, the installed Package follows its owner
 `latest-stable`, independently of the frozen Full snapshot.
 
 The target migration is incomplete until clean Standard and Full installs,
 remove-without-reinstall, owner-independent update, Profile safety, full
-Package readback, and executor-switch preservation all have fresh terminal
-proof. Current machine contracts remain authoritative until then.
+Package readback, the formal Codex route, and the bounded Git/local neutral
+contract proof all have fresh terminal evidence. A second executor product is
+not required for this migration.
 
 ## Relationship To OPL Doc
 

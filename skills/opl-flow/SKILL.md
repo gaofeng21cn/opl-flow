@@ -24,21 +24,24 @@ design and development directly.
 - Do not make Flow a prerequisite for Base, App, Standard, Full, plain Codex,
   another Package, or domain readiness.
 
-## Package, Carrier, Executor
+## Package, Publication, Carrier, Executor
 
-Keep three identities separate:
+Keep the three runtime layers separate and treat publication as an independent
+axis:
 
 ```text
-Package  = opl-flow identity and capabilities
-Carrier  = GHCR/Git/Codex Plugin Manager/OS or local platform
-Executor = Codex CLI/Claude Code/Hermes Agent/future route
+Package     = opl-flow identity and capabilities
+Publication = owner source/tag and official GHCR bytes/current alias
+Carrier     = local install/update/remove and fresh installed readback
+Executor    = discovery and execution route for installed capabilities
 ```
 
-Codex Plugin Manager is the current first carrier adapter, not Package identity
-or complete installed truth. Codex CLI is the current first executor.
-Switching executor must not reinstall Flow or lose the user's Profile,
-preferences, or existing tasks. Missing adapter callability affects only that
-executor route.
+GHCR is a publication store/source, not a carrier. Codex Plugin Manager and
+Codex CLI are the only formal carrier/executor production path today. Keep
+Package identity, Profile, preferences, tasks, and public status/actions
+OPL-owned so a future executor adapter can change without reinstalling Flow.
+A minimal Git/local neutral adapter proof may verify that boundary; it is not a
+second supported carrier or executor product.
 
 Normal dependencies are stable identity presence/callability. Do not require
 SemVer/ABI resolution, lock, payload, receipt, digest, provenance, or a shared
@@ -65,9 +68,11 @@ version or provenance solver.
 
 The target official online source is the Flow owner's per-Package GHCR
 `opl-flow:latest-stable`. The shared `one-person-lab-manifest:latest-stable`
-serves only Full/offline/integration-test/QA snapshots. A thin Base OCI adapter
-may download GHCR bytes; Codex owns Plugin/config/cache, while the complete
-Flow Package still needs carrier installed readback.
+serves only Full/offline/integration-test/QA snapshots. GHCR does not install
+the Package or define local truth. A thin Base OCI adapter may download, verify,
+and hand off bytes; the configured carrier performs install/update/remove and
+fresh readback. Codex owns Plugin/config/cache, while the complete Flow Package
+still needs carrier installed readback.
 
 `scripts/install_local_plugin.py` is only a repository developer/local-source
 tool. It is not ordinary installation or Package currentness authority.
@@ -134,7 +139,7 @@ instructions remain entirely repository-owned.
 Read these independently:
 
 1. owner source/tag and per-Package GHCR `latest-stable`;
-2. complete Package installed/healthy state from the actual carrier;
+2. complete Package installed/healthy state from the local carrier;
 3. selected executor discovery and callability;
 4. exact Full/QA snapshot when that build is in scope.
 
@@ -153,4 +158,6 @@ only the local Codex development carrier.
 The target boundary and current migration gap are documented in
 `docs/capability-governance.md` and `docs/status.md`. Do not claim migration
 complete until actual install/update/remove, Standard/Full, Profile safety,
-complete Package, and executor-switch readbacks pass.
+complete Package, the formal Codex route, and the bounded Git/local neutral
+contract proof all pass. Do not build or imply a second executor product merely
+to satisfy that proof.
