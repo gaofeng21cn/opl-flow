@@ -21,7 +21,8 @@
       "id": "opl-flow",
       "kind": "codex_skill",
       "owner": "opl-flow",
-      "source": "package:opl-flow/skills/opl-flow",
+      "source": "https://github.com/gaofeng21cn/opl-flow",
+      "source_path": "skills/opl-flow",
       "online_install_default": true,
       "activation": "task_routed"
     },
@@ -29,7 +30,8 @@
       "id": "coordinate-concurrent-tasks",
       "kind": "codex_skill",
       "owner": "opl-flow",
-      "source": "package:opl-flow/skills/coordinate-concurrent-tasks",
+      "source": "https://github.com/gaofeng21cn/opl-flow",
+      "source_path": "skills/coordinate-concurrent-tasks",
       "online_install_default": true,
       "activation": "task_routed"
     }
@@ -49,7 +51,8 @@
       "owner": "agent-reach",
       "online_install_default": true,
       "activation": "task_routed",
-      "source": "skills-manager:agent-reach"
+      "source": "https://github.com/Panniantong/Agent-Reach",
+      "source_path": "agent_reach/skill"
     }
   ],
   "recommends": [
@@ -59,7 +62,8 @@
       "owner": "iofficeai",
       "online_install_default": true,
       "activation": "task_routed",
-      "source": "skills-manager:officecli"
+      "source": "https://github.com/iOfficeAI/OfficeCLI",
+      "source_path": "."
     },
     {
       "id": "officecli-docx",
@@ -67,7 +71,8 @@
       "owner": "iofficeai",
       "online_install_default": true,
       "activation": "task_routed",
-      "source": "skills-manager:officecli-docx"
+      "source": "https://github.com/iOfficeAI/OfficeCLI",
+      "source_path": "skills/officecli-docx"
     },
     {
       "id": "officecli-pptx",
@@ -75,7 +80,8 @@
       "owner": "iofficeai",
       "online_install_default": true,
       "activation": "task_routed",
-      "source": "skills-manager:officecli-pptx"
+      "source": "https://github.com/iOfficeAI/OfficeCLI",
+      "source_path": "skills/officecli-pptx"
     },
     {
       "id": "officecli-xlsx",
@@ -83,7 +89,8 @@
       "owner": "iofficeai",
       "online_install_default": true,
       "activation": "task_routed",
-      "source": "skills-manager:officecli-xlsx"
+      "source": "https://github.com/iOfficeAI/OfficeCLI",
+      "source_path": "skills/officecli-xlsx"
     },
     {
       "id": "officecli-academic-paper",
@@ -91,7 +98,8 @@
       "owner": "iofficeai",
       "online_install_default": true,
       "activation": "task_routed",
-      "source": "skills-manager:officecli-academic-paper"
+      "source": "https://github.com/iOfficeAI/OfficeCLI",
+      "source_path": "skills/officecli-academic-paper"
     },
     {
       "id": "officecli-data-dashboard",
@@ -99,7 +107,8 @@
       "owner": "iofficeai",
       "online_install_default": true,
       "activation": "task_routed",
-      "source": "skills-manager:officecli-data-dashboard"
+      "source": "https://github.com/iOfficeAI/OfficeCLI",
+      "source_path": "skills/officecli-data-dashboard"
     },
     {
       "id": "officecli-financial-model",
@@ -107,7 +116,8 @@
       "owner": "iofficeai",
       "online_install_default": true,
       "activation": "task_routed",
-      "source": "skills-manager:officecli-financial-model"
+      "source": "https://github.com/iOfficeAI/OfficeCLI",
+      "source_path": "skills/officecli-financial-model"
     },
     {
       "id": "officecli-pitch-deck",
@@ -115,7 +125,8 @@
       "owner": "iofficeai",
       "online_install_default": true,
       "activation": "task_routed",
-      "source": "skills-manager:officecli-pitch-deck"
+      "source": "https://github.com/iOfficeAI/OfficeCLI",
+      "source_path": "skills/officecli-pitch-deck"
     },
     {
       "id": "mineru-document-extractor",
@@ -123,7 +134,8 @@
       "owner": "mineru",
       "online_install_default": true,
       "activation": "task_routed",
-      "source": "skills-manager:mineru-document-extractor"
+      "source": "https://github.com/opendatalab/MinerU-Ecosystem",
+      "source_path": "skills"
     },
     {
       "id": "ui-ux-pro-max",
@@ -131,7 +143,8 @@
       "owner": "nextlevelbuilder",
       "online_install_default": true,
       "activation": "explicit",
-      "source": "skills-manager:ui-ux-pro-max"
+      "source": "https://github.com/nextlevelbuilder/ui-ux-pro-max-skill",
+      "source_path": ".claude/skills/ui-ux-pro-max"
     },
     {
       "id": "officecli",

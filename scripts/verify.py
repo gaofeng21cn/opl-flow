@@ -5,9 +5,10 @@ from __future__ import annotations
 
 import argparse
 import json
+import re
 import subprocess
 import sys
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 
 
 REQUIRED_FILES = (
@@ -113,6 +114,23 @@ def check_workflow_policy(repo_root: Path) -> list[str]:
     required_metadata = {"id", "kind", "online_install_default", "activation"}
     if any(not required_metadata.issubset(item) for item in capabilities):
         errors.append("workflow policy capabilities must declare identity and activation metadata")
+    skill_capabilities = [
+        item for item in capabilities if item.get("kind") == "codex_skill"
+    ]
+    if any(
+        not isinstance(item.get("source"), str)
+        or re.fullmatch(r"https://github\.com/[^/\s]+/[^/\s]+/?", item["source"]) is None
+        or not isinstance(item.get("source_path"), str)
+        or not item["source_path"].strip()
+        or item["source_path"].startswith("/")
+        or "\\" in item["source_path"]
+        or ".." in PurePosixPath(item["source_path"]).parts
+        for item in skill_capabilities
+    ):
+        errors.append(
+            "all codex_skill capabilities must declare their original GitHub source "
+            "and repository-relative source_path"
+        )
     expected_provides = {
         ("codex_plugin", "opl-flow"),
         ("codex_skill", "opl-flow"),
@@ -121,6 +139,23 @@ def check_workflow_policy(repo_root: Path) -> list[str]:
     provides = policy.get("provides", [])
     if {(item.get("kind"), item.get("id")) for item in provides} != expected_provides:
         errors.append("workflow policy provided Plugin and Skills must match the package payload")
+    provided_skill_sources = {
+        item.get("id"): (item.get("source"), item.get("source_path"))
+        for item in provides
+        if item.get("kind") == "codex_skill"
+    }
+    expected_provided_skill_sources = {
+        "opl-flow": (
+            "https://github.com/gaofeng21cn/opl-flow",
+            "skills/opl-flow",
+        ),
+        "coordinate-concurrent-tasks": (
+            "https://github.com/gaofeng21cn/opl-flow",
+            "skills/coordinate-concurrent-tasks",
+        ),
+    }
+    if provided_skill_sources != expected_provided_skill_sources:
+        errors.append("workflow policy provided Skills must use their canonical GitHub source and path")
     if any(item.get("online_install_default") is not True for item in provides):
         errors.append("provided capabilities must be enabled by default")
     schema_kind_enum = (
@@ -142,13 +177,31 @@ def check_workflow_policy(repo_root: Path) -> list[str]:
     if recommended_ids != expected:
         errors.append("workflow policy recommended skill set is incomplete or contains duplicates")
     recommended_skill_sources = {
-        item.get("id"): item.get("source")
+        item.get("id"): (item.get("source"), item.get("source_path"))
         for item in policy.get("recommends", [])
         if item.get("kind") == "codex_skill"
     }
-    expected_skill_sources = {skill_id: f"skills-manager:{skill_id}" for skill_id in expected}
+    officecli_source = "https://github.com/iOfficeAI/OfficeCLI"
+    expected_skill_sources = {
+        "officecli": (officecli_source, "."),
+        "officecli-docx": (officecli_source, "skills/officecli-docx"),
+        "officecli-pptx": (officecli_source, "skills/officecli-pptx"),
+        "officecli-xlsx": (officecli_source, "skills/officecli-xlsx"),
+        "officecli-academic-paper": (officecli_source, "skills/officecli-academic-paper"),
+        "officecli-data-dashboard": (officecli_source, "skills/officecli-data-dashboard"),
+        "officecli-financial-model": (officecli_source, "skills/officecli-financial-model"),
+        "officecli-pitch-deck": (officecli_source, "skills/officecli-pitch-deck"),
+        "mineru-document-extractor": (
+            "https://github.com/opendatalab/MinerU-Ecosystem",
+            "skills",
+        ),
+        "ui-ux-pro-max": (
+            "https://github.com/nextlevelbuilder/ui-ux-pro-max-skill",
+            ".claude/skills/ui-ux-pro-max",
+        ),
+    }
     if recommended_skill_sources != expected_skill_sources:
-        errors.append("workflow policy managed skills must use their Skills Manager package authority")
+        errors.append("workflow policy external skills must use their canonical GitHub source and path")
     if any(not item.get("online_install_default") for item in policy.get("recommends", [])):
         errors.append("workflow policy recommendations must be resolved by default")
     agent_reach = next(
@@ -158,15 +211,20 @@ def check_workflow_policy(repo_root: Path) -> list[str]:
         ),
         None,
     )
-    if agent_reach != {
+    expected_agent_reach = {
         "id": "agent-reach",
         "kind": "codex_skill",
         "owner": "agent-reach",
         "online_install_default": True,
         "activation": "task_routed",
-        "source": "skills-manager:agent-reach",
-    }:
-        errors.append("workflow policy must require agent-reach through open composition")
+        "source": "https://github.com/Panniantong/Agent-Reach",
+        "source_path": "agent_reach/skill",
+    }
+    if agent_reach is None or any(
+        agent_reach.get(key) != value
+        for key, value in expected_agent_reach.items()
+    ):
+        errors.append("workflow policy must require agent-reach from its canonical GitHub source")
     dependencies = [
         item
         for section in ("requires", "recommends")

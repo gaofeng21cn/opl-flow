@@ -82,6 +82,7 @@
         "owner": { "type": "string", "minLength": 1 },
         "version_requirement": { "type": "string", "minLength": 1 },
         "source": { "type": "string", "minLength": 1 },
+        "source_path": { "type": "string", "minLength": 1 },
         "install_source": { "type": "string", "minLength": 1 },
         "lifecycle_owner": { "type": "string", "minLength": 1 },
         "online_install_default": { "type": "boolean" },
@@ -89,7 +90,29 @@
         "activation": { "enum": ["always", "task_routed", "explicit"] },
         "conflict_policy": { "enum": ["managed_reconcile", "preserve_user_surface", "fail_closed_on_collision"] },
         "credential_policy": { "enum": ["none", "user_or_provider_owned_not_bundled"] }
-      }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": { "kind": { "const": "codex_skill" } },
+            "required": ["kind"]
+          },
+          "then": {
+            "required": ["source", "source_path"],
+            "properties": {
+              "source": {
+                "type": "string",
+                "pattern": "^https://github\\.com/[^/]+/[^/]+/?$"
+              },
+              "source_path": {
+                "type": "string",
+                "minLength": 1,
+                "pattern": "^(?!/)(?!.*(?:^|/)\\.\\.(?:/|$))(?!.*\\\\).+$"
+              }
+            }
+          }
+        }
+      ]
     },
     "providedCapabilities": {
       "type": "array",

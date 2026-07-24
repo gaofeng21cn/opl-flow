@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
+import re
 import tempfile
 import unittest
 
@@ -103,7 +104,7 @@ class VerifyLaneTests(unittest.TestCase):
             errors,
         )
 
-    def test_workflow_policy_requires_skills_manager_authority(self) -> None:
+    def test_workflow_policy_requires_canonical_github_authority(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
             repo_root = Path(temp_dir)
             contracts = repo_root / "contracts"
@@ -112,7 +113,7 @@ class VerifyLaneTests(unittest.TestCase):
                 (REPO_ROOT / "contracts" / "workflow-policy.json").read_text(encoding="utf-8")
             )
             ui_ux = next(item for item in policy["recommends"] if item["id"] == "ui-ux-pro-max")
-            ui_ux["source"] = "github:nextlevelbuilder/ui-ux-pro-max-skill"
+            ui_ux["source"] = "https://github.com/example/ui-ux-pro-max-skill"
             (contracts / "workflow-policy.json").write_text(
                 f"{json.dumps(policy, indent=2)}\n",
                 encoding="utf-8",
@@ -125,9 +126,76 @@ class VerifyLaneTests(unittest.TestCase):
             errors = check_workflow_policy(repo_root)
 
         self.assertIn(
-            "workflow policy managed skills must use their Skills Manager package authority",
+            "workflow policy external skills must use their canonical GitHub source and path",
             errors,
         )
+
+    def workflow_policy_errors_after(self, mutate) -> list[str]:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            repo_root = Path(temp_dir)
+            contracts = repo_root / "contracts"
+            contracts.mkdir()
+            policy = json.loads(
+                (REPO_ROOT / "contracts" / "workflow-policy.json").read_text(encoding="utf-8")
+            )
+            provided = next(
+                item
+                for item in policy["provides"]
+                if item["kind"] == "codex_skill" and item["id"] == "opl-flow"
+            )
+            mutate(provided)
+            (contracts / "workflow-policy.json").write_text(
+                f"{json.dumps(policy, indent=2)}\n",
+                encoding="utf-8",
+            )
+            (contracts / "workflow-policy.schema.json").write_text(
+                (REPO_ROOT / "contracts" / "workflow-policy.schema.json").read_text(encoding="utf-8"),
+                encoding="utf-8",
+            )
+
+            return check_workflow_policy(repo_root)
+
+    def test_every_skill_requires_original_github_source(self) -> None:
+        errors = self.workflow_policy_errors_after(
+            lambda item: item.update(source="package:opl-flow/skills/opl-flow")
+        )
+        self.assertIn(
+            "all codex_skill capabilities must declare their original GitHub source "
+            "and repository-relative source_path",
+            errors,
+        )
+
+    def test_every_skill_requires_safe_repository_relative_source_path(self) -> None:
+        for invalid_path in ("../skills/opl-flow", "/skills/opl-flow", r"skills\opl-flow"):
+            with self.subTest(source_path=invalid_path):
+                errors = self.workflow_policy_errors_after(
+                    lambda item, value=invalid_path: item.update(source_path=value)
+                )
+                self.assertIn(
+                    "all codex_skill capabilities must declare their original GitHub source "
+                    "and repository-relative source_path",
+                    errors,
+                )
+
+    def test_skill_source_schema_patterns_reject_non_github_and_unsafe_paths(self) -> None:
+        schema = json.loads(
+            (REPO_ROOT / "contracts" / "workflow-policy.schema.json").read_text(encoding="utf-8")
+        )
+        properties = (
+            schema["$defs"]["capability"]["allOf"][0]["then"]["properties"]
+        )
+        source_pattern = properties["source"]["pattern"]
+        path_pattern = properties["source_path"]["pattern"]
+
+        self.assertIsNotNone(
+            re.fullmatch(source_pattern, "https://github.com/Panniantong/Agent-Reach")
+        )
+        self.assertIsNone(re.fullmatch(source_pattern, "skills-manager:agent-reach"))
+        self.assertIsNotNone(re.fullmatch(path_pattern, "agent_reach/skill"))
+        self.assertIsNotNone(re.fullmatch(path_pattern, "."))
+        for invalid_path in ("../skill", "/skill", r"skills\agent-reach"):
+            with self.subTest(schema_source_path=invalid_path):
+                self.assertIsNone(re.fullmatch(path_pattern, invalid_path))
 
 
 if __name__ == "__main__":

@@ -82,7 +82,7 @@ Settings keeps the ownership visible: Agents manages runnable Agent packages, Ca
 
 Currentness has four distinct layers: owner source/tag, Framework stable catalog, installed package lock and payload, and fresh Codex discovery. Source or catalog currentness does not prove that the machine switched. Use `opl packages list --json` for catalog-versus-installed selection, `opl packages status --package-id opl-flow --json` for the installed lock, payload digest, managed-Skill validation, and resolved entrypoint authority, then `codex plugin list --json` for the active discovery version. OPL Flow does not maintain a second companion or readiness checker.
 
-Flow-managed Skills use their declared Skills Manager package as the primary physical authority. Framework may materialize a fallback only when that authority is absent; it validates the final `SKILL.md` frontmatter and referenced `references/`, `scripts/`, `templates/`, or `assets/` closure, excludes Python bytecode caches from payload hashes, and requires `~/.codex/skills` plus `~/.agents/skills` to resolve to the same source.
+Every Skill in the Flow capability graph declares its original public GitHub repository and repository-relative path. Framework may reuse an installed or packaged payload only when its provenance resolves to that declaration, or materialize the declared GitHub source directly; it validates the final `SKILL.md` frontmatter and referenced `references/`, `scripts/`, `templates/`, or `assets/` closure, excludes Python bytecode caches from payload hashes, and requires `~/.codex/skills` plus `~/.agents/skills` to resolve to the same physical source. Skills Manager may manage a user's private collection, but neither it nor a build machine's local Skills directories are upstream dependency authorities.
 
 Restart Codex after installation.
 
@@ -151,7 +151,7 @@ Use $coordinate-concurrent-tasks to rebuild the active execution graph, run inde
 
 The coordination skill can assign owners, identify gaps, and review archive readiness. It cannot infer approval for Git/release/package mutation or for actual thread archival.
 
-`contracts/workflow-policy.json` is the machine-readable owner for provided, required, recommended, and compatible capabilities. Capability identity is `(kind, id)`, so a Skill and CLI may share a textual id without collapsing. Framework reuses an available compatible source or projects a generic action for a missing capability. Version, install-source, lock, and payload metadata are optional resolution hints or concrete artifact evidence, not composition prerequisites.
+`contracts/workflow-policy.json` is the machine-readable owner for provided, required, recommended, and compatible capabilities. Capability identity is `(kind, id)`, so a Skill and CLI may share a textual id without collapsing. Every Skill declares its original public GitHub repository plus repository-relative `source_path`; package or Full delivery records where bytes are carried, not where they originate. Version, install-source, lock, and payload metadata are optional resolution hints or concrete artifact evidence, not composition prerequisites.
 
 The policy requires `agent-reach` as a default Skill. This does not make App, Full, a release lock, or an embedded payload a Flow prerequisite. Flow never packages credentials, and reconciliation preserves user-managed or third-party MCP surfaces not declared by Flow.
 

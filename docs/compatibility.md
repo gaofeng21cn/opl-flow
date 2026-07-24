@@ -33,9 +33,9 @@ Its machine-readable capability graph is nevertheless authoritative for what the
 | Preference authoring | OPL Flow | Non-blocking `~/.codex/TASTE.md` |
 | Generic OPL Flow skill | OPL Flow | `skills/opl-flow` |
 | Concurrent task coordination | OPL Flow | `skills/coordinate-concurrent-tasks`; coordinates existing owners and fresh-SSOT integration, while actual task archival requires explicit user review |
-| Flow capability graph | OPL Flow | Open `(kind, id)` declarations in `contracts/workflow-policy.json`, with required/default status, activation, and optional source hints |
-| Capability lifecycle | OPL Framework | Reuse available compatible sources, project missing actions, and record concrete install receipts |
-| Capability UI and distribution | OPL App | Consumes Framework readback and may carry available payloads; never owns another managed inventory |
+| Flow capability graph | OPL Flow | Open `(kind, id)` declarations in `contracts/workflow-policy.json`, with required/default status, activation, and each Skill's original GitHub repository plus relative path |
+| Capability lifecycle | OPL Framework | Resolve declared GitHub sources, reuse provenance-compatible installations, project missing actions, and record concrete install receipts |
+| Capability UI and distribution | OPL App | Consumes Framework readback and may carry GitHub-sourced payloads; never owns another managed inventory or reads build-machine Skill directories as source |
 | CodeGraph bootstrap | OPL Flow profile | Initialize and Git-ignore `.codegraph/`; keep detailed tool guidance repo-local |
 | Specialist debugging / verification | Independent skills | Not vendored or measured by OPL Flow; routed only by narrow triggers |
 | Simplification / over-engineering review | Model-native or independent explicit Ponytail skills | No global persona or hook dependency; `ponytail-audit` and `ponytail-review` are not retired by OPL Flow |
