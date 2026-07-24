@@ -1,23 +1,12 @@
-OPL Flow 是可选的、默认进入 App Official Profile 的 OPL Package；它不构成
-OPL Base、OPL App、Standard、Full、其他 Package 或普通 Codex 的 readiness 前置。
+# OPL Flow
 
-- Package、carrier、executor 必须分层。`opl-flow` 是稳定 Package identity；
-  Codex Plugin Manager 只是当前首个 carrier adapter，Codex CLI 只是当前首个
-  executor。切换 executor 不得重装 Package，或丢失用户 Profile、偏好和已存在任务。
-- Package 与 capability 依赖默认只检查稳定 identity 是否 present/callable。不得把
-  SemVer、ABI、lock、payload、receipt、digest、provenance 或 shared release cohort
-  加回普通组合与 readiness 门禁；breaking interface 使用新 identity 或 owner adapter。
-- OPL Flow 可以声明 Profile 与 capability intent；OPL App 不解析 Flow 的 companion
-  Skill/Tool/Plugin/MCP 清单，只消费 Framework 对实际平台状态的通用投影。
-- First-party OPL Flow bytes 由 Package owner 独立发布到 per-Package GHCR
-  `latest-stable`。shared manifest 只服务 Full/offline/integration-test/QA 快照，
-  不是普通安装、更新或 currentness 权威。
-- 修改用户 `~/.codex/AGENTS.md` 必须保留 target SHA stale-write 检查、修改前备份和
-  原子替换；这是 user-owned personalization 的窄安全不变量，不得扩张成通用 Package
-  lock、payload、receipt 或 transaction engine。
-- 当前 contracts/source/tests 仍可能实现旧 Framework lifecycle。文档必须把
-  `current transitional implementation` 与 `target architecture` 分开；只有真实
-  platform、install、update、restart 和 executor readback 才能证明迁移完成。
+本仓持有 OPL Flow 的最小用户 Profile 源码、Package/Plugin payload、workflow policy 和仓库开发工具。
+
+- `profile/manifest.json`、`profile/modules/01-user-preferences.md`、`templates/AGENTS.md` 与 `templates/TASTE.md` 是 Profile 权威链；`contracts/workflow-policy.json` 持有机器策略。
+- OPL Framework 持有正式安装、更新、carrier reconciliation 和 installed currentness；`scripts/install_local_plugin.py` 只用于本仓开发验证。
+- OPL Flow 不拥有 consumer repo 的 `AGENTS.md`、项目事实或领域 truth；repo profile 工具只管理 `contracts/opl-native-profile.json` 元数据并移除已知 legacy marker。
+- 目标架构、迁移状态和安装说明留在 `README.md` 与 `docs/`，不得用根规则替代 contracts、source、tests 或 fresh readback。
+- 默认验证运行 `scripts/verify.sh`；涉及完整 payload、插件或安装工具时运行 `scripts/verify.sh full`。
 
 <!-- CODEGRAPH_START -->
 ## CodeGraph
