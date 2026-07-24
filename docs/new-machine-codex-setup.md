@@ -1,15 +1,18 @@
 # OPL Flow New Machine Setup
 
 Owner: `gaofeng`
-Purpose: `new_machine_opl_flow_profile_setup`
-State: `active`
-Machine boundary: Human-readable setup runbook. Package installation, profile
-migration, installed currentness, and active discovery remain in Framework package
-transactions, receipts, package readback, and fresh Codex discovery output.
+Purpose: `new_machine_flow_profile_setup`
+State: `active_transitional_runbook`
+Machine boundary: 本页给出现行可执行安装路径，并明确 target composition 边界。
+命令输出、platform inventory 和 fresh executor discovery 才是本机事实。
 
-This page installs the OPL Flow preference profile only. For the complete OPL family setup, use the canonical [One Person Lab bootstrap guide](https://github.com/gaofeng21cn/one-person-lab/blob/main/docs/references/current-support/opl-new-machine-codex-bootstrap.md).
+This page installs the OPL Flow Profile only. For a complete OPL family setup,
+use the canonical
+[One Person Lab bootstrap guide](https://github.com/gaofeng21cn/one-person-lab/blob/main/docs/references/current-support/opl-new-machine-codex-bootstrap.md).
 
 ## Install
+
+Current compatibility commands:
 
 ```bash
 opl packages install opl-flow
@@ -17,45 +20,101 @@ opl packages update opl-flow
 opl packages optimize opl-flow
 ```
 
-OPL Flow installs:
+They install the current normal Plugin identity
+`opl-flow@opl-agent-opl-flow-local`, the minimal `~/.codex/AGENTS.md`,
+non-runtime `~/.codex/TASTE.md`, `opl-flow`, and
+`coordinate-concurrent-tasks`.
 
-- the minimal user-level `~/.codex/AGENTS.md` preference profile;
-- the non-runtime `~/.codex/TASTE.md` authoring source;
-- the normal package plugin identity `opl-flow@opl-agent-opl-flow-local`;
-- the bundled `opl-flow` and `coordinate-concurrent-tasks` skills.
+The current Framework route still performs policy migration and may produce
+lock, payload, provenance, rollback receipt, or other lifecycle fields. They
+are transitional implementation evidence, not target dependency requirements.
 
-The `coordinate-concurrent-tasks` skill coordinates owners, parallel work, fresh-main absorption, completion gaps, and archive-readiness evidence across Codex conversations. It does not own Git lanes, release readback, package lifecycle, or cleanup mutation, and it never archives a task before the user reviews and explicitly accepts that task.
+The target source is the Flow owner's per-Package GHCR
+`opl-flow:latest-stable`. The shared manifest is only a
+Full/offline/integration-test/QA snapshot. Base may use a thin OCI adapter and
+Codex may activate Plugin/config/cache, but installation is complete only when
+the carrier reports the complete Flow Package installed and the selected
+executor reports the route callable.
 
-The Framework package transaction applies the policy's declared conflict migration: matching legacy workflow surfaces are backed up, removed from active discovery and recorded in a rollback receipt. A migration id can be retained explicitly with `--keep`.
+## Dependencies
 
-The same transaction resolves `contracts/workflow-policy.json`. Every Skill declaration names its original public GitHub repository and repository-relative path. Framework reuses an available capability only when its provenance is compatible with that declaration; otherwise it materializes the GitHub source or returns a generic install or repair action. Required and recommended entries do not require exact versions, locks, or embedded payloads.
+Flow dependency intent uses stable identity. `requires` means present and
+callable; `recommends` means convenient by default. Neither requires SemVer/ABI
+resolution, lock, payload, receipt, digest, provenance match, App, Full, or a
+shared cohort.
 
-The policy declares `agent-reach` from `https://github.com/Panniantong/Agent-Reach` at `agent_reach/skill` as a required default Skill. It may already exist, be resolved from that upstream source, or remain a visible action until installation is possible. OPL App and Full are not prerequisites.
+`contracts/workflow-policy.json` still contains the current fixed companion
+graph and source metadata. Framework may consume it during transition. OPL App
+must not parse it or maintain a second companion list.
 
-Standard and Full may use different compatible versions. Full may carry payloads materialized from the declared public GitHub sources for convenience; it never reads a build machine's Skills Manager, Codex Skill directory, or Agents Skill directory as a payload source. API keys, OAuth tokens, and account state are never bundled, and Flow reconciliation preserves user-managed and third-party MCP configuration.
+A missing capability remains a visible Flow-local action. It must not block
+Base, App, plain Codex, Full, or unrelated Packages.
 
-If `~/.codex/AGENTS.md` already exists, the package lifecycle backs it up and asks Codex to merge the minimal profile with distinct user preferences. Known marker blocks are removed deterministically; unmarked prose is never rewritten by a heuristic script. A target-hash check precedes apply. If Codex cannot complete a valid merge, the original file remains unchanged and the package command returns the review/apply route for its merge packet.
+## Existing Profile
 
-Restart Codex after installation so plugin and skill discovery refresh.
+If `~/.codex/AGENTS.md` already exists, the current package route:
 
-After any App carrier changes version, the App asks Framework to reconcile OPL Base and every installed OPL Package. An installed OPL Flow therefore receives the same dependency refresh, conflict retirement, and profile migration as an explicit package update. Package payload changes apply immediately, with a Codex restart required only to refresh plugin and skill discovery; Base runtime changes follow the Framework staging and restart-activation policy.
+1. reads the original SHA;
+2. creates a backup;
+3. removes only known marker blocks;
+4. asks for semantic preservation of distinct preferences;
+5. rejects a changed target SHA;
+6. validates and atomically applies the candidate.
 
-The same generic reconciliation runs after App startup readiness and every 24 hours while App remains open. Flow-managed Skills update through OPL Packages. Managed OfficeCLI and MinerU CLI currentness belongs to OPL Base. Managed Codex and Framework/Temporal generations switch on the next App process. External Homebrew, global npm, PATH, or system-owned Codex/Temporal installations are detect-only during background maintenance; when the original owner is verified, Settings may offer an explicitly confirmed owner update, otherwise it shows manual guidance.
+If merge cannot be validated, the original remains unchanged and the command
+returns the review/apply route. Current compatibility recovery may record a
+rollback receipt; that receipt protects this user-owned file mutation only and
+must not become a generic Package composition gate.
 
-Settings separates the objects by owner: Agents for runnable Agent packages, Capabilities for OPL Flow-managed and manual/third-party Skills or Plugins, and Local Environment for OPL Base, OPL App, OPL Packages, and dependency status.
+Restart the selected executor so native Plugin/Skill discovery refreshes.
 
-Model selection precedence is explicit user choice, installed OPL Flow recommendation, fresh Codex live default, then App fallback when Flow is unavailable. The App fallback is not a second model-policy authority.
+## App Standard And Full
+
+Flow may be a default root in the one App Official Profile:
+
+- Standard installs from the online owner source.
+- Full may use offline seed bytes for the same root.
+- Profile application happens only at first install or explicit Restore.
+- User removal persists across restart, App update, and maintenance.
+- Background maintenance updates only carrier-reported installed Packages.
+- App does not derive install state from its metadata or from a Codex Plugin
+  list alone.
+
+Switching from Codex CLI to another executor must preserve the installed Flow
+Package, `AGENTS.md`, `TASTE.md`, user preferences, and existing tasks. Only the
+new executor route may report adapter missing or unavailable.
+
+Credentials, API keys, OAuth state, account data, and unknown user/third-party
+MCP configuration are never bundled.
 
 ## Development Repositories
 
-The installed global profile tells Codex to initialize CodeGraph when entering a development repository that lacks an index:
+The installed global Profile tells Codex to initialize CodeGraph when a
+development repository lacks an index:
 
 ```bash
 codegraph init .
 ```
 
-The repository must Git-ignore `.codegraph/` and keep a concise repo-local CodeGraph block in `AGENTS.md`. Structural searches should use CodeGraph; literal text searches should use `rg`.
+Git-ignore `.codegraph/`, keep a concise repo-local CodeGraph block in
+`AGENTS.md`, use CodeGraph for structural search, and `rg` for literal text.
 
 ## Verification Boundary
 
-For repository development only, `scripts/install_local_plugin.py --verify-only` checks a locally staged checkout and exact plugin/cache payload. It is not a package-currentness claim.
+Read current layers separately:
+
+```bash
+opl packages list --json
+opl packages status --package-id opl-flow --json
+codex plugin list --json
+```
+
+For repository development only:
+
+```bash
+python3 scripts/install_local_plugin.py --verify-only
+```
+
+The developer command validates a local Plugin/cache payload. It does not prove
+per-Package GHCR publication, complete Package currentness, Standard/Full,
+another executor, or the target migration.

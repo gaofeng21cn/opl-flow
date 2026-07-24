@@ -1,74 +1,105 @@
 # OPL Flow Compatibility And Positioning
 
 Owner: `gaofeng`
-Purpose: `opl_flow_positioning_and_compatibility`
-State: `active`
-Machine boundary: This page is a human-readable positioning map. Executable truth remains the plugin manifest, install script, bundled skills, and repo-native verification commands.
+Purpose: `flow_positioning`
+State: `active_target_with_transitional_route`
+Machine boundary: 本文是人类可读定位。组合架构由
+[capability-governance.md](./capability-governance.md) 统一定义；实际安装和可调用性
+由当前 machine contracts、平台 inventory 与 fresh readback 定义。
 
-OPL Flow is a Codex-first, model-native preference profile. It packages a minimal `AGENTS.md`, installs a non-runtime authoring source, and leaves development methods external and on demand.
-
-Publicly, OPL Flow should be read as a distribution of working mode, not as a
-runtime, package, or domain authority. It may guide how Codex works, verifies,
-and records evidence, but it cannot make OPL App, OPL Framework, OPL Packages,
-or domain systems ready by itself.
-
-Its machine-readable capability graph is nevertheless authoritative for what the OPL Codex workflow needs. Framework executes that graph; App displays and freezes projections from it. Neither layer may create a competing managed inventory.
+OPL Flow 是 model-native preference Profile，不是开发方法论、runtime、package
+manager 或 domain authority。它可以作为一个 OPL Package 被任意兼容 App/carrier
+安装，也可以完全缺席而不阻断 Base、App、Full 或其他 Packages。
 
 ## Positioning Matrix
 
-| System | Mature practice to absorb | OPL Flow boundary |
+| System | What Flow keeps | What Flow does not own |
 | --- | --- | --- |
-| Codex AGENTS.md / skills | Keep persistent preferences concise and scope project procedures locally. | OPL Flow owns the minimal user profile and its install/readback contract. It does not own project facts, source, tests, runtime output, or domain contracts. |
-| Specialist skills | Use only for explicit requests or narrow domain/high-risk conditions that require reusable procedure. | Ordinary development remains model-native; OPL Flow neither packages nor measures a methodology bundle. |
-| Ponytail | Retired conflict: plugin hooks and the broad main persona for the optimized OPL Flow profile. | Package migration backs up the plugin, config, hooks, and main-persona discovery surface, then removes them from active discovery unless explicitly kept. Independently installed `ponytail-audit` and `ponytail-review` skills remain available only as explicit optional actions. |
-| Trellis | Persist specs, tasks, workspace state, and closeout artifacts in versioned project surfaces. | OPL Flow absorbs the artifact discipline, but writes Durable evidence into each repo's existing docs, contracts, ledgers, or closeouts instead of creating a second `.trellis`-style truth source. |
-| Claude Code skills/subagents/memory | Load specialized procedures on demand; use subagents for bounded, isolated work; keep memory/rules concise and scoped. | OPL Flow keeps the user's highest-priority outcome on the critical path, defers non-blocking findings, permits only one-level delegation, and bounds concurrency at 4 by default or 8 after a useful batch. |
-| GitHub Agentic Workflows | Use scoped permissions, auditability, and safe outputs for production agent work. | OPL Flow keeps the preference-level principles only; repository-native Git, CI, release, and readback surfaces remain the executable authority. |
+| Codex `AGENTS.md` / skills | 简短的持久偏好与按需 Skill。 | Project facts、source、tests、runtime 或 domain truth。 |
+| Claude Code / Hermes / future executor | 可选 executor adapter；切换时复用同一 Flow identity 和 Profile。 | 第二份 Flow Package、第二套用户偏好或中央 executor version matrix。 |
+| Codex Plugin Manager | 当前首个 Plugin/config/cache carrier adapter。 | Flow identity、完整 Package installed truth、其他 carrier 或生态 currentness。 |
+| Git / GHCR / OS or local platform | 各自的 source、bytes 与原生 lifecycle。 | App preference、业务 task 或其他 platform truth。 |
+| `skills/coordinate-concurrent-tasks` | 有界协调现有 owner、fresh-main integration 和 archive-readiness review。 | Git/release/package mutation authority 或自动 archive。 |
+| Specialist skills | 由自己的 explicit/narrow trigger 按需加载。 | Flow-managed 固定 companion readiness 清单。 |
+| Ponytail | Retired conflict: hooks 和 broad main persona 不属于最小 Flow Profile。 | 独立显式安装的 audit/review capability。 |
+| OPL App | 可选 GUI；一个 Official Profile 和统一状态展示。 | Flow policy parser、companion list、Package lifecycle 或 installed mirror。 |
+| OPL Base / Framework | 动态 discovery、presence/callability、thin adapters 和 generic projection。 | Flow-specific catalog 或 OPL-owned version/lock/payload/receipt manager。 |
 
-## Installed Layers
+## Installed Surfaces
 
-| Layer | Owner | Installed by OPL Flow |
-| --- | --- | --- |
-| Runtime workflow profile | OPL Flow | `~/.codex/AGENTS.md` |
-| Preference authoring | OPL Flow | Non-blocking `~/.codex/TASTE.md` |
-| Generic OPL Flow skill | OPL Flow | `skills/opl-flow` |
-| Concurrent task coordination | OPL Flow | `skills/coordinate-concurrent-tasks`; coordinates existing owners and fresh-SSOT integration, while actual task archival requires explicit user review |
-| Flow capability graph | OPL Flow | Open `(kind, id)` declarations in `contracts/workflow-policy.json`, with required/default status, activation, and each Skill's original GitHub repository plus relative path |
-| Capability lifecycle | OPL Framework | Resolve declared GitHub sources, reuse provenance-compatible installations, project missing actions, and record concrete install receipts |
-| Capability UI and distribution | OPL App | Consumes Framework readback and may carry GitHub-sourced payloads; never owns another managed inventory or reads build-machine Skill directories as source |
-| CodeGraph bootstrap | OPL Flow profile | Initialize and Git-ignore `.codegraph/`; keep detailed tool guidance repo-local |
-| Specialist debugging / verification | Independent skills | Not vendored or measured by OPL Flow; routed only by narrow triggers |
-| Simplification / over-engineering review | Model-native or independent explicit Ponytail skills | No global persona or hook dependency; `ponytail-audit` and `ponytail-review` are not retired by OPL Flow |
-| OPL Base | One Person Lab | Not installed or updated by OPL Flow |
-| OPL App | One Person Lab App / host carrier | Optional GUI; not installed or updated by OPL Flow |
-| OPL Packages | One Person Lab + package owner | OPL Flow participates as one Package; it does not own other Packages |
-| Base dependencies/integrations | One Person Lab / external tool owners | Not independent user modules and not owned by OPL Flow |
-| User data and artifacts | User / domain owners | Not owned by OPL Flow |
+Flow Package 可以暴露：
+
+- `~/.codex/AGENTS.md` minimal runtime Profile；
+- `~/.codex/TASTE.md` non-runtime authoring source；
+- `skills/opl-flow`；
+- `skills/coordinate-concurrent-tasks`；
+- model recommendation 和其他 stable capability identities。
+
+这些 capability 不是独立 OPL install objects。App 不解析
+`contracts/workflow-policy.json` 来安装 companion Skills；Framework 从 carrier
+platform 发现实际 installed identities，并对 required edge 只检查
+presence/callability。
 
 ## Install And Update Boundary
 
-- Fresh machine: `opl packages install opl-flow` owns package installation and can install the rendered profile when user-level `~/.codex/AGENTS.md` does not exist.
-- Existing Codex machine: `opl packages update opl-flow` owns package update and runs the same optimize transaction after source refresh.
-- OPL App Standard and Full can reach the same useful capability set through different compatible sources and versions; byte-identical locks are not required.
-- Script merge policy: scripts remove only policy-declared marker blocks. Codex handles unmarked semantic reconciliation; target-hash validation, backup, receipt, and rollback protect the applied result.
-- OPL App Full may include OPL Flow and other available capabilities, but it is an optional carrier rather than a dependency prerequisite.
-- After any successful OPL App carrier version change, the App requests generic Framework reconciliation for OPL Base and all installed Packages. If OPL Flow is installed, Framework performs its ordinary dependency, conflict, profile, receipt, and rollback transaction. The App does not duplicate Flow policy, maintain a second dependency list, or mutate `AGENTS.md` directly.
-- Flow-managed MCP is distinct from manual or third-party MCP. Full never embeds credentials, and Framework reconciliation preserves unknown user configuration.
+当前 compatibility commands 保持：
+
+```bash
+opl packages install opl-flow
+opl packages update opl-flow
+opl packages optimize opl-flow
+```
+
+目标普通发布源是 Flow owner 的 per-Package GHCR `latest-stable`。shared
+`one-person-lab-manifest:latest-stable` 只用于 Full/offline/integration-test/QA
+snapshot，不决定 ordinary currentness。
+
+Required/recommended identity 不要求 SemVer/ABI、lock、payload、receipt、digest 或
+provenance match。精确 metadata 可以服务一个具体 build/release artifact 或迁移诊断，
+但不参与 composition/readiness。
+
+Script merge policy保留一条独立不变量：target SHA stale-write check、backup、candidate
+validation 和 atomic apply。当前实现可能记录 rollback receipt；该 receipt 只说明
+Profile mutation 的 compatibility recovery，不是通用 Package dependency。
+
+## Standard And Full
+
+OPL App Standard 和 Full 使用同一 Official Profile。Flow 是可替换的默认 root：
+
+- Standard 可在线安装；
+- Full 可携带 offline seed；
+- 缺失只影响 Flow；
+- 用户卸载后 maintenance 不得装回；
+- explicit Restore 才重新 ensure；
+- credentials 和 unknown third-party MCP state 永不打包或覆盖。
+
+App carrier 更新后，当前实现可能调用 generic Framework reconciliation；目标只更新
+platform 仍报告 installed 的 Packages，不把 Official Profile 变成持续 desired-state
+loop。
 
 ## Verification Boundary
 
-- `scripts/install_local_plugin.py --verify-only` is a repository developer/local-source check for the AGENTS profile, staged plugin, exact installed plugin identity, and versioned cache payload. It is not the package currentness authority.
-- Package readback keeps owner source/tag, Framework stable catalog, installed lock/payload, and fresh Codex discovery as separate evidence layers. Managed-Skill projection is current only when final payload validation passes and Codex plus Agents entrypoints resolve to the same declared authority.
-- It does not score project readiness or domain quality. OPL Framework reads its conflict/retirement policy during an explicit OPL Flow package install, update, optimize, or generic post-App-update reconciliation of installed Packages.
-- Framework migration backs up and retires the historical surfaces declared by the workflow policy.
-- Base runtime/dependencies, App release/currentness, other Packages, MAS/MAG/RCA/BookForge domain truth, and owner-route status remain on their owning surfaces.
+Repository developer check：
+
+```bash
+python3 scripts/install_local_plugin.py --verify-only
+```
+
+它验证本地 Codex Plugin/cache payload，不证明 per-Package GHCR、完整 Package、
+Standard/Full、另一 executor 或本机 ordinary currentness。
+
+Target currentness 分为 owner publication、carrier installed truth、executor
+callability 和 Full/QA snapshot。任一层都不能替代其他层。Framework transitional
+lock/payload fields 可读取用于兼容诊断，但不能提升为 target composition gate。
+
+OPL Flow 可以将 task 标为 `SAFE_TO_ARCHIVE`，但实际 archive 仍需要 fresh user
+acceptance。
 
 ## Canonical External References
 
 - Codex customization: https://developers.openai.com/codex/concepts/customization
-- Workflow dependency and migration policy: `contracts/workflow-policy.json`
-- Trellis: https://github.com/mindfold-ai/Trellis
+- Current workflow policy: `contracts/workflow-policy.json`
+- Target composition SSOT: `docs/capability-governance.md`
 - Claude Code skills: https://docs.anthropic.com/en/docs/claude-code/skills
 - Claude Code subagents: https://docs.anthropic.com/en/docs/claude-code/sub-agents
-- Claude Code memory: https://docs.anthropic.com/en/docs/claude-code/memory
 - GitHub Agentic Workflows: https://github.github.com/gh-aw/

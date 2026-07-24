@@ -5,20 +5,48 @@ description: "Use when installing, syncing, diagnosing, or explaining the OPL Fl
 
 # OPL Flow
 
-OPL Flow distributes the user's minimal Codex preference profile. It owns the user-level `AGENTS.md`, non-runtime `TASTE.md`, plugin payload semantics, workflow policy, and model recommendation.
+OPL Flow is an optional `OPL Package(kind=workflow_profile)` that distributes
+the user's minimal Codex preference profile. It owns the Profile source and
+intent, not OPL Base/App readiness, Package currentness, project facts,
+runtime/domain truth, or another executor.
 
-Keep project facts and development procedures out of the user-level profile. Repo-local instructions, contracts, source, tests, and runtime surfaces remain authoritative for the project.
+Keep project facts and procedures repo-local. Let the model handle ordinary
+design and development directly.
 
 ## Route
 
-- Use this skill for OPL Flow profile explanation, repository-local profile sync, or diagnosis of its package-delivered profile and plugin payload.
-- Use `$coordinate-concurrent-tasks` for multi-thread ownership, parallel execution, fresh-SSOT integration, task-gap auditing, and archive-readiness review. It coordinates existing authorities; it does not grant Git, release, package, or thread-archive permission.
-- For ordinary repo work, follow the active `AGENTS.md` and repo-native facts.
-- Let the model handle ordinary design and development directly.
+- Use this skill to install, update, sync, explain, or diagnose the minimal
+  Profile.
+- Use `$coordinate-concurrent-tasks` only for bounded multi-task ownership,
+  parallel execution, fresh-SSOT integration, and archive-readiness review.
+- Follow effective repo-local `AGENTS.md`, contracts, source, tests, and fresh
+  readback for ordinary repository work.
+- Do not make Flow a prerequisite for Base, App, Standard, Full, plain Codex,
+  another Package, or domain readiness.
+
+## Package, Carrier, Executor
+
+Keep three identities separate:
+
+```text
+Package  = opl-flow identity and capabilities
+Carrier  = GHCR/Git/Codex Plugin Manager/OS or local platform
+Executor = Codex CLI/Claude Code/Hermes Agent/future route
+```
+
+Codex Plugin Manager is the current first carrier adapter, not Package identity
+or complete installed truth. Codex CLI is the current first executor.
+Switching executor must not reinstall Flow or lose the user's Profile,
+preferences, or existing tasks. Missing adapter callability affects only that
+executor route.
+
+Normal dependencies are stable identity presence/callability. Do not require
+SemVer/ABI resolution, lock, payload, receipt, digest, provenance, or a shared
+release cohort. Breaking interfaces use a new identity or owner-side adapter.
 
 ## Install And Verify
 
-For normal installation and update, use the OPL Framework package lifecycle:
+Use the currently executable Framework compatibility route:
 
 ```bash
 opl packages install opl-flow
@@ -26,24 +54,68 @@ opl packages update opl-flow
 opl packages optimize opl-flow
 ```
 
-The package lifecycle owns dependency resolution, conflict retirement, install, update, optimize, rollback, Codex configuration, receipts, and package currentness. Explicit install, update, or optimize authorizes the policy migration in `contracts/workflow-policy.json`; use the command's keep override only for intentionally retained conflicts. `scripts/install_local_plugin.py` is only a repository developer/local-source tool for staging and verifying a checkout; it is not the normal user installer or package authority.
+The current implementation may still return resolver, lock, payload, receipt,
+rollback, or provenance fields. Treat those as transitional implementation
+readback, not target composition gates.
 
-The installed surfaces have different authority:
+Existing compatibility code may describe dependency selection as an
+`available compatible source`. Read that phrase as the current adapter route;
+the target only needs identity presence/callability and does not add a central
+version or provenance solver.
+
+The target official online source is the Flow owner's per-Package GHCR
+`opl-flow:latest-stable`. The shared `one-person-lab-manifest:latest-stable`
+serves only Full/offline/integration-test/QA snapshots. A thin Base OCI adapter
+may download GHCR bytes; Codex owns Plugin/config/cache, while the complete
+Flow Package still needs carrier installed readback.
+
+`scripts/install_local_plugin.py` is only a repository developer/local-source
+tool. It is not ordinary installation or Package currentness authority.
+
+## Profile Safety
+
+Installed user surfaces:
 
 - Runtime profile: `~/.codex/AGENTS.md`
 - Non-runtime authoring source: `~/.codex/TASTE.md`
 
-Existing user `AGENTS.md` content is merged semantically by Codex inside the package transaction. Scripts remove only known marker blocks. If Codex cannot produce a valid merge, follow the review/apply fallback route returned by the package command. Restart Codex after installation so plugin and skill discovery refresh.
+For an existing `AGENTS.md`, preserve these invariants:
 
-OPL Flow declares desired capabilities and incompatibilities; OPL Framework resolves them from an available compatible source and projects generic install or repair actions for anything missing. Treat capability identity as `(kind, id)`. A declaration does not require an exact version, release lock, App carrier, or embedded payload. OPL App may present user choices, but it must not maintain a second Skill, Plugin, CLI, MCP, or model inventory.
+1. hash the original target;
+2. back it up before mutation;
+3. remove only known marker blocks and preserve distinct preferences;
+4. compare the target SHA immediately before apply;
+5. validate and atomically replace, otherwise leave the original untouched.
 
-Locks and payload digests describe a concrete published or installed artifact only after it exists. Never make them prerequisites for Flow composition. Never bundle credentials or overwrite unknown user/third-party MCP configuration. Use the model precedence `explicit user > installed Flow recommendation > fresh Codex default > App fallback`.
+If semantic merge cannot be validated, follow the review/apply fallback route returned by the package command.
+Current compatibility implementations may use a merge packet and rollback
+receipt. Do not generalize that Profile-specific safety into a Package
+lock/payload/receipt requirement.
 
-After any App carrier changes version, App requests generic Framework reconciliation for OPL Base and all installed OPL Packages. If OPL Flow is installed, the ordinary package update transaction refreshes its dependency closure, retires declared conflicts, and reconciles the user profile. OPL Flow does not provide an App-specific updater.
+Restart the selected executor when its discovery requires refresh.
 
-While App is running, generic reconciliation runs after startup readiness and every 24 hours. OPL Packages refreshes Flow-managed Skills; OPL Base owns managed CLI currentness and updates. Managed Codex and Framework/Temporal generations activate on the next App process. External Homebrew, npm, PATH, or system installations are never silently overwritten; a verified original owner may be invoked only after explicit user confirmation, otherwise the App shows guidance.
+## App Boundary
 
-In Settings, Agents owns runnable Agent packages, Capabilities groups Flow-managed and manual/third-party Skills or Plugins, and Local Environment owns Base/App/Packages plus dependency currentness. Treat those surfaces as consumers of Framework readback, not additional lifecycle owners.
+Flow can be a default root in the single App Official Profile, but the Profile
+runs only at first install or explicit Restore. Standard installs online; Full
+may use an offline seed. If the user uninstalls Flow, startup, daily maintenance,
+and App updates must not reinstall it.
+
+OPL App must not parse Flow's companion Skill/Tool/Plugin/MCP list or keep a
+second model inventory. It consumes only Framework's generic projection of
+actual carrier state. Missing Flow or a dependency is local to Flow.
+
+Use model precedence:
+
+```text
+explicit user selection
+> installed Flow recommendation
+> fresh executor default
+> App fallback when Flow is unavailable
+```
+
+Never bundle credentials or overwrite unknown user/third-party MCP
+configuration.
 
 ## Repo Profile Sync
 
@@ -53,17 +125,32 @@ python3 scripts/repo_profile.py sync --repo-root <repo-root>
 python3 scripts/repo_profile.py sync --repo-root <repo-root> --apply
 ```
 
-`sync` is dry-run unless `--apply` is provided. Apply mode updates only the profile contract and removes any legacy OPL Flow managed block from `AGENTS.md`. Repo-local instructions remain entirely repository-owned; OPL Flow does not inject workflow prose into them.
+`sync` is dry-run unless `--apply` is provided. Apply mode updates only the
+profile contract and removes known legacy Flow marker blocks. Repo-local
+instructions remain entirely repository-owned.
 
 ## Readback Boundary
 
-Keep these currentness layers separate:
+Read these independently:
 
-1. Owner source: the OPL Flow repository commit and release tag.
-2. Framework catalog: the selected stable Package version and payload manifest.
-3. Installed projection: the package lock, installed payload digest, managed-Skill validation, and resolved entrypoint authority.
-4. Codex discovery: the plugin version returned by a fresh `codex plugin list --json` process.
+1. owner source/tag and per-Package GHCR `latest-stable`;
+2. complete Package installed/healthy state from the actual carrier;
+3. selected executor discovery and callability;
+4. exact Full/QA snapshot when that build is in scope.
 
-An owner tag or catalog entry does not prove that this machine has switched. Package currentness requires installed-lock and payload readback; active discovery additionally requires the fresh Codex readback. For every Skill, Framework must consume the original GitHub repository and repository-relative path declared by Flow, validate the final frontmatter and referenced-resource closure, ignore runtime bytecode caches when hashing, and converge Codex and Agents entrypoints on the same physical source. A private Skills Manager collection or build machine's local Skills directory is not an upstream dependency authority.
+During migration, the compatibility checks are:
 
-For repository development, `install_local_plugin.py --verify-only` checks the AGENTS profile, exact staged plugin, installed plugin identity, and versioned cache payload. It does not replace Framework package currentness or fresh Codex discovery.
+```bash
+opl packages list --json
+opl packages status --package-id opl-flow --json
+codex plugin list --json
+```
+
+An owner tag, shared manifest, Framework lock, Plugin payload, docs, or tests
+cannot prove all four layers. `install_local_plugin.py --verify-only` proves
+only the local Codex development carrier.
+
+The target boundary and current migration gap are documented in
+`docs/capability-governance.md` and `docs/status.md`. Do not claim migration
+complete until actual install/update/remove, Standard/Full, Profile safety,
+complete Package, and executor-switch readbacks pass.

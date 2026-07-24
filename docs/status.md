@@ -1,112 +1,90 @@
 # OPL Flow Active Truth
 
 Owner: `gaofeng`
-Purpose: `active_truth_plan`
-State: `active_plan`
-Machine boundary: Human-readable current-state and next-round planning owner. Package,
-profile, install, and discovery truth remains in the plugin manifest, workflow policy,
-profile sources, tests, Framework package readback, and fresh Codex discovery output.
+Purpose: `active_truth_and_migration_status`
+State: `target_documented_implementation_transitional`
+Machine boundary: 本文只记录当前与目标的差距。目标架构由
+[Composition Architecture](./capability-governance.md) 统一定义；当前机器行为由
+contracts、source、tests、platform inventory 和 fresh readback 定义。
 
-## Ideal-State Reference
+## Target SSOT
 
-- `README.md` owns the public product and package boundary.
-- `skills/opl-flow/SKILL.md` owns the operator route and currentness-layer model; `skills/coordinate-concurrent-tasks/SKILL.md` owns bounded multi-task coordination and the user-approval archive boundary.
-- `contracts/workflow-policy.json` owns the open `(kind, id)` capability graph; `docs/capability-governance.md` explains the Flow/Framework/App authority split.
-- `.codex-plugin/plugin.json`, `contracts/workflow-policy.json`, `profile/`,
-  `templates/`, and tests own executable repository behavior.
-- The target is a minimal model-native Codex preference profile distributed through
-  the generic OPL Framework package lifecycle, with no second installer, updater,
-  readiness checker, or App-specific policy owner.
+OPL Flow 的目标边界已经收敛：
 
-This document is the single Active Truth owner for current state, open gaps, and the
-next-round Agent prompt. It does not duplicate the durable product explanation in
-`README.md` or the positioning detail in `docs/compatibility.md`.
+- Flow 是可选、默认进入 App Official Profile 的
+  `OPL Package(kind=workflow_profile)`，不是任何产品的 readiness 前置。
+- Package、carrier、executor identity 分离；Codex Plugin Manager 和 Codex CLI
+  分别只是当前首个 carrier adapter 和 executor。
+- required dependency 默认只检查 identity presence/callability，不使用
+  version/ABI/lock/payload/receipt/digest/provenance 组合门禁。
+- Flow owner 独立向 per-Package GHCR 发布并推进自己的 `latest-stable`。
+- shared manifest 只服务 Full/offline/integration-test/QA 快照。
+- App 不解析 Flow companion Skill/Tool/Plugin/MCP 清单，只消费实际平台状态的通用投影。
+- executor 切换不重装 Package，也不丢 Profile、用户偏好或已有任务。
+- user Profile 写入保留 target SHA stale-write、backup 和 atomic replace 这一个窄安全协议。
 
-## Current State Summary
+## Current Transitional Truth
 
-| Area | Durable current fact | Authority / readback |
+本轮只修改人类可读文档。以下 current implementation 仍存在，不能被目标文档
+覆盖或假装已经删除：
+
+| Surface | Current fact | Target gap |
 | --- | --- | --- |
-| Owner source | The plugin manifest and workflow policy carry one package identity and version; the profile manifest renders one model-native preference module into `templates/AGENTS.md`. | `.codex-plugin/plugin.json`, `contracts/workflow-policy.json`, `profile/manifest.json`, `profile/modules/01-user-preferences.md`, and `scripts/profile_compose.py` |
-| Retired workflow surfaces | The workflow policy retires legacy role prompts, the repository-local marketplace identity, and the former process-skill defaults through Framework-owned migration with backup and rollback. No Codex Ops Kit payload, dependency, or active verification lane remains in this repository. | `contracts/workflow-policy.json#retires` and `#migration_policy`; repo source and tests guard against resurrection. |
-| Package lifecycle | OPL Framework is the sole normal install, update, optimize, rollback, and currentness owner. The repository installer is development-only and does not establish package currentness. | `opl packages list --json` and `opl packages status --package-id opl-flow --json` must be read live. |
-| Effective discovery | Owner source/tag, Framework catalog, installed lock/payload, and Codex discovery are four independent currentness layers. This document does not freeze their versions, refs, digests, or ready state. | Fresh remote tag/ref readback, Framework package JSON, and `codex plugin list --json` from the target process. |
-| Authority boundary | OPL Flow owns the minimal preference profile, its two bounded workflow skills, and the managed capability graph. Framework owns lifecycle execution and App owns GUI/release projections. The coordination skill does not own App, Framework, release, machine, project, domain readiness, or actual thread archival. | `README.md`, `docs/capability-governance.md`, `skills/opl-flow/SKILL.md`, and `skills/coordinate-concurrent-tasks/SKILL.md` |
+| `contracts/workflow-policy.json` | 固定提供、required、recommended、source/provenance、migration 和 retirement metadata。 | 迁移为 Package-owned intent；App 不解析 companion list；普通依赖只检查 identity。 |
+| Framework `opl packages` | 当前正常命令仍负责 resolver、install/update/optimize、lock/payload、receipt/rollback 和 profile migration。 | 收敛为 native carrier adapter、dynamic discovery、presence/callability 和 generic projection。 |
+| Codex Plugin carrier | Repository developer tooling 与正常安装都能投影 Plugin/Skills。 | Plugin readback 不能单独证明完整 Package；需非 Codex/中性 adapter proof。 |
+| App Standard/Full | 当前文档和 contracts 仍可能各自携带 payload/closure 或固定清单语义。 | 同一 Official Profile；Full 只增加 offline seed；卸载后不后台装回。 |
+| Publication | GHCR/shared manifest 的旧 release orchestration 仍可能参与普通 selection。 | Owner per-Package `latest-stable` 为普通发布源；shared manifest 退出普通更新。 |
 
-## Current-State vs Ideal-State Gaps
-
-No confirmed repository functional or structural gap is open in the current source
-snapshot. Package selection, installed projection, and fresh discovery are live
-currentness questions, not durable closed rows. A future source release or target
-machine audit must read all four currentness layers again and preserve any mismatch
-as an owner-routed blocker rather than updating this document with another frozen
-closeout packet.
-
-## Next-Round Agent Prompt
-
-Goal: audit the next evidence-backed OPL Flow source or currentness gap without
-creating a second lifecycle owner or freezing one machine's proof into active docs.
-
-- Write scope: `.codex-plugin/`, `contracts/`, `profile/`, `templates/`, `skills/`,
-  tests, scripts, README, and this status owner only when fresh evidence requires it.
-- Non-goals: do not add a package installer/updater, readiness checker, Git lane,
-  release auditor, private overlay, machine inventory, SSH orchestration, or App,
-  Framework, project, release, and domain truth.
-- Live truth inputs: exact owner ref/tag, plugin manifest, workflow policy, profile
-  source and rendered bytes, repo tests, Framework package catalog/status JSON, and
-  Codex discovery output from the target process.
-- Required actions: check branch/remote/dirty/worktrees and owner write sets; classify
-  source, catalog, installed, and discovery currentness separately; select only a
-  narrow owner-backed gap; route package lifecycle changes through `opl packages`;
-  keep missing evidence or mismatches fail-closed.
-- Verification commands: use the commands below, narrowed to the changed authority
-  surface and expanded to full verification before release.
-- Completion gate: verified source bytes are on remote `main`; any required package
-  or discovery effect has its own fresh readback; no ready/current claim is inferred
-  from docs, tests, a clean queue, or a pushed commit.
-- Foldback target: durable behavior goes to its manifest/policy/source owner and
-  `README.md`; only current gaps and the next legal entry remain in this document;
-  one-run refs, digests, receipts, and closeout detail stay in receipts, history, or
-  Git history.
-
-## Verification Commands
+现行可执行 route 仍是：
 
 ```bash
-# OPL Flow checkout
-scripts/verify.sh full
-python3 "${CODEX_HOME:-$HOME/.codex}/skills/.system/plugin-creator/scripts/validate_plugin.py" .
-python3 /Users/gaofeng/workspace/opl-doc/scripts/opl_doc_doctor.py doctor . --format json
-git diff --check
-
-# Framework checkout, only when package catalog or lifecycle is in scope
-bun test tests/src/cli/cases/package-distribution-cases/manifest.test.ts
-bun test tests/src/cli/cases/package-distribution-cases/archive-and-first-party.test.ts
-bun test tests/src/cli/cases/packages-cases/guards-and-identities.test.ts
-node scripts/package-release-discipline.mjs
-git diff --check
-
-# Installed and discovery readback, only for the target installation/process
-opl packages list --json
-opl packages status --package-id opl-flow --json
-opl update check --json
-codex plugin list --json
+opl packages install opl-flow
+opl packages update opl-flow
+opl packages optimize opl-flow
 ```
 
-## Completion / Foldback Gate
+这些命令成功只证明当前 compatibility implementation 的结果；不能证明目标
+manager 已删除或 executor-neutral composition 已实现。
 
-- Changed source and rendered profile bytes agree with their machine owners and tests.
-- When package/install/discovery currentness is in scope, owner ref, Framework catalog,
-  installed lock/payload, and target-process discovery are each read back independently.
-- Any remaining blocker names its owner, evidence, legal re-entry route, and stop
-  condition.
-- Changed repositories are verified on final absorbed `main`; task worktrees and
-  temporary branches are cleaned only after remote readback.
+## Migration Order
 
-## Coverage And Carry-Forward
+1. Framework 和 Flow machine owners 增加最小 descriptor/native adapter dual-read；
+   新 consumer 只依赖 identity、presence、callability 和 generic action。
+2. per-Package GHCR `latest-stable` 成为普通 Flow source；shared manifest 降级为
+   Full/offline/test/QA snapshot。
+3. App Official Profile 在 Standard/Full 只用于 first install 和 explicit Restore；
+   App 删除 companion policy reader。
+4. 用 Codex Plugin Manager 和一个非 Codex/中性 adapter 证明 carrier/executor 解耦。
+5. 所有 retained consumer 切换后停止旧 writer，再删除 resolver、lock、payload、
+   receipt、provenance gates 和固定 registry；禁止长期双写。
 
-- Current owners covered: product/package boundary, profile source/rendering, capability
-  graph, plugin/skill carrier, open composition, repository verification,
-  Framework lifecycle route, App projection boundary, and target-process discovery route.
-- Retired surface provenance belongs in `docs/history/**`, policy retirement rows, and
-  Git history; it does not return to this Active Truth owner as a current proof table.
-- No additional stale or retirement candidate is established by the current source
-  snapshot. Reopen only from fresh owner/source/caller/readback evidence.
+Profile personalization 可独立先保留 stale-write、backup、atomic apply。它保护
+user-owned file，不授权保留通用 Package transaction engine。
+
+## Terminal Proof
+
+迁移完成至少需要以下 fresh terminal evidence：
+
+- owner 的 Flow `latest-stable` 独立更新，Base/App/其他 Package/shared manifest 不变；
+- clean install 仅以 identity presence/callability 补齐 required capability；
+- Standard/Full 安装同一 Profile，用户卸载 Flow 后重启和 maintenance 不装回；
+- App 没有读取 Flow companion list，Settings 状态仍与 platform readback 一致；
+- 完整 Flow Package 在 Codex carrier 与一个非 Codex/中性 adapter 可发现和调用；
+- executor switch 前后 Profile、偏好和已有任务一致，只有 route readiness 改变；
+- 并发修改 Profile 时 stale-write fail closed；正常写入有 backup 和 atomic readback；
+- 旧 manager writer/reader 无 active caller 且已物理删除。
+
+Docs、schema、unit tests、dry-run、candidate、GHCR push 或 shared snapshot 都不是单独
+终态证明。
+
+## Verification For This Docs Tranche
+
+```bash
+scripts/verify.sh full
+python3 /Users/gaofeng/.codex/skills/.system/plugin-creator/scripts/validate_plugin.py .
+git diff --check
+```
+
+这些检查只证明 Flow repo 文档、现有 contract 和 Plugin source 自洽，不提升
+安装、发布、App、Full 或 target migration 状态。
