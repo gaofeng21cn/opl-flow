@@ -324,29 +324,28 @@ def check_profile(repo_root: Path) -> list[str]:
         (agents, "先给结论", "AGENTS.md must preserve outcome-first communication"),
         (agents, "真实生效位置", "AGENTS.md must require current project context"),
         (agents, "repo-local `AGENTS.md`", "AGENTS.md must defer to repository context"),
-        (agents, "默认直接完成", "AGENTS.md must default to direct execution"),
-        (agents, "用户最高优先级目标及其可验收终态", "AGENTS.md must keep the primary outcome on the critical path"),
-        (agents, "均不得替代终态", "AGENTS.md must not confuse intermediate work with completion"),
-        (agents, "开发环境默认 progress-first", "AGENTS.md must preserve progress-first delivery"),
-        (agents, "永久修复独立并行或后续收尾", "AGENTS.md must keep durable repair off the current delivery path"),
-        (agents, "只处理关键路径、确定性阻断和必需验证", "AGENTS.md must defer non-critical expansion"),
-        (agents, "阻断闭合即回主线", "AGENTS.md must return to the primary task after blockers close"),
-        (agents, "超出预期时立即收缩范围", "AGENTS.md must contract scope when work overruns"),
-        (agents, "已进入真实权威来源并实际生效", "AGENTS.md must require effective prerequisites"),
-        (agents, "发现顺序倒置时", "AGENTS.md must repair inverted dependency order"),
-        (agents, "并发默认 4", "AGENTS.md must bound default subagent concurrency"),
+        (agents, "用户可验收终态", "AGENTS.md must keep the primary outcome on the critical path"),
+        (agents, "开发默认 progress-first", "AGENTS.md must preserve progress-first delivery"),
+        (agents, "首个真实断点", "AGENTS.md must focus on the first real breakpoint"),
+        (agents, "AI 负责开放判断", "AGENTS.md must keep open judgment model-native"),
+        (agents, "单个主控任务内的子智能体并发默认 4", "AGENTS.md must scope concurrency to subagents within one controller task"),
         (agents, "超过 8 须用户明确授权", "AGENTS.md must require approval above the concurrency ceiling"),
         (agents, "子智能体不得再委派", "AGENTS.md must prohibit recursive delegation"),
+        (agents, "$develop-and-deliver", "AGENTS.md must route systematic development"),
+        (agents, "$architect-and-simplify", "AGENTS.md must route architecture work"),
+        (agents, "$task-mode-gate", "AGENTS.md must route high-risk task modes"),
+        (agents, "普通小改直接完成", "AGENTS.md must keep small changes model-native"),
         (agents, "Shell 默认用 `rtk`", "AGENTS.md must preserve the RTK preference"),
         (agents, "codegraph init .", "AGENTS.md must bootstrap CodeGraph for development repositories"),
         (agents, "确保 Git ignore", "AGENTS.md must keep CodeGraph state untracked"),
-        (taste, "AI 先行，合同托底", "TASTE.md must prioritize AI execution"),
+        (taste, "非运行时治理参考", "TASTE.md must declare its non-runtime boundary"),
+        (taste, "不宣称被自动编译、自动注入或自动生效", "TASTE.md must not claim automatic effect"),
+        (taste, "可验收终态优先", "TASTE.md must prioritize terminal outcomes"),
+        (taste, "开发与生产分离", "TASTE.md must separate development and production"),
         (taste, "进展优先", "TASTE.md must preserve progress-first delivery"),
-        (taste, "证据匹配风险", "TASTE.md must preserve risk-matched evidence"),
-        (taste, "简单优先", "TASTE.md must preserve simplicity"),
-        (taste, "精准改动", "TASTE.md must preserve scoped changes"),
-        (taste, "最高优先级目标及其可验收终态", "TASTE.md must preserve primary-outcome priority"),
-        (taste, "真实权威来源并实际生效", "TASTE.md must preserve effective-prerequisite ordering"),
+        (taste, "AI 判断，机器守界", "TASTE.md must separate judgment and deterministic boundaries"),
+        (taste, "声明与证据同级", "TASTE.md must align claims with evidence"),
+        (taste, "简单、精准、规则克制", "TASTE.md must preserve simplicity and rule restraint"),
     )
     for text, needle, message in required:
         require(text, needle, message, errors)
@@ -359,9 +358,20 @@ def check_profile(repo_root: Path) -> list[str]:
         (agents, "Ponytail", "AGENTS.md must not route a coding persona"),
         (agents, "Superpowers", "AGENTS.md must not route a development methodology"),
         (agents, "## ", "AGENTS.md must remain an unsectioned flat profile"),
+        (agents, "delivery_bridge", "AGENTS.md must not inline task-mode repair procedures"),
+        (agents, "CAS", "AGENTS.md must not inline public-mutation implementation details"),
+        (agents, "Latest", "AGENTS.md must not inline release-channel details"),
+        (agents, "cohort", "AGENTS.md must not inline release-cohort details"),
+        (agents, "receipt", "AGENTS.md must not inline receipt procedures"),
     )
     for text, needle, message in forbidden:
         forbid(text, needle, message, errors)
+
+    bullet_count = sum(line.startswith("- ") for line in agents.splitlines())
+    if bullet_count > 8:
+        errors.append("AGENTS.md must contain at most 8 flat instructions")
+    if len(agents.encode("utf-8")) > 2048:
+        errors.append("AGENTS.md must remain at or below 2 KB")
 
     result = subprocess.run(
         [sys.executable, str(repo_root / "scripts" / "profile_compose.py"), "check", "--repo-root", str(repo_root)],

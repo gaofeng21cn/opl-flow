@@ -1,6 +1,6 @@
 {
   "name": "opl-flow",
-  "version": "0.1.26",
+  "version": "0.1.27",
   "description": "OPL Flow installs a minimal Codex preference profile and a bounded concurrent-task coordination skill.",
   "author": {
     "name": "Gaofeng"
