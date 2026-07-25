@@ -153,8 +153,22 @@ class InstallLocalPluginTests(unittest.TestCase):
         )
 
         self.assertEqual(manifest["name"], "opl-flow-local")
-        self.assertEqual([plugin["name"] for plugin in manifest["plugins"]], ["opl-flow"])
-        self.assertEqual(manifest["plugins"][0]["source"]["path"], ".")
+        self.assertEqual(manifest["interface"]["displayName"], "OPL Flow Local")
+        self.assertEqual(len(manifest["plugins"]), 1)
+        plugin = manifest["plugins"][0]
+        self.assertEqual(plugin["name"], "opl-flow")
+        self.assertEqual(plugin["category"], "Developer Tools")
+        self.assertEqual(
+            plugin["policy"],
+            {"authentication": "ON_INSTALL", "installation": "AVAILABLE"},
+        )
+        self.assertEqual(plugin["source"], {"path": "./", "source": "local"})
+        plugin_manifest = json.loads(
+            (REPO_ROOT / plugin["source"]["path"] / ".codex-plugin" / "plugin.json").read_text(
+                encoding="utf-8"
+            )
+        )
+        self.assertEqual(plugin_manifest["name"], plugin["name"])
 
     def test_plugin_readback_requires_exact_installed_enabled_version(self) -> None:
         version = json.loads(

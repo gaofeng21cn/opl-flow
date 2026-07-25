@@ -89,27 +89,56 @@ user-owned `~/.codex/AGENTS.md` has a deliberately narrow safety invariant:
 If automatic merge cannot be validated, the original stays in place and the
 current compatibility command returns
 `opl packages profile-apply opl-flow --packet <path>`. This Profile-specific
-backup/stale-write/atomic behavior must not grow into a generic Package
-lock/payload/receipt state machine.
+backup/stale-write/atomic behavior is not a generic Package carrier contract.
 
 `~/.codex/TASTE.md` remains a human-maintained authoring source, not runtime
 session input. Repo-specific facts and procedures stay repo-local.
 
-## Install Or Update
+## For Codex / Agents
 
-The currently executable public compatibility route is:
+This repository is both the canonical OPL Flow source and a repo marketplace.
+Add it to Codex, inspect the available entry, install it, and read back the
+installed carrier state:
+
+```bash
+codex plugin marketplace add gaofeng21cn/opl-flow
+codex plugin marketplace list --json
+codex plugin list --marketplace opl-flow-local --available --json
+codex plugin add opl-flow@opl-flow-local
+codex plugin list --marketplace opl-flow-local --json
+```
+
+After installation, start a new conversation in the Codex app or a new Codex
+CLI session. Bundled skills are discovered for new conversations and sessions;
+an already-running conversation is not pickup evidence.
+
+To remove the Codex carrier and then the configured marketplace:
+
+```bash
+codex plugin remove opl-flow@opl-flow-local
+codex plugin marketplace remove opl-flow-local
+```
+
+These commands manage only the Codex Plugin carrier. `codex plugin list` can
+prove that carrier's installed or available entry; it does not prove the
+complete OPL Package or user Profile is installed, current, or applied.
+Installing or removing the Plugin does not edit `~/.codex/AGENTS.md` or
+`~/.codex/TASTE.md`.
+
+Use the OPL Framework lifecycle for the complete OPL Flow Package and Profile:
 
 ```bash
 opl packages install opl-flow
 opl packages update opl-flow
 opl packages optimize opl-flow
+opl packages list --json
+opl packages status --package-id opl-flow --json
 ```
 
-These commands still traverse the existing Framework package lifecycle. Current
-contracts and code may therefore emit resolver, lock, payload, receipt,
-rollback, source-provenance, or migration fields. Those fields describe the
-transitional implementation; they are not target Flow composition or readiness
-requirements.
+Framework status owns the complete Package readback and any Profile apply or
+review-needed result. `~/.codex/TASTE.md` remains human-maintained authoring
+source. Neither the Codex carrier nor a repository checkout can promote its
+state into complete Package/Profile currentness.
 
 The target online publication and update path is:
 
@@ -140,8 +169,7 @@ Restart the selected executor when its native discovery requires it.
 
 Flow declares capability intent by stable `(kind, id)`. A normal required edge
 means the identity must be present and callable. It does not require SemVer or
-ABI solving, an exact version/digest, lock, payload, receipt, provenance match,
-or a shared release cohort.
+ABI solving, an exact delivery record, or a shared release cohort.
 
 Breaking capability interfaces use a new identity or an owner-side adapter.
 Missing dependencies affect Flow only; they do not make Base, App, Full, plain
@@ -150,8 +178,7 @@ Codex, or unrelated Packages unavailable.
 `contracts/workflow-policy.json` v3 has already removed exact version,
 install-source, lifecycle-owner and Standard/Full convergence requirements from
 normal capability declarations. It still contains a fixed capability graph,
-source metadata and migration policy. Framework runtime also still emits legacy
-resolver/lock/payload/receipt fields. This is a partial contract migration, not
+source metadata and migration policy. This is a partial contract migration, not
 terminal platform completion. OPL App must not parse this file or maintain a
 companion Skill/Tool/Plugin/MCP list from it; App consumes only the generic
 Framework projection of actual platform state.
@@ -178,8 +205,8 @@ Keep these independent:
 3. Executor route: whether the selected executor can discover and call it.
 4. Full/QA snapshot: the exact bytes selected for one reproducible build only.
 
-During migration, inspect current Framework output without promoting its
-lock/payload fields into composition gates:
+During migration, inspect current Framework output without promoting
+implementation details into composition gates:
 
 ```bash
 opl packages list --json
@@ -218,7 +245,7 @@ scripts/verify.sh
 scripts/verify.sh full
 ```
 
-Its exact Plugin/cache payload checks prove only the local development carrier.
+Its exact Plugin/cache byte checks prove only the local development carrier.
 They do not prove per-Package GHCR publication, platform installation, another
 executor route, or App/Full readiness.
 
