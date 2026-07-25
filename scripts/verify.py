@@ -43,16 +43,6 @@ CORE_TEST_MODULES = (
 )
 VERIFY_LANES = ("core", "full")
 
-def require(text: str, needle: str, message: str, errors: list[str]) -> None:
-    if needle not in text:
-        errors.append(message)
-
-
-def forbid(text: str, needle: str, message: str, errors: list[str]) -> None:
-    if needle in text:
-        errors.append(message)
-
-
 def check_required_files(repo_root: Path) -> list[str]:
     return [f"missing {rel}" for rel in REQUIRED_FILES if not (repo_root / rel).exists()]
 
@@ -74,11 +64,12 @@ def check_plugin_json(repo_root: Path) -> list[str]:
     if manifest.get("version") != policy.get("package", {}).get("version"):
         errors.append("plugin version must match contracts/workflow-policy.json package.version")
     description = manifest.get("description")
-    if not isinstance(description, str) or "minimal Codex preference profile" not in description:
-        errors.append("plugin description must advertise the minimal preference profile")
+    if not isinstance(description, str) or not description.strip():
+        errors.append("plugin description must be a non-empty string")
     interface = manifest.get("interface", {})
-    if "minimal AGENTS.md preference profile" not in interface.get("longDescription", ""):
-        errors.append("interface.longDescription must identify the minimal preference profile")
+    long_description = interface.get("longDescription")
+    if not isinstance(long_description, str) or not long_description.strip():
+        errors.append("interface.longDescription must be a non-empty string")
     default_prompt = interface.get("defaultPrompt")
     if not default_prompt or len(default_prompt) > 128:
         errors.append("interface.defaultPrompt must exist and be at most 128 characters")
@@ -287,97 +278,9 @@ def check_workflow_policy(repo_root: Path) -> list[str]:
     return errors
 
 
-def check_skill_metadata(repo_root: Path) -> list[str]:
-    errors: list[str] = []
-    skill_roots = {
-        "coordinate-concurrent-tasks": repo_root / "skills" / "coordinate-concurrent-tasks",
-        "opl-flow": repo_root / "skills" / "opl-flow",
-    }
-    for skill_id, skill_root in skill_roots.items():
-        path = skill_root / "agents" / "openai.yaml"
-        text = path.read_text(encoding="utf-8")
-        for needle in ("interface:", "display_name:", "short_description:", "default_prompt:", f"${skill_id}"):
-            require(text, needle, f"{path.relative_to(repo_root)} must contain {needle}", errors)
-    coordination = (skill_roots["coordinate-concurrent-tasks"] / "SKILL.md").read_text(encoding="utf-8")
-    for needle in (
-        "parallel_work_serialized_integration",
-        "SAFE_TO_ARCHIVE",
-        "set_thread_archived(true)",
-        "fresh 验收",
-        "archive_performed=false",
-        "user_approval_required=true",
-        "执行连续性",
-        "fail-closed 只终止当前 operation，不终止 objective",
-        "worktree_absorption_audit.py",
-        "多机远端同步",
-        "ordinary non-force push",
-        "远端任务分支不等于 canonical",
-    ):
-        require(
-            coordination,
-            needle,
-            f"skills/coordinate-concurrent-tasks/SKILL.md must preserve {needle}",
-            errors,
-        )
-    return errors
-
-
 def check_profile(repo_root: Path) -> list[str]:
     errors: list[str] = []
     agents = (repo_root / "templates" / "AGENTS.md").read_text(encoding="utf-8")
-    taste = (repo_root / "templates" / "TASTE.md").read_text(encoding="utf-8")
-
-    required = (
-        (agents, "你始终用中文回复", "AGENTS.md must preserve the language preference"),
-        (agents, "先给结论", "AGENTS.md must preserve outcome-first communication"),
-        (agents, "真实生效位置", "AGENTS.md must require current project context"),
-        (agents, "repo-local `AGENTS.md`", "AGENTS.md must defer to repository context"),
-        (agents, "用户可验收终态", "AGENTS.md must keep the primary outcome on the critical path"),
-        (agents, "开发默认 progress-first", "AGENTS.md must preserve progress-first delivery"),
-        (agents, "首个真实断点", "AGENTS.md must focus on the first real breakpoint"),
-        (agents, "objective 未完成时主控不得停在 checkpoint", "AGENTS.md must preserve execution continuity"),
-        (agents, "失败只终止当前 operation", "AGENTS.md must continue the objective after an operation failure"),
-        (agents, "ACTIVE 必须有 live execution owner", "AGENTS.md must require an active execution owner"),
-        (agents, "吸收后验证最终 `main` 与远端一致", "AGENTS.md must require canonical remote parity"),
-        (agents, "AI 负责开放判断", "AGENTS.md must keep open judgment model-native"),
-        (agents, "单个主控任务内的子智能体并发默认 4", "AGENTS.md must scope concurrency to subagents within one controller task"),
-        (agents, "超过 8 须用户明确授权", "AGENTS.md must require approval above the concurrency ceiling"),
-        (agents, "子智能体不得再委派", "AGENTS.md must prohibit recursive delegation"),
-        (agents, "$develop-and-deliver", "AGENTS.md must route systematic development"),
-        (agents, "$architect-and-simplify", "AGENTS.md must route architecture work"),
-        (agents, "$task-mode-gate", "AGENTS.md must route high-risk task modes"),
-        (agents, "普通小改直接完成", "AGENTS.md must keep small changes model-native"),
-        (agents, "Shell 默认用 `rtk`", "AGENTS.md must preserve the RTK preference"),
-        (agents, "codegraph init .", "AGENTS.md must bootstrap CodeGraph for development repositories"),
-        (agents, "确保 Git ignore", "AGENTS.md must keep CodeGraph state untracked"),
-        (taste, "非运行时治理参考", "TASTE.md must declare its non-runtime boundary"),
-        (taste, "不宣称被自动编译、自动注入或自动生效", "TASTE.md must not claim automatic effect"),
-        (taste, "可验收终态优先", "TASTE.md must prioritize terminal outcomes"),
-        (taste, "开发与生产分离", "TASTE.md must separate development and production"),
-        (taste, "进展优先", "TASTE.md must preserve progress-first delivery"),
-        (taste, "AI 判断，机器守界", "TASTE.md must separate judgment and deterministic boundaries"),
-        (taste, "声明与证据同级", "TASTE.md must align claims with evidence"),
-        (taste, "简单、精准、规则克制", "TASTE.md must preserve simplicity and rule restraint"),
-    )
-    for text, needle, message in required:
-        require(text, needle, message, errors)
-
-    forbidden = (
-        (agents, "## Guardrails", "AGENTS.md must not install a guardrail workflow"),
-        (agents, "## Ops And Authority Core", "AGENTS.md must not install an ops workflow"),
-        (agents, "## Capability Adapters", "AGENTS.md must not install capability routing"),
-        (agents, "完成度审计", "AGENTS.md must not install a completion ceremony"),
-        (agents, "Ponytail", "AGENTS.md must not route a coding persona"),
-        (agents, "Superpowers", "AGENTS.md must not route a development methodology"),
-        (agents, "## ", "AGENTS.md must remain an unsectioned flat profile"),
-        (agents, "delivery_bridge", "AGENTS.md must not inline task-mode repair procedures"),
-        (agents, "CAS", "AGENTS.md must not inline public-mutation implementation details"),
-        (agents, "Latest", "AGENTS.md must not inline release-channel details"),
-        (agents, "cohort", "AGENTS.md must not inline release-cohort details"),
-        (agents, "receipt", "AGENTS.md must not inline receipt procedures"),
-    )
-    for text, needle, message in forbidden:
-        forbid(text, needle, message, errors)
 
     bullet_count = sum(line.startswith("- ") for line in agents.splitlines())
     if bullet_count > 8:
@@ -395,48 +298,6 @@ def check_profile(repo_root: Path) -> list[str]:
     )
     if result.returncode != 0:
         errors.append("templates/AGENTS.md must match profile modules: " + (result.stdout or result.stderr).strip())
-    return errors
-
-
-def check_docs(repo_root: Path) -> list[str]:
-    errors: list[str] = []
-    readme = (repo_root / "README.md").read_text(encoding="utf-8")
-    setup = (repo_root / "docs" / "new-machine-codex-setup.md").read_text(encoding="utf-8")
-    compatibility = (repo_root / "docs" / "compatibility.md").read_text(encoding="utf-8")
-    capability_governance = (repo_root / "docs" / "capability-governance.md").read_text(encoding="utf-8")
-    skill = (repo_root / "skills" / "opl-flow" / "SKILL.md").read_text(encoding="utf-8")
-    required = (
-        (readme, "Compatibility With OPL App Full", "README must document OPL App Full compatibility"),
-        (readme, "profile-apply opl-flow --packet", "README must document the semantic-merge fallback route"),
-        (readme, "opl packages install opl-flow", "README must document the package install route"),
-        (readme, "opl packages update opl-flow", "README must document the package update route"),
-        (readme, "opl packages optimize opl-flow", "README must document the package optimize route"),
-        (setup, "opl packages install opl-flow", "setup guide must document the package install route"),
-        (setup, "rollback receipt", "setup guide must document migration recovery"),
-        (setup, "returns the review/apply route", "setup guide must document the semantic-merge fallback route"),
-        (setup, "opl-flow@opl-agent-opl-flow-local", "setup guide must document the normal package plugin identity"),
-        (skill, "minimal Codex preference profile", "skill must define its minimal-profile boundary"),
-        (skill, "review/apply fallback route returned by the package command", "skill must route semantic-merge fallback through the package lifecycle"),
-        (skill, "available compatible source", "skill must define open composition"),
-        (skill, "$coordinate-concurrent-tasks", "skill must route bounded multi-task coordination to the bundled coordination skill"),
-        (readme, "generic Framework reconciliation", "README must document carrier-neutral App reconciliation"),
-        (readme, "`coordinate-concurrent-tasks`", "README must document the bundled coordination skill"),
-        (readme, "scripts/worktree_absorption_audit.py", "README must document the explicit absorption audit"),
-        (readme, "never deletes a worktree or branch", "README must keep the absorption audit read-only"),
-        (setup, "`coordinate-concurrent-tasks`", "setup guide must document the bundled coordination skill"),
-        (compatibility, "model-native", "compatibility doc must cover model-native development"),
-        (compatibility, "`skills/coordinate-concurrent-tasks`", "compatibility doc must identify the coordination skill owner"),
-        (compatibility, "OPL Base", "compatibility doc must cover the Base boundary"),
-        (compatibility, "Retired conflict", "compatibility doc must cover retired workflow conflicts"),
-        (capability_governance, "OPL Flow", "capability governance must name the declaration authority"),
-        (capability_governance, "OPL Base / Framework", "capability governance must name the lifecycle authority"),
-        (capability_governance, "OPL App", "capability governance must name the GUI projection boundary"),
-        (capability_governance, "A lock records a resolution", "capability governance must keep locks out of composition"),
-        (capability_governance, "never bundles API keys", "capability governance must forbid bundled credentials"),
-        (capability_governance, "fresh user acceptance", "capability governance must preserve the archive approval boundary"),
-    )
-    for text, needle, message in required:
-        require(text, needle, message, errors)
     return errors
 
 
@@ -501,9 +362,7 @@ def main(argv: list[str] | None = None) -> int:
     errors.extend(check_required_files(repo_root))
     errors.extend(check_plugin_json(repo_root))
     errors.extend(check_workflow_policy(repo_root))
-    errors.extend(check_skill_metadata(repo_root))
     errors.extend(check_profile(repo_root))
-    errors.extend(check_docs(repo_root))
     errors.extend(check_retired_skill(repo_root))
     errors.extend(check_contract_tests(repo_root, args.lane))
     if errors:

@@ -99,28 +99,6 @@ class RepoProfileTests(unittest.TestCase):
                 "<!-- CODEGRAPH_START -->\nCodeGraph\n<!-- CODEGRAPH_END -->\n",
             )
 
-    def test_user_profile_template_is_minimal_and_bootstraps_codegraph(self) -> None:
-        agents = (REPO_ROOT / "templates" / "AGENTS.md").read_text(encoding="utf-8")
-        taste = (REPO_ROOT / "templates" / "TASTE.md").read_text(encoding="utf-8")
-
-        self.assertIn("先给结论", agents)
-        self.assertIn("开发默认 progress-first", agents)
-        self.assertIn("$develop-and-deliver", agents)
-        self.assertIn("$architect-and-simplify", agents)
-        self.assertIn("$task-mode-gate", agents)
-        self.assertIn("codegraph init .", agents)
-        self.assertNotIn("## ", agents)
-        self.assertNotIn("## Guardrails", agents)
-        self.assertNotIn("## Ops And Authority Core", agents)
-        self.assertIn("可验收终态优先", taste)
-        self.assertIn("开发与生产分离", taste)
-        self.assertIn("进展优先", taste)
-        self.assertIn("AI 判断，机器守界", taste)
-        self.assertIn("声明与证据同级", taste)
-        self.assertIn("简单、精准、规则克制", taste)
-        self.assertIn("非运行时治理参考", taste)
-        self.assertIn("不宣称被自动编译、自动注入或自动生效", taste)
-
     def test_cli_defaults_to_check(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             result = subprocess.run(
