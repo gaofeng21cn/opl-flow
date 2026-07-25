@@ -16,6 +16,7 @@ REQUIRED_FILES = (
     ".codex-plugin/plugin.json",
     "contracts/workflow-policy.json",
     "contracts/workflow-policy.schema.json",
+    "contracts/worktree-ownership-ledger.schema.json",
     "README.md",
     "docs/compatibility.md",
     "docs/new-machine-codex-setup.md",
@@ -30,6 +31,7 @@ REQUIRED_FILES = (
     "scripts/repo_profile.py",
     "scripts/profile_compose.py",
     "scripts/worktree_absorption_audit.py",
+    "scripts/worktree_fleet_audit.py",
     "profile/manifest.json",
     "profile/modules/01-user-preferences.md",
 )
@@ -40,6 +42,7 @@ CORE_TEST_MODULES = (
     "tests/test_repo_profile.py",
     "tests/test_verify_lanes.py",
     "tests/test_worktree_absorption_audit.py",
+    "tests/test_worktree_fleet_audit.py",
 )
 VERIFY_LANES = ("core", "full")
 

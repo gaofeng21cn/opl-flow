@@ -22,7 +22,8 @@ description: Coordinate multiple Codex conversations, agents, repositories, or w
 - 子任务、callback、测试或一次 operation 结束后，主控必须在同一轮验收结果并立即继续、修复首个真实断点或重分配；不得停在回调、候选、失败回执或等待另一个对话自行醒来。
 - currentness drift 由原 owner 基于 fresh SSOT 做 semantic replay 并继续验证，不以漂移为理由进入等待或遗弃责任。
 - fail-closed 只终止当前 operation，不终止 objective。若没有不可替代的权限、外部输入或安全边界，主控修复断点后发起新的合法 operation，并持续到 `SAFE_TO_ARCHIVE`。
-- source canonical 后同轮完成远端 ref/tree/blob 或等价 parity readback，并使用本仓 `scripts/worktree_absorption_audit.py` 或等价确定性证明确认吸收，再清理 task-owned worktree/branch；审计工具只提供证据，不代替 owner 判断或执行删除。
+- 每个非根 worktree 都必须有 `thread_id`、objective、owner、execution owner、`next_action` 与精确 write set 的 ACTIVE 收据；使用 `scripts/worktree_fleet_audit.py --repo-root <repo> --ownership-ledger <json>` 同时核对 holder、吸收、远端恢复分支与 canonical wire。无 owner 的 lane 只能进入 recovery 或 proof-backed cleanup，不得按年龄批量删除。
+- source canonical 后同轮完成远端 ref/tree/blob 或等价 parity readback，并使用本仓 `scripts/worktree_absorption_audit.py` 或 fleet audit 确认吸收，再清理 task-owned worktree/branch；审计工具只提供证据，不代替 owner 判断或执行删除。
 
 ### 状态与归档操作分离
 

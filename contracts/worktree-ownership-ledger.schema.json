@@ -1,0 +1,114 @@
+{
+  "$id": "https://one-person-lab.dev/schemas/opl-flow/worktree-ownership-ledger.v1.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "entries": {
+      "items": {
+        "additionalProperties": false,
+        "properties": {
+          "execution_owner": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "next_action": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "objective_id": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "owner": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "remote_recovery": {
+            "anyOf": [
+              {
+                "type": "null"
+              },
+              {
+                "additionalProperties": false,
+                "properties": {
+                  "branch": {
+                    "minLength": 1,
+                    "type": "string"
+                  },
+                  "commit": {
+                    "pattern": "^[0-9a-f]{40}$",
+                    "type": "string"
+                  },
+                  "tree": {
+                    "pattern": "^[0-9a-f]{40}$",
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "branch",
+                  "commit",
+                  "tree"
+                ],
+                "type": "object"
+              }
+            ]
+          },
+          "status": {
+            "enum": [
+              "ACTIVE",
+              "SAFE_TO_ARCHIVE"
+            ]
+          },
+          "thread_id": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "worktree": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "write_set": {
+            "items": {
+              "minLength": 1,
+              "type": "string"
+            },
+            "type": "array",
+            "uniqueItems": true
+          }
+        },
+        "required": [
+          "worktree",
+          "thread_id",
+          "objective_id",
+          "owner",
+          "execution_owner",
+          "status",
+          "next_action",
+          "write_set",
+          "remote_recovery"
+        ],
+        "type": "object"
+      },
+      "type": "array"
+    },
+    "machine": {
+      "minLength": 1,
+      "type": "string"
+    },
+    "recorded_at": {
+      "format": "date-time",
+      "type": "string"
+    },
+    "schema": {
+      "const": "opl_flow_worktree_ownership_ledger.v1"
+    }
+  },
+  "required": [
+    "schema",
+    "machine",
+    "recorded_at",
+    "entries"
+  ],
+  "title": "OPL Flow worktree ownership ledger",
+  "type": "object"
+}
