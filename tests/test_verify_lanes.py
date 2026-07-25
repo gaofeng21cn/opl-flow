@@ -36,6 +36,10 @@ class VerifyLaneTests(unittest.TestCase):
         self.assertIn("set_thread_archived(true)", coordination)
         self.assertIn("archive_performed=false", coordination)
         self.assertIn("user_approval_required=true", coordination)
+        self.assertIn("多机远端同步", coordination)
+        self.assertIn("开始、恢复、交接和重要 checkpoint 前", coordination)
+        self.assertIn("ordinary non-force push", coordination)
+        self.assertIn("远端任务分支不等于 canonical", coordination)
 
     def test_full_lane_runs_the_complete_current_suite(self) -> None:
         core = contract_test_modules("core")

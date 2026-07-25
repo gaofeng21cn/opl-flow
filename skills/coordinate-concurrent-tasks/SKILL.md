@@ -1,6 +1,6 @@
 ---
 name: coordinate-concurrent-tasks
-description: Coordinate multiple Codex conversations, agents, repositories, or worktrees so unfinished work stays ACTIVE, independent work proceeds in parallel, conflicts resolve against fresh SSOT at integration, only fully authoritative work becomes SAFE_TO_ARCHIVE, and actual thread archival requires fresh user acceptance. Use when reorganizing active threads, eliminating wait or blocked states, assigning parallel owners or subagents, resolving dependency or write-set overlap, finding unowned task gaps, reviewing archive safety, or accelerating multi-task delivery. 适用于多对话并发、等待与锁处理、主线吸收、任务缺口审计和需用户验收的安全归档。
+description: Coordinate multiple Codex conversations, agents, repositories, or worktrees so unfinished work stays ACTIVE, independent work proceeds in parallel, multi-machine task branches stay recoverable, conflicts resolve against fresh SSOT at integration, only fully authoritative work becomes SAFE_TO_ARCHIVE, and actual thread archival requires fresh user acceptance. Use when reorganizing active threads, eliminating wait or blocked states, assigning parallel owners or subagents, resolving dependency or write-set overlap, finding unowned task gaps, reviewing archive safety, or accelerating multi-task delivery. 适用于多对话并发、多机远端同步、等待与锁处理、主线吸收、任务缺口审计和需用户验收的安全归档。
 ---
 
 # 并发任务协调
@@ -46,6 +46,13 @@ description: Coordinate multiple Codex conversations, agents, repositories, or w
 - write-set overlap 是集成风险，不是长期锁。允许各自 worktree 继续准备；共享路径在吸收时只有一个最终 mutation owner，其他成果按 fresh SSOT 语义重放。
 - 不用驻留轮询、等待 ACK 或重复监测冒充 `next_action`。若一个对话没有真实可执行工作，立即重分配一个独立剩余切片；没有诚实切片时，报告分工错误并重组 scope，不制造忙碌证据。
 - currentness 前进后由原对话、原 owner 继续 replay/rebase。不要仅因主线漂移创建等待 successor 或丢弃已有责任。
+
+### 多机远端同步
+
+- 默认按多机协同处理长任务。开始、恢复、交接和重要 checkpoint 前 fetch canonical remote refs，fresh 读取 `main`、task branch、当前 owner 和 write set；不得用本机旧 tracking ref 推断 currentness。
+- 阶段成果已可验证、可恢复且不含敏感信息时，同轮 commit 并 ordinary non-force push 到 task-owned 远端分支，再回读远端 branch SHA/tree。不要让唯一可恢复成果长时间只存在于本机 worktree。
+- 不得把 dirty、冲突中、测试 unknown、含敏感信息或外部 mutation 结果 unknown 的状态推成 checkpoint。尚不满足条件时继续本地修复，并明确报告 remote parity 尚未成立。
+- 远端任务分支不等于 canonical、完成或可清理；它只承担跨机器恢复与交接。`main` 仍按最终吸收规则受控集成，主线漂移后由原 owner 基于 fresh SSOT 语义重放。
 
 ## 最终吸收
 

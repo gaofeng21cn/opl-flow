@@ -309,6 +309,9 @@ def check_skill_metadata(repo_root: Path) -> list[str]:
         "执行连续性",
         "fail-closed 只终止当前 operation，不终止 objective",
         "worktree_absorption_audit.py",
+        "多机远端同步",
+        "ordinary non-force push",
+        "远端任务分支不等于 canonical",
     ):
         require(
             coordination,
