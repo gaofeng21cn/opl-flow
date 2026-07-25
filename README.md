@@ -260,6 +260,22 @@ The skill coordinates existing owners. It cannot create release/package
 authority, authorize Git mutation, or archive a task without fresh user
 acceptance.
 
+For an explicit, read-only Git cleanup decision, inspect one lane against its
+target authority:
+
+```bash
+python3 scripts/worktree_absorption_audit.py \
+  --repo-root /path/to/repo \
+  --worktree /path/to/lane-worktree \
+  --target origin/main
+```
+
+The JSON result distinguishes exact, tree-equivalent, patch-equivalent,
+unabsorbed, and owner-review cases and reports `cleanup_allowed`. The utility
+never deletes a worktree or branch and is not an OPL Flow, App, Package, or
+release readiness dependency; it is invoked only when an owner needs cleanup
+evidence.
+
 ## Compatibility With OPL App Full
 
 Full is an optional offline seed for the same App Official Profile. It is not a

@@ -16,6 +16,14 @@ description: Coordinate multiple Codex conversations, agents, repositories, or w
 
 把依赖、冲突、currentness drift、外部门禁失败和候选提交记录为事实，不要把它们变成 `WAIT`、`BLOCKED`、`HOLD`、`HANDOFF`、`CANDIDATE_ONLY` 或 `ARCHIVE_CANDIDATE` 状态。未完成对话必须持续承接一个真实、可立即执行的 `ACTIVE` 任务。
 
+### 执行连续性
+
+- `ACTIVE` 标题或总账登记不等于活跃执行。每个 `ACTIVE` objective 必须同时有 live execution owner、可立即执行的 `next_action` 和本轮推进证据。
+- 子任务、callback、测试或一次 operation 结束后，主控必须在同一轮验收结果并立即继续、修复首个真实断点或重分配；不得停在回调、候选、失败回执或等待另一个对话自行醒来。
+- currentness drift 由原 owner 基于 fresh SSOT 做 semantic replay 并继续验证，不以漂移为理由进入等待或遗弃责任。
+- fail-closed 只终止当前 operation，不终止 objective。若没有不可替代的权限、外部输入或安全边界，主控修复断点后发起新的合法 operation，并持续到 `SAFE_TO_ARCHIVE`。
+- source canonical 后同轮完成远端 ref/tree/blob 或等价 parity readback，并使用本仓 `scripts/worktree_absorption_audit.py` 或等价确定性证明确认吸收，再清理 task-owned worktree/branch；审计工具只提供证据，不代替 owner 判断或执行删除。
+
 ### 状态与归档操作分离
 
 - `SAFE_TO_ARCHIVE` 只授权更新标题、登记终态证据、清空 objective owner；它不授权调用 `set_thread_archived(true)` 或任何等价归档操作。

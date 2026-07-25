@@ -29,6 +29,7 @@ REQUIRED_FILES = (
     "scripts/install_local_plugin.py",
     "scripts/repo_profile.py",
     "scripts/profile_compose.py",
+    "scripts/worktree_absorption_audit.py",
     "profile/manifest.json",
     "profile/modules/01-user-preferences.md",
 )
@@ -38,6 +39,7 @@ CORE_TEST_MODULES = (
     "tests/test_profile_compose.py",
     "tests/test_repo_profile.py",
     "tests/test_verify_lanes.py",
+    "tests/test_worktree_absorption_audit.py",
 )
 VERIFY_LANES = ("core", "full")
 
@@ -304,6 +306,9 @@ def check_skill_metadata(repo_root: Path) -> list[str]:
         "fresh 验收",
         "archive_performed=false",
         "user_approval_required=true",
+        "执行连续性",
+        "fail-closed 只终止当前 operation，不终止 objective",
+        "worktree_absorption_audit.py",
     ):
         require(
             coordination,
@@ -327,6 +332,10 @@ def check_profile(repo_root: Path) -> list[str]:
         (agents, "用户可验收终态", "AGENTS.md must keep the primary outcome on the critical path"),
         (agents, "开发默认 progress-first", "AGENTS.md must preserve progress-first delivery"),
         (agents, "首个真实断点", "AGENTS.md must focus on the first real breakpoint"),
+        (agents, "objective 未完成时主控不得停在 checkpoint", "AGENTS.md must preserve execution continuity"),
+        (agents, "失败只终止当前 operation", "AGENTS.md must continue the objective after an operation failure"),
+        (agents, "ACTIVE 必须有 live execution owner", "AGENTS.md must require an active execution owner"),
+        (agents, "吸收后验证最终 `main` 与远端一致", "AGENTS.md must require canonical remote parity"),
         (agents, "AI 负责开放判断", "AGENTS.md must keep open judgment model-native"),
         (agents, "单个主控任务内的子智能体并发默认 4", "AGENTS.md must scope concurrency to subagents within one controller task"),
         (agents, "超过 8 须用户明确授权", "AGENTS.md must require approval above the concurrency ceiling"),
@@ -409,6 +418,8 @@ def check_docs(repo_root: Path) -> list[str]:
         (skill, "$coordinate-concurrent-tasks", "skill must route bounded multi-task coordination to the bundled coordination skill"),
         (readme, "generic Framework reconciliation", "README must document carrier-neutral App reconciliation"),
         (readme, "`coordinate-concurrent-tasks`", "README must document the bundled coordination skill"),
+        (readme, "scripts/worktree_absorption_audit.py", "README must document the explicit absorption audit"),
+        (readme, "never deletes a worktree or branch", "README must keep the absorption audit read-only"),
         (setup, "`coordinate-concurrent-tasks`", "setup guide must document the bundled coordination skill"),
         (compatibility, "model-native", "compatibility doc must cover model-native development"),
         (compatibility, "`skills/coordinate-concurrent-tasks`", "compatibility doc must identify the coordination skill owner"),
