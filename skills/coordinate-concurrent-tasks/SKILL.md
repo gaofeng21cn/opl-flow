@@ -22,8 +22,9 @@ description: Coordinate multiple Codex conversations, agents, repositories, or w
 - 子任务、callback、测试或一次 operation 结束后，主控必须在同一轮验收结果并立即继续、修复首个真实断点或重分配；不得停在回调、候选、失败回执或等待另一个对话自行醒来。
 - currentness drift 由原 owner 基于 fresh SSOT 做 semantic replay 并继续验证，不以漂移为理由进入等待或遗弃责任。
 - fail-closed 只终止当前 operation，不终止 objective。若没有不可替代的权限、外部输入或安全边界，主控修复断点后发起新的合法 operation，并持续到 `SAFE_TO_ARCHIVE`。
-- 每个非根 worktree 都必须有 `thread_id`、objective、owner、execution owner、`next_action` 与精确 write set 的 ACTIVE 收据；使用 `scripts/worktree_fleet_audit.py --repo-root <repo> --ownership-ledger <json>` 同时核对 holder、吸收、远端恢复分支与 canonical wire。无 owner 的 lane 只能进入 recovery 或 proof-backed cleanup，不得按年龄批量删除。
+- 每个非根 worktree 都必须有 `thread_id`、objective、owner、execution owner、`next_action` 与精确 write set 的 ACTIVE 收据；用 `scripts/worktree_lifecycle.py register` 登记，用 `checkpoint` 建立远端恢复点，用 `status` 核对 holder、吸收、远端 task ref 与 canonical wire。无 owner 的 lane 只能进入 recovery 或 proof-backed cleanup，不得按年龄批量删除。
 - source canonical 后同轮完成远端 ref/tree/blob 或等价 parity readback，并使用本仓 `scripts/worktree_absorption_audit.py` 或 fleet audit 确认吸收，再清理 task-owned worktree/branch；审计工具只提供证据，不代替 owner 判断或执行删除。
+- `.worktrees` 目录只保存 `git worktree list` 可识别的 worktree；build、release、preflight、日志和证据必须写入各自任务命名空间，并由创建任务在终态提取必要 receipt 后清理。
 
 ### 状态与归档操作分离
 
@@ -64,6 +65,7 @@ description: Coordinate multiple Codex conversations, agents, repositories, or w
 5. 使用 ordinary non-force mutation；authority 再次前进时回到步骤 1，不进入等待状态。
 6. 吸收后验证远端 ref、commit、tree、blob/raw bytes，并按目标验证 installed/effective、publication 或 qualification 结果。
 7. 只清理本任务拥有的 worktree、branch、process、cache 和临时文件。
+8. 原 owner 必须持续负责到 `scripts/worktree_lifecycle.py close` 成功；handoff、callback、candidate、canonical push 或冲突本身都不解除 cleanup 义务。冲突由该 owner 基于 fresh SSOT 语义重放后解决。
 
 ## 归档判定
 

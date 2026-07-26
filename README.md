@@ -303,6 +303,25 @@ never deletes a worktree or branch and is not an OPL Flow, App, Package, or
 release readiness dependency; it is invoked only when an owner needs cleanup
 evidence.
 
+For a Git-writing task, use the lifecycle wrapper from creation through cleanup:
+
+```bash
+python3 scripts/worktree_lifecycle.py register \
+  --repo-root /path/to/repo --worktree /path/to/task-worktree \
+  --thread-id <thread> --objective-id <objective> --owner <owner> \
+  --next-action "<next action>" --write-set path/to/file
+python3 scripts/worktree_lifecycle.py checkpoint --worktree /path/to/task-worktree
+python3 scripts/worktree_lifecycle.py status
+python3 scripts/worktree_lifecycle.py close --worktree /path/to/task-worktree
+```
+
+The private ledger defaults to
+`~/.local/state/opl-flow/worktree-ownership-ledger.json`. `checkpoint` requires
+a clean named branch and verifies its remote commit and tree. `close` refuses
+dirty, unabsorbed, held, stale-main, or remote-divergent lanes; on success it
+removes only that task's worktree and local/remote task branch. There is no
+daemon, age-based deletion, or cloud ledger.
+
 ## Compatibility With OPL App Full
 
 Full is an optional offline seed for the same App Official Profile. It is not a
