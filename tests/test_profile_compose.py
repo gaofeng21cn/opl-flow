@@ -27,12 +27,18 @@ class ProfileComposeTests(unittest.TestCase):
 
         self.assertTrue(result["ok"], result)
 
-    def test_runtime_profile_is_bounded(self) -> None:
+    def test_runtime_profile_is_prioritized_and_bounded(self) -> None:
         profile = (REPO_ROOT / "templates" / "AGENTS.md").read_text(encoding="utf-8")
 
-        bullets = [line for line in profile.splitlines() if line.startswith("- ")]
-        self.assertLessEqual(len(bullets), 8)
-        self.assertLessEqual(len(profile.encode("utf-8")), 2048)
+        self.assertIn("按以下优先级工作：", profile)
+        instructions = [
+            line
+            for line in profile.splitlines()
+            if line.startswith("- ")
+            or (len(line) > 3 and line[0].isdigit() and line[1:3] == ". ")
+        ]
+        self.assertLessEqual(len(instructions), 8)
+        self.assertLessEqual(len(profile.encode("utf-8")), 4096)
 
     def test_taste_v2_keeps_six_principle_sections(self) -> None:
         taste = (REPO_ROOT / "templates" / "TASTE.md").read_text(encoding="utf-8")

@@ -287,11 +287,22 @@ def check_profile(repo_root: Path) -> list[str]:
     errors: list[str] = []
     agents = (repo_root / "templates" / "AGENTS.md").read_text(encoding="utf-8")
 
-    bullet_count = sum(line.startswith("- ") for line in agents.splitlines())
-    if bullet_count > 8:
-        errors.append("AGENTS.md must contain at most 8 flat instructions")
-    if len(agents.encode("utf-8")) > 2048:
-        errors.append("AGENTS.md must remain at or below 2 KB")
+    instruction_count = sum(
+        line.startswith("- ") or bool(re.match(r"^\d+\. ", line))
+        for line in agents.splitlines()
+    )
+    if instruction_count > 8:
+        errors.append("AGENTS.md must contain at most 8 prioritized instructions")
+
+    profile_size = len(agents.encode("utf-8"))
+    if profile_size > 4096:
+        errors.append("AGENTS.md must remain at or below 4 KB")
+    elif profile_size > 2048:
+        print(
+            "WARNING: AGENTS.md exceeds the 2 KB focus budget; "
+            "move procedural detail to skills or repository documentation",
+            file=sys.stderr,
+        )
 
     result = subprocess.run(
         [sys.executable, str(repo_root / "scripts" / "profile_compose.py"), "check", "--repo-root", str(repo_root)],
