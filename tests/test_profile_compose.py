@@ -31,6 +31,23 @@ class ProfileComposeTests(unittest.TestCase):
         profile = (REPO_ROOT / "templates" / "AGENTS.md").read_text(encoding="utf-8")
 
         self.assertIn("按以下优先级工作：", profile)
+        required_capabilities = (
+            "objective 未完成时不得停下",
+            "AI 负责开放判断",
+            "$coordinate-concurrent-tasks",
+            "子智能体不得再委派",
+            "并发默认 4",
+            "超过 8 须用户授权",
+            "旁路 receipt 不算 owner",
+            "holder=0",
+            "`.worktrees` 只放 Git worktree",
+            "Shell 默认用 `rtk`",
+            "codegraph init .",
+            "无需询问",
+            "字面检索用 `rg`",
+        )
+        for capability in required_capabilities:
+            self.assertIn(capability, profile)
         instructions = [
             line
             for line in profile.splitlines()
