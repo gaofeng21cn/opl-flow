@@ -112,6 +112,30 @@ class InstallLocalPluginTests(unittest.TestCase):
             self.assertFalse(result["ok"])
             self.assertIn("content:cache/README.md", result["cache_mismatches"])
 
+    def test_verify_accepts_canonical_marketplace_source_path(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            codex_home = root / "codex"
+            plugins_dir = root / "plugins"
+            plugin_root = install_local_plugin.copy_tree(REPO_ROOT, plugins_dir)
+            codex_bin = self.write_fake_codex(root, plugin_root)
+            version = json.loads(
+                (plugin_root / ".codex-plugin" / "plugin.json").read_text(encoding="utf-8")
+            )["version"]
+            cache_root = codex_home / "plugins" / "cache" / "opl-flow-local" / "opl-flow" / version
+            shutil.copytree(plugin_root, cache_root)
+
+            result = install_local_plugin.verify(
+                REPO_ROOT,
+                plugins_dir,
+                codex_home,
+                profile=False,
+                codex_bin=str(codex_bin),
+            )
+
+            self.assertTrue(result["marketplace_manifest_ok"])
+            self.assertTrue(result["ok"])
+
     def test_verify_rejects_unsynced_source_payload(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)

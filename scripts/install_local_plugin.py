@@ -740,7 +740,7 @@ def verify(
     marketplace_manifest_ok = (
         marketplace.get("name") == MARKETPLACE_NAME
         and marketplace_plugin.get("name") == PLUGIN_NAME
-        and marketplace_plugin.get("source") == {"source": "local", "path": "."}
+        and marketplace_plugin.get("source") == {"source": "local", "path": "./"}
         and marketplace_plugin.get("policy")
         == {"installation": "AVAILABLE", "authentication": "ON_INSTALL"}
     )
