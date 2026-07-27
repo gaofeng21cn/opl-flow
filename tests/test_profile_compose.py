@@ -41,6 +41,9 @@ class ProfileComposeTests(unittest.TestCase):
             "并发默认 4",
             "超过 8 须用户授权",
             "旁路 receipt 不算 owner",
+            "push/远端 Actions 前",
+            "本地不可等价项",
+            "不作首轮调试器",
             "holder=0",
             "`.worktrees` 只放 Git worktree",
             "Shell 默认用 `rtk`",
@@ -58,6 +61,21 @@ class ProfileComposeTests(unittest.TestCase):
         ]
         self.assertLessEqual(len(instructions), 8)
         self.assertLessEqual(len(profile.encode("utf-8")), 4096)
+
+    def test_coordinate_skill_keeps_local_first_remote_last_boundary(self) -> None:
+        skill = (
+            REPO_ROOT / "skills" / "coordinate-concurrent-tasks" / "SKILL.md"
+        ).read_text(encoding="utf-8")
+
+        required_capabilities = (
+            "### 本地优先、远端最后",
+            "push task ref、canonical main 或触发远端 Actions 前",
+            "全部可复现的 build、test、lint、workflow validator 和 packaging dry-run",
+            "本地无法等价验证的项目及原因",
+            "不得用来进行第一轮试错或常规调试",
+        )
+        for capability in required_capabilities:
+            self.assertIn(capability, skill)
 
     def test_taste_v2_keeps_six_principle_sections(self) -> None:
         taste = (REPO_ROOT / "templates" / "TASTE.md").read_text(encoding="utf-8")

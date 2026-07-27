@@ -49,6 +49,12 @@ description: Coordinate multiple Codex conversations, agents, repositories, or w
 - 不用驻留轮询、等待 ACK 或重复监测冒充 `next_action`。若一个对话没有真实可执行工作，立即重分配一个独立剩余切片；没有诚实切片时，报告分工错误并重组 scope，不制造忙碌证据。
 - currentness 前进后由原对话、原 owner 继续 replay/rebase。不要仅因主线漂移创建等待 successor 或丢弃已有责任。
 
+### 本地优先、远端最后
+
+- 对手工开发，在 push task ref、canonical main 或触发远端 Actions 前，先在本机或本地等价环境运行全部可复现的 build、test、lint、workflow validator 和 packaging dry-run；修复首个真实断点并重跑受影响门禁。
+- 显式列出本地无法等价验证的项目及原因，不把它们写成已验证。GitHub Actions 只承担本地不可替代的 hosted OS/arch、受保护凭据、public mutation 与 owner-authoritative readback。
+- 远端 CI 结果仍可作为必要终态证据，但不得替代本地可复现验证，也不得用来进行第一轮试错或常规调试。
+
 ### 多机远端同步
 
 - 默认按多机协同处理长任务。开始、恢复、交接和重要 checkpoint 前 fetch canonical remote refs，fresh 读取 `main`、task branch、当前 owner 和 write set；不得用本机旧 tracking ref 推断 currentness。
