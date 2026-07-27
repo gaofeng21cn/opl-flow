@@ -32,7 +32,9 @@ class ProfileComposeTests(unittest.TestCase):
 
         self.assertIn("按以下优先级工作：", profile)
         required_capabilities = (
-            "objective 未完成时不得停下",
+            "终态与用户 SSOT",
+            "最新直接用户指令决定",
+            "冲突时标记为 `stale/derived/unknown`",
             "定位可验证根因或最深可证断点",
             "不以表象补丁冒充修复",
             "AI 负责开放判断",
@@ -40,11 +42,7 @@ class ProfileComposeTests(unittest.TestCase):
             "子智能体不得再委派",
             "并发默认 4",
             "超过 8 须用户授权",
-            "旁路 receipt 不算 owner",
-            "push/远端 Actions 前",
-            "本地不可等价项",
-            "不作首轮调试器",
-            "holder=0",
+            "登记正式 lifecycle",
             "`.worktrees` 只放 Git worktree",
             "Shell 默认用 `rtk`",
             "codegraph init .",
