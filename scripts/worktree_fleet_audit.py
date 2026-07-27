@@ -121,7 +121,7 @@ def scan_holders(
     if result.returncode not in (0, 1):
         return {}, False
 
-    normalized = [str(path.resolve()) for path in worktree_paths]
+    normalized = [path.resolve() for path in worktree_paths]
     holders: dict[str, list[dict[str, Any]]] = {}
     pid: int | None = None
     command: str | None = None
@@ -131,13 +131,16 @@ def scan_holders(
         elif line.startswith("c"):
             command = line[1:]
         elif line.startswith("n/") and pid is not None:
-            opened_path = line[1:]
+            opened_path = Path(line[1:])
             for worktree in normalized:
-                if opened_path != worktree and not opened_path.startswith(f"{worktree}/"):
+                try:
+                    opened_path.resolve(strict=True).relative_to(worktree)
+                except (OSError, ValueError):
                     continue
                 item = {"pid": pid, "command": command}
-                if item not in holders.setdefault(worktree, []):
-                    holders[worktree].append(item)
+                worktree_key = str(worktree)
+                if item not in holders.setdefault(worktree_key, []):
+                    holders[worktree_key].append(item)
     return holders, True
 
 

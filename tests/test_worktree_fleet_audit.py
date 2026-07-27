@@ -5,6 +5,7 @@ import subprocess
 import tempfile
 import unittest
 from pathlib import Path
+from unittest.mock import patch
 
 from scripts import worktree_fleet_audit
 
@@ -121,6 +122,49 @@ class WorktreeFleetAuditTests(unittest.TestCase):
         lane = result["repos"][0]["worktrees"][0]
 
         self.assertEqual(lane["action"], "holder_exit_required")
+
+    def test_scan_holders_ignores_deleted_inode_but_keeps_existing_paths(self) -> None:
+        lock_path = self.lane / "index.lock"
+        lock_path.write_text("lock\n", encoding="utf-8")
+        literal_deleted_path = self.lane / "metadata (deleted)"
+        literal_deleted_path.write_text("real file\n", encoding="utf-8")
+        deleted_codegraph_path = self.lane / ".codegraph" / "graph.sqlite"
+        lsof = subprocess.CompletedProcess(
+            args=["lsof"],
+            returncode=0,
+            stdout=(
+                "p101\n"
+                "ccodegraph\n"
+                f"n{deleted_codegraph_path} (deleted)\n"
+                "p102\n"
+                "cshell\n"
+                "fcwd\n"
+                f"n{self.lane}\n"
+                "p103\n"
+                "cgit\n"
+                "f4\n"
+                f"n{lock_path}\n"
+                "p104\n"
+                "ctest\n"
+                f"n{literal_deleted_path}\n"
+            ),
+            stderr="",
+        )
+
+        with patch.object(worktree_fleet_audit, "run", return_value=lsof):
+            holders, available = worktree_fleet_audit.scan_holders([self.lane])
+
+        self.assertTrue(available)
+        self.assertEqual(
+            holders,
+            {
+                str(self.lane.resolve()): [
+                    {"pid": 102, "command": "shell"},
+                    {"pid": 103, "command": "git"},
+                    {"pid": 104, "command": "test"},
+                ]
+            },
+        )
 
     def test_load_ledger_rejects_incomplete_active_receipt(self) -> None:
         path = Path(self.temp.name) / "ledger.json"
