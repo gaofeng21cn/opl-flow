@@ -33,6 +33,8 @@ class ProfileComposeTests(unittest.TestCase):
         self.assertIn("按以下优先级工作：", profile)
         required_capabilities = (
             "objective 未完成时不得停下",
+            "定位可验证根因或最深可证断点",
+            "不以表象补丁冒充修复",
             "AI 负责开放判断",
             "$coordinate-concurrent-tasks",
             "子智能体不得再委派",
