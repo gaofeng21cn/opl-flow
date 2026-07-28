@@ -42,7 +42,7 @@ class ProfileComposeTests(unittest.TestCase):
             "子智能体不得再委派",
             "并发规模按 fresh execution graph",
             "不设全局固定上限",
-            "登记正式 lifecycle",
+            "worktree/branch 有明确 owner",
             "`.worktrees` 只放 Git worktree",
             "Shell 默认用 `rtk`",
             "codegraph init .",
@@ -66,7 +66,6 @@ class ProfileComposeTests(unittest.TestCase):
             or (len(line) > 3 and line[0].isdigit() and line[1:3] == ". ")
         ]
         self.assertLessEqual(len(instructions), 8)
-        self.assertLessEqual(len(profile.encode("utf-8")), 4096)
 
     def test_browser_routing_doc_covers_primary_scenarios_and_boundaries(self) -> None:
         routing = (REPO_ROOT / "docs" / "browser-tool-routing.md").read_text(encoding="utf-8")

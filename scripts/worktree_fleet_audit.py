@@ -377,11 +377,36 @@ def audit_repo(
                 "execution_owner": receipt.get("execution_owner") if receipt else None,
                 "next_action": receipt.get("next_action") if receipt else None,
                 "write_set": receipt.get("write_set") if receipt else None,
+                "integration_overlaps": [],
                 "remote_branch_head": remote_branch_head,
                 "action": action,
                 "issues": issues,
                 "blocking_issues": blocking_issues,
             }
+        )
+
+    active_lanes = [
+        lane
+        for lane in lanes
+        if lane["receipt_status"] == ACTIVE and isinstance(lane["write_set"], list)
+    ]
+    for lane in active_lanes:
+        for other in active_lanes:
+            if lane["worktree"] == other["worktree"]:
+                continue
+            overlap_paths = sorted(set(lane["write_set"]) & set(other["write_set"]))
+            if overlap_paths:
+                lane["integration_overlaps"].append(
+                    {
+                        "worktree": other["worktree"],
+                        "thread_id": other["thread_id"],
+                        "objective_id": other["objective_id"],
+                        "owner": other["owner"],
+                        "paths": overlap_paths,
+                    }
+                )
+        lane["integration_overlaps"].sort(
+            key=lambda item: (item["worktree"], item["owner"])
         )
 
     unresolved = [

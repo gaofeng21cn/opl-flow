@@ -11,6 +11,47 @@
             "minLength": 1,
             "type": "string"
           },
+          "integration_overlaps": {
+            "items": {
+              "additionalProperties": false,
+              "properties": {
+                "objective_id": {
+                  "minLength": 1,
+                  "type": "string"
+                },
+                "owner": {
+                  "minLength": 1,
+                  "type": "string"
+                },
+                "paths": {
+                  "items": {
+                    "minLength": 1,
+                    "type": "string"
+                  },
+                  "minItems": 1,
+                  "type": "array",
+                  "uniqueItems": true
+                },
+                "thread_id": {
+                  "minLength": 1,
+                  "type": "string"
+                },
+                "worktree": {
+                  "minLength": 1,
+                  "type": "string"
+                }
+              },
+              "required": [
+                "worktree",
+                "thread_id",
+                "objective_id",
+                "owner",
+                "paths"
+              ],
+              "type": "object"
+            },
+            "type": "array"
+          },
           "next_action": {
             "minLength": 1,
             "type": "string"

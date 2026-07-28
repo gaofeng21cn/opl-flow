@@ -132,6 +132,34 @@ def common_dir(worktree: Path) -> Path:
     return Path(raw).resolve()
 
 
+def integration_overlaps(
+    entries: list[dict[str, Any]],
+    lane: Path,
+    desired_paths: list[str],
+) -> list[dict[str, Any]]:
+    """Report overlapping active worksets without turning them into a lock."""
+    overlaps: list[dict[str, Any]] = []
+    lane_common_dir = common_dir(lane)
+    for item in entries:
+        other = Path(item["worktree"]).expanduser().resolve()
+        if other == lane or item["status"] != "ACTIVE" or not other.exists():
+            continue
+        if common_dir(other) != lane_common_dir:
+            continue
+        paths = sorted(set(item["write_set"]) & set(desired_paths))
+        if paths:
+            overlaps.append(
+                {
+                    "worktree": str(other),
+                    "thread_id": item["thread_id"],
+                    "objective_id": item["objective_id"],
+                    "owner": item["owner"],
+                    "paths": paths,
+                }
+            )
+    return sorted(overlaps, key=lambda item: (item["worktree"], item["owner"]))
+
+
 def register(
     ledger_path: Path,
     *,
@@ -162,16 +190,7 @@ def register(
             (item for item in payload["entries"] if item["worktree"] == lane_key),
             None,
         )
-        for item in payload["entries"]:
-            other = Path(item["worktree"])
-            if other == lane or item["status"] != "ACTIVE" or not other.exists():
-                continue
-            if common_dir(other) == common_dir(lane):
-                overlap = sorted(set(item["write_set"]) & set(desired_paths))
-                if overlap:
-                    raise LifecycleError(
-                        f"write-set already owned by {item['owner']}: {', '.join(overlap)}"
-                    )
+        overlaps = integration_overlaps(payload["entries"], lane, desired_paths)
         if existing:
             if any(existing[key] != value for key, value in identity.items()):
                 raise LifecycleError(f"worktree already belongs to another receipt: {lane}")
@@ -179,6 +198,7 @@ def register(
                 status="ACTIVE",
                 next_action=next_action,
                 write_set=desired_paths,
+                integration_overlaps=overlaps,
             )
             entry = existing
         else:
@@ -188,6 +208,7 @@ def register(
                 "status": "ACTIVE",
                 "next_action": next_action,
                 "write_set": desired_paths,
+                "integration_overlaps": overlaps,
                 "remote_recovery": None,
             }
             payload["entries"].append(entry)

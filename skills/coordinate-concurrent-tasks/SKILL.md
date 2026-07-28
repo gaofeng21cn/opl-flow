@@ -52,7 +52,7 @@ description: Coordinate multiple Codex conversations, agents, repositories, or w
 - 一个切片完成后不得因等待冲突而停住：owner 应先完成本地等价门禁，commit 并 push 可恢复 task checkpoint，回读远端 SHA/tree/blob，再把精确 integration boundary 交给唯一 Integrator；冲突只在 fresh main 的 canonical integration 临界区解决。
 - currentness drift 由原 owner 基于 fresh SSOT 做 semantic replay 并继续验证，不以漂移为理由进入等待或遗弃责任。
 - fail-closed 只终止当前 operation，不终止 objective。若没有不可替代的权限、外部输入或安全边界，主控修复断点后发起新的合法 operation，并持续到 `SAFE_TO_ARCHIVE`。
-- 每个非根 worktree 都必须有 `thread_id`、objective、owner、execution owner、`next_action` 与精确 write set 的 ACTIVE 收据；只有 `scripts/worktree_lifecycle.py register` 写入的全局 ledger 才构成 owner 登记，旁路 `.task-receipts` 或自定义 JSON 只作补充证据。用 `checkpoint` 建立远端恢复点，用 `status` 核对 holder、吸收、远端 task ref 与 canonical wire。无 owner 的 lane 只能进入 recovery 或 proof-backed cleanup，不得按年龄批量删除。
+- 每个非根 worktree 都必须有 `thread_id`、objective、该切片 owner、execution owner、`next_action` 与精确 write set 的 ACTIVE 收据；只有 `scripts/worktree_lifecycle.py register` 写入的全局 ledger 才构成 owner 登记，旁路 `.task-receipts` 或自定义 JSON 只作补充证据。不同 worktree 的重叠 write set 记录为 `integration_overlaps`，不阻止注册或开发；共享 checkout、canonical 吸收和外部 mutation 仍必须有短时唯一 operation owner。用 `checkpoint` 建立远端恢复点，用 `status` 核对 holder、吸收、远端 task ref 与 canonical wire。无 owner 的 lane 只能进入 recovery 或 proof-backed cleanup，不得按年龄批量删除。
 - source canonical 后同轮完成远端 ref/tree/blob 或等价 parity readback，并使用本仓 `scripts/worktree_absorption_audit.py` 或 fleet audit 确认吸收，再清理 task-owned worktree/branch；审计工具只提供证据，不代替 owner 判断或执行删除。
 - `.worktrees` 目录只保存 `git worktree list` 可识别的 worktree；build、release、preflight、日志和证据必须写入各自任务命名空间，并由创建任务在终态提取必要 receipt 后清理。
 
@@ -66,8 +66,8 @@ description: Coordinate multiple Codex conversations, agents, repositories, or w
 ## 建立执行图
 
 1. 从可用的 fresh thread readback、远端主线和机器合同重建当前事实。不要从过期标题、旧回执或历史 ledger 推断 owner。
-2. 为每个对话记录 `thread_id`、`objective_id`、唯一 owner、execution owner、精确 write set、当前 authority、具体 `next_action`、integration plan 和 completion gaps。
-3. 保证一个 objective 只有一个主控；把可独立验收的切片分给不同对话。子智能体只承担边界清楚的只读审计、测试、研究或独立实现，父对话仍负责最终验收和吸收。
+2. 为每个对话记录 `thread_id`、`objective_id`、该切片的 owner、execution owner、精确 write set、当前 authority、具体 `next_action`、integration plan 和 completion gaps。
+3. 保证每个切片只有一个 owner；同一 objective 可拆成多个独立切片并行。子智能体只承担边界清楚的只读审计、测试、研究或独立实现，父对话仍负责最终验收和吸收。
 4. 同时检查两类缺口：没有 objective 的活跃对话，以及没有 owner 的未完成 objective。立即分工，不留空档。
 5. 使用 `ACTIVE｜<owner/surface>｜<concrete objective>` 或 `SAFE_TO_ARCHIVE｜<surface>｜<completed objective>` 作为标题语义。`SAFE_TO_ARCHIVE` 标题仍保持线程未归档，直到用户 fresh 验收。没有实际线程操作能力时，只给出应更新的标题，不要声称已修改。
 

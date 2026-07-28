@@ -85,6 +85,49 @@ class WorktreeFleetAuditTests(unittest.TestCase):
         self.assertEqual(lane["action"], "retain_active")
         self.assertEqual(lane["remote_branch_head"], git(self.lane, "rev-parse", "HEAD"))
 
+    def test_active_overlapping_lanes_are_reported_without_blocking(self) -> None:
+        other_lane = Path(self.temp.name) / "other-lane"
+        git(self.repo, "worktree", "add", "-b", "other-lane", str(other_lane), "main")
+        self.commit_lane()
+        (other_lane / "other.txt").write_text("other\n", encoding="utf-8")
+        git(other_lane, "add", "other.txt")
+        git(other_lane, "commit", "-m", "other change")
+        git(self.lane, "push", "-u", "origin", "lane")
+        git(other_lane, "push", "-u", "origin", "other-lane")
+        receipts = self.active_receipt()
+        receipts[str(other_lane.resolve())] = {
+            "worktree": str(other_lane.resolve()),
+            "thread_id": "thread-2",
+            "objective_id": "objective-2",
+            "owner": "owner-2",
+            "execution_owner": "owner-2",
+            "status": "ACTIVE",
+            "next_action": "continue focused verification",
+            "write_set": ["lane.txt"],
+            "remote_recovery": {
+                "branch": "other-lane",
+                "commit": git(other_lane, "rev-parse", "HEAD"),
+                "tree": git(other_lane, "rev-parse", "HEAD^{tree}"),
+            },
+        }
+
+        result = self.audit(receipts)
+        lanes = {
+            item["worktree"]: item
+            for item in result["repos"][0]["worktrees"]
+        }
+
+        self.assertTrue(result["ok"])
+        self.assertEqual(lanes[str(self.lane.resolve())]["action"], "retain_active")
+        self.assertEqual(
+            lanes[str(self.lane.resolve())]["integration_overlaps"][0]["owner"],
+            "owner-2",
+        )
+        self.assertEqual(
+            lanes[str(other_lane.resolve())]["integration_overlaps"][0]["owner"],
+            "owner-1",
+        )
+
     def test_absorbed_ownerless_lane_is_cleanup_ready(self) -> None:
         self.commit_lane()
         git(self.repo, "merge", "--ff-only", "lane")

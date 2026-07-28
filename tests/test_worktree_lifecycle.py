@@ -61,8 +61,8 @@ class WorktreeLifecycleTests(unittest.TestCase):
         git(self.lane, "add", "lane.txt")
         git(self.lane, "commit", "-m", "lane change")
 
-    def test_register_writes_private_ledger_and_rejects_write_overlap(self) -> None:
-        self.register()
+    def test_register_allows_overlap_and_records_integration_evidence(self) -> None:
+        first = self.register()
         git(
             self.repo,
             "worktree",
@@ -74,18 +74,22 @@ class WorktreeLifecycleTests(unittest.TestCase):
         )
 
         self.assertEqual(os.stat(self.ledger).st_mode & 0o777, 0o600)
-        with self.assertRaisesRegex(worktree_lifecycle.LifecycleError, "already owned"):
-            worktree_lifecycle.register(
-                self.ledger,
-                repo_root=self.repo,
-                worktree=self.other_lane,
-                thread_id="thread-2",
-                objective_id="objective-2",
-                owner="owner-2",
-                execution_owner="owner-2",
-                next_action="continue",
-                write_set=["lane.txt"],
-            )
+        second = worktree_lifecycle.register(
+            self.ledger,
+            repo_root=self.repo,
+            worktree=self.other_lane,
+            thread_id="thread-2",
+            objective_id="objective-2",
+            owner="owner-2",
+            execution_owner="owner-2",
+            next_action="continue",
+            write_set=["lane.txt"],
+        )
+        self.assertEqual(first["integration_overlaps"], [])
+        self.assertEqual(second["integration_overlaps"][0]["owner"], "owner-1")
+        self.assertEqual(second["integration_overlaps"][0]["paths"], ["lane.txt"])
+        entries = json.loads(self.ledger.read_text())["entries"]
+        self.assertEqual(len(entries), 2)
 
     def test_checkpoint_pushes_exact_commit_and_tree(self) -> None:
         self.register()

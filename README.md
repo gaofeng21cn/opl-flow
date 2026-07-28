@@ -324,6 +324,11 @@ dirty, unabsorbed, held, stale-main, or remote-divergent lanes; on success it
 removes only that task's worktree and local/remote task branch. There is no
 daemon, age-based deletion, or cloud ledger.
 
+Independent worktrees may register overlapping write sets. The lifecycle receipt
+and fleet audit expose `integration_overlaps` as an integration warning; this is
+not a development lock. Only shared checkouts, canonical `main` absorption, and
+external mutations remain short single-owner operations.
+
 ## Compatibility With OPL App Full
 
 Full is an optional offline seed for the same App Official Profile. It is not a
