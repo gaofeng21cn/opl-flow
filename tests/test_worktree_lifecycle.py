@@ -152,6 +152,26 @@ class WorktreeLifecycleTests(unittest.TestCase):
 
     def test_close_removes_absorbed_lane_and_recovery_refs(self) -> None:
         self.register()
+        git(
+            self.repo,
+            "worktree",
+            "add",
+            "-b",
+            "other-lane",
+            str(self.other_lane),
+            "main",
+        )
+        worktree_lifecycle.register(
+            self.ledger,
+            repo_root=self.repo,
+            worktree=self.other_lane,
+            thread_id="thread-2",
+            objective_id="objective-2",
+            owner="owner-2",
+            execution_owner="owner-2",
+            next_action="continue",
+            write_set=["lane.txt"],
+        )
         self.commit_lane()
         worktree_lifecycle.checkpoint(self.ledger, worktree=self.lane, remote="origin")
         git(self.repo, "merge", "--ff-only", "lane")
@@ -168,7 +188,10 @@ class WorktreeLifecycleTests(unittest.TestCase):
         self.assertFalse(self.lane.exists())
         self.assertFalse(git(self.repo, "branch", "--list", "lane"))
         self.assertFalse(git(self.repo, "ls-remote", "--heads", "origin", "refs/heads/lane"))
-        self.assertEqual(json.loads(self.ledger.read_text())["entries"], [])
+        entries = json.loads(self.ledger.read_text())["entries"]
+        self.assertEqual(len(entries), 1)
+        self.assertEqual(entries[0]["worktree"], str(self.other_lane.resolve()))
+        self.assertEqual(entries[0]["integration_overlaps"], [])
 
     def test_close_preserves_unrelated_dirty_and_behind_canonical_checkout(self) -> None:
         self.register()
@@ -361,7 +384,7 @@ class WorktreeLifecycleTests(unittest.TestCase):
             owner="owner-2",
             execution_owner="owner-2",
             next_action="continue",
-            write_set=["other.txt"],
+            write_set=["lane.txt"],
         )
         self.remove_lane_surfaces()
 
@@ -371,6 +394,7 @@ class WorktreeLifecycleTests(unittest.TestCase):
         entries = json.loads(self.ledger.read_text())["entries"]
         self.assertEqual(len(entries), 1)
         self.assertEqual(entries[0]["worktree"], str(self.other_lane.resolve()))
+        self.assertEqual(entries[0]["integration_overlaps"], [])
 
 
 if __name__ == "__main__":

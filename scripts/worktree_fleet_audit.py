@@ -7,6 +7,7 @@ import argparse
 import json
 import os
 import subprocess
+import time
 from pathlib import Path
 from typing import Any
 
@@ -20,6 +21,23 @@ SCHEMA = "opl_flow_worktree_fleet_audit.v1"
 LEDGER_SCHEMA = "opl_flow_worktree_ownership_ledger.v1"
 ACTIVE = "ACTIVE"
 ARCHIVE_READY = "SAFE_TO_ARCHIVE"
+REMOTE_PROBE_TIMEOUT_SECONDS = 10.0
+REMOTE_PROBE_BACKOFF_SECONDS = (0.25, 0.75)
+TRANSIENT_REMOTE_PROBE_ERRORS = (
+    "could not resolve host",
+    "connection reset by peer",
+    "connection timed out",
+    "failed to connect",
+    "gnutls_handshake() failed",
+    "network is unreachable",
+    "operation timed out",
+    "recv failure",
+    "ssl_error_syscall",
+    "stream error in the http/2 framing layer",
+    "temporary failure in name resolution",
+    "the remote end hung up unexpectedly",
+    "tls handshake timeout",
+)
 
 
 class FleetAuditError(RuntimeError):
@@ -31,15 +49,21 @@ def run(
     *,
     cwd: Path | None = None,
     check: bool = True,
+    timeout: float | None = None,
 ) -> subprocess.CompletedProcess[str]:
-    result = subprocess.run(
-        args,
-        cwd=cwd,
-        check=False,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,
-        text=True,
-    )
+    try:
+        result = subprocess.run(
+            args,
+            cwd=cwd,
+            check=False,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
+            timeout=timeout,
+        )
+    except subprocess.TimeoutExpired as exc:
+        detail = f" timed out after {timeout:g}s" if timeout is not None else " timed out"
+        raise FleetAuditError(f"{' '.join(args)}{detail}") from exc
     if check and result.returncode != 0:
         detail = result.stderr.strip() or result.stdout.strip() or f"exit {result.returncode}"
         raise FleetAuditError(f"{' '.join(args)} failed: {detail}")
@@ -47,7 +71,37 @@ def run(
 
 
 def git(cwd: Path, *args: str, check: bool = True) -> subprocess.CompletedProcess[str]:
-    return run(["git", *args], cwd=cwd, check=check)
+    command = ["git", *args]
+    if not args or args[0] != "ls-remote":
+        return run(command, cwd=cwd, check=check)
+
+    attempts = len(REMOTE_PROBE_BACKOFF_SECONDS) + 1
+    for attempt in range(attempts):
+        try:
+            result = run(
+                command,
+                cwd=cwd,
+                check=False,
+                timeout=REMOTE_PROBE_TIMEOUT_SECONDS,
+            )
+        except FleetAuditError as exc:
+            error = str(exc)
+            result = None
+        else:
+            if result.returncode == 0:
+                return result
+            error = result.stderr.strip() or result.stdout.strip() or f"exit {result.returncode}"
+
+        retryable = "timed out after" in error.lower() or any(
+            marker in error.lower() for marker in TRANSIENT_REMOTE_PROBE_ERRORS
+        )
+        if not retryable or attempt == attempts - 1:
+            if result is not None and not check:
+                return result
+            raise FleetAuditError(f"{' '.join(command)} failed: {error}")
+        time.sleep(REMOTE_PROBE_BACKOFF_SECONDS[attempt])
+
+    raise AssertionError("remote probe retry loop exhausted without a result")
 
 
 def load_ledger(path: Path | None) -> dict[str, dict[str, Any]]:

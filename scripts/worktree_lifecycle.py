@@ -59,6 +59,7 @@ def read_ledger(path: Path) -> dict[str, Any]:
 def write_ledger(path: Path, payload: dict[str, Any]) -> None:
     path = path.expanduser().resolve()
     path.parent.mkdir(parents=True, exist_ok=True)
+    prune_orphaned_integration_overlaps(payload)
     payload["recorded_at"] = now()
     payload["entries"] = sorted(payload["entries"], key=lambda item: item["worktree"])
     data = json.dumps(payload, indent=2, sort_keys=True) + "\n"
@@ -81,6 +82,26 @@ def write_ledger(path: Path, payload: dict[str, Any]) -> None:
     finally:
         if temporary and temporary.exists():
             temporary.unlink()
+
+
+def prune_orphaned_integration_overlaps(payload: dict[str, Any]) -> None:
+    """Drop cached overlap evidence once the referenced ACTIVE receipt is gone."""
+    active_worktrees = {
+        item["worktree"]
+        for item in payload["entries"]
+        if item.get("status") == "ACTIVE"
+    }
+    for item in payload["entries"]:
+        overlaps = item.get("integration_overlaps", [])
+        if not isinstance(overlaps, list):
+            overlaps = []
+        item["integration_overlaps"] = [
+            overlap
+            for overlap in overlaps
+            if isinstance(overlap, dict)
+            and overlap.get("worktree") in active_worktrees
+            and overlap.get("worktree") != item.get("worktree")
+        ]
 
 
 @contextmanager

@@ -74,6 +74,69 @@ class WorktreeFleetAuditTests(unittest.TestCase):
             holder_scan_available=True,
         )
 
+    def test_remote_heads_retry_transient_tls_failure(self) -> None:
+        failure = subprocess.CompletedProcess(
+            args=["git", "ls-remote"],
+            returncode=128,
+            stdout="",
+            stderr="LibreSSL SSL_connect: SSL_ERROR_SYSCALL in connection to github.com:443",
+        )
+        success = subprocess.CompletedProcess(
+            args=["git", "ls-remote"],
+            returncode=0,
+            stdout="abc123\trefs/heads/main\n",
+            stderr="",
+        )
+
+        with (
+            patch.object(worktree_fleet_audit, "run", side_effect=[failure, success]) as run_mock,
+            patch.object(worktree_fleet_audit.time, "sleep") as sleep_mock,
+        ):
+            heads = worktree_fleet_audit.read_remote_heads(self.repo, "origin")
+
+        self.assertEqual(heads, {"main": "abc123"})
+        self.assertEqual(run_mock.call_count, 2)
+        sleep_mock.assert_called_once_with(
+            worktree_fleet_audit.REMOTE_PROBE_BACKOFF_SECONDS[0]
+        )
+
+    def test_remote_heads_do_not_retry_nontransient_failure(self) -> None:
+        failure = subprocess.CompletedProcess(
+            args=["git", "ls-remote"],
+            returncode=128,
+            stdout="",
+            stderr="fatal: Authentication failed",
+        )
+
+        with (
+            patch.object(worktree_fleet_audit, "run", return_value=failure) as run_mock,
+            patch.object(worktree_fleet_audit.time, "sleep") as sleep_mock,
+            self.assertRaisesRegex(worktree_fleet_audit.FleetAuditError, "Authentication failed"),
+        ):
+            worktree_fleet_audit.read_remote_heads(self.repo, "origin")
+
+        self.assertEqual(run_mock.call_count, 1)
+        sleep_mock.assert_not_called()
+
+    def test_remote_heads_fail_closed_after_bounded_retries(self) -> None:
+        failure = subprocess.CompletedProcess(
+            args=["git", "ls-remote"],
+            returncode=128,
+            stdout="",
+            stderr="fatal: TLS handshake timeout",
+        )
+        attempts = len(worktree_fleet_audit.REMOTE_PROBE_BACKOFF_SECONDS) + 1
+
+        with (
+            patch.object(worktree_fleet_audit, "run", return_value=failure) as run_mock,
+            patch.object(worktree_fleet_audit.time, "sleep") as sleep_mock,
+            self.assertRaisesRegex(worktree_fleet_audit.FleetAuditError, "TLS handshake timeout"),
+        ):
+            worktree_fleet_audit.read_remote_heads(self.repo, "origin")
+
+        self.assertEqual(run_mock.call_count, attempts)
+        self.assertEqual(sleep_mock.call_count, attempts - 1)
+
     def test_active_remote_recoverable_lane_is_retained(self) -> None:
         self.commit_lane()
         git(self.lane, "push", "-u", "origin", "lane")
