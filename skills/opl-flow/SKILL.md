@@ -17,8 +17,9 @@ design and development directly.
 
 - Use this skill to install, update, sync, explain, or diagnose the minimal
   Profile.
-- Use `$coordinate-concurrent-tasks` only for bounded multi-task ownership,
-  parallel execution, fresh-SSOT integration, and archive-readiness review.
+- Use `$coordinate-concurrent-tasks` only for evidence-driven dynamic-capacity
+  multi-task ownership, parallel execution, fresh-SSOT integration, and
+  archive-readiness review.
 - Follow effective repo-local `AGENTS.md`, contracts, source, tests, and fresh
   readback for ordinary repository work.
 - Do not make Flow a prerequisite for Base, App, Standard, Full, plain Codex,
@@ -158,6 +159,6 @@ only the local Codex development carrier.
 The target boundary and current migration gap are documented in
 `docs/capability-governance.md` and `docs/status.md`. Do not claim migration
 complete until actual install/update/remove, Standard/Full, Profile safety,
-complete Package, the formal Codex route, and the bounded Git/local neutral
+complete Package, the formal Codex route, and the evidence-driven Git/local neutral
 contract proof all pass. Do not build or imply a second executor product merely
 to satisfy that proof.

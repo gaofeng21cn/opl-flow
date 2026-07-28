@@ -27,7 +27,7 @@ class ProfileComposeTests(unittest.TestCase):
 
         self.assertTrue(result["ok"], result)
 
-    def test_runtime_profile_is_prioritized_and_bounded(self) -> None:
+    def test_runtime_profile_is_prioritized_and_dynamic_capacity(self) -> None:
         profile = (REPO_ROOT / "templates" / "AGENTS.md").read_text(encoding="utf-8")
 
         self.assertIn("按以下优先级工作：", profile)
@@ -40,8 +40,8 @@ class ProfileComposeTests(unittest.TestCase):
             "AI 负责开放判断",
             "$coordinate-concurrent-tasks",
             "子智能体不得再委派",
-            "并发默认 4",
-            "超过 8 须用户授权",
+            "并发规模按 fresh execution graph",
+            "不设全局固定上限",
             "登记正式 lifecycle",
             "`.worktrees` 只放 Git worktree",
             "Shell 默认用 `rtk`",

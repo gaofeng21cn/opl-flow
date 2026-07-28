@@ -2,7 +2,7 @@
 
 OPL Flow distributes a minimal, model-native preference profile. It is an OPL
 Package whose capabilities include the user-level `AGENTS.md`, non-runtime
-`TASTE.md`, the `opl-flow` skill, and the bounded
+`TASTE.md`, the `opl-flow` skill, and the evidence-driven dynamic-capacity
 `coordinate-concurrent-tasks` skill.
 
 Flow is optional. OPL App may include it as a default root in the App Official
@@ -59,7 +59,9 @@ The durable profile contains only:
   and implementation before editing.
 - Keep the user's highest-priority verifiable outcome on the critical path.
 - Depend only on prerequisites that reached their authority and took effect.
-- Delegate only independent critical-path work with bounded concurrency.
+- Delegate only independent critical-path work whose write sets, resources, and
+  recovery points justify parallel execution; do not impose a fixed global
+  concurrency cap.
 - Use RTK for compact shell output and native commands when fidelity matters.
 - Initialize and Git-ignore `.codegraph/` in development repositories.
 
@@ -332,7 +334,7 @@ failure locally. Once online, the installed Package follows its owner
 
 The target migration is incomplete until clean Standard and Full installs,
 remove-without-reinstall, owner-independent update, Profile safety, full
-Package readback, the formal Codex route, and the bounded Git/local neutral
+Package readback, the formal Codex route, and the evidence-driven Git/local neutral
 contract proof all have fresh terminal evidence. A second executor product is
 not required for this migration.
 

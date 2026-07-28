@@ -1,7 +1,7 @@
 {
   "name": "opl-flow",
-  "version": "0.1.27",
-  "description": "OPL Flow installs a minimal Codex preference profile and a bounded concurrent-task coordination skill.",
+  "version": "0.1.28",
+  "description": "OPL Flow installs a minimal Codex preference profile and an evidence-driven dynamic-capacity concurrent-task coordination skill.",
   "author": {
     "name": "Gaofeng"
   },
@@ -9,7 +9,7 @@
   "interface": {
     "displayName": "OPL Flow",
     "shortDescription": "Pragmatic Codex workflow profile",
-    "longDescription": "OPL Flow packages a minimal AGENTS.md preference profile, RTK and CodeGraph guidance, plus bounded multi-task coordination with user-approved archival.",
+    "longDescription": "OPL Flow packages a minimal AGENTS.md preference profile, RTK and CodeGraph guidance, plus dynamic-capacity multi-task coordination with user-approved archival.",
     "developerName": "Gaofeng",
     "category": "Developer Tools",
     "capabilities": [
