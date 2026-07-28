@@ -301,6 +301,7 @@ def close(
     ledger_path: Path,
     *,
     worktree: Path,
+    target: str | None = None,
     holders: dict[str, list[dict[str, Any]]] | None = None,
     holder_scan_available: bool | None = None,
 ) -> dict[str, Any]:
@@ -325,6 +326,7 @@ def close(
         audit = worktree_fleet_audit.audit_fleet(
             [root],
             receipts,
+            target_override=target,
             check_remote=True,
             holders=holders,
             holder_scan_available=holder_scan_available,
@@ -682,6 +684,10 @@ def parser() -> argparse.ArgumentParser:
 
     close_parser = commands.add_parser("close")
     close_parser.add_argument("--worktree", required=True, type=Path)
+    close_parser.add_argument(
+        "--target",
+        help="Canonical remote tracking target used to prove task-worktree absorption.",
+    )
 
     close_stale_parser = commands.add_parser("close-stale")
     close_stale_parser.add_argument("--repo-root", required=True, type=Path)
@@ -725,7 +731,7 @@ def main() -> int:
                 holder_scan_available=False if args.skip_holder_scan else None,
             )
         elif args.command == "close":
-            result = close(ledger_path, worktree=args.worktree)
+            result = close(ledger_path, worktree=args.worktree, target=args.target)
         else:
             result = close_stale(
                 ledger_path,

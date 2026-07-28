@@ -194,6 +194,37 @@ class WorktreeLifecycleTests(unittest.TestCase):
         self.assertEqual(git(self.repo, "rev-parse", "origin/main"), lane_head)
         self.assertEqual(unrelated.read_text(encoding="utf-8"), "owner work\n")
 
+    def test_close_uses_explicit_target_when_root_tracks_review_branch(self) -> None:
+        self.register()
+        base_head = git(self.repo, "rev-parse", "HEAD")
+        self.commit_lane()
+        worktree_lifecycle.checkpoint(self.ledger, worktree=self.lane, remote="origin")
+        git(self.repo, "merge", "--ff-only", "lane")
+        git(self.repo, "push", "origin", "main")
+        git(self.repo, "push", "origin", f"{base_head}:refs/heads/review")
+        git(self.repo, "switch", "-c", "review", "--track", "origin/review")
+
+        with self.assertRaisesRegex(worktree_lifecycle.LifecycleError, "cleanup-ready"):
+            worktree_lifecycle.close(
+                self.ledger,
+                worktree=self.lane,
+                holders={},
+                holder_scan_available=True,
+            )
+
+        result = worktree_lifecycle.close(
+            self.ledger,
+            worktree=self.lane,
+            target="origin/main",
+            holders={},
+            holder_scan_available=True,
+        )
+
+        self.assertTrue(result["closed"])
+        self.assertEqual(git(self.repo, "branch", "--show-current"), "review")
+        self.assertEqual(git(self.repo, "rev-parse", "HEAD"), base_head)
+        self.assertFalse(git(self.repo, "ls-remote", "--heads", "origin", "refs/heads/lane"))
+
     def test_close_refuses_when_canonical_target_does_not_match_wire(self) -> None:
         self.register()
         base_head = git(self.repo, "rev-parse", "HEAD")
