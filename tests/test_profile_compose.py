@@ -48,6 +48,14 @@ class ProfileComposeTests(unittest.TestCase):
             "codegraph init .",
             "无需询问",
             "字面检索用 `rg`",
+            "浏览器按场景固定路由",
+            "connector/API/CLI",
+            "现有会话用 Chrome",
+            "一次性网页用内置 Browser",
+            "重复/回归用 Playwright",
+            "CLI/远程/Electron 用 agent-browser",
+            "桌面视觉用 Computer Use",
+            "agent-reach",
         )
         for capability in required_capabilities:
             self.assertIn(capability, profile)
@@ -59,6 +67,29 @@ class ProfileComposeTests(unittest.TestCase):
         ]
         self.assertLessEqual(len(instructions), 8)
         self.assertLessEqual(len(profile.encode("utf-8")), 4096)
+
+    def test_browser_routing_doc_covers_primary_scenarios_and_boundaries(self) -> None:
+        routing = (REPO_ROOT / "docs" / "browser-tool-routing.md").read_text(encoding="utf-8")
+
+        required_sections = (
+            "# 浏览器工具路由",
+            "## 总原则",
+            "## 固定优先级",
+            "## 表单与杂志编辑",
+            "## 降级链",
+            "## 快速决策表",
+            "chrome:control-chrome",
+            "browser:control-in-app-browser",
+            "Playwright",
+            "agent-browser",
+            "Computer Use",
+            "agent-reach",
+            "凭据不迁移",
+            "不可擅自替换",
+            "不应默认使用",
+        )
+        for section in required_sections:
+            self.assertIn(section, routing)
 
     def test_coordinate_skill_keeps_local_first_remote_last_boundary(self) -> None:
         skill = (

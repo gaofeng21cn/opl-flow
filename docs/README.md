@@ -19,6 +19,7 @@ owner, purpose, state, and machine boundary.
 | [Active truth and migration status](./status.md) | 当前兼容实现、目标差距、迁移顺序和 terminal proof | Human-readable status；不证明安装、发布或 target 已落地 |
 | [Compatibility and positioning](./compatibility.md) | Model-native、可选 Flow 与跨 executor 定位 | 不拥有 App/Base/Full/runtime/domain readiness |
 | [New machine Codex setup](./new-machine-codex-setup.md) | 当前可执行安装 runbook 与目标边界 | 命令和 fresh platform/executor readback 才是本机事实 |
+| [Browser tool routing](./browser-tool-routing.md) | 浏览器、Chrome、Playwright、agent-browser、Computer Use 与调研工具的场景路由和降级边界 | 操作工具选择；不改变各工具自身的权限与确认规则 |
 
 ## Canonical Role Coverage
 
