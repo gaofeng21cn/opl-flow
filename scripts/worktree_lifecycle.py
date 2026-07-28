@@ -421,6 +421,14 @@ def git_lock_paths(repo_root: Path) -> list[str]:
     return sorted(str(path) for path in common.rglob("*.lock") if path.exists())
 
 
+def configured_remotes(repo_root: Path) -> list[str]:
+    return sorted(
+        remote
+        for remote in git(repo_root, "remote").stdout.splitlines()
+        if remote.strip()
+    )
+
+
 def close_stale(
     ledger_path: Path,
     *,
@@ -483,8 +491,9 @@ def close_stale(
             )
 
         recovery = entry.get("remote_recovery")
-        if recovery is not None and recovery.get("branch") != branch:
-            raise LifecycleError("stale receipt recovery branch does not match")
+        if recovery is not None:
+            if not isinstance(recovery, dict) or recovery.get("branch") != branch:
+                raise LifecycleError("stale receipt recovery branch does not match")
         if os.path.lexists(lane_input) or os.path.lexists(lane / ".git"):
             raise LifecycleError("stale close requires the worktree path and .git file to be absent")
 
@@ -515,30 +524,35 @@ def close_stale(
             raise LifecycleError(f"stale close requires local task ref to be absent: {local_ref}")
         if local_ref_check.returncode != 1:
             raise LifecycleError(f"cannot verify local task ref absence: {local_ref}")
-        tracking_ref = f"refs/remotes/{target_remote}/{branch}"
-        tracking_ref_check = git(
-            root,
-            "show-ref",
-            "--verify",
-            "--quiet",
-            tracking_ref,
-            check=False,
-        )
-        if tracking_ref_check.returncode == 0:
-            raise LifecycleError(
-                f"stale close requires tracking task ref to be absent: {tracking_ref}"
+        for remote in configured_remotes(root):
+            tracking_ref = f"refs/remotes/{remote}/{branch}"
+            tracking_ref_check = git(
+                root,
+                "show-ref",
+                "--verify",
+                "--quiet",
+                tracking_ref,
+                check=False,
             )
-        if tracking_ref_check.returncode != 1:
-            raise LifecycleError(f"cannot verify tracking task ref absence: {tracking_ref}")
-        wire = git(
-            root,
-            "ls-remote",
-            "--heads",
-            target_remote,
-            local_ref,
-        ).stdout.strip()
-        if wire:
-            raise LifecycleError(f"stale close requires wire task ref to be absent: {local_ref}")
+            if tracking_ref_check.returncode == 0:
+                raise LifecycleError(
+                    f"stale close requires tracking task ref to be absent: {tracking_ref}"
+                )
+            if tracking_ref_check.returncode != 1:
+                raise LifecycleError(
+                    f"cannot verify tracking task ref absence: {tracking_ref}"
+                )
+            wire = git(
+                root,
+                "ls-remote",
+                "--heads",
+                remote,
+                local_ref,
+            ).stdout.strip()
+            if wire:
+                raise LifecycleError(
+                    f"stale close requires wire task ref to be absent on {remote}: {local_ref}"
+                )
 
         branch_config_check = git(
             root,
@@ -572,6 +586,37 @@ def close_stale(
         if not target_wire or target_wire.split()[0] != target_head:
             raise LifecycleError("canonical target must be checked and match its wire")
 
+        recovery_absorbed = recovery is None
+        if recovery is not None:
+            recovery_commit = recovery.get("commit")
+            recovery_tree = recovery.get("tree")
+            if not isinstance(recovery_commit, str) or not isinstance(recovery_tree, str):
+                raise LifecycleError("stale receipt recovery commit and tree must be present")
+            recorded_tree = git(
+                root,
+                "rev-parse",
+                "--verify",
+                f"{recovery_commit}^{{tree}}",
+                check=False,
+            )
+            if recorded_tree.returncode != 0 or recorded_tree.stdout.strip() != recovery_tree:
+                raise LifecycleError(
+                    "stale receipt recovery commit/tree cannot be verified locally"
+                )
+            absorbed = git(
+                root,
+                "merge-base",
+                "--is-ancestor",
+                recovery_commit,
+                target_head,
+                check=False,
+            )
+            if absorbed.returncode != 0:
+                raise LifecycleError(
+                    "stale receipt recovery commit is not absorbed by the canonical target"
+                )
+            recovery_absorbed = True
+
         payload["entries"] = [
             item for item in payload["entries"] if item["worktree"] != lane_key
         ]
@@ -603,6 +648,7 @@ def close_stale(
             "holders_absent": True,
             "git_locks_absent": True,
             "canonical_target_matches_wire": True,
+            "recovery_absence_or_absorption_proven": recovery_absorbed,
         },
         "remaining": remaining,
         "closed": True,

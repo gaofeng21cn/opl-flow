@@ -28,6 +28,7 @@ class WorktreeLifecycleTests(unittest.TestCase):
         root = Path(self.temp.name)
         self.repo = root / "repo"
         self.remote = root / "remote.git"
+        self.backup = root / "backup.git"
         self.lane = root / "lane"
         self.other_lane = root / "other-lane"
         self.ledger = root / "state" / "ledger.json"
@@ -248,6 +249,19 @@ class WorktreeLifecycleTests(unittest.TestCase):
         with self.assertRaisesRegex(worktree_lifecycle.LifecycleError, "local task ref"):
             self.stale_close()
 
+    def test_stale_close_refuses_task_ref_on_noncanonical_remote(self) -> None:
+        self.register()
+        git(self.temp.name, "init", "--bare", str(self.backup))
+        git(self.repo, "remote", "add", "backup", str(self.backup))
+        git(self.lane, "push", "backup", "lane")
+        self.remove_lane_surfaces()
+
+        with self.assertRaisesRegex(
+            worktree_lifecycle.LifecycleError,
+            "tracking task ref to be absent: refs/remotes/backup/lane",
+        ):
+            self.stale_close()
+
     def test_stale_close_refuses_identity_drift(self) -> None:
         self.register()
         self.remove_lane_surfaces()
@@ -267,6 +281,34 @@ class WorktreeLifecycleTests(unittest.TestCase):
                     ]
                 }
             )
+
+    def test_stale_close_refuses_unabsorbed_recovery_checkpoint(self) -> None:
+        self.register()
+        self.commit_lane()
+        worktree_lifecycle.checkpoint(self.ledger, worktree=self.lane, remote="origin")
+        self.remove_lane_surfaces()
+        git(self.repo, "push", "origin", "--delete", "lane")
+
+        with self.assertRaisesRegex(
+            worktree_lifecycle.LifecycleError,
+            "recovery commit is not absorbed",
+        ):
+            self.stale_close()
+
+    def test_stale_close_allows_absorbed_recovery_checkpoint(self) -> None:
+        self.register()
+        self.commit_lane()
+        recovery = worktree_lifecycle.checkpoint(self.ledger, worktree=self.lane, remote="origin")
+        git(self.repo, "merge", "--ff-only", "lane")
+        git(self.repo, "push", "origin", "main")
+        self.remove_lane_surfaces()
+        git(self.repo, "push", "origin", "--delete", "lane")
+
+        result = self.stale_close()
+
+        self.assertTrue(result["closed"])
+        self.assertEqual(recovery["commit"], git(self.repo, "rev-parse", "origin/main"))
+        self.assertTrue(result["assertions"]["recovery_absence_or_absorption_proven"])
 
     def test_stale_close_preserves_other_receipts(self) -> None:
         self.register()
