@@ -166,7 +166,7 @@ class WorktreeFleetAuditTests(unittest.TestCase):
 
         self.assertEqual(lane["action"], "holder_exit_required")
 
-    def test_scan_holders_ignores_deleted_inode_but_keeps_existing_paths(self) -> None:
+    def test_scan_holders_keeps_deleted_inode_and_literal_deleted_filename(self) -> None:
         lock_path = self.lane / "index.lock"
         lock_path.write_text("lock\n", encoding="utf-8")
         literal_deleted_path = self.lane / "metadata (deleted)"
@@ -202,6 +202,7 @@ class WorktreeFleetAuditTests(unittest.TestCase):
             holders,
             {
                 str(self.lane.resolve()): [
+                    {"pid": 101, "command": "codegraph"},
                     {"pid": 102, "command": "shell"},
                     {"pid": 103, "command": "git"},
                     {"pid": 104, "command": "test"},

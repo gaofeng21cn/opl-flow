@@ -210,6 +210,95 @@ class WorktreeLifecycleTests(unittest.TestCase):
                 holder_scan_available=True,
             )
 
+    def remove_lane_surfaces(self, *, delete_local_branch: bool = True) -> None:
+        git(self.repo, "worktree", "remove", str(self.lane))
+        if delete_local_branch:
+            git(self.repo, "branch", "-D", "lane")
+
+    def stale_close(self, **overrides: object) -> dict[str, object]:
+        arguments: dict[str, object] = {
+            "repo_root": self.repo,
+            "worktree": self.lane,
+            "thread_id": "thread-1",
+            "objective_id": "objective-1",
+            "owner": "owner-1",
+            "branch": "lane",
+            "holders": {},
+            "holder_scan_available": True,
+        }
+        arguments.update(overrides)
+        return worktree_lifecycle.close_stale(self.ledger, **arguments)
+
+    def test_stale_close_removes_exact_absent_receipt(self) -> None:
+        self.register()
+        self.remove_lane_surfaces()
+
+        result = self.stale_close()
+
+        self.assertTrue(result["closed"])
+        self.assertEqual(result["classification"], "stale_receipt_only")
+        self.assertEqual(result["remaining"], [])
+        self.assertTrue(all(result["assertions"].values()))
+        self.assertEqual(json.loads(self.ledger.read_text())["entries"], [])
+
+    def test_stale_close_refuses_when_task_ref_remains(self) -> None:
+        self.register()
+        self.remove_lane_surfaces(delete_local_branch=False)
+
+        with self.assertRaisesRegex(worktree_lifecycle.LifecycleError, "local task ref"):
+            self.stale_close()
+
+    def test_stale_close_refuses_identity_drift(self) -> None:
+        self.register()
+        self.remove_lane_surfaces()
+
+        with self.assertRaisesRegex(worktree_lifecycle.LifecycleError, "identity"):
+            self.stale_close(owner="other-owner")
+
+    def test_stale_close_refuses_deleted_path_holder(self) -> None:
+        self.register()
+        self.remove_lane_surfaces()
+
+        with self.assertRaisesRegex(worktree_lifecycle.LifecycleError, "holder0"):
+            self.stale_close(
+                holders={
+                    str(self.lane.resolve()): [
+                        {"pid": 123, "command": "codegraph"},
+                    ]
+                }
+            )
+
+    def test_stale_close_preserves_other_receipts(self) -> None:
+        self.register()
+        git(
+            self.repo,
+            "worktree",
+            "add",
+            "-b",
+            "other-lane",
+            str(self.other_lane),
+            "main",
+        )
+        worktree_lifecycle.register(
+            self.ledger,
+            repo_root=self.repo,
+            worktree=self.other_lane,
+            thread_id="thread-2",
+            objective_id="objective-2",
+            owner="owner-2",
+            execution_owner="owner-2",
+            next_action="continue",
+            write_set=["other.txt"],
+        )
+        self.remove_lane_surfaces()
+
+        result = self.stale_close()
+
+        self.assertEqual(result["remaining"], [])
+        entries = json.loads(self.ledger.read_text())["entries"]
+        self.assertEqual(len(entries), 1)
+        self.assertEqual(entries[0]["worktree"], str(self.other_lane.resolve()))
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -315,6 +315,10 @@ python3 scripts/worktree_lifecycle.py register \
 python3 scripts/worktree_lifecycle.py checkpoint --worktree /path/to/task-worktree
 python3 scripts/worktree_lifecycle.py status
 python3 scripts/worktree_lifecycle.py close --worktree /path/to/task-worktree
+python3 scripts/worktree_lifecycle.py close-stale \
+  --repo-root /path/to/repo --worktree /path/to/absent-task-worktree \
+  --thread-id <thread> --objective-id <objective> --owner <owner> \
+  --branch <task-branch>
 ```
 
 The private ledger defaults to
@@ -323,6 +327,13 @@ a clean named branch and verifies its remote commit and tree. `close` refuses
 dirty, unabsorbed, held, stale-main, or remote-divergent lanes; on success it
 removes only that task's worktree and local/remote task branch. There is no
 daemon, age-based deletion, or cloud ledger.
+
+If an external cleanup removed every task-owned Git surface before its ACTIVE
+receipt, `close-stale` removes only the exact bound receipt. It requires the
+original thread, objective, owner, and branch plus fresh proof that the path,
+registration, gitdir, local/tracking/wire refs, branch config, holders, and Git
+locks are all absent and that canonical tracking still matches the wire. It
+never removes a worktree, ref, branch, or unrelated ledger entry.
 
 Independent worktrees may register overlapping write sets. The lifecycle receipt
 and fleet audit expose `integration_overlaps` as an integration warning; this is

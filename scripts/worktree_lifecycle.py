@@ -7,6 +7,7 @@ import argparse
 import fcntl
 import json
 import os
+import re
 import socket
 import tempfile
 from contextlib import contextmanager
@@ -376,6 +377,238 @@ def close(
     }
 
 
+def git_admin_matches(repo_root: Path, lane: Path) -> list[str]:
+    common = Path(
+        git(
+            repo_root,
+            "rev-parse",
+            "--path-format=absolute",
+            "--git-common-dir",
+        ).stdout.strip()
+    ).resolve()
+    admin_root = common / "worktrees"
+    if not admin_root.is_dir():
+        return []
+
+    expected_gitdir = (lane / ".git").resolve()
+    matches: list[str] = []
+    for admin in admin_root.iterdir():
+        if not admin.is_dir():
+            continue
+        gitdir = admin / "gitdir"
+        points_to_lane = False
+        if gitdir.is_file() and not gitdir.is_symlink():
+            raw = gitdir.read_text(encoding="utf-8").strip()
+            if raw:
+                candidate = Path(raw).expanduser()
+                if not candidate.is_absolute():
+                    candidate = admin / candidate
+                points_to_lane = candidate.resolve() == expected_gitdir
+        if points_to_lane:
+            matches.append(str(admin))
+    return sorted(matches)
+
+
+def git_lock_paths(repo_root: Path) -> list[str]:
+    common = Path(
+        git(
+            repo_root,
+            "rev-parse",
+            "--path-format=absolute",
+            "--git-common-dir",
+        ).stdout.strip()
+    ).resolve()
+    return sorted(str(path) for path in common.rglob("*.lock") if path.exists())
+
+
+def close_stale(
+    ledger_path: Path,
+    *,
+    repo_root: Path,
+    worktree: Path,
+    thread_id: str,
+    objective_id: str,
+    owner: str,
+    branch: str,
+    holders: dict[str, list[dict[str, Any]]] | None = None,
+    holder_scan_available: bool | None = None,
+) -> dict[str, Any]:
+    """Remove one exact ACTIVE receipt after every task-owned Git surface is absent."""
+    root = repo_root.expanduser().resolve()
+    top = Path(git(root, "rev-parse", "--show-toplevel").stdout.strip()).resolve()
+    if top != root:
+        raise LifecycleError(f"repo root must be its Git top level: {root}")
+
+    lane_input = Path(os.path.abspath(worktree.expanduser()))
+    if os.path.lexists(lane_input):
+        raise LifecycleError("stale close requires the worktree path to be absent")
+    lane = lane_input.resolve()
+    if lane == root:
+        raise LifecycleError("canonical checkout cannot be stale-closed")
+    if git(root, "check-ref-format", "--branch", branch, check=False).returncode != 0:
+        raise LifecycleError(f"invalid task branch: {branch}")
+
+    target = worktree_fleet_audit.upstream_target(root, None)
+    target_remote, target_branch = worktree_fleet_audit.split_remote_target(target)
+    if branch == target_branch:
+        raise LifecycleError("refusing to stale-close the canonical branch")
+
+    lane_key = str(lane)
+    if holders is None:
+        holders, detected = worktree_fleet_audit.scan_holders([lane])
+        if holder_scan_available is None:
+            holder_scan_available = detected
+    if holder_scan_available is not True:
+        raise LifecycleError("stale close requires an available holder scan")
+
+    with ledger_lock(ledger_path):
+        payload = read_ledger(ledger_path)
+        matches = [item for item in payload["entries"] if item["worktree"] == lane_key]
+        if len(matches) != 1 or matches[0]["status"] != "ACTIVE":
+            raise LifecycleError(f"unique ACTIVE receipt not found for {lane}")
+        entry = matches[0]
+        expected_identity = {
+            "thread_id": thread_id,
+            "objective_id": objective_id,
+            "owner": owner,
+        }
+        drift = [
+            key
+            for key, expected in expected_identity.items()
+            if entry.get(key) != expected
+        ]
+        if drift:
+            raise LifecycleError(
+                "stale receipt identity does not match: " + ", ".join(sorted(drift))
+            )
+
+        recovery = entry.get("remote_recovery")
+        if recovery is not None and recovery.get("branch") != branch:
+            raise LifecycleError("stale receipt recovery branch does not match")
+        if os.path.lexists(lane_input) or os.path.lexists(lane / ".git"):
+            raise LifecycleError("stale close requires the worktree path and .git file to be absent")
+
+        registered = {
+            str(Path(str(item["worktree"])).resolve())
+            for item in worktree_records(root)
+        }
+        if lane_key in registered:
+            raise LifecycleError("stale close requires the worktree registration to be absent")
+
+        admin_matches = git_admin_matches(root, lane)
+        if admin_matches:
+            raise LifecycleError(
+                "stale close requires the worktree gitdir administration to be absent: "
+                + ", ".join(admin_matches)
+            )
+
+        local_ref = f"refs/heads/{branch}"
+        local_ref_check = git(
+            root,
+            "show-ref",
+            "--verify",
+            "--quiet",
+            local_ref,
+            check=False,
+        )
+        if local_ref_check.returncode == 0:
+            raise LifecycleError(f"stale close requires local task ref to be absent: {local_ref}")
+        if local_ref_check.returncode != 1:
+            raise LifecycleError(f"cannot verify local task ref absence: {local_ref}")
+        tracking_ref = f"refs/remotes/{target_remote}/{branch}"
+        tracking_ref_check = git(
+            root,
+            "show-ref",
+            "--verify",
+            "--quiet",
+            tracking_ref,
+            check=False,
+        )
+        if tracking_ref_check.returncode == 0:
+            raise LifecycleError(
+                f"stale close requires tracking task ref to be absent: {tracking_ref}"
+            )
+        if tracking_ref_check.returncode != 1:
+            raise LifecycleError(f"cannot verify tracking task ref absence: {tracking_ref}")
+        wire = git(
+            root,
+            "ls-remote",
+            "--heads",
+            target_remote,
+            local_ref,
+        ).stdout.strip()
+        if wire:
+            raise LifecycleError(f"stale close requires wire task ref to be absent: {local_ref}")
+
+        branch_config_check = git(
+            root,
+            "config",
+            "--local",
+            "--get-regexp",
+            rf"^branch\.{re.escape(branch)}\.",
+            check=False,
+        )
+        if branch_config_check.returncode not in (0, 1):
+            raise LifecycleError("cannot verify task branch config absence")
+        branch_config = branch_config_check.stdout.strip()
+        if branch_config:
+            raise LifecycleError("stale close requires task branch config to be absent")
+
+        path_holders = holders.get(lane_key, [])
+        if path_holders:
+            raise LifecycleError(f"stale close requires holder0: {path_holders}")
+        locks = git_lock_paths(root)
+        if locks:
+            raise LifecycleError("stale close requires Git locks0: " + ", ".join(locks))
+
+        target_head = git(root, "rev-parse", f"{target}^{{commit}}").stdout.strip()
+        target_wire = git(
+            root,
+            "ls-remote",
+            "--heads",
+            target_remote,
+            f"refs/heads/{target_branch}",
+        ).stdout.strip()
+        if not target_wire or target_wire.split()[0] != target_head:
+            raise LifecycleError("canonical target must be checked and match its wire")
+
+        payload["entries"] = [
+            item for item in payload["entries"] if item["worktree"] != lane_key
+        ]
+        write_ledger(ledger_path, payload)
+        remaining = [
+            item
+            for item in read_ledger(ledger_path)["entries"]
+            if item["worktree"] == lane_key
+        ]
+        if remaining:
+            raise LifecycleError("stale lifecycle receipt remained after close")
+
+    return {
+        "schema": "opl_flow_worktree_stale_close_receipt.v1",
+        "worktree": lane_key,
+        "branch": branch,
+        "thread_id": thread_id,
+        "objective_id": objective_id,
+        "owner": owner,
+        "classification": "stale_receipt_only",
+        "assertions": {
+            "path_absent": True,
+            "registration_absent": True,
+            "gitdir_absent": True,
+            "local_ref_absent": True,
+            "tracking_ref_absent": True,
+            "wire_ref_absent": True,
+            "branch_config_absent": True,
+            "holders_absent": True,
+            "git_locks_absent": True,
+            "canonical_target_matches_wire": True,
+        },
+        "remaining": remaining,
+        "closed": True,
+    }
+
+
 def parser() -> argparse.ArgumentParser:
     root = argparse.ArgumentParser(description=__doc__)
     root.add_argument("--ledger", type=Path, default=DEFAULT_LEDGER)
@@ -403,6 +636,14 @@ def parser() -> argparse.ArgumentParser:
 
     close_parser = commands.add_parser("close")
     close_parser.add_argument("--worktree", required=True, type=Path)
+
+    close_stale_parser = commands.add_parser("close-stale")
+    close_stale_parser.add_argument("--repo-root", required=True, type=Path)
+    close_stale_parser.add_argument("--worktree", required=True, type=Path)
+    close_stale_parser.add_argument("--thread-id", required=True)
+    close_stale_parser.add_argument("--objective-id", required=True)
+    close_stale_parser.add_argument("--owner", required=True)
+    close_stale_parser.add_argument("--branch", required=True)
     return root
 
 
@@ -437,8 +678,18 @@ def main() -> int:
                 holders={} if args.skip_holder_scan else None,
                 holder_scan_available=False if args.skip_holder_scan else None,
             )
-        else:
+        elif args.command == "close":
             result = close(ledger_path, worktree=args.worktree)
+        else:
+            result = close_stale(
+                ledger_path,
+                repo_root=args.repo_root,
+                worktree=args.worktree,
+                thread_id=args.thread_id,
+                objective_id=args.objective_id,
+                owner=args.owner,
+                branch=args.branch,
+            )
     except (LifecycleError, worktree_fleet_audit.FleetAuditError) as exc:
         print(json.dumps({"ok": False, "error": str(exc)}, indent=2, sort_keys=True))
         return 2

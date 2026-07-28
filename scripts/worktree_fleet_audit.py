@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import subprocess
 from pathlib import Path
 from typing import Any
@@ -131,10 +132,17 @@ def scan_holders(
         elif line.startswith("c"):
             command = line[1:]
         elif line.startswith("n/") and pid is not None:
-            opened_path = Path(line[1:])
+            raw_path = line[1:]
+            opened_path = Path(raw_path)
+            if raw_path.endswith(" (deleted)") and not os.path.lexists(opened_path):
+                opened_path = Path(raw_path.removesuffix(" (deleted)"))
             for worktree in normalized:
                 try:
-                    opened_path.resolve(strict=True).relative_to(worktree)
+                    if os.path.lexists(opened_path):
+                        candidate = opened_path.resolve(strict=True)
+                    else:
+                        candidate = opened_path.resolve(strict=False)
+                    candidate.relative_to(worktree)
                 except (OSError, ValueError):
                     continue
                 item = {"pid": pid, "command": command}
