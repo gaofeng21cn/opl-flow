@@ -169,6 +169,47 @@ class WorktreeLifecycleTests(unittest.TestCase):
         self.assertFalse(git(self.repo, "ls-remote", "--heads", "origin", "refs/heads/lane"))
         self.assertEqual(json.loads(self.ledger.read_text())["entries"], [])
 
+    def test_close_preserves_unrelated_dirty_and_behind_canonical_checkout(self) -> None:
+        self.register()
+        base_head = git(self.repo, "rev-parse", "HEAD")
+        self.commit_lane()
+        lane_head = git(self.lane, "rev-parse", "HEAD")
+        worktree_lifecycle.checkpoint(self.ledger, worktree=self.lane, remote="origin")
+        git(self.repo, "merge", "--ff-only", "lane")
+        git(self.repo, "push", "origin", "main")
+        git(self.repo, "reset", "--hard", base_head)
+        unrelated = self.repo / "unrelated.txt"
+        unrelated.write_text("owner work\n", encoding="utf-8")
+
+        result = worktree_lifecycle.close(
+            self.ledger,
+            worktree=self.lane,
+            holders={},
+            holder_scan_available=True,
+        )
+
+        self.assertTrue(result["closed"])
+        self.assertEqual(git(self.repo, "rev-parse", "HEAD"), base_head)
+        self.assertEqual(git(self.repo, "rev-parse", "origin/main"), lane_head)
+        self.assertEqual(unrelated.read_text(encoding="utf-8"), "owner work\n")
+
+    def test_close_refuses_when_canonical_target_does_not_match_wire(self) -> None:
+        self.register()
+        base_head = git(self.repo, "rev-parse", "HEAD")
+        self.commit_lane()
+        worktree_lifecycle.checkpoint(self.ledger, worktree=self.lane, remote="origin")
+        git(self.repo, "merge", "--ff-only", "lane")
+        git(self.repo, "push", "origin", "main")
+        git(self.repo, "update-ref", "refs/remotes/origin/main", base_head)
+
+        with self.assertRaisesRegex(worktree_lifecycle.LifecycleError, "canonical target"):
+            worktree_lifecycle.close(
+                self.ledger,
+                worktree=self.lane,
+                holders={},
+                holder_scan_available=True,
+            )
+
 
 if __name__ == "__main__":
     unittest.main()

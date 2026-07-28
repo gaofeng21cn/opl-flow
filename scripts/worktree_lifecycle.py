@@ -332,8 +332,9 @@ def close(
         lane_result = next(
             item for item in repo["worktrees"] if item["worktree"] == str(lane)
         )
-        if repo["currentness"]["status"] != "aligned" or repo["currentness"]["dirty"]:
-            raise LifecycleError("canonical checkout must be clean and aligned with its wire")
+        currentness = repo["currentness"]
+        if not currentness["wire_head"] or currentness["target_head"] != currentness["wire_head"]:
+            raise LifecycleError("canonical target must be checked and match its wire")
         if lane_result["action"] != "cleanup_ready" or lane_result["blocking_issues"]:
             issues = lane_result["issues"] or [lane_result["action"]]
             raise LifecycleError("worktree is not cleanup-ready: " + "; ".join(issues))
