@@ -9,6 +9,15 @@ description: Coordinate multiple Codex conversations, agents, repositories, or w
 
 采用 `parallel_work_serialized_integration`：并行完成可独立推进的工作，只在最终共享 mutation 的短临界区串行。
 
+### 用户所说的 SSOT
+
+区分两种 SSOT，不能混用：
+
+- **指令 SSOT**：当前用户的最新直接指令，决定 objective、scope 和终态；
+- **产物 SSOT**：用户说“更新为 SSOT”“落实为 SSOT”时指定的真实 authority。除非用户明确指定其他 authority，Git 产物的 SSOT 就是远端 canonical `main` 的回读结果。
+
+因此，worktree、本地分支、task branch、远端 task ref、PR、候选提交、checkpoint、测试通过或文档草稿都只能是开发或恢复证据，**绝不是产物 SSOT**。只有内容进入 canonical `main`、远端 commit/tree（必要时 blob）回读一致后，才能称已更新为 SSOT；否则必须报告为 `ACTIVE`/可恢复。
+
 只使用两种用户可见状态：
 
 - `ACTIVE`：仍有任何实现、验证、吸收、安装生效、发布、回读或清理未完成。
@@ -16,10 +25,19 @@ description: Coordinate multiple Codex conversations, agents, repositories, or w
 
 把依赖、冲突、currentness drift、外部门禁失败和候选提交记录为事实，不要把它们变成 `WAIT`、`BLOCKED`、`HOLD`、`HANDOFF`、`CANDIDATE_ONLY` 或 `ARCHIVE_CANDIDATE` 状态。未完成对话必须持续承接一个真实、可立即执行的 `ACTIVE` 任务。
 
+### 并行规模不是固定上限
+
+- `ACTIVE` 对话、objective 数量和同时拥有 canonical mutation 权限的 writer 数量是三个不同概念；不能用一个 writer 数字限制所有独立对话。
+- 并行规模按 fresh execution graph 动态决定：每条 lane 只要有唯一 owner、可立即执行的 next action、边界明确的 write set、可恢复 checkpoint，且不争用同一稀缺资源，就应并行推进。
+- 只有真实的共享 mutation、宿主容量、受保护权限、安全边界或外部服务配额可以限制并行；同一 repo 的 `main` 吸收只在最终短临界区串行，不构成开发期总锁。
+- `4`、`8` 或其他数字只能作为当轮资源规划参考，永远不是全局 `ACTIVE` 上限。若当前资源允许更多独立 lane，必须说明 write-set/resource 证据后继续并行，而不是把它们改成等待。
+
 ### 执行连续性
 
 - `ACTIVE` 标题或总账登记不等于活跃执行。每个 `ACTIVE` objective 必须同时有 live execution owner、可立即执行的 `next_action` 和本轮推进证据。
+- **Active-progress invariant**：只有同时满足以下条件时才可保留 `ACTIVE`：存在唯一 live owner/execution owner；精确 write set 已登记；`next_action` 现在即可执行；当前 worktree/branch/checkpoint 可回读；最近一轮包含真实推进证据（实现、验证、commit、checkpoint、吸收、安装生效、发布回读或清理之一）。标题、spinner、未归档状态、callback、候选 commit 或测试通过都不能单独证明活跃执行。
 - 子任务、callback、测试或一次 operation 结束后，主控必须在同一轮验收结果并立即继续、修复首个真实断点或重分配；不得停在回调、候选、失败回执或等待另一个对话自行醒来。
+- 一个切片完成后不得因等待冲突而停住：owner 应先完成本地等价门禁，commit 并 push 可恢复 task checkpoint，回读远端 SHA/tree/blob，再把精确 integration boundary 交给唯一 Integrator；冲突只在 fresh main 的 canonical integration 临界区解决。
 - currentness drift 由原 owner 基于 fresh SSOT 做 semantic replay 并继续验证，不以漂移为理由进入等待或遗弃责任。
 - fail-closed 只终止当前 operation，不终止 objective。若没有不可替代的权限、外部输入或安全边界，主控修复断点后发起新的合法 operation，并持续到 `SAFE_TO_ARCHIVE`。
 - 每个非根 worktree 都必须有 `thread_id`、objective、owner、execution owner、`next_action` 与精确 write set 的 ACTIVE 收据；只有 `scripts/worktree_lifecycle.py register` 写入的全局 ledger 才构成 owner 登记，旁路 `.task-receipts` 或自定义 JSON 只作补充证据。用 `checkpoint` 建立远端恢复点，用 `status` 核对 holder、吸收、远端 task ref 与 canonical wire。无 owner 的 lane 只能进入 recovery 或 proof-backed cleanup，不得按年龄批量删除。
@@ -43,10 +61,11 @@ description: Coordinate multiple Codex conversations, agents, repositories, or w
 
 ## 并行推进
 
-- 为 Git 写任务使用独立 worktree 和分支，遵守目标仓库的 `AGENTS.md`、机器合同和并发上限。
+- 为 Git 写任务使用独立 worktree 和分支，遵守目标仓库的 `AGENTS.md`、机器合同以及真实的共享 mutation、资源容量和权限边界；不要套用未经证明的固定并发上限。
 - 依赖边只决定吸收顺序，不决定执行状态。先完成不依赖上游最终字节的实现、兼容桥、测试、生成、QA、审计和集成准备。
 - write-set overlap 是集成风险，不是长期锁。允许各自 worktree 继续准备；共享路径在吸收时只有一个最终 mutation owner，其他成果按 fresh SSOT 语义重放。
 - 不用驻留轮询、等待 ACK 或重复监测冒充 `next_action`。若一个对话没有真实可执行工作，立即重分配一个独立剩余切片；没有诚实切片时，报告分工错误并重组 scope，不制造忙碌证据。
+- 如果对话没有真实可执行工作，不得继续标记为 `ACTIVE`：若成果已被 canonical authority 完整覆盖则转为 `SAFE_TO_ARCHIVE`；若仍有独立缺口则登记最小切片和第一动作；若只是重复 writer 则改为只读审计或 superseded，不新建第二 writer。
 - currentness 前进后由原对话、原 owner 继续 replay/rebase。不要仅因主线漂移创建等待 successor 或丢弃已有责任。
 
 ### 本地优先、远端最后
@@ -60,7 +79,7 @@ description: Coordinate multiple Codex conversations, agents, repositories, or w
 - 默认按多机协同处理长任务。开始、恢复、交接和重要 checkpoint 前 fetch canonical remote refs，fresh 读取 `main`、task branch、当前 owner 和 write set；不得用本机旧 tracking ref 推断 currentness。
 - 阶段成果已可验证、可恢复且不含敏感信息时，同轮 commit 并 ordinary non-force push 到 task-owned 远端分支，再回读远端 branch SHA/tree。不要让唯一可恢复成果长时间只存在于本机 worktree。
 - 不得把 dirty、冲突中、测试 unknown、含敏感信息或外部 mutation 结果 unknown 的状态推成 checkpoint。尚不满足条件时继续本地修复，并明确报告 remote parity 尚未成立。
-- 远端任务分支不等于 canonical、完成或可清理；它只承担跨机器恢复与交接。`main` 仍按最终吸收规则受控集成，主线漂移后由原 owner 基于 fresh SSOT 语义重放。
+- 远端任务分支不等于 canonical、完成、SSOT 或可清理；它只承担跨机器恢复与交接。`main` 仍按最终吸收规则受控集成，主线漂移后由原 owner 基于 fresh SSOT 语义重放。
 
 ## 最终吸收
 
