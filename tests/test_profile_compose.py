@@ -106,6 +106,24 @@ class ProfileComposeTests(unittest.TestCase):
         for capability in required_capabilities:
             self.assertIn(capability, skill)
 
+    def test_coordinate_skill_preserves_latest_user_provenance_and_main_ssot(self) -> None:
+        skill = (
+            REPO_ROOT / "skills" / "coordinate-concurrent-tasks" / "SKILL.md"
+        ).read_text(encoding="utf-8")
+
+        required_capabilities = (
+            "### 用户所说的 SSOT",
+            "远端 canonical `main`",
+            "绝不是产物 SSOT",
+            "### 把内容判定为偏差之前先追溯 provenance",
+            "优先读取最新的用户直接指令",
+            "不能单独证明谁作出了",
+            "来自用户更晚的明确选择",
+            "不得把 authority “修正”",
+        )
+        for capability in required_capabilities:
+            self.assertIn(capability, skill)
+
     def test_taste_v2_keeps_six_principle_sections(self) -> None:
         taste = (REPO_ROOT / "templates" / "TASTE.md").read_text(encoding="utf-8")
 

@@ -18,6 +18,18 @@ description: Coordinate multiple Codex conversations, agents, repositories, or w
 
 因此，worktree、本地分支、task branch、远端 task ref、PR、候选提交、checkpoint、测试通过或文档草稿都只能是开发或恢复证据，**绝不是产物 SSOT**。只有内容进入 canonical `main`、远端 commit/tree（必要时 blob）回读一致后，才能称已更新为 SSOT；否则必须报告为 `ACTIVE`/可恢复。
 
+### 把内容判定为偏差之前先追溯 provenance
+
+当前内容与旧规划、memory、交接摘要或 AI 偏好不一致，不足以证明它是偏差。修改前必须
+先查明它如何形成：优先读取最新的用户直接指令，必要时再检查文档历史、blame、commit、
+相关对话和 runtime readback。commit author 只能证明谁写入字节，不能单独证明谁作出了
+产品决策；AI 写入的 commit 也可能是在落实用户后来明确提出的选择。
+
+如果当前内容来自用户更晚的明确选择，该选择就是最新指令 SSOT，必须保留；与之冲突的
+旧设计、memory、ledger、handoff 或 AI 判断应标记为 `stale`，不得把 authority “修正”
+回旧方案。只有 provenance 仍不明确、且不同解释会实质改变终态时，才在 mutation 前向
+用户澄清。
+
 只使用两种用户可见状态：
 
 - `ACTIVE`：仍有任何实现、验证、吸收、安装生效、发布、回读或清理未完成。
