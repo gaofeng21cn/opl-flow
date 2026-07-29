@@ -106,6 +106,88 @@ class WorktreeLifecycleTests(unittest.TestCase):
         self.assertEqual(receipt["tree"], git(self.lane, "rev-parse", "HEAD^{tree}"))
         self.assertTrue(git(self.lane, "ls-remote", "--heads", "origin", "refs/heads/lane"))
 
+    def test_transfer_owner_preserves_obligation_and_updates_overlap_identity(self) -> None:
+        self.register()
+        self.commit_lane()
+        recovery = worktree_lifecycle.checkpoint(
+            self.ledger,
+            worktree=self.lane,
+            remote="origin",
+        )
+        git(
+            self.repo,
+            "worktree",
+            "add",
+            "-b",
+            "other-lane",
+            str(self.other_lane),
+            "main",
+        )
+        worktree_lifecycle.register(
+            self.ledger,
+            repo_root=self.repo,
+            worktree=self.other_lane,
+            thread_id="thread-2",
+            objective_id="objective-2",
+            owner="owner-2",
+            execution_owner="owner-2",
+            next_action="continue",
+            write_set=["lane.txt"],
+        )
+
+        receipt = worktree_lifecycle.transfer_owner(
+            self.ledger,
+            repo_root=self.repo,
+            worktree=self.lane,
+            expected_thread_id="thread-1",
+            expected_objective_id="objective-1",
+            expected_owner="owner-1",
+            expected_execution_owner="owner-1",
+            new_thread_id="thread-recovery",
+            new_owner="owner-recovery",
+            new_execution_owner="executor-recovery",
+            next_action="resume existing lane",
+            reason="original execution owner is no longer reachable",
+        )
+
+        self.assertEqual(receipt["thread_id"], "thread-recovery")
+        self.assertEqual(receipt["objective_id"], "objective-1")
+        self.assertEqual(receipt["owner"], "owner-recovery")
+        self.assertEqual(receipt["execution_owner"], "executor-recovery")
+        self.assertEqual(receipt["write_set"], ["lane.txt"])
+        self.assertEqual(receipt["remote_recovery"], recovery)
+        transfer = receipt["ownership_transfers"][0]
+        self.assertEqual(transfer["from"]["thread_id"], "thread-1")
+        self.assertEqual(transfer["to"]["thread_id"], "thread-recovery")
+        entries = json.loads(self.ledger.read_text())["entries"]
+        other = next(
+            item for item in entries if item["worktree"] == str(self.other_lane.resolve())
+        )
+        self.assertEqual(other["integration_overlaps"][0]["thread_id"], "thread-recovery")
+        self.assertEqual(other["integration_overlaps"][0]["owner"], "owner-recovery")
+
+    def test_transfer_owner_fails_closed_on_identity_drift(self) -> None:
+        self.register()
+        before = self.ledger.read_bytes()
+
+        with self.assertRaisesRegex(worktree_lifecycle.LifecycleError, "identity changed"):
+            worktree_lifecycle.transfer_owner(
+                self.ledger,
+                repo_root=self.repo,
+                worktree=self.lane,
+                expected_thread_id="thread-1",
+                expected_objective_id="objective-1",
+                expected_owner="stale-owner",
+                expected_execution_owner="owner-1",
+                new_thread_id="thread-recovery",
+                new_owner="owner-recovery",
+                new_execution_owner="owner-recovery",
+                next_action="resume existing lane",
+                reason="original execution owner is no longer reachable",
+            )
+
+        self.assertEqual(self.ledger.read_bytes(), before)
+
     def test_checkpoint_rejects_noncanonical_remote(self) -> None:
         self.register()
 

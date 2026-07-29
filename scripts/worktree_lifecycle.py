@@ -239,6 +239,97 @@ def register(
     return entry
 
 
+def transfer_owner(
+    ledger_path: Path,
+    *,
+    repo_root: Path,
+    worktree: Path,
+    expected_thread_id: str,
+    expected_objective_id: str,
+    expected_owner: str,
+    expected_execution_owner: str,
+    new_thread_id: str,
+    new_owner: str,
+    new_execution_owner: str,
+    next_action: str,
+    reason: str,
+) -> dict[str, Any]:
+    """CAS-transfer one ACTIVE receipt without changing its source obligation."""
+    _, lane = resolve_repo(worktree, repo_root)
+    expected_identity = {
+        "thread_id": expected_thread_id,
+        "objective_id": expected_objective_id,
+        "owner": expected_owner,
+        "execution_owner": expected_execution_owner,
+    }
+    new_identity = {
+        "thread_id": new_thread_id,
+        "objective_id": expected_objective_id,
+        "owner": new_owner,
+        "execution_owner": new_execution_owner,
+    }
+    required = (*expected_identity.values(), *new_identity.values(), next_action, reason)
+    if any(not value.strip() for value in required):
+        raise LifecycleError("owner transfer identity, next-action, and reason must be non-empty")
+    if expected_identity == new_identity:
+        raise LifecycleError("owner transfer must change the receipt identity")
+
+    with ledger_lock(ledger_path):
+        payload = read_ledger(ledger_path)
+        lane_key = str(lane)
+        entry = next(
+            (item for item in payload["entries"] if item["worktree"] == lane_key),
+            None,
+        )
+        if not entry or entry["status"] != "ACTIVE":
+            raise LifecycleError(f"ACTIVE receipt not found for {lane}")
+        current_identity = {key: entry.get(key) for key in expected_identity}
+        if current_identity != expected_identity:
+            raise LifecycleError(f"owner transfer identity changed for {lane}")
+
+        history = entry.setdefault("ownership_transfers", [])
+        if not isinstance(history, list):
+            raise LifecycleError(f"ownership transfer history is invalid for {lane}")
+        transferred_at = now()
+        history.append(
+            {
+                "recorded_at": transferred_at,
+                "reason": reason.strip(),
+                "from": {
+                    **expected_identity,
+                    "next_action": entry["next_action"],
+                },
+                "to": {
+                    **new_identity,
+                    "next_action": next_action,
+                },
+            }
+        )
+        entry.update(
+            thread_id=new_thread_id,
+            owner=new_owner,
+            execution_owner=new_execution_owner,
+            next_action=next_action,
+        )
+
+        for other in payload["entries"]:
+            overlaps = other.get("integration_overlaps", [])
+            if not isinstance(overlaps, list):
+                continue
+            for overlap in overlaps:
+                if not isinstance(overlap, dict):
+                    continue
+                if overlap.get("worktree") != lane_key:
+                    continue
+                overlap.update(
+                    thread_id=new_thread_id,
+                    objective_id=expected_objective_id,
+                    owner=new_owner,
+                )
+        write_ledger(ledger_path, payload)
+    return entry
+
+
 def checkpoint(
     ledger_path: Path,
     *,
@@ -747,6 +838,19 @@ def parser() -> argparse.ArgumentParser:
     register_parser.add_argument("--next-action", required=True)
     register_parser.add_argument("--write-set", action="append", required=True)
 
+    transfer_parser = commands.add_parser("transfer-owner")
+    transfer_parser.add_argument("--repo-root", required=True, type=Path)
+    transfer_parser.add_argument("--worktree", required=True, type=Path)
+    transfer_parser.add_argument("--expected-thread-id", required=True)
+    transfer_parser.add_argument("--expected-objective-id", required=True)
+    transfer_parser.add_argument("--expected-owner", required=True)
+    transfer_parser.add_argument("--expected-execution-owner", required=True)
+    transfer_parser.add_argument("--new-thread-id", required=True)
+    transfer_parser.add_argument("--new-owner", required=True)
+    transfer_parser.add_argument("--new-execution-owner")
+    transfer_parser.add_argument("--next-action", required=True)
+    transfer_parser.add_argument("--reason", required=True)
+
     checkpoint_parser = commands.add_parser("checkpoint")
     checkpoint_parser.add_argument("--worktree", required=True, type=Path)
     checkpoint_parser.add_argument("--remote", default="origin")
@@ -789,6 +893,21 @@ def main() -> int:
                 execution_owner=args.execution_owner or args.owner,
                 next_action=args.next_action,
                 write_set=args.write_set,
+            )
+        elif args.command == "transfer-owner":
+            result = transfer_owner(
+                ledger_path,
+                repo_root=args.repo_root,
+                worktree=args.worktree,
+                expected_thread_id=args.expected_thread_id,
+                expected_objective_id=args.expected_objective_id,
+                expected_owner=args.expected_owner,
+                expected_execution_owner=args.expected_execution_owner,
+                new_thread_id=args.new_thread_id,
+                new_owner=args.new_owner,
+                new_execution_owner=args.new_execution_owner or args.new_owner,
+                next_action=args.next_action,
+                reason=args.reason,
             )
         elif args.command == "checkpoint":
             result = checkpoint(
