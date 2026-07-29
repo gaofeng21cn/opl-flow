@@ -43,6 +43,123 @@ def git_path(cwd: Path, value: str) -> Path:
     return path.resolve() if path.is_absolute() else (cwd / path).resolve()
 
 
+def classify_commits(
+    repo_root: Path,
+    lane_commit: str,
+    target: str,
+    *,
+    payload: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    """Classify one locally verifiable commit against a target ref."""
+    canonical_root = Path(
+        run_git(repo_root, "rev-parse", "--show-toplevel").stdout.strip()
+    ).resolve()
+    target_head = run_git(
+        canonical_root,
+        "rev-parse",
+        "--verify",
+        f"{target}^{{commit}}",
+    ).stdout.strip()
+    lane_head = run_git(
+        canonical_root,
+        "rev-parse",
+        "--verify",
+        f"{lane_commit}^{{commit}}",
+    ).stdout.strip()
+    result: dict[str, Any] = payload if payload is not None else {
+        "schema": SCHEMA,
+        "ok": True,
+        "repo_root": str(canonical_root),
+        "worktree": None,
+        "target": target,
+        "lane_branch": None,
+        "dirty": False,
+        "dirty_entries": [],
+    }
+    result.update(
+        target_head=target_head,
+        lane_head=lane_head,
+        merge_base=None,
+        lane_commit_count=0,
+        merge_commit_count=0,
+        equivalent_commit_count=0,
+        unabsorbed_commit_count=0,
+        classification="owner_review",
+        cleanup_allowed=False,
+        issues=[],
+    )
+
+    contained = run_git(
+        canonical_root,
+        "merge-base",
+        "--is-ancestor",
+        lane_head,
+        target_head,
+        check=False,
+    )
+    if contained.returncode == 0:
+        result["classification"] = "exact_merged"
+        result["cleanup_allowed"] = True
+        return result
+    if contained.returncode not in (0, 1):
+        raise AuditError(contained.stderr.strip() or "unable to compare target and lane ancestry")
+
+    target_tree = run_git(canonical_root, "rev-parse", f"{target_head}^{{tree}}").stdout.strip()
+    lane_tree = run_git(canonical_root, "rev-parse", f"{lane_head}^{{tree}}").stdout.strip()
+    if target_tree == lane_tree:
+        result["classification"] = "tree_equivalent"
+        result["cleanup_allowed"] = True
+        return result
+
+    merge_base_result = run_git(
+        canonical_root,
+        "merge-base",
+        target_head,
+        lane_head,
+        check=False,
+    )
+    if merge_base_result.returncode != 0 or not merge_base_result.stdout.strip():
+        result["issues"].append("target and lane have no provable merge base")
+        return result
+    merge_base = merge_base_result.stdout.strip()
+    result["merge_base"] = merge_base
+
+    commit_rows = [
+        line.split()
+        for line in run_git(
+            canonical_root,
+            "rev-list",
+            "--parents",
+            f"{merge_base}..{lane_head}",
+        ).stdout.splitlines()
+        if line
+    ]
+    result["lane_commit_count"] = len(commit_rows)
+    result["merge_commit_count"] = sum(len(row) > 2 for row in commit_rows)
+
+    cherry_rows = [
+        line
+        for line in run_git(canonical_root, "cherry", target_head, lane_head).stdout.splitlines()
+        if line
+    ]
+    result["equivalent_commit_count"] = sum(line.startswith("-") for line in cherry_rows)
+    result["unabsorbed_commit_count"] = sum(line.startswith("+") for line in cherry_rows)
+
+    if result["merge_commit_count"]:
+        result["issues"].append(
+            "lane contains merge commits; patch equivalence cannot prove merge-resolution equivalence"
+        )
+        return result
+    if cherry_rows and result["unabsorbed_commit_count"] == 0:
+        result["classification"] = "patch_equivalent"
+        result["cleanup_allowed"] = True
+        return result
+
+    result["classification"] = "ahead_not_absorbed"
+    result["issues"].append("lane contains commits not absorbed by the target")
+    return result
+
+
 def audit(repo_root: Path, worktree: Path, target: str) -> dict[str, Any]:
     repo_root = repo_root.expanduser().resolve()
     worktree = worktree.expanduser().resolve()
@@ -58,7 +175,6 @@ def audit(repo_root: Path, worktree: Path, target: str) -> dict[str, Any]:
     if git_path(canonical_root, "--git-common-dir") != git_path(lane_root, "--git-common-dir"):
         raise AuditError("repo root and worktree do not belong to the same Git repository")
 
-    target_head = run_git(canonical_root, "rev-parse", "--verify", f"{target}^{{commit}}").stdout.strip()
     lane_head = run_git(lane_root, "rev-parse", "--verify", "HEAD^{commit}").stdout.strip()
     branch_result = run_git(lane_root, "symbolic-ref", "--quiet", "--short", "HEAD", check=False)
     branch = branch_result.stdout.strip() or None
@@ -74,89 +190,33 @@ def audit(repo_root: Path, worktree: Path, target: str) -> dict[str, Any]:
         "repo_root": str(canonical_root),
         "worktree": str(lane_root),
         "target": target,
-        "target_head": target_head,
-        "lane_head": lane_head,
         "lane_branch": branch,
         "dirty": bool(dirty_entries),
         "dirty_entries": dirty_entries,
-        "merge_base": None,
-        "lane_commit_count": 0,
-        "merge_commit_count": 0,
-        "equivalent_commit_count": 0,
-        "unabsorbed_commit_count": 0,
-        "classification": "owner_review",
-        "cleanup_allowed": False,
-        "issues": [],
     }
 
     if dirty_entries:
+        target_head = run_git(
+            canonical_root,
+            "rev-parse",
+            "--verify",
+            f"{target}^{{commit}}",
+        ).stdout.strip()
+        payload.update(
+            target_head=target_head,
+            lane_head=lane_head,
+            merge_base=None,
+            lane_commit_count=0,
+            merge_commit_count=0,
+            equivalent_commit_count=0,
+            unabsorbed_commit_count=0,
+            classification="owner_review",
+            cleanup_allowed=False,
+            issues=[],
+        )
         payload["issues"].append("lane worktree is dirty")
         return payload
-
-    contained = run_git(
-        canonical_root,
-        "merge-base",
-        "--is-ancestor",
-        lane_head,
-        target_head,
-        check=False,
-    )
-    if contained.returncode == 0:
-        payload["classification"] = "exact_merged"
-        payload["cleanup_allowed"] = True
-        return payload
-    if contained.returncode not in (0, 1):
-        raise AuditError(contained.stderr.strip() or "unable to compare target and lane ancestry")
-
-    target_tree = run_git(canonical_root, "rev-parse", f"{target_head}^{{tree}}").stdout.strip()
-    lane_tree = run_git(canonical_root, "rev-parse", f"{lane_head}^{{tree}}").stdout.strip()
-    if target_tree == lane_tree:
-        payload["classification"] = "tree_equivalent"
-        payload["cleanup_allowed"] = True
-        return payload
-
-    merge_base_result = run_git(
-        canonical_root,
-        "merge-base",
-        target_head,
-        lane_head,
-        check=False,
-    )
-    if merge_base_result.returncode != 0 or not merge_base_result.stdout.strip():
-        payload["issues"].append("target and lane have no provable merge base")
-        return payload
-    merge_base = merge_base_result.stdout.strip()
-    payload["merge_base"] = merge_base
-
-    commit_rows = [
-        line.split()
-        for line in run_git(canonical_root, "rev-list", "--parents", f"{merge_base}..{lane_head}").stdout.splitlines()
-        if line
-    ]
-    payload["lane_commit_count"] = len(commit_rows)
-    payload["merge_commit_count"] = sum(len(row) > 2 for row in commit_rows)
-
-    cherry_rows = [
-        line
-        for line in run_git(canonical_root, "cherry", target_head, lane_head).stdout.splitlines()
-        if line
-    ]
-    payload["equivalent_commit_count"] = sum(line.startswith("-") for line in cherry_rows)
-    payload["unabsorbed_commit_count"] = sum(line.startswith("+") for line in cherry_rows)
-
-    if payload["merge_commit_count"]:
-        payload["issues"].append(
-            "lane contains merge commits; patch equivalence cannot prove merge-resolution equivalence"
-        )
-        return payload
-    if cherry_rows and payload["unabsorbed_commit_count"] == 0:
-        payload["classification"] = "patch_equivalent"
-        payload["cleanup_allowed"] = True
-        return payload
-
-    payload["classification"] = "ahead_not_absorbed"
-    payload["issues"].append("lane contains commits not absorbed by the target")
-    return payload
+    return classify_commits(canonical_root, lane_head, target, payload=payload)
 
 
 def parse_args() -> argparse.Namespace:

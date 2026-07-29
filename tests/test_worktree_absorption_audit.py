@@ -76,6 +76,31 @@ class WorktreeAbsorptionAuditTests(unittest.TestCase):
         self.assertEqual(result["equivalent_commit_count"], 1)
         self.assertTrue(result["cleanup_allowed"])
 
+    def test_commit_identity_can_be_audited_without_live_worktree(self) -> None:
+        self.commit(self.lane, "lane.txt", "same patch\n", "lane patch")
+        lane_head = git(self.lane, "rev-parse", "HEAD")
+        self.commit(self.repo, "lane.txt", "same patch\n", "target patch")
+        self.commit(self.repo, "target.txt", "target only\n", "target only")
+
+        result = worktree_absorption_audit.classify_commits(
+            self.repo,
+            lane_head,
+            "main",
+        )
+
+        self.assertEqual(result["lane_head"], lane_head)
+        self.assertEqual(result["classification"], "patch_equivalent")
+        self.assertEqual(result["equivalent_commit_count"], 1)
+        self.assertTrue(result["cleanup_allowed"])
+
+    def test_commit_identity_audit_rejects_unknown_commit(self) -> None:
+        with self.assertRaises(worktree_absorption_audit.AuditError):
+            worktree_absorption_audit.classify_commits(
+                self.repo,
+                "0" * 40,
+                "main",
+            )
+
     def test_unique_lane_commit_is_not_absorbed(self) -> None:
         self.commit(self.lane, "lane.txt", "unique\n", "unique lane patch")
 

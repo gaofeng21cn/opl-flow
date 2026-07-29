@@ -16,8 +16,9 @@ from pathlib import Path, PurePosixPath
 from typing import Any, Iterator
 
 try:
-    from scripts import worktree_fleet_audit
+    from scripts import worktree_absorption_audit, worktree_fleet_audit
 except ModuleNotFoundError:
+    import worktree_absorption_audit
     import worktree_fleet_audit
 
 
@@ -610,6 +611,8 @@ def close_stale(
             raise LifecycleError("canonical target must be checked and match its wire")
 
         recovery_absorbed = recovery is None
+        recovery_absorption = "not_applicable" if recovery is None else "unverified"
+        recovery_absorption_proof: dict[str, Any] | None = None
         if recovery is not None:
             recovery_commit = recovery.get("commit")
             recovery_tree = recovery.get("tree")
@@ -634,11 +637,60 @@ def close_stale(
                 target_head,
                 check=False,
             )
-            if absorbed.returncode != 0:
-                raise LifecycleError(
-                    "stale receipt recovery commit is not absorbed by the canonical target"
+            if absorbed.returncode == 0:
+                recovery_absorbed = True
+                recovery_absorption = "exact_merged"
+                recovery_absorption_proof = {
+                    "classification": recovery_absorption,
+                    "lane_head": recovery_commit,
+                    "target_head": target_head,
+                }
+            elif absorbed.returncode == 1:
+                try:
+                    absorption = worktree_absorption_audit.classify_commits(
+                        root,
+                        recovery_commit,
+                        target,
+                    )
+                except worktree_absorption_audit.AuditError as exc:
+                    raise LifecycleError(
+                        "stale receipt recovery patch equivalence cannot be verified"
+                    ) from exc
+                strict_patch_equivalent = (
+                    absorption.get("target_head") == target_head
+                    and absorption.get("lane_head") == recovery_commit
+                    and absorption.get("classification") == "patch_equivalent"
+                    and absorption.get("cleanup_allowed") is True
+                    and absorption.get("lane_commit_count", 0) > 0
+                    and absorption.get("merge_commit_count") == 0
+                    and absorption.get("equivalent_commit_count")
+                    == absorption.get("lane_commit_count")
+                    and absorption.get("unabsorbed_commit_count") == 0
                 )
-            recovery_absorbed = True
+                if not strict_patch_equivalent:
+                    raise LifecycleError(
+                        "stale receipt recovery commit is not absorbed by the canonical target "
+                        f"(classification={absorption.get('classification', 'owner_review')})"
+                    )
+                recovery_absorbed = True
+                recovery_absorption = "patch_equivalent"
+                recovery_absorption_proof = {
+                    key: absorption[key]
+                    for key in (
+                        "classification",
+                        "lane_head",
+                        "target_head",
+                        "merge_base",
+                        "lane_commit_count",
+                        "merge_commit_count",
+                        "equivalent_commit_count",
+                        "unabsorbed_commit_count",
+                    )
+                }
+            else:
+                raise LifecycleError(
+                    "stale receipt recovery ancestry cannot be verified"
+                )
 
         payload["entries"] = [
             item for item in payload["entries"] if item["worktree"] != lane_key
@@ -660,6 +712,8 @@ def close_stale(
         "objective_id": objective_id,
         "owner": owner,
         "classification": "stale_receipt_only",
+        "recovery_absorption": recovery_absorption,
+        "recovery_absorption_proof": recovery_absorption_proof,
         "assertions": {
             "path_absent": True,
             "registration_absent": True,

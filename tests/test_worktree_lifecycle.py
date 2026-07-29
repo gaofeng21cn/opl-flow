@@ -349,6 +349,38 @@ class WorktreeLifecycleTests(unittest.TestCase):
         ):
             self.stale_close()
 
+    def test_stale_close_refuses_unknown_recovery_commit(self) -> None:
+        self.register()
+        self.commit_lane()
+        worktree_lifecycle.checkpoint(self.ledger, worktree=self.lane, remote="origin")
+        payload = json.loads(self.ledger.read_text(encoding="utf-8"))
+        payload["entries"][0]["remote_recovery"]["commit"] = "0" * 40
+        self.ledger.write_text(json.dumps(payload), encoding="utf-8")
+        self.remove_lane_surfaces()
+        git(self.repo, "push", "origin", "--delete", "lane")
+
+        with self.assertRaisesRegex(
+            worktree_lifecycle.LifecycleError,
+            "commit/tree cannot be verified",
+        ):
+            self.stale_close()
+
+    def test_stale_close_refuses_recovery_tree_mismatch(self) -> None:
+        self.register()
+        self.commit_lane()
+        worktree_lifecycle.checkpoint(self.ledger, worktree=self.lane, remote="origin")
+        payload = json.loads(self.ledger.read_text(encoding="utf-8"))
+        payload["entries"][0]["remote_recovery"]["tree"] = "0" * 40
+        self.ledger.write_text(json.dumps(payload), encoding="utf-8")
+        self.remove_lane_surfaces()
+        git(self.repo, "push", "origin", "--delete", "lane")
+
+        with self.assertRaisesRegex(
+            worktree_lifecycle.LifecycleError,
+            "commit/tree cannot be verified",
+        ):
+            self.stale_close()
+
     def test_stale_close_allows_absorbed_recovery_checkpoint(self) -> None:
         self.register()
         self.commit_lane()
@@ -362,7 +394,78 @@ class WorktreeLifecycleTests(unittest.TestCase):
 
         self.assertTrue(result["closed"])
         self.assertEqual(recovery["commit"], git(self.repo, "rev-parse", "origin/main"))
+        self.assertEqual(result["recovery_absorption"], "exact_merged")
         self.assertTrue(result["assertions"]["recovery_absence_or_absorption_proven"])
+
+    def test_stale_close_allows_patch_equivalent_recovery_checkpoint(self) -> None:
+        self.register()
+        self.commit_lane()
+        recovery = worktree_lifecycle.checkpoint(self.ledger, worktree=self.lane, remote="origin")
+        (self.repo / "lane.txt").write_text("lane\n", encoding="utf-8")
+        git(self.repo, "add", "lane.txt")
+        git(self.repo, "commit", "-m", "replay lane change")
+        (self.repo / "main.txt").write_text("main only\n", encoding="utf-8")
+        git(self.repo, "add", "main.txt")
+        git(self.repo, "commit", "-m", "main only change")
+        git(self.repo, "push", "origin", "main")
+        self.remove_lane_surfaces()
+        git(self.repo, "push", "origin", "--delete", "lane")
+
+        result = self.stale_close()
+
+        self.assertTrue(result["closed"])
+        self.assertEqual(result["recovery_absorption"], "patch_equivalent")
+        self.assertNotEqual(recovery["commit"], git(self.repo, "rev-parse", "origin/main"))
+        self.assertEqual(
+            result["recovery_absorption_proof"]["lane_head"],
+            recovery["commit"],
+        )
+        self.assertEqual(result["recovery_absorption_proof"]["equivalent_commit_count"], 1)
+        self.assertTrue(result["assertions"]["recovery_absence_or_absorption_proven"])
+
+    def test_stale_close_refuses_tree_equivalent_recovery_checkpoint(self) -> None:
+        self.register()
+        self.commit_lane()
+        worktree_lifecycle.checkpoint(self.ledger, worktree=self.lane, remote="origin")
+        (self.repo / "lane.txt").write_text("lane\n", encoding="utf-8")
+        git(self.repo, "add", "lane.txt")
+        git(self.repo, "commit", "-m", "replay lane tree")
+        git(self.repo, "push", "origin", "main")
+        self.remove_lane_surfaces()
+        git(self.repo, "push", "origin", "--delete", "lane")
+
+        with self.assertRaisesRegex(
+            worktree_lifecycle.LifecycleError,
+            "classification=tree_equivalent",
+        ):
+            self.stale_close()
+
+    def test_stale_close_refuses_patch_equivalent_merge_history(self) -> None:
+        self.register()
+        git(self.lane, "branch", "lane-side")
+        self.commit_lane()
+        git(self.lane, "checkout", "lane-side")
+        (self.lane / "side.txt").write_text("side\n", encoding="utf-8")
+        git(self.lane, "add", "side.txt")
+        git(self.lane, "commit", "-m", "side change")
+        git(self.lane, "checkout", "lane")
+        git(self.lane, "merge", "--no-ff", "lane-side", "-m", "merge lane side")
+        worktree_lifecycle.checkpoint(self.ledger, worktree=self.lane, remote="origin")
+        (self.repo / "lane.txt").write_text("lane\n", encoding="utf-8")
+        (self.repo / "side.txt").write_text("side\n", encoding="utf-8")
+        (self.repo / "main.txt").write_text("main only\n", encoding="utf-8")
+        git(self.repo, "add", "lane.txt", "side.txt", "main.txt")
+        git(self.repo, "commit", "-m", "replay lane changes")
+        git(self.repo, "push", "origin", "main")
+        self.remove_lane_surfaces()
+        git(self.repo, "branch", "-D", "lane-side")
+        git(self.repo, "push", "origin", "--delete", "lane")
+
+        with self.assertRaisesRegex(
+            worktree_lifecycle.LifecycleError,
+            "classification=owner_review",
+        ):
+            self.stale_close()
 
     def test_stale_close_preserves_other_receipts(self) -> None:
         self.register()
