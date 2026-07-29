@@ -312,6 +312,12 @@ python3 scripts/worktree_lifecycle.py register \
   --repo-root /path/to/repo --worktree /path/to/task-worktree \
   --thread-id <thread> --objective-id <objective> --owner <owner> \
   --next-action "<next action>" --write-set path/to/file
+python3 scripts/worktree_lifecycle.py transfer-owner \
+  --repo-root /path/to/repo --worktree /path/to/task-worktree \
+  --expected-thread-id <old-thread> --expected-objective-id <objective> \
+  --expected-owner <old-owner> --expected-execution-owner <old-executor> \
+  --new-thread-id <recovery-thread> --new-owner <recovery-owner> \
+  --next-action "<next action>" --reason "<recovery authority>"
 python3 scripts/worktree_lifecycle.py checkpoint --worktree /path/to/task-worktree
 python3 scripts/worktree_lifecycle.py status
 python3 scripts/worktree_lifecycle.py close --worktree /path/to/task-worktree
@@ -327,6 +333,11 @@ a clean named branch and verifies its remote commit and tree. `close` refuses
 dirty, unabsorbed, held, stale-main, or remote-divergent lanes; on success it
 removes only that task's worktree and local/remote task branch. There is no
 daemon, age-based deletion, or cloud ledger.
+
+`transfer-owner` is the official recovery path for an existing `ACTIVE`
+receipt. It compare-and-swaps the complete prior identity, records the transfer
+reason and history, and preserves the objective, write set, and remote recovery
+checkpoint. Any stale expected identity fails without changing the ledger.
 
 If an external cleanup removed every task-owned Git surface before its ACTIVE
 receipt, `close-stale` removes only the exact bound receipt. It requires the
