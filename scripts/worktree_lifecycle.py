@@ -197,7 +197,7 @@ def register(
     next_action: str,
     write_set: list[str],
 ) -> dict[str, Any]:
-    _, lane = resolve_repo(worktree, repo_root)
+    root, lane = resolve_repo(worktree, repo_root)
     desired_paths = normalize_write_set(write_set)
     identity = {
         "thread_id": thread_id,
@@ -220,6 +220,7 @@ def register(
             if any(existing[key] != value for key, value in identity.items()):
                 raise LifecycleError(f"worktree already belongs to another receipt: {lane}")
             existing.update(
+                repo_root=str(root),
                 status="ACTIVE",
                 next_action=next_action,
                 write_set=desired_paths,
@@ -229,6 +230,7 @@ def register(
         else:
             entry = {
                 "worktree": lane_key,
+                "repo_root": str(root),
                 **identity,
                 "status": "ACTIVE",
                 "next_action": next_action,
@@ -373,6 +375,28 @@ def checkpoint(
     return entry["remote_recovery"]
 
 
+def receipt_repo_root(
+    worktree: str,
+    receipt: dict[str, Any],
+) -> Path | None:
+    declared = receipt.get("repo_root")
+    declared_root = (
+        Path(declared).expanduser().resolve()
+        if isinstance(declared, str) and declared.strip()
+        else None
+    )
+    path = Path(worktree)
+    try:
+        if not path.exists():
+            return declared_root
+        actual_root, _ = resolve_repo(path)
+    except (LifecycleError, worktree_fleet_audit.FleetAuditError, OSError):
+        return None
+    if declared_root is not None and declared_root != actual_root:
+        return None
+    return actual_root
+
+
 def status(
     ledger_path: Path,
     *,
@@ -382,18 +406,23 @@ def status(
     holder_scan_available: bool | None = None,
 ) -> dict[str, Any]:
     payload = read_ledger(ledger_path)
-    receipts = {
+    all_receipts = {
         str(Path(item["worktree"]).expanduser().resolve()): item
         for item in payload["entries"]
     }
     roots = [path.expanduser().resolve() for path in repo_roots or []]
     if not roots:
-        for worktree in receipts:
-            path = Path(worktree)
-            if path.exists():
-                root, _ = resolve_repo(path)
-                if root not in roots:
-                    roots.append(root)
+        for worktree, receipt in all_receipts.items():
+            root = receipt_repo_root(worktree, receipt)
+            if root is not None and root not in roots:
+                roots.append(root)
+        receipts = all_receipts
+    else:
+        receipts: dict[str, dict[str, Any]] = {}
+        for worktree, receipt in all_receipts.items():
+            receipt_root = receipt_repo_root(worktree, receipt)
+            if receipt_root is None or receipt_root in roots:
+                receipts[worktree] = receipt
     if not roots:
         return {
             "schema": worktree_fleet_audit.SCHEMA,
