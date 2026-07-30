@@ -453,6 +453,68 @@ class WorktreeFleetAuditTests(unittest.TestCase):
             classification["issues"],
         )
 
+    def test_scan_holders_ignores_unrelated_inaccessible_fd(self) -> None:
+        inaccessible = Path(self.temp.name) / "unrelated-system" / "protected"
+        output = (
+            "p109\n"
+            "canalyticsd\n"
+            "f9\n"
+            "tREG\n"
+            "D0x1\n"
+            "i109\n"
+            "k1\n"
+            f"n{inaccessible}\n"
+        )
+
+        with patch.object(
+            Path,
+            "exists",
+            side_effect=PermissionError(13, "Permission denied", str(inaccessible)),
+        ):
+            holders, available = self.scan_lsof(output)
+
+        self.assertTrue(available)
+        self.assertEqual(holders, {})
+
+    def test_scan_holders_keeps_target_local_inaccessible_fd_fail_closed(self) -> None:
+        inaccessible = self.lane / "protected" / "state.db"
+        output = (
+            "p110\n"
+            "ctest\n"
+            "f10\n"
+            "tREG\n"
+            "D0x1\n"
+            "i110\n"
+            "k1\n"
+            f"n{inaccessible}\n"
+        )
+
+        with patch.object(
+            Path,
+            "exists",
+            side_effect=PermissionError(13, "Permission denied", str(inaccessible)),
+        ):
+            holders, available = self.scan_lsof(output)
+
+        self.assertTrue(available)
+        lane_holders = holders[str(self.lane.resolve())]
+        opened_file = lane_holders[0]["files"][0]
+        self.assertIsNone(opened_file["path_exists"])
+        self.assertIn("PermissionError", opened_file["path_probe_error"])
+        classification = worktree_fleet_audit.classify_cleanup_holders(
+            self.lane,
+            lane_holders,
+        )
+        self.assertEqual(classification["kind"], "blocking")
+        self.assertTrue(
+            any(
+                issue.startswith(
+                    "PID 110 cannot verify target FD path protected/state.db"
+                )
+                for issue in classification["issues"]
+            )
+        )
+
     def test_scan_holders_resolves_symlink_alias_into_target(self) -> None:
         alias = Path(self.temp.name) / "lane-alias"
         alias.symlink_to(self.lane, target_is_directory=True)

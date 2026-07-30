@@ -197,6 +197,13 @@ def normalized_open_path(raw_path: str, *, deleted: bool) -> tuple[Path, str | N
         return opened_path.absolute(), f"{type(exc).__name__}: {exc}"
 
 
+def probe_path_exists(path: Path) -> tuple[bool | None, str | None]:
+    try:
+        return path.exists(), None
+    except OSError as exc:
+        return None, f"{type(exc).__name__}: {exc}"
+
+
 def codegraph_index_identities(files: list[dict[str, Any]]) -> list[dict[str, Any]]:
     identities: dict[tuple[str, str | None, int | None], dict[str, Any]] = {}
     for item in files:
@@ -205,6 +212,7 @@ def codegraph_index_identities(files: list[dict[str, Any]]) -> list[dict[str, An
             item.get("type") != "REG"
             or item.get("deleted") is not False
             or item.get("path_resolution_error")
+            or item.get("path_probe_error")
             or item.get("path_exists") is False
             or path.name != "codegraph.db"
             or path.parent.name != ".codegraph"
@@ -281,12 +289,18 @@ def scan_holders(
                 line[1:],
                 deleted=deleted is True,
             )
+            path_exists, probe_error = (
+                probe_path_exists(candidate)
+                if resolution_error is None
+                else (None, None)
+            )
             process["files"].append(
                 {
                     **(opened_file or {}),
                     "path": str(candidate),
                     "raw_path": line[1:],
-                    "path_exists": candidate.exists() if resolution_error is None else None,
+                    "path_exists": path_exists,
+                    "path_probe_error": probe_error,
                     "path_resolution_error": resolution_error,
                     "deleted": deleted,
                 }
@@ -385,6 +399,13 @@ def classify_cleanup_holders(
                 relative = opened_path.relative_to(lane)
             except ValueError:
                 issues.append(f"PID {pid} has an invalid target FD path")
+                continue
+            probe_error = opened_file.get("path_probe_error")
+            if probe_error:
+                issues.append(
+                    f"PID {pid} cannot verify target FD path "
+                    f"{relative.as_posix()}: {probe_error}"
+                )
                 continue
             if opened_file.get("path_exists") is False:
                 issues.append(
