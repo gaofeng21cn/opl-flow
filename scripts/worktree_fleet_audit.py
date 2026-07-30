@@ -352,10 +352,31 @@ def is_codegraph_mcp_command(command: object) -> bool:
     for index, token in enumerate(tokens):
         if Path(token).name != "codegraph.js":
             continue
-        return tokens[index + 1 :] in (
-            ["serve", "--mcp"],
-            ["serve", "--mcp", "--no-watch"],
-        )
+        arguments = tokens[index + 1 :]
+        if arguments[:2] != ["serve", "--mcp"]:
+            return False
+
+        seen: set[str] = set()
+        cursor = 2
+        while cursor < len(arguments):
+            option = arguments[cursor]
+            if option == "--no-watch":
+                if option in seen:
+                    return False
+                seen.add(option)
+                cursor += 1
+                continue
+            if option == "--path":
+                if option in seen or cursor + 1 >= len(arguments):
+                    return False
+                path_value = arguments[cursor + 1]
+                if not path_value.strip() or path_value.startswith("--"):
+                    return False
+                seen.add(option)
+                cursor += 2
+                continue
+            return False
+        return True
     return False
 
 

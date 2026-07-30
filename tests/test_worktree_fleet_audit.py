@@ -334,6 +334,47 @@ class WorktreeFleetAuditTests(unittest.TestCase):
             "shared_codegraph_index_only",
         )
 
+    def test_codegraph_mcp_command_accepts_supported_path_grammar(self) -> None:
+        prefix = "/opt/codegraph/node /opt/codegraph/lib/dist/bin/codegraph.js serve --mcp"
+        supported = (
+            prefix,
+            f"{prefix} --path {self.lane}",
+            f"{prefix} --no-watch --path {self.lane}",
+            f"{prefix} --path {self.lane} --no-watch",
+        )
+
+        for command in supported:
+            with self.subTest(command=command):
+                self.assertTrue(worktree_fleet_audit.is_codegraph_mcp_command(command))
+
+    def test_codegraph_mcp_command_rejects_ambiguous_or_extra_arguments(self) -> None:
+        prefix = "/opt/codegraph/node /opt/codegraph/lib/dist/bin/codegraph.js serve --mcp"
+        unsupported = (
+            f"{prefix} --path",
+            f"{prefix} --path ''",
+            f"{prefix} --path --no-watch",
+            f"{prefix} --path {self.lane} --path {self.repo}",
+            f"{prefix} --no-watch --no-watch",
+            f"{prefix} --watch",
+            f"{prefix} {self.lane}",
+        )
+
+        for command in unsupported:
+            with self.subTest(command=command):
+                self.assertFalse(worktree_fleet_audit.is_codegraph_mcp_command(command))
+
+    def test_shared_codegraph_holder_with_path_is_detach_ready(self) -> None:
+        holder = self.shared_codegraph_holder()
+        holder["process_command"] = f"{holder['process_command']} --path {self.lane}"
+
+        classification = worktree_fleet_audit.classify_cleanup_holders(
+            self.lane,
+            [holder],
+        )
+
+        self.assertEqual(classification["kind"], "shared_codegraph_index_only")
+        self.assertEqual(classification["issues"], [])
+
     def test_codegraph_process_with_source_fd_still_blocks_cleanup(self) -> None:
         self.commit_lane()
         git(self.repo, "merge", "--ff-only", "lane")
