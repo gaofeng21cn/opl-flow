@@ -17,7 +17,6 @@ Current compatibility commands:
 ```bash
 opl packages install opl-flow
 opl packages update opl-flow
-opl packages optimize opl-flow
 ```
 
 They install the current normal Plugin identity

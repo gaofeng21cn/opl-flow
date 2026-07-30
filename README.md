@@ -132,7 +132,6 @@ Use the OPL Framework lifecycle for the complete OPL Flow Package and Profile:
 ```bash
 opl packages install opl-flow
 opl packages update opl-flow
-opl packages optimize opl-flow
 opl packages list --json
 opl packages status --package-id opl-flow --json
 ```

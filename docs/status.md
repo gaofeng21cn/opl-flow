@@ -33,7 +33,7 @@ Flow machine contract 已部分迁移，但 Framework/runtime 和真实 carrier 
 | Surface | Current fact | Target gap |
 | --- | --- | --- |
 | `contracts/workflow-policy.json` v3 | 已删除普通 capability 的 exact version、install-source、lifecycle-owner 和 fixed Standard/Full convergence；仍固定 provides/requires/recommends、source 与 migration policy。 | 收敛为 Package-owned intent；普通依赖只检查 identity；App 不解析 companion list。 |
-| Framework `opl packages` | 当前正常命令仍负责 resolver、install/update/optimize、lock/payload、receipt/rollback 和 profile migration。 | Base 只下载/校验/handoff OCI bytes；carrier 执行本机 lifecycle；Framework 动态聚合 presence/callability 与 generic projection。 |
+| Framework `opl packages` | 当前正常命令仍负责 resolver、install/update、lock/payload、receipt/rollback 和 profile migration。 | Base 只下载/校验/handoff OCI bytes；carrier 执行本机 lifecycle；Framework 动态聚合 presence/callability 与 generic projection。 |
 | Codex carrier/executor | Codex Plugin Manager 和 Codex CLI 是唯一正式生产路径；Repository developer tooling 也能投影 Plugin/Skills。 | Plugin readback 不能单独证明完整 Package；最小 Git/local proof 只验证公共合同中性，不形成第二产品。 |
 | App Standard/Full | 当前文档和 contracts 仍可能各自携带 payload/closure 或固定清单语义。 | 同一 Official Profile；Full 只增加 offline seed；卸载后不后台装回。 |
 | Publication | GHCR/shared manifest 的旧 release orchestration 仍可能参与普通 selection。 | Owner per-Package GHCR `latest-stable` 只定义 official publication；shared manifest 退出普通更新，本机 truth 由 carrier readback 定义。 |
@@ -43,7 +43,6 @@ Flow machine contract 已部分迁移，但 Framework/runtime 和真实 carrier 
 ```bash
 opl packages install opl-flow
 opl packages update opl-flow
-opl packages optimize opl-flow
 ```
 
 这些命令成功只证明当前 compatibility implementation 的结果；不能证明目标

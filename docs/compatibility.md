@@ -52,7 +52,6 @@ presence/callability。
 ```bash
 opl packages install opl-flow
 opl packages update opl-flow
-opl packages optimize opl-flow
 ```
 
 目标普通 publication source 是 Flow owner 的 per-Package GHCR `latest-stable`。
