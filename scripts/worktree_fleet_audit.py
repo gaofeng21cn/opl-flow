@@ -188,12 +188,13 @@ def process_identity(pid: int) -> tuple[str | None, str | None]:
     return " ".join(fields[1:6]), fields[6]
 
 
-def normalized_open_path(raw_path: str, *, deleted: bool) -> Path:
+def normalized_open_path(raw_path: str, *, deleted: bool) -> tuple[Path, str | None]:
     clean_path = raw_path.removesuffix(" (deleted)") if deleted else raw_path
     opened_path = Path(clean_path)
-    if os.path.lexists(opened_path):
-        return opened_path.resolve(strict=True)
-    return opened_path.resolve(strict=False)
+    try:
+        return opened_path.resolve(strict=False), None
+    except (OSError, RuntimeError) as exc:
+        return opened_path.absolute(), f"{type(exc).__name__}: {exc}"
 
 
 def codegraph_index_identities(files: list[dict[str, Any]]) -> list[dict[str, Any]]:
@@ -203,6 +204,8 @@ def codegraph_index_identities(files: list[dict[str, Any]]) -> list[dict[str, An
         if (
             item.get("type") != "REG"
             or item.get("deleted") is not False
+            or item.get("path_resolution_error")
+            or item.get("path_exists") is False
             or path.name != "codegraph.db"
             or path.parent.name != ".codegraph"
         ):
@@ -274,11 +277,17 @@ def scan_holders(
         elif line.startswith("n/") and process is not None:
             link_count = (opened_file or {}).get("link_count")
             deleted = link_count == 0 if isinstance(link_count, int) else None
-            candidate = normalized_open_path(line[1:], deleted=deleted is True)
+            candidate, resolution_error = normalized_open_path(
+                line[1:],
+                deleted=deleted is True,
+            )
             process["files"].append(
                 {
                     **(opened_file or {}),
                     "path": str(candidate),
+                    "raw_path": line[1:],
+                    "path_exists": candidate.exists() if resolution_error is None else None,
+                    "path_resolution_error": resolution_error,
                     "deleted": deleted,
                 }
             )
@@ -289,6 +298,10 @@ def scan_holders(
         matched: dict[str, list[dict[str, Any]]] = {}
         for opened_file in item["files"]:
             candidate = Path(opened_file["path"])
+            if opened_file.get("path_resolution_error"):
+                for worktree in normalized:
+                    matched.setdefault(str(worktree), []).append(opened_file)
+                continue
             for worktree in normalized:
                 try:
                     candidate.relative_to(worktree)
@@ -360,11 +373,23 @@ def classify_cleanup_holders(
             issues.append(f"PID {pid} has no exact target FD evidence")
             continue
         for opened_file in files:
+            resolution_error = opened_file.get("path_resolution_error")
+            if resolution_error:
+                raw_path = opened_file.get("raw_path") or opened_file.get("path")
+                issues.append(
+                    f"PID {pid} has unresolvable FD path {raw_path}: {resolution_error}"
+                )
+                continue
             opened_path = Path(str(opened_file.get("path", ""))).resolve(strict=False)
             try:
                 relative = opened_path.relative_to(lane)
             except ValueError:
                 issues.append(f"PID {pid} has an invalid target FD path")
+                continue
+            if opened_file.get("path_exists") is False:
+                issues.append(
+                    f"PID {pid} holds vanished target FD {relative.as_posix()}"
+                )
                 continue
             if (
                 len(relative.parts) != 2

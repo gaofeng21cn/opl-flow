@@ -133,6 +133,35 @@ class WorktreeFleetAuditTests(unittest.TestCase):
             "codegraph_indexes": indexes,
         }
 
+    def scan_lsof(
+        self,
+        stdout: str,
+        worktrees: list[Path] | None = None,
+    ) -> tuple[dict[str, list[dict[str, object]]], bool]:
+        lsof = subprocess.CompletedProcess(
+            args=["lsof"],
+            returncode=0,
+            stdout=stdout,
+            stderr="",
+        )
+
+        def fake_run(args: list[str], **_: object) -> subprocess.CompletedProcess[str]:
+            if args[0] == "lsof":
+                return lsof
+            pid = args[2]
+            return subprocess.CompletedProcess(
+                args=args,
+                returncode=0,
+                stdout=(
+                    f"{pid} Thu Jul 30 07:28:00 2026 "
+                    f"/opt/codegraph/{pid}/codegraph.js serve --mcp\n"
+                ),
+                stderr="",
+            )
+
+        with patch.object(worktree_fleet_audit, "run", side_effect=fake_run):
+            return worktree_fleet_audit.scan_holders(worktrees or [self.lane])
+
     def test_remote_heads_retry_transient_tls_failure(self) -> None:
         failure = subprocess.CompletedProcess(
             args=["git", "ls-remote"],
@@ -374,6 +403,160 @@ class WorktreeFleetAuditTests(unittest.TestCase):
         self.assertEqual(holders, {})
         self.assertFalse(available)
 
+    def test_scan_holders_ignores_unrelated_path_vanished_after_lsof(self) -> None:
+        vanished = Path(self.temp.name) / "unrelated-cache" / "vanished"
+        output = (
+            "p100\n"
+            "cmeeting\n"
+            "f9\n"
+            "tDIR\n"
+            "D0x1\n"
+            "i100\n"
+            "k1\n"
+            f"n{vanished}\n"
+        )
+
+        with patch.object(worktree_fleet_audit.os.path, "lexists", return_value=True):
+            holders, available = self.scan_lsof(output)
+
+        self.assertTrue(available)
+        self.assertEqual(holders, {})
+
+    def test_scan_holders_keeps_target_local_vanished_fd_fail_closed(self) -> None:
+        vanished = self.lane / "build" / "gone.log"
+        output = (
+            "p105\n"
+            "ctest\n"
+            "f5\n"
+            "tREG\n"
+            "D0x1\n"
+            "i105\n"
+            "k1\n"
+            f"n{vanished}\n"
+        )
+
+        with patch.object(worktree_fleet_audit.os.path, "lexists", return_value=True):
+            holders, available = self.scan_lsof(output)
+
+        self.assertTrue(available)
+        lane_holders = holders[str(self.lane.resolve())]
+        opened_file = lane_holders[0]["files"][0]
+        self.assertFalse(opened_file["path_exists"])
+        self.assertIsNone(opened_file["path_resolution_error"])
+        classification = worktree_fleet_audit.classify_cleanup_holders(
+            self.lane,
+            lane_holders,
+        )
+        self.assertEqual(classification["kind"], "blocking")
+        self.assertIn(
+            "PID 105 holds vanished target FD build/gone.log",
+            classification["issues"],
+        )
+
+    def test_scan_holders_resolves_symlink_alias_into_target(self) -> None:
+        alias = Path(self.temp.name) / "lane-alias"
+        alias.symlink_to(self.lane, target_is_directory=True)
+        vanished = alias / "build" / "gone.log"
+        output = (
+            "p106\n"
+            "ctest\n"
+            "f6\n"
+            "tREG\n"
+            "D0x1\n"
+            "i106\n"
+            "k1\n"
+            f"n{vanished}\n"
+        )
+
+        holders, available = self.scan_lsof(output)
+
+        self.assertTrue(available)
+        opened_file = holders[str(self.lane.resolve())][0]["files"][0]
+        self.assertEqual(
+            opened_file["path"],
+            str((self.lane / "build" / "gone.log").resolve(strict=False)),
+        )
+        self.assertFalse(opened_file["path_exists"])
+
+    @unittest.skipUnless(
+        Path("/var").resolve(strict=False) == Path("/private/var").resolve(strict=False),
+        "requires the macOS /var to /private/var alias",
+    )
+    def test_scan_holders_normalizes_var_alias_to_private_var_target(self) -> None:
+        lane = self.lane.resolve()
+        if not lane.is_relative_to("/private/var"):
+            self.skipTest("temporary directory is not under /private/var")
+        raw_lane = Path("/var") / lane.relative_to("/private/var")
+        vanished = raw_lane / "build" / "gone.log"
+        output = (
+            "p107\n"
+            "ctest\n"
+            "f7\n"
+            "tREG\n"
+            "D0x1\n"
+            "i107\n"
+            "k1\n"
+            f"n{vanished}\n"
+        )
+
+        holders, available = self.scan_lsof(output)
+
+        self.assertTrue(available)
+        opened_file = holders[str(lane)][0]["files"][0]
+        self.assertEqual(
+            opened_file["path"],
+            str((lane / "build" / "gone.log").resolve(strict=False)),
+        )
+        self.assertFalse(opened_file["path_exists"])
+
+    def test_scan_holders_keeps_unresolvable_path_fail_closed(self) -> None:
+        unresolved = Path(self.temp.name) / "unresolved" / "gone.log"
+        output = (
+            "p108\n"
+            "ctest\n"
+            "f8\n"
+            "tREG\n"
+            "D0x1\n"
+            "i108\n"
+            "k1\n"
+            f"n{unresolved}\n"
+        )
+
+        with patch.object(
+            worktree_fleet_audit,
+            "normalized_open_path",
+            return_value=(unresolved, "RuntimeError: symlink loop"),
+        ):
+            holders, available = self.scan_lsof(output)
+
+        self.assertTrue(available)
+        lane_holders = holders[str(self.lane.resolve())]
+        opened_file = lane_holders[0]["files"][0]
+        self.assertIsNotNone(opened_file["path_resolution_error"])
+        classification = worktree_fleet_audit.classify_cleanup_holders(
+            self.lane,
+            lane_holders,
+        )
+        self.assertEqual(classification["kind"], "blocking")
+        self.assertTrue(
+            any(
+                issue.startswith("PID 108 has unresolvable FD path")
+                for issue in classification["issues"]
+            )
+        )
+
+    def test_normalized_open_path_evidences_resolution_failure(self) -> None:
+        unresolved = Path(self.temp.name) / "unresolved" / "gone.log"
+
+        with patch.object(Path, "resolve", side_effect=RuntimeError("symlink loop")):
+            path, error = worktree_fleet_audit.normalized_open_path(
+                str(unresolved),
+                deleted=False,
+            )
+
+        self.assertEqual(path, unresolved.absolute())
+        self.assertEqual(error, "RuntimeError: symlink loop")
+
     def test_scan_holders_keeps_deleted_inode_and_literal_deleted_filename(self) -> None:
         lock_path = self.lane / "index.lock"
         lock_path.write_text("lock\n", encoding="utf-8")
@@ -444,6 +627,7 @@ class WorktreeFleetAuditTests(unittest.TestCase):
         self.assertEqual(deleted_holder["command"], "codegraph")
         self.assertTrue(deleted_holder["files"][0]["deleted"])
         self.assertEqual(deleted_holder["files"][0]["link_count"], 0)
+        self.assertFalse(deleted_holder["files"][0]["path_exists"])
         self.assertEqual(
             deleted_holder["process_command"],
             "/opt/codegraph/101/codegraph.js serve --mcp",
@@ -451,6 +635,7 @@ class WorktreeFleetAuditTests(unittest.TestCase):
         literal_holder = lane_holders[-1]
         self.assertFalse(literal_holder["files"][0]["deleted"])
         self.assertEqual(literal_holder["files"][0]["link_count"], 1)
+        self.assertTrue(literal_holder["files"][0]["path_exists"])
         self.assertEqual(
             literal_holder["files"][0]["path"],
             str(literal_deleted_path.resolve()),
