@@ -33,8 +33,9 @@ class WorktreeFleetAuditTests(unittest.TestCase):
         git(self.repo, "init", "-b", "main")
         git(self.repo, "config", "user.name", "OPL Flow Tests")
         git(self.repo, "config", "user.email", "opl-flow-tests@example.invalid")
+        (self.repo / ".gitignore").write_text(".codegraph/\n", encoding="utf-8")
         (self.repo / "base.txt").write_text("base\n", encoding="utf-8")
-        git(self.repo, "add", "base.txt")
+        git(self.repo, "add", ".gitignore", "base.txt")
         git(self.repo, "commit", "-m", "base")
         git(root, "init", "--bare", str(self.remote))
         git(self.repo, "remote", "add", "origin", str(self.remote))
@@ -73,6 +74,64 @@ class WorktreeFleetAuditTests(unittest.TestCase):
             holders=holders or {},
             holder_scan_available=True,
         )
+
+    def shared_codegraph_holder(
+        self,
+        *,
+        source_fd: bool = False,
+        exclusive: bool = False,
+        deleted: bool = False,
+    ) -> dict[str, object]:
+        index_dir = self.lane / ".codegraph"
+        index_dir.mkdir(exist_ok=True)
+        database = index_dir / "codegraph.db"
+        database.write_bytes(b"index")
+        files: list[dict[str, object]] = [
+            {
+                "fd": "15",
+                "type": "REG",
+                "device": hex(database.stat().st_dev),
+                "inode": database.stat().st_ino,
+                "path": str(database),
+                "deleted": deleted,
+            }
+        ]
+        if source_fd:
+            files.append(
+                {
+                    "fd": "18",
+                    "type": "REG",
+                    "device": "0x1",
+                    "inode": 77,
+                    "path": str(self.lane / "base.txt"),
+                    "deleted": False,
+                }
+            )
+        indexes: list[dict[str, object]] = [
+            {
+                "path": str(database),
+                "device": hex(database.stat().st_dev),
+                "inode": database.stat().st_ino,
+            }
+        ]
+        if not exclusive:
+            indexes.append(
+                {
+                    "path": str(Path(self.temp.name) / "shared/.codegraph/codegraph.db"),
+                    "device": "0x1",
+                    "inode": 88,
+                }
+            )
+        return {
+            "pid": 123,
+            "command": "node",
+            "process_command": (
+                "/opt/codegraph/node /opt/codegraph/lib/dist/bin/codegraph.js serve --mcp"
+            ),
+            "started_at": "Thu Jul 30 07:28:00 2026",
+            "files": files,
+            "codegraph_indexes": indexes,
+        }
 
     def test_remote_heads_retry_transient_tls_failure(self) -> None:
         failure = subprocess.CompletedProcess(
@@ -229,6 +288,92 @@ class WorktreeFleetAuditTests(unittest.TestCase):
 
         self.assertEqual(lane["action"], "holder_exit_required")
 
+    def test_shared_codegraph_index_only_holder_is_detach_ready(self) -> None:
+        self.commit_lane()
+        git(self.repo, "merge", "--ff-only", "lane")
+        git(self.repo, "push", "origin", "main")
+        holders = {
+            str(self.lane.resolve()): [self.shared_codegraph_holder()]
+        }
+
+        result = self.audit(holders=holders)
+        lane = result["repos"][0]["worktrees"][0]
+
+        self.assertEqual(lane["action"], "index_detach_ready")
+        self.assertEqual(
+            lane["holder_classification"]["kind"],
+            "shared_codegraph_index_only",
+        )
+
+    def test_codegraph_process_with_source_fd_still_blocks_cleanup(self) -> None:
+        self.commit_lane()
+        git(self.repo, "merge", "--ff-only", "lane")
+        git(self.repo, "push", "origin", "main")
+        holders = {
+            str(self.lane.resolve()): [
+                self.shared_codegraph_holder(source_fd=True)
+            ]
+        }
+
+        result = self.audit(holders=holders)
+        lane = result["repos"][0]["worktrees"][0]
+
+        self.assertEqual(lane["action"], "holder_exit_required")
+        self.assertEqual(lane["holder_classification"]["kind"], "blocking")
+        self.assertIn(
+            "PID 123 holds non-detachable target FD base.txt",
+            lane["holder_classification"]["issues"],
+        )
+
+    def test_exclusive_codegraph_holder_is_not_treated_as_shared(self) -> None:
+        classification = worktree_fleet_audit.classify_cleanup_holders(
+            self.lane,
+            [self.shared_codegraph_holder(exclusive=True)],
+        )
+
+        self.assertEqual(classification["kind"], "blocking")
+        self.assertIn(
+            "PID 123 is not proven to serve another CodeGraph index",
+            classification["issues"],
+        )
+
+    def test_deleted_codegraph_inode_is_not_detachable(self) -> None:
+        classification = worktree_fleet_audit.classify_cleanup_holders(
+            self.lane,
+            [self.shared_codegraph_holder(deleted=True)],
+        )
+
+        self.assertEqual(classification["kind"], "blocking")
+        self.assertIn(
+            "PID 123 holds non-detachable target FD .codegraph/codegraph.db",
+            classification["issues"],
+        )
+
+    def test_codegraph_inode_without_link_count_proof_is_not_detachable(self) -> None:
+        holder = self.shared_codegraph_holder()
+        holder["files"][0]["deleted"] = None
+        classification = worktree_fleet_audit.classify_cleanup_holders(
+            self.lane,
+            [holder],
+        )
+
+        self.assertEqual(classification["kind"], "blocking")
+        self.assertIn(
+            "PID 123 holds non-detachable target FD .codegraph/codegraph.db",
+            classification["issues"],
+        )
+
+    def test_scan_holders_fails_closed_when_lsof_is_unavailable(self) -> None:
+        with patch.object(
+            worktree_fleet_audit,
+            "run",
+            side_effect=FileNotFoundError("lsof"),
+        ):
+            holders, available = worktree_fleet_audit.scan_holders([self.lane])
+
+        self.assertEqual(holders, {})
+        self.assertFalse(available)
+
     def test_scan_holders_keeps_deleted_inode_and_literal_deleted_filename(self) -> None:
         lock_path = self.lane / "index.lock"
         lock_path.write_text("lock\n", encoding="utf-8")
@@ -241,36 +386,74 @@ class WorktreeFleetAuditTests(unittest.TestCase):
             stdout=(
                 "p101\n"
                 "ccodegraph\n"
+                "f15\n"
+                "tREG\n"
+                "D0x1\n"
+                "i101\n"
+                "k0\n"
                 f"n{deleted_codegraph_path} (deleted)\n"
                 "p102\n"
                 "cshell\n"
                 "fcwd\n"
+                "tDIR\n"
+                "D0x1\n"
+                "i102\n"
+                "k1\n"
                 f"n{self.lane}\n"
                 "p103\n"
                 "cgit\n"
                 "f4\n"
+                "tREG\n"
+                "D0x1\n"
+                "i103\n"
+                "k1\n"
                 f"n{lock_path}\n"
                 "p104\n"
                 "ctest\n"
+                "f5\n"
+                "tREG\n"
+                "D0x1\n"
+                "i104\n"
+                "k1\n"
                 f"n{literal_deleted_path}\n"
             ),
             stderr="",
         )
 
-        with patch.object(worktree_fleet_audit, "run", return_value=lsof):
+        def fake_run(args: list[str], **_: object) -> subprocess.CompletedProcess[str]:
+            if args[0] == "lsof":
+                return lsof
+            pid = args[2]
+            return subprocess.CompletedProcess(
+                args=args,
+                returncode=0,
+                stdout=(
+                    f"{pid} Thu Jul 30 07:28:00 2026 "
+                    f"/opt/codegraph/{pid}/codegraph.js serve --mcp\n"
+                ),
+                stderr="",
+            )
+
+        with patch.object(worktree_fleet_audit, "run", side_effect=fake_run):
             holders, available = worktree_fleet_audit.scan_holders([self.lane])
 
         self.assertTrue(available)
+        lane_holders = holders[str(self.lane.resolve())]
+        self.assertEqual([item["pid"] for item in lane_holders], [101, 102, 103, 104])
+        deleted_holder = lane_holders[0]
+        self.assertEqual(deleted_holder["command"], "codegraph")
+        self.assertTrue(deleted_holder["files"][0]["deleted"])
+        self.assertEqual(deleted_holder["files"][0]["link_count"], 0)
         self.assertEqual(
-            holders,
-            {
-                str(self.lane.resolve()): [
-                    {"pid": 101, "command": "codegraph"},
-                    {"pid": 102, "command": "shell"},
-                    {"pid": 103, "command": "git"},
-                    {"pid": 104, "command": "test"},
-                ]
-            },
+            deleted_holder["process_command"],
+            "/opt/codegraph/101/codegraph.js serve --mcp",
+        )
+        literal_holder = lane_holders[-1]
+        self.assertFalse(literal_holder["files"][0]["deleted"])
+        self.assertEqual(literal_holder["files"][0]["link_count"], 1)
+        self.assertEqual(
+            literal_holder["files"][0]["path"],
+            str(literal_deleted_path.resolve()),
         )
 
     def test_load_ledger_rejects_incomplete_active_receipt(self) -> None:

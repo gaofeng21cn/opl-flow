@@ -2,10 +2,12 @@ from __future__ import annotations
 
 import json
 import os
+import sqlite3
 import subprocess
 import tempfile
 import unittest
 from pathlib import Path
+from unittest.mock import patch
 
 from scripts import worktree_lifecycle
 
@@ -36,8 +38,9 @@ class WorktreeLifecycleTests(unittest.TestCase):
         git(self.repo, "init", "-b", "main")
         git(self.repo, "config", "user.name", "OPL Flow Tests")
         git(self.repo, "config", "user.email", "opl-flow-tests@example.invalid")
+        (self.repo / ".gitignore").write_text(".codegraph/\n", encoding="utf-8")
         (self.repo / "base.txt").write_text("base\n", encoding="utf-8")
-        git(self.repo, "add", "base.txt")
+        git(self.repo, "add", ".gitignore", "base.txt")
         git(self.repo, "commit", "-m", "base")
         git(root, "init", "--bare", str(self.remote))
         git(self.repo, "remote", "add", "origin", str(self.remote))
@@ -61,6 +64,116 @@ class WorktreeLifecycleTests(unittest.TestCase):
         (self.lane / "lane.txt").write_text("lane\n", encoding="utf-8")
         git(self.lane, "add", "lane.txt")
         git(self.lane, "commit", "-m", "lane change")
+
+    def absorb_lane(self) -> None:
+        self.commit_lane()
+        worktree_lifecycle.checkpoint(self.ledger, worktree=self.lane, remote="origin")
+        git(self.repo, "merge", "--ff-only", "lane")
+        git(self.repo, "push", "origin", "main")
+
+    def shared_codegraph_holder(self) -> tuple[dict[str, object], Path]:
+        index_dir = self.lane / ".codegraph"
+        index_dir.mkdir(exist_ok=True)
+        database = index_dir / "codegraph.db"
+        connection = sqlite3.connect(database)
+        connection.execute("PRAGMA journal_mode = WAL")
+        connection.execute("CREATE TABLE symbols (name TEXT)")
+        connection.execute("INSERT INTO symbols VALUES ('safe')")
+        connection.commit()
+        connection.close()
+        shared_root = Path(self.temp.name) / "shared"
+        external_database = shared_root / ".codegraph" / "codegraph.db"
+        holder: dict[str, object] = {
+            "pid": os.getpid(),
+            "command": "node",
+            "process_command": (
+                "/opt/codegraph/node /opt/codegraph/lib/dist/bin/codegraph.js serve --mcp"
+            ),
+            "started_at": "Thu Jul 30 07:28:00 2026",
+            "files": [
+                {
+                    "fd": "15",
+                    "type": "REG",
+                    "device": hex(database.stat().st_dev),
+                    "inode": database.stat().st_ino,
+                    "path": str(database),
+                    "deleted": False,
+                }
+            ],
+            "codegraph_indexes": [
+                {
+                    "path": str(database),
+                    "device": hex(database.stat().st_dev),
+                    "inode": database.stat().st_ino,
+                },
+                {
+                    "path": str(external_database),
+                    "device": "0x1",
+                    "inode": 88,
+                },
+            ],
+        }
+        return holder, shared_root
+
+    def shared_holder_scans(
+        self,
+        holder: dict[str, object],
+        shared_root: Path,
+        *,
+        final_available: bool = True,
+        restarted: bool = False,
+        changed_inode: bool = False,
+    ) -> list[tuple[dict[str, list[dict[str, object]]], bool]]:
+        lane_holders = {str(self.lane.resolve()): [holder]}
+        external_holder = {
+            **holder,
+            "started_at": holder["started_at"],
+            "files": [
+                {
+                    "fd": "18",
+                    "type": "REG",
+                    "device": "0x1",
+                    "inode": 88,
+                    "path": str(shared_root / ".codegraph" / "codegraph.db"),
+                    "deleted": False,
+                }
+            ],
+            "codegraph_indexes": [
+                {
+                    **holder["codegraph_indexes"][1],
+                    "inode": 88,
+                }
+            ],
+        }
+        external_holders = {str(shared_root.resolve()): [external_holder]}
+        final_holder = {
+            **external_holder,
+            "started_at": (
+                "Thu Jul 30 07:29:00 2026"
+                if restarted
+                else holder["started_at"]
+            ),
+            "files": [
+                {
+                    **external_holder["files"][0],
+                    "inode": 89 if changed_inode else 88,
+                }
+            ],
+            "codegraph_indexes": [
+                {
+                    **holder["codegraph_indexes"][1],
+                    "inode": 89 if changed_inode else 88,
+                }
+            ],
+        }
+        final_holders = {str(shared_root.resolve()): [final_holder]}
+        return [
+            (lane_holders, True),
+            (lane_holders, True),
+            (external_holders, True),
+            (external_holders, True),
+            (final_holders if final_available else {}, final_available),
+        ]
 
     def test_register_allows_overlap_and_records_integration_evidence(self) -> None:
         first = self.register()
@@ -274,6 +387,154 @@ class WorktreeLifecycleTests(unittest.TestCase):
         self.assertEqual(len(entries), 1)
         self.assertEqual(entries[0]["worktree"], str(self.other_lane.resolve()))
         self.assertEqual(entries[0]["integration_overlaps"], [])
+
+    def test_close_detaches_shared_codegraph_index_and_preserves_service(self) -> None:
+        self.register()
+        self.absorb_lane()
+        holder, shared_root = self.shared_codegraph_holder()
+        scans = self.shared_holder_scans(holder, shared_root)
+
+        with patch.object(
+            worktree_lifecycle.worktree_fleet_audit,
+            "scan_holders",
+            side_effect=scans,
+        ) as scan_mock:
+            result = worktree_lifecycle.close(
+                self.ledger,
+                worktree=self.lane,
+            )
+
+        self.assertTrue(result["closed"])
+        self.assertEqual(scan_mock.call_count, 5)
+        self.assertFalse(self.lane.exists())
+        self.assertEqual(
+            result["index_detach"]["protocol"],
+            "atomic_migrate_wal_checkpoint_unlink",
+        )
+        self.assertEqual(result["index_detach"]["wal_checkpoint"][0], 0)
+        self.assertTrue(result["index_detach"]["target_holders_absent"])
+        self.assertTrue(result["index_detach"]["external_indexes_preserved"])
+        common_dir = Path(
+            git(self.repo, "rev-parse", "--path-format=absolute", "--git-common-dir")
+        )
+        self.assertEqual(
+            list(common_dir.glob("opl-flow-codegraph-detach-*")),
+            [],
+        )
+
+    def test_close_restores_index_when_quiescence_cannot_be_proven(self) -> None:
+        self.register()
+        self.absorb_lane()
+        holder, shared_root = self.shared_codegraph_holder()
+        scans = self.shared_holder_scans(holder, shared_root)[:2]
+
+        with (
+            patch.object(
+                worktree_lifecycle.worktree_fleet_audit,
+                "scan_holders",
+                side_effect=scans,
+            ),
+            patch.object(
+                worktree_lifecycle,
+                "checkpoint_codegraph_index",
+                side_effect=worktree_lifecycle.LifecycleError("checkpoint busy"),
+            ),
+            self.assertRaisesRegex(worktree_lifecycle.LifecycleError, "checkpoint busy"),
+        ):
+            worktree_lifecycle.close(
+                self.ledger,
+                worktree=self.lane,
+            )
+
+        self.assertTrue((self.lane / ".codegraph" / "codegraph.db").is_file())
+        self.assertTrue(self.lane.exists())
+        self.assertEqual(json.loads(self.ledger.read_text())["entries"][0]["status"], "ACTIVE")
+        common_dir = Path(
+            git(self.repo, "rev-parse", "--path-format=absolute", "--git-common-dir")
+        )
+        self.assertEqual(
+            list(common_dir.glob("opl-flow-codegraph-detach-*")),
+            [],
+        )
+
+    def test_close_restores_index_when_final_lsof_proof_is_unavailable(self) -> None:
+        self.register()
+        self.absorb_lane()
+        holder, shared_root = self.shared_codegraph_holder()
+        scans = self.shared_holder_scans(
+            holder,
+            shared_root,
+            final_available=False,
+        )
+
+        with (
+            patch.object(
+                worktree_lifecycle.worktree_fleet_audit,
+                "scan_holders",
+                side_effect=scans,
+            ),
+            self.assertRaisesRegex(
+                worktree_lifecycle.LifecycleError,
+                "backup is preserved",
+            ),
+        ):
+            worktree_lifecycle.close(self.ledger, worktree=self.lane)
+
+        self.assertTrue((self.lane / ".codegraph" / "codegraph.db").is_file())
+        self.assertTrue(self.lane.exists())
+        self.assertEqual(json.loads(self.ledger.read_text())["entries"][0]["status"], "ACTIVE")
+
+    def test_close_restores_index_when_codegraph_pid_identity_restarts(self) -> None:
+        self.register()
+        self.absorb_lane()
+        holder, shared_root = self.shared_codegraph_holder()
+        scans = self.shared_holder_scans(
+            holder,
+            shared_root,
+            restarted=True,
+        )
+
+        with (
+            patch.object(
+                worktree_lifecycle.worktree_fleet_audit,
+                "scan_holders",
+                side_effect=scans,
+            ),
+            self.assertRaisesRegex(
+                worktree_lifecycle.LifecycleError,
+                "service or non-target index identity changed",
+            ),
+        ):
+            worktree_lifecycle.close(self.ledger, worktree=self.lane)
+
+        self.assertTrue((self.lane / ".codegraph" / "codegraph.db").is_file())
+        self.assertTrue(self.lane.exists())
+
+    def test_close_restores_index_when_shared_db_inode_changes(self) -> None:
+        self.register()
+        self.absorb_lane()
+        holder, shared_root = self.shared_codegraph_holder()
+        scans = self.shared_holder_scans(
+            holder,
+            shared_root,
+            changed_inode=True,
+        )
+
+        with (
+            patch.object(
+                worktree_lifecycle.worktree_fleet_audit,
+                "scan_holders",
+                side_effect=scans,
+            ),
+            self.assertRaisesRegex(
+                worktree_lifecycle.LifecycleError,
+                "service or non-target index identity changed",
+            ),
+        ):
+            worktree_lifecycle.close(self.ledger, worktree=self.lane)
+
+        self.assertTrue((self.lane / ".codegraph" / "codegraph.db").is_file())
+        self.assertTrue(self.lane.exists())
 
     def test_close_preserves_unrelated_dirty_and_behind_canonical_checkout(self) -> None:
         self.register()

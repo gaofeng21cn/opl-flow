@@ -8,7 +8,9 @@ import fcntl
 import json
 import os
 import re
+import shutil
 import socket
+import sqlite3
 import tempfile
 from contextlib import contextmanager
 from datetime import datetime, timezone
@@ -410,6 +412,231 @@ def status(
     )
 
 
+def shared_index_identity(
+    lane: Path,
+    holders: list[dict[str, Any]],
+) -> tuple[dict[tuple[int, str], dict[str, Any]], list[Path]]:
+    expected: dict[tuple[int, str], dict[str, Any]] = {}
+    roots: set[Path] = set()
+    for holder in holders:
+        pid = holder["pid"]
+        for index in holder["codegraph_indexes"]:
+            path = Path(index["path"]).resolve(strict=False)
+            try:
+                path.relative_to(lane)
+            except ValueError:
+                root = path.parent.parent
+            else:
+                continue
+            roots.add(root)
+            expected[(pid, str(path))] = {
+                "started_at": holder["started_at"],
+                "process_command": holder["process_command"],
+                "device": index.get("device"),
+                "inode": index.get("inode"),
+            }
+    return expected, sorted(roots)
+
+
+def assert_shared_index_identity(
+    expected: dict[tuple[int, str], dict[str, Any]],
+    holders: dict[str, list[dict[str, Any]]],
+) -> None:
+    observed: dict[tuple[int, str], dict[str, Any]] = {}
+    for path_holders in holders.values():
+        for holder in path_holders:
+            pid = holder.get("pid")
+            if not isinstance(pid, int):
+                continue
+            for index in holder.get("codegraph_indexes", []):
+                path = str(Path(str(index.get("path", ""))).resolve(strict=False))
+                observed[(pid, path)] = {
+                    "started_at": holder.get("started_at"),
+                    "process_command": holder.get("process_command"),
+                    "device": index.get("device"),
+                    "inode": index.get("inode"),
+                }
+    changed = sorted(key for key, identity in expected.items() if observed.get(key) != identity)
+    if changed:
+        rendered = ", ".join(f"PID {pid} {path}" for pid, path in changed)
+        raise LifecycleError(
+            "shared CodeGraph service or non-target index identity changed: " + rendered
+        )
+
+
+def checkpoint_codegraph_index(database: Path) -> tuple[int, int, int]:
+    connection: sqlite3.Connection | None = None
+    try:
+        connection = sqlite3.connect(str(database), timeout=5.0)
+        connection.execute("PRAGMA busy_timeout = 5000")
+        journal_mode = connection.execute("PRAGMA journal_mode").fetchone()
+        if not journal_mode or str(journal_mode[0]).lower() != "wal":
+            raise LifecycleError("CodeGraph index is not in WAL mode")
+        row = connection.execute("PRAGMA wal_checkpoint(TRUNCATE)").fetchone()
+    except sqlite3.Error as exc:
+        raise LifecycleError(f"CodeGraph index quiescence failed: {exc}") from exc
+    finally:
+        if connection is not None:
+            connection.close()
+    if (
+        not row
+        or len(row) != 3
+        or any(not isinstance(value, int) for value in row)
+        or row[0] != 0
+    ):
+        raise LifecycleError(f"CodeGraph index checkpoint did not quiesce: {row!r}")
+    return row
+
+
+def detach_shared_codegraph_index(
+    root: Path,
+    lane: Path,
+) -> tuple[
+    dict[str, Any],
+    dict[str, list[dict[str, Any]]],
+    dict[str, Any],
+]:
+    fresh_holders, available = worktree_fleet_audit.scan_holders([lane])
+    if not available:
+        raise LifecycleError("fresh holder proof is unavailable for CodeGraph index detach")
+    lane_holders = fresh_holders.get(str(lane), [])
+    classification = worktree_fleet_audit.classify_cleanup_holders(lane, lane_holders)
+    if classification["kind"] != "shared_codegraph_index_only":
+        issues = classification["issues"] or ["holder identity changed before detach"]
+        raise LifecycleError("CodeGraph index detach is not safe: " + "; ".join(issues))
+
+    expected_indexes, shared_roots = shared_index_identity(lane, lane_holders)
+    if not expected_indexes or not shared_roots:
+        raise LifecycleError("shared CodeGraph index identity proof is incomplete")
+
+    index_dir = lane / ".codegraph"
+    database = index_dir / "codegraph.db"
+    if not database.is_file():
+        raise LifecycleError("task-owned CodeGraph index is absent")
+    common_dir = Path(
+        git(
+            root,
+            "rev-parse",
+            "--path-format=absolute",
+            "--git-common-dir",
+        ).stdout.strip()
+    ).resolve()
+    if os.stat(index_dir).st_dev != os.stat(common_dir).st_dev:
+        raise LifecycleError("CodeGraph index cannot be atomically migrated across filesystems")
+
+    quarantine_root = Path(
+        tempfile.mkdtemp(prefix="opl-flow-codegraph-detach-", dir=common_dir)
+    )
+    quarantine_index = quarantine_root / ".codegraph"
+    moved = False
+    try:
+        os.replace(index_dir, quarantine_index)
+        moved = True
+        if index_dir.exists():
+            raise LifecycleError("target CodeGraph index path reappeared after migration")
+
+        checkpoint = checkpoint_codegraph_index(quarantine_index / "codegraph.db")
+        scan_paths = [lane, *shared_roots]
+        post_holders, post_available = worktree_fleet_audit.scan_holders(scan_paths)
+        if not post_available:
+            raise LifecycleError("post-migration holder proof is unavailable")
+        if post_holders.get(str(lane)):
+            raise LifecycleError("target worktree still has holders after index migration")
+        assert_shared_index_identity(expected_indexes, post_holders)
+        if index_dir.exists():
+            raise LifecycleError("target CodeGraph index was recreated after quiescence")
+
+        final_holders, final_available = worktree_fleet_audit.scan_holders(scan_paths)
+        if not final_available:
+            raise LifecycleError(
+                "final holder proof is unavailable while the index backup is preserved"
+            )
+        if final_holders.get(str(lane)):
+            raise LifecycleError("target worktree regained a holder after index detach")
+        assert_shared_index_identity(expected_indexes, final_holders)
+        if index_dir.exists() or not quarantine_index.is_dir():
+            raise LifecycleError("CodeGraph index backup state changed before close")
+        return (
+            {
+                "classification": classification["kind"],
+                "protocol": "atomic_migrate_wal_checkpoint_unlink",
+                "pids": classification["pids"],
+                "wal_checkpoint": list(checkpoint),
+                "target_index_absent": True,
+                "target_holders_absent": True,
+                "quarantine_absent": False,
+                "quarantine_preserved_until_close": True,
+                "cleanup_owner": "worktree_lifecycle.close",
+                "shared_processes_preserved": True,
+                "external_indexes_preserved": True,
+            },
+            final_holders,
+            {
+                "quarantine_root": quarantine_root,
+                "quarantine_index": quarantine_index,
+                "target_index": index_dir,
+                "lane": lane,
+                "scan_paths": scan_paths,
+                "expected_indexes": expected_indexes,
+            },
+        )
+    except Exception:
+        if moved and quarantine_index.exists():
+            if index_dir.exists():
+                raise LifecycleError(
+                    f"CodeGraph index detach failed and target path reappeared; "
+                    f"preserved migrated index at {quarantine_index}"
+                )
+            os.replace(quarantine_index, index_dir)
+        if quarantine_root.exists():
+            shutil.rmtree(quarantine_root)
+        raise
+
+
+def prove_detached_codegraph_index(
+    cleanup: dict[str, Any],
+) -> dict[str, list[dict[str, Any]]]:
+    holders, available = worktree_fleet_audit.scan_holders(cleanup["scan_paths"])
+    if not available:
+        raise LifecycleError(
+            "final close-owned holder proof is unavailable while the index backup "
+            "is preserved"
+        )
+    if holders.get(str(cleanup["lane"])):
+        raise LifecycleError("target worktree regained a holder before physical removal")
+    assert_shared_index_identity(cleanup["expected_indexes"], holders)
+    if cleanup["target_index"].exists() or not cleanup["quarantine_index"].is_dir():
+        raise LifecycleError("CodeGraph index backup state changed before physical removal")
+    return holders
+
+
+def restore_detached_codegraph_index(cleanup: dict[str, Any]) -> None:
+    quarantine_root = cleanup["quarantine_root"]
+    quarantine_index = cleanup["quarantine_index"]
+    target_index = cleanup["target_index"]
+    if target_index.exists():
+        raise LifecycleError(
+            f"cannot restore CodeGraph index because target path reappeared; "
+            f"preserved backup at {quarantine_index}"
+        )
+    if not quarantine_index.is_dir():
+        raise LifecycleError("CodeGraph index backup is unavailable for rollback")
+    os.replace(quarantine_index, target_index)
+    if quarantine_root.exists():
+        quarantine_root.rmdir()
+
+
+def finalize_detached_codegraph_index(cleanup: dict[str, Any]) -> None:
+    quarantine_root = cleanup["quarantine_root"]
+    if not quarantine_root.is_dir():
+        raise LifecycleError("CodeGraph index quarantine disappeared before close cleanup")
+    shutil.rmtree(quarantine_root)
+    if quarantine_root.exists():
+        raise LifecycleError(
+            f"CodeGraph index quarantine cleanup remains owned by close: {quarantine_root}"
+        )
+
+
 def close(
     ledger_path: Path,
     *,
@@ -451,43 +678,111 @@ def close(
         currentness = repo["currentness"]
         if not currentness["wire_head"] or currentness["target_head"] != currentness["wire_head"]:
             raise LifecycleError("canonical target must be checked and match its wire")
-        if lane_result["action"] != "cleanup_ready" or lane_result["blocking_issues"]:
-            issues = lane_result["issues"] or [lane_result["action"]]
-            raise LifecycleError("worktree is not cleanup-ready: " + "; ".join(issues))
+        index_detach = None
+        index_cleanup: dict[str, Any] | None = None
+        lane_removed = False
+        try:
+            if (
+                lane_result["action"] == "index_detach_ready"
+                and not lane_result["blocking_issues"]
+            ):
+                (
+                    index_detach,
+                    post_detach_holders,
+                    index_cleanup,
+                ) = detach_shared_codegraph_index(root, lane)
+                audit = worktree_fleet_audit.audit_fleet(
+                    [root],
+                    receipts,
+                    target_override=target,
+                    check_remote=True,
+                    holders=post_detach_holders,
+                    holder_scan_available=True,
+                )
+                repo = audit["repos"][0]
+                lane_result = next(
+                    item for item in repo["worktrees"] if item["worktree"] == str(lane)
+                )
+            if lane_result["action"] != "cleanup_ready" or lane_result["blocking_issues"]:
+                issues = lane_result["issues"] or [lane_result["action"]]
+                raise LifecycleError("worktree is not cleanup-ready: " + "; ".join(issues))
 
-        branch = lane_result["branch"]
-        head = lane_result["head"]
-        tree = git(lane, "rev-parse", "HEAD^{tree}").stdout.strip()
-        target_remote, target_branch = worktree_fleet_audit.split_remote_target(repo["target"])
-        if not branch or branch == target_branch:
-            raise LifecycleError("refusing to close a detached or canonical branch")
-        recovery = entry["remote_recovery"]
-        if recovery and recovery != {"branch": branch, "commit": head, "tree": tree}:
-            raise LifecycleError("remote recovery receipt does not match current worktree")
-        remote_head = lane_result["remote_branch_head"]
-        if remote_head and remote_head != head:
-            raise LifecycleError("remote task branch does not match current worktree")
-
-        if remote_head:
-            git(
-                root,
-                "push",
-                f"--force-with-lease=refs/heads/{branch}:{head}",
-                target_remote,
-                "--delete",
-                branch,
+            branch = lane_result["branch"]
+            head = lane_result["head"]
+            tree = git(lane, "rev-parse", "HEAD^{tree}").stdout.strip()
+            target_remote, target_branch = worktree_fleet_audit.split_remote_target(
+                repo["target"]
             )
-        git(root, "worktree", "remove", str(lane))
-        git(root, "branch", "-D", branch)
-        payload["entries"] = [
-            item for item in payload["entries"] if item["worktree"] != str(lane)
-        ]
-        write_ledger(ledger_path, payload)
+            if not branch or branch == target_branch:
+                raise LifecycleError("refusing to close a detached or canonical branch")
+            recovery = entry["remote_recovery"]
+            if recovery and recovery != {"branch": branch, "commit": head, "tree": tree}:
+                raise LifecycleError("remote recovery receipt does not match current worktree")
+            remote_head = lane_result["remote_branch_head"]
+            if remote_head and remote_head != head:
+                raise LifecycleError("remote task branch does not match current worktree")
+
+            if remote_head:
+                git(
+                    root,
+                    "push",
+                    f"--force-with-lease=refs/heads/{branch}:{head}",
+                    target_remote,
+                    "--delete",
+                    branch,
+                )
+            if index_cleanup:
+                final_holders = prove_detached_codegraph_index(index_cleanup)
+                final_audit = worktree_fleet_audit.audit_fleet(
+                    [root],
+                    receipts,
+                    target_override=target,
+                    check_remote=True,
+                    holders=final_holders,
+                    holder_scan_available=True,
+                )
+                final_lane = next(
+                    item
+                    for item in final_audit["repos"][0]["worktrees"]
+                    if item["worktree"] == str(lane)
+                )
+                if (
+                    final_lane["action"] != "cleanup_ready"
+                    or final_lane["blocking_issues"]
+                ):
+                    raise LifecycleError(
+                        "worktree lost cleanup readiness before physical removal"
+                    )
+                index_detach["final_close_holder_proof"] = True
+            git(root, "worktree", "remove", str(lane))
+            lane_removed = True
+            if index_cleanup:
+                finalize_detached_codegraph_index(index_cleanup)
+                index_detach["quarantine_absent"] = True
+            git(root, "branch", "-D", branch)
+            payload["entries"] = [
+                item for item in payload["entries"] if item["worktree"] != str(lane)
+            ]
+            write_ledger(ledger_path, payload)
+        except Exception as exc:
+            if index_cleanup and not lane_removed:
+                restore_detached_codegraph_index(index_cleanup)
+            elif (
+                index_cleanup
+                and lane_removed
+                and index_cleanup["quarantine_root"].exists()
+            ):
+                raise LifecycleError(
+                    "worktree was removed but CodeGraph quarantine cleanup remains "
+                    f"owned by this close: {index_cleanup['quarantine_root']}"
+                ) from exc
+            raise
     return {
         "worktree": str(lane),
         "branch": branch,
         "classification": lane_result["classification"],
         "remote_branch_deleted": bool(remote_head),
+        "index_detach": index_detach,
         "closed": True,
     }
 

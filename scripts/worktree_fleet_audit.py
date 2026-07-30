@@ -6,6 +6,7 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import shlex
 import subprocess
 import time
 from pathlib import Path
@@ -38,6 +39,11 @@ TRANSIENT_REMOTE_PROBE_ERRORS = (
     "the remote end hung up unexpectedly",
     "tls handshake timeout",
 )
+CODEGRAPH_INDEX_FILENAMES = {
+    "codegraph.db",
+    "codegraph.db-wal",
+    "codegraph.db-shm",
+}
 
 
 class FleetAuditError(RuntimeError):
@@ -166,44 +172,240 @@ def list_worktrees(repo_root: Path) -> list[dict[str, str | bool]]:
     return records
 
 
+def process_identity(pid: int) -> tuple[str | None, str | None]:
+    try:
+        result = run(
+            ["ps", "-p", str(pid), "-o", "pid=", "-o", "lstart=", "-o", "command="],
+            check=False,
+        )
+    except (FileNotFoundError, OSError):
+        return None, None
+    if result.returncode != 0:
+        return None, None
+    fields = result.stdout.strip().split(maxsplit=6)
+    if len(fields) != 7 or not fields[0].isdigit() or int(fields[0]) != pid:
+        return None, None
+    return " ".join(fields[1:6]), fields[6]
+
+
+def normalized_open_path(raw_path: str, *, deleted: bool) -> Path:
+    clean_path = raw_path.removesuffix(" (deleted)") if deleted else raw_path
+    opened_path = Path(clean_path)
+    if os.path.lexists(opened_path):
+        return opened_path.resolve(strict=True)
+    return opened_path.resolve(strict=False)
+
+
+def codegraph_index_identities(files: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    identities: dict[tuple[str, str | None, int | None], dict[str, Any]] = {}
+    for item in files:
+        path = Path(str(item.get("path", "")))
+        if (
+            item.get("type") != "REG"
+            or item.get("deleted") is not False
+            or path.name != "codegraph.db"
+            or path.parent.name != ".codegraph"
+        ):
+            continue
+        identity = {
+            "path": str(path),
+            "device": item.get("device"),
+            "inode": item.get("inode"),
+        }
+        identities[(identity["path"], identity["device"], identity["inode"])] = identity
+    return sorted(identities.values(), key=lambda item: item["path"])
+
+
+def same_device(raw_device: object, device: int) -> bool:
+    if not isinstance(raw_device, str):
+        return False
+    try:
+        return int(raw_device, 0) == device
+    except ValueError:
+        return False
+
+
 def scan_holders(
     worktree_paths: list[Path],
 ) -> tuple[dict[str, list[dict[str, Any]]], bool]:
     try:
-        result = run(["lsof", "-n", "-P", "-F", "pcfn"], check=False)
-    except FileNotFoundError:
+        result = run(["lsof", "-n", "-P", "-F", "pcftDikns"], check=False)
+    except (FileNotFoundError, OSError):
         return {}, False
     if result.returncode not in (0, 1):
         return {}, False
 
     normalized = [path.resolve() for path in worktree_paths]
-    holders: dict[str, list[dict[str, Any]]] = {}
+    processes: dict[int, dict[str, Any]] = {}
+    process: dict[str, Any] | None = None
+    opened_file: dict[str, Any] | None = None
     pid: int | None = None
-    command: str | None = None
     for line in result.stdout.splitlines():
         if line.startswith("p") and line[1:].isdigit():
             pid = int(line[1:])
+            process = processes.setdefault(
+                pid,
+                {"pid": pid, "command": None, "files": []},
+            )
+            opened_file = None
         elif line.startswith("c"):
-            command = line[1:]
-        elif line.startswith("n/") and pid is not None:
-            raw_path = line[1:]
-            opened_path = Path(raw_path)
-            if raw_path.endswith(" (deleted)") and not os.path.lexists(opened_path):
-                opened_path = Path(raw_path.removesuffix(" (deleted)"))
+            if process is not None:
+                process["command"] = line[1:]
+        elif line.startswith("f") and process is not None:
+            opened_file = {
+                "fd": line[1:],
+                "type": None,
+                "device": None,
+                "inode": None,
+                "link_count": None,
+            }
+        elif line.startswith("t") and opened_file is not None:
+            opened_file["type"] = line[1:]
+        elif line.startswith("D") and opened_file is not None:
+            opened_file["device"] = line[1:]
+        elif line.startswith("i") and opened_file is not None:
+            inode = line[1:]
+            opened_file["inode"] = int(inode) if inode.isdigit() else None
+        elif line.startswith("k") and opened_file is not None:
+            link_count = line[1:]
+            opened_file["link_count"] = (
+                int(link_count) if link_count.isdigit() else None
+            )
+        elif line.startswith("n/") and process is not None:
+            link_count = (opened_file or {}).get("link_count")
+            deleted = link_count == 0 if isinstance(link_count, int) else None
+            candidate = normalized_open_path(line[1:], deleted=deleted is True)
+            process["files"].append(
+                {
+                    **(opened_file or {}),
+                    "path": str(candidate),
+                    "deleted": deleted,
+                }
+            )
+            opened_file = None
+
+    holders: dict[str, list[dict[str, Any]]] = {}
+    for pid, item in processes.items():
+        matched: dict[str, list[dict[str, Any]]] = {}
+        for opened_file in item["files"]:
+            candidate = Path(opened_file["path"])
             for worktree in normalized:
                 try:
-                    if os.path.lexists(opened_path):
-                        candidate = opened_path.resolve(strict=True)
-                    else:
-                        candidate = opened_path.resolve(strict=False)
                     candidate.relative_to(worktree)
-                except (OSError, ValueError):
+                except ValueError:
                     continue
-                item = {"pid": pid, "command": command}
-                worktree_key = str(worktree)
-                if item not in holders.setdefault(worktree_key, []):
-                    holders[worktree_key].append(item)
+                matched.setdefault(str(worktree), []).append(opened_file)
+        if not matched:
+            continue
+        started_at, full_command = process_identity(pid)
+        indexes = codegraph_index_identities(item["files"])
+        for worktree_key, files in matched.items():
+            holders.setdefault(worktree_key, []).append(
+                {
+                    "pid": pid,
+                    "command": item["command"],
+                    "process_command": full_command,
+                    "started_at": started_at,
+                    "files": files,
+                    "codegraph_indexes": indexes,
+                }
+            )
+    for items in holders.values():
+        items.sort(key=lambda item: item["pid"])
     return holders, True
+
+
+def is_codegraph_mcp_command(command: object) -> bool:
+    if not isinstance(command, str) or not command.strip():
+        return False
+    try:
+        tokens = shlex.split(command)
+    except ValueError:
+        return False
+    for index, token in enumerate(tokens):
+        if Path(token).name != "codegraph.js":
+            continue
+        return tokens[index + 1 :] in (
+            ["serve", "--mcp"],
+            ["serve", "--mcp", "--no-watch"],
+        )
+    return False
+
+
+def classify_cleanup_holders(
+    worktree: Path,
+    holders: list[dict[str, Any]],
+) -> dict[str, Any]:
+    if not holders:
+        return {"kind": "none", "pids": [], "issues": []}
+
+    lane = worktree.resolve()
+    target_index = (lane / ".codegraph" / "codegraph.db").resolve(strict=False)
+    target_stat = target_index.stat() if target_index.is_file() else None
+    issues: list[str] = []
+    pids: list[int] = []
+    for holder in holders:
+        pid = holder.get("pid")
+        if not isinstance(pid, int):
+            issues.append("holder PID is unavailable")
+            continue
+        pids.append(pid)
+        if not holder.get("started_at") or not is_codegraph_mcp_command(
+            holder.get("process_command")
+        ):
+            issues.append(f"PID {pid} is not a proven CodeGraph MCP process")
+
+        files = holder.get("files")
+        if not isinstance(files, list) or not files:
+            issues.append(f"PID {pid} has no exact target FD evidence")
+            continue
+        for opened_file in files:
+            opened_path = Path(str(opened_file.get("path", ""))).resolve(strict=False)
+            try:
+                relative = opened_path.relative_to(lane)
+            except ValueError:
+                issues.append(f"PID {pid} has an invalid target FD path")
+                continue
+            if (
+                len(relative.parts) != 2
+                or relative.parts[0] != ".codegraph"
+                or relative.parts[1] not in CODEGRAPH_INDEX_FILENAMES
+                or opened_file.get("type") != "REG"
+                or opened_file.get("deleted") is not False
+            ):
+                issues.append(
+                    f"PID {pid} holds non-detachable target FD {relative.as_posix()}"
+                )
+
+        indexes = holder.get("codegraph_indexes")
+        if not isinstance(indexes, list):
+            indexes = []
+        matching_target = [
+            item
+            for item in indexes
+            if Path(str(item.get("path", ""))).resolve(strict=False) == target_index
+            and target_stat is not None
+            and same_device(item.get("device"), target_stat.st_dev)
+            and item.get("inode") == target_stat.st_ino
+        ]
+        if not matching_target:
+            issues.append(f"PID {pid} target index inode is not proven")
+        external_indexes = [
+            item
+            for item in indexes
+            if Path(str(item.get("path", ""))).resolve(strict=False) != target_index
+            and not str(Path(str(item.get("path", ""))).resolve(strict=False)).startswith(
+                f"{lane}{os.sep}"
+            )
+        ]
+        if not external_indexes:
+            issues.append(f"PID {pid} is not proven to serve another CodeGraph index")
+
+    return {
+        "kind": "shared_codegraph_index_only" if not issues else "blocking",
+        "pids": sorted(set(pids)),
+        "issues": sorted(set(issues)),
+    }
 
 
 def upstream_target(repo_root: Path, override: str | None) -> str:
@@ -372,6 +574,7 @@ def audit_repo(
         receipt_status = receipt.get("status") if receipt else None
         active = receipt_status == ACTIVE
         path_holders = holders.get(str(path), [])
+        holder_classification = classify_cleanup_holders(path, path_holders)
         issues = list(absorption.get("issues", []))
         blocking_issues: list[str] = []
         branch = absorption.get("lane_branch")
@@ -380,7 +583,9 @@ def audit_repo(
         if active:
             action = "retain_active"
         elif absorption.get("cleanup_allowed"):
-            if path_holders:
+            if holder_classification["kind"] == "shared_codegraph_index_only":
+                action = "index_detach_ready"
+            elif path_holders:
                 action = "holder_exit_required"
             elif not holder_scan_available:
                 action = "holder_proof_required"
@@ -432,6 +637,7 @@ def audit_repo(
                 "dirty": absorption.get("dirty"),
                 "dirty_entries": absorption.get("dirty_entries", []),
                 "holders": path_holders,
+                "holder_classification": holder_classification,
                 "receipt_status": receipt_status,
                 "thread_id": receipt.get("thread_id") if receipt else None,
                 "objective_id": receipt.get("objective_id") if receipt else None,
@@ -492,6 +698,9 @@ def audit_repo(
             "worktree_count": len(lanes),
             "active_owned": sum(lane["action"] == "retain_active" for lane in lanes),
             "cleanup_ready": sum(lane["action"] == "cleanup_ready" for lane in lanes),
+            "index_detach_ready": sum(
+                lane["action"] == "index_detach_ready" for lane in lanes
+            ),
             "recovery_owner_required": sum(
                 lane["action"] == "recovery_owner_required" for lane in lanes
             ),
