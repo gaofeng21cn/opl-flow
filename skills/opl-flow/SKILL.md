@@ -55,7 +55,6 @@ Use the currently executable Framework compatibility route:
 ```bash
 opl packages install opl-flow
 opl packages update opl-flow
-opl packages optimize opl-flow
 ```
 
 The current implementation may still return resolver, lock, payload, receipt,
