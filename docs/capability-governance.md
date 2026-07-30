@@ -136,10 +136,10 @@ task references 及 generic status/actions。Git/local 中性 proof 只验证这
 4. Apply 前再次比较 target SHA；变化即 stale-write fail closed。
 5. 校验候选后用同目录原子替换，失败保持原文件。
 
-当前实现可能用 merge packet、rollback receipt 和
-`opl packages profile-apply opl-flow --packet <path>` 承载该流程。目标只保护上述
-用户文件结果，不把 packet、receipt 或 transaction state 扩张成所有 Package 的
-组合依赖。
+当前实现可能生成 merge packet 和 rollback receipt，但 Framework 已不再暴露
+Profile apply 命令；reviewed bytes 只由 owner-controlled Profile workflow 写回。
+目标只保护上述用户文件结果，不把 packet、receipt 或 transaction state 扩张成所有
+Package 的组合依赖。
 
 ## App And Workflow Boundaries
 

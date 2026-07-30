@@ -89,8 +89,9 @@ user-owned `~/.codex/AGENTS.md` has a deliberately narrow safety invariant:
 5. validate and atomically replace the target.
 
 If automatic merge cannot be validated, the original stays in place and the
-current compatibility command returns
-`opl packages profile-apply opl-flow --packet <path>`. This Profile-specific
+current compatibility route returns a review packet. Framework no longer
+exposes a Profile apply command; reviewed bytes are written back only through
+the owner-controlled Profile workflow. This Profile-specific
 backup/stale-write/atomic behavior is not a generic Package carrier contract.
 
 `~/.codex/TASTE.md` remains a human-maintained authoring source, not runtime
@@ -136,10 +137,11 @@ opl packages list --json
 opl packages status --package-id opl-flow --json
 ```
 
-Framework status owns the complete Package readback and any Profile apply or
-review-needed result. `~/.codex/TASTE.md` remains human-maintained authoring
-source. Neither the Codex carrier nor a repository checkout can promote its
-state into complete Package/Profile currentness.
+The configured carrier owns installed readback, and Framework aggregates the
+complete Package status plus any review-needed result. Profile writes remain
+owner-controlled. `~/.codex/TASTE.md` remains human-maintained authoring source.
+Neither the Codex carrier nor a repository checkout can promote its state into
+complete Package/Profile currentness.
 
 The target online publication and update path is:
 
