@@ -143,6 +143,15 @@ def load_ledger(path: Path | None) -> dict[str, dict[str, Any]]:
         for field in required_strings:
             if not isinstance(entry.get(field), str) or not entry[field].strip():
                 raise FleetAuditError(f"ownership ledger entry requires non-empty {field}")
+        repo_root = entry.get("repo_root")
+        if repo_root is not None and (
+            not isinstance(repo_root, str)
+            or not repo_root.strip()
+            or not Path(repo_root).expanduser().is_absolute()
+        ):
+            raise FleetAuditError(
+                "ownership ledger entry repo_root must be an absolute path"
+            )
         if entry["status"] not in {ACTIVE, ARCHIVE_READY}:
             raise FleetAuditError(f"unsupported worktree status: {entry['status']}")
         write_set = entry.get("write_set")

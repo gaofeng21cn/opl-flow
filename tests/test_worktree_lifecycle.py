@@ -312,7 +312,7 @@ class WorktreeLifecycleTests(unittest.TestCase):
             )
 
     def test_status_is_read_only(self) -> None:
-        self.register()
+        receipt = self.register()
         before = self.ledger.read_bytes()
 
         result = worktree_lifecycle.status(
@@ -323,7 +323,116 @@ class WorktreeLifecycleTests(unittest.TestCase):
         )
 
         self.assertTrue(result["ok"])
+        self.assertEqual(receipt["repo_root"], str(self.repo.resolve()))
         self.assertEqual(self.ledger.read_bytes(), before)
+
+    def test_status_ignores_other_repo_active_receipt(self) -> None:
+        self.register()
+        root = Path(self.temp.name)
+        other_repo = root / "unrelated-repo"
+        other_remote = root / "unrelated-remote.git"
+        other_lane = root / "unrelated-lane"
+        other_repo.mkdir()
+        git(other_repo, "init", "-b", "main")
+        git(other_repo, "config", "user.name", "OPL Flow Tests")
+        git(other_repo, "config", "user.email", "opl-flow-tests@example.invalid")
+        (other_repo / "base.txt").write_text("base\n", encoding="utf-8")
+        git(other_repo, "add", "base.txt")
+        git(other_repo, "commit", "-m", "base")
+        git(root, "init", "--bare", str(other_remote))
+        git(other_repo, "remote", "add", "origin", str(other_remote))
+        git(other_repo, "push", "-u", "origin", "main")
+        git(
+            other_repo,
+            "worktree",
+            "add",
+            "-b",
+            "unrelated-lane",
+            str(other_lane),
+            "main",
+        )
+        worktree_lifecycle.register(
+            self.ledger,
+            repo_root=other_repo,
+            worktree=other_lane,
+            thread_id="thread-2",
+            objective_id="objective-2",
+            owner="owner-2",
+            execution_owner="owner-2",
+            next_action="continue unrelated work",
+            write_set=["unrelated.txt"],
+        )
+
+        result = worktree_lifecycle.status(
+            self.ledger,
+            repo_roots=[self.repo],
+            holders={},
+            holder_scan_available=True,
+        )
+
+        self.assertTrue(result["ok"])
+        self.assertEqual(result["stale_receipts"], [])
+        self.assertEqual(len(result["repos"]), 1)
+        self.assertEqual(result["repos"][0]["repo_root"], str(self.repo.resolve()))
+
+        payload = json.loads(self.ledger.read_text())
+        unrelated = next(
+            item
+            for item in payload["entries"]
+            if item["worktree"] == str(other_lane.resolve())
+        )
+        unrelated.pop("repo_root")
+        self.ledger.write_text(json.dumps(payload), encoding="utf-8")
+
+        legacy_result = worktree_lifecycle.status(
+            self.ledger,
+            repo_roots=[self.repo],
+            holders={},
+            holder_scan_available=True,
+        )
+
+        self.assertTrue(legacy_result["ok"])
+        self.assertEqual(legacy_result["stale_receipts"], [])
+        self.assertEqual(len(legacy_result["repos"]), 1)
+
+        payload = json.loads(self.ledger.read_text())
+        unrelated = next(
+            item
+            for item in payload["entries"]
+            if item["worktree"] == str(other_lane.resolve())
+        )
+        unrelated["repo_root"] = str(self.repo.resolve())
+        self.ledger.write_text(json.dumps(payload), encoding="utf-8")
+
+        mismatched_result = worktree_lifecycle.status(
+            self.ledger,
+            repo_roots=[self.repo],
+            holders={},
+            holder_scan_available=True,
+        )
+
+        self.assertFalse(mismatched_result["ok"])
+        self.assertEqual(
+            mismatched_result["stale_receipts"],
+            [str(other_lane.resolve())],
+        )
+
+    def test_status_keeps_declared_repo_stale_receipt_fail_closed(self) -> None:
+        self.register()
+        payload = json.loads(self.ledger.read_text())
+        missing = Path(self.temp.name) / "missing-lane"
+        payload["entries"][0]["worktree"] = str(missing)
+        self.ledger.write_text(json.dumps(payload), encoding="utf-8")
+
+        result = worktree_lifecycle.status(
+            self.ledger,
+            repo_roots=[self.repo],
+            holders={},
+            holder_scan_available=True,
+        )
+
+        self.assertFalse(result["ok"])
+        self.assertEqual(result["stale_receipts"], [str(missing.resolve())])
 
     def test_close_refuses_dirty_or_unabsorbed_work(self) -> None:
         self.register()

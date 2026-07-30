@@ -776,6 +776,27 @@ class WorktreeFleetAuditTests(unittest.TestCase):
         ):
             worktree_fleet_audit.load_ledger(path)
 
+    def test_load_ledger_rejects_relative_repo_root(self) -> None:
+        path = Path(self.temp.name) / "ledger.json"
+        entry = next(iter(self.active_receipt().values()))
+        path.write_text(
+            json.dumps(
+                {
+                    "schema": "opl_flow_worktree_ownership_ledger.v1",
+                    "machine": "test",
+                    "recorded_at": "2026-07-30T00:00:00Z",
+                    "entries": [{**entry, "repo_root": "relative/repo"}],
+                }
+            ),
+            encoding="utf-8",
+        )
+
+        with self.assertRaisesRegex(
+            worktree_fleet_audit.FleetAuditError,
+            "repo_root must be an absolute path",
+        ):
+            worktree_fleet_audit.load_ledger(path)
+
     def test_stale_receipt_is_reported_at_fleet_scope(self) -> None:
         receipts = self.active_receipt()
         receipts[str(Path(self.temp.name) / "missing-lane")] = {
