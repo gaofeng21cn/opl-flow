@@ -588,13 +588,25 @@ def control_commit() -> str:
     return run(["git", "-C", str(CONTROL_ROOT), "rev-parse", "HEAD"]).stdout.strip()
 
 
+def checkout_commit(root: Path) -> str:
+    return run(["git", "-C", str(root), "rev-parse", "HEAD"]).stdout.strip()
+
+
+def update_checkout(root: Path, *, label: str) -> str:
+    if run(["git", "-C", str(root), "status", "--porcelain"]).stdout.strip():
+        raise FleetError(f"{label} checkout is dirty")
+    run(["git", "-C", str(root), "fetch", "origin", "main"])
+    run(["git", "-C", str(root), "checkout", "main"])
+    run(["git", "-C", str(root), "merge", "--ff-only", "origin/main"])
+    return checkout_commit(root)
+
+
+def update_flow() -> str:
+    return update_checkout(FLOW_ROOT, label="OPL Flow")
+
+
 def update_control() -> str:
-    if run(["git", "-C", str(CONTROL_ROOT), "status", "--porcelain"]).stdout.strip():
-        raise FleetError("control checkout is dirty")
-    run(["git", "-C", str(CONTROL_ROOT), "fetch", "origin", "main"])
-    run(["git", "-C", str(CONTROL_ROOT), "checkout", "main"])
-    run(["git", "-C", str(CONTROL_ROOT), "merge", "--ff-only", "origin/main"])
-    return control_commit()
+    return update_checkout(CONTROL_ROOT, label="OPL Instance")
 
 
 def workspace_root() -> Path:
@@ -831,7 +843,7 @@ def fleet_repositories(*, sync: bool) -> int:
     return 0 if report["state"] == "CURRENT" else 1
 
 
-def restart_after_control_update(previous: str, current: str) -> None:
+def restart_after_flow_update(previous: str, current: str) -> None:
     if previous == current:
         return
     script = Path(__file__).resolve()
@@ -1502,9 +1514,10 @@ def install_schedule(spec: dict[str, Any]) -> None:
 
 def reconcile(*, report: bool, install_required: bool) -> dict[str, Any]:
     run(["gh", "auth", "status"])
-    previous_revision = control_commit()
+    previous_flow_revision = checkout_commit(FLOW_ROOT)
+    flow_revision = update_flow()
+    restart_after_flow_update(previous_flow_revision, flow_revision)
     control_revision = update_control()
-    restart_after_control_update(previous_revision, control_revision)
     spec = manifest()
     reconcile_pets(spec)
     runner_revision = install_runner(spec["runner"])

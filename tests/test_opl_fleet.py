@@ -468,8 +468,10 @@ class CodexFleetTests(unittest.TestCase):
         with (
             mock.patch.object(fleet, "run"),
             mock.patch.object(fleet, "control_commit", return_value="a" * 40),
+            mock.patch.object(fleet, "checkout_commit", return_value="c" * 40),
+            mock.patch.object(fleet, "update_flow", return_value="c" * 40),
             mock.patch.object(fleet, "update_control", return_value="a" * 40),
-            mock.patch.object(fleet, "restart_after_control_update"),
+            mock.patch.object(fleet, "restart_after_flow_update"),
             mock.patch.object(
                 fleet,
                 "manifest",
@@ -616,16 +618,16 @@ class CodexFleetTests(unittest.TestCase):
         )
         self.assertEqual(result.stdout, "\ufffd")
 
-    def test_control_update_restarts_into_new_script_bytes(self) -> None:
+    def test_flow_update_restarts_into_new_script_bytes(self) -> None:
         with mock.patch.object(fleet.os, "execv") as restart:
-            fleet.restart_after_control_update("a" * 40, "b" * 40)
+            fleet.restart_after_flow_update("a" * 40, "b" * 40)
         restart.assert_called_once_with(
             sys.executable,
             [sys.executable, str(SCRIPT.resolve()), *sys.argv[1:]],
         )
 
         with mock.patch.object(fleet.os, "execv") as restart:
-            fleet.restart_after_control_update("a" * 40, "a" * 40)
+            fleet.restart_after_flow_update("a" * 40, "a" * 40)
         restart.assert_not_called()
 
     def test_receipt_rejects_unapproved_fields(self) -> None:
@@ -885,6 +887,39 @@ class CodexFleetTests(unittest.TestCase):
                 destination = fleet.install_fleet_command()
             self.assertEqual(destination, home / ".local/bin/opl-fleet")
             self.assertEqual(destination.resolve(), SCRIPT.resolve())
+
+    def test_reconcile_updates_flow_before_instance_control(self) -> None:
+        order: list[str] = []
+
+        def update_flow() -> str:
+            order.append("flow")
+            return "b" * 40
+
+        def restart(previous: str, current: str) -> None:
+            order.append(f"restart:{previous}:{current}")
+
+        def update_control() -> str:
+            order.append("instance")
+            raise fleet.FleetError("stop after update ordering proof")
+
+        with (
+            mock.patch.object(fleet, "run"),
+            mock.patch.object(fleet, "checkout_commit", return_value="a" * 40),
+            mock.patch.object(fleet, "update_flow", side_effect=update_flow),
+            mock.patch.object(
+                fleet,
+                "restart_after_flow_update",
+                side_effect=restart,
+            ),
+            mock.patch.object(fleet, "update_control", side_effect=update_control),
+            self.assertRaisesRegex(fleet.FleetError, "ordering proof"),
+        ):
+            fleet.reconcile(report=False, install_required=False)
+
+        self.assertEqual(
+            order,
+            ["flow", f"restart:{'a' * 40}:{'b' * 40}", "instance"],
+        )
 
     def test_lease_lifecycle_enforces_owner_and_compare_and_swap(self) -> None:
         now = fleet.dt.datetime(2026, 7, 27, tzinfo=fleet.dt.timezone.utc)
