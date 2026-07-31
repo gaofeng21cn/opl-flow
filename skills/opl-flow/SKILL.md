@@ -17,6 +17,9 @@ design and development directly.
 
 - Use this skill to install, update, sync, explain, or diagnose the minimal
   Profile.
+- Use the package-root `scripts/opl_workflow.py` only for workflow status, safe
+  Ledger initialization, Operations Registry reconciliation, and the
+  transitional Fleet facade. Use `bd` directly for ordinary ledger operations.
 - Use `$coordinate-concurrent-tasks` only for evidence-driven dynamic-capacity
   multi-task ownership, parallel execution, fresh-SSOT integration, and
   archive-readiness review.
@@ -24,6 +27,53 @@ design and development directly.
   readback for ordinary repository work.
 - Do not make Flow a prerequisite for Base, App, Standard, Full, plain Codex,
   another Package, or domain readiness.
+
+## Ledger, Linear, And Fleet
+
+OPL Ledger delegates durable task state to the owner-provided `bd` CLI. It
+does not reimplement Beads storage, dependency, claim, Dolt sync, or Linear
+mapping. Initialize only from a clean primary checkout or standalone clone;
+linked worktrees intentionally share the primary checkout's Beads database:
+
+```bash
+python3 scripts/opl_workflow.py ledger init --instance <opl-instance>
+bd -C <opl-instance> dolt pull
+python3 scripts/opl_workflow.py ledger reconcile-operations --instance <opl-instance>
+bd -C <opl-instance> ready --json
+bd -C <opl-instance> dolt push
+```
+
+The adapter always passes `--skip-agents --skip-hooks --non-interactive` to
+`bd init`; Beads must not replace the user's `AGENTS.md` or install Git hooks.
+Operations tasks are deduplicated by dated `opl://operations/...` external
+references. Completing a review requires updating the Registry's
+`next_review_on` before the next reconciliation.
+
+Embedded Dolt is single-writer on one machine. Pull before claiming or writing
+on another machine, and push after a coherent mutation. New clones use
+`bd bootstrap --yes`; `.beads/issues.jsonl` is not the cross-machine authority.
+
+Linear remains an optional Beads-native human portal:
+
+```bash
+bd -C <opl-instance> linear status --json
+bd -C <opl-instance> linear sync --dry-run --json
+```
+
+Use `LINEAR_API_KEY` or Beads-supported OAuth environment variables. Never
+write those values to Git, Beads issue text, logs, or Flow configuration.
+
+During Fleet authority migration, pass Fleet arguments unchanged to the
+installed owner CLI:
+
+```bash
+python3 scripts/opl_workflow.py fleet status
+python3 scripts/opl_workflow.py fleet repos status
+```
+
+Beads stores due/deferred state but never wakes Codex. Codex Automation, cron,
+or CI owns wakeup; OPL Flow owns idempotent reconciliation; Codex owns task
+creation, reasoning, execution, and native multi-agent coordination.
 
 ## Package, Publication, Carrier, Executor
 

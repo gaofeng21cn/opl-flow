@@ -1,0 +1,340 @@
+#!/usr/bin/env python3
+"""Small OPL entry for Beads-backed ledger setup and reconciliation."""
+
+from __future__ import annotations
+
+import argparse
+import json
+import os
+import shutil
+import subprocess
+import sys
+from pathlib import Path
+from typing import Any, Iterable
+
+
+PROGRAM_REF = "opl://program/operations-maintenance"
+REGISTRY_SECTIONS = (
+    ("services", "service"),
+    ("domains", "domain"),
+    ("platform_accounts", "platform-account"),
+)
+
+
+class WorkflowError(RuntimeError):
+    pass
+
+
+def executable(name: str, explicit: str | None = None, env: str | None = None) -> str:
+    candidate = explicit or (os.environ.get(env) if env else None) or shutil.which(name)
+    if not candidate:
+        raise WorkflowError(f"owner CLI is unavailable: {name}")
+    path = Path(candidate).expanduser()
+    if path.is_absolute() and not os.access(path, os.X_OK):
+        raise WorkflowError(f"owner CLI is not executable: {path}")
+    return str(path)
+
+
+def run(
+    argv: list[str],
+    cwd: Path,
+    *,
+    check: bool = True,
+    json_output: bool = False,
+) -> subprocess.CompletedProcess[str] | Any:
+    result = subprocess.run(
+        argv,
+        cwd=cwd,
+        check=False,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        text=True,
+    )
+    if check and result.returncode:
+        raise WorkflowError((result.stderr or result.stdout).strip())
+    if not json_output:
+        return result
+    try:
+        return json.loads(result.stdout)
+    except json.JSONDecodeError as exc:
+        raise WorkflowError(f"{argv[0]} returned invalid JSON") from exc
+
+
+def instance_root(value: str | Path | None, *, required: bool = True) -> Path | None:
+    configured = value or os.environ.get("OPL_INSTANCE")
+    if not configured:
+        if required:
+            raise WorkflowError("pass --instance or set OPL_INSTANCE")
+        return None
+    root = Path(configured).expanduser().resolve()
+    if not root.is_dir():
+        raise WorkflowError(f"OPL Instance does not exist: {root}")
+    return root
+
+
+def ledger_probe(root: Path, bd: str) -> dict[str, Any] | None:
+    result = run([bd, "status", "--no-activity", "--json"], root, check=False)
+    assert isinstance(result, subprocess.CompletedProcess)
+    if result.returncode:
+        detail = (result.stderr or result.stdout).strip()
+        if "no beads project found" in detail.lower():
+            return None
+        raise WorkflowError(f"bd status failed: {detail}")
+    try:
+        payload = json.loads(result.stdout)
+    except json.JSONDecodeError as exc:
+        raise WorkflowError("bd status returned invalid JSON") from exc
+    if not isinstance(payload, dict):
+        raise WorkflowError("bd status returned an invalid payload")
+    return payload
+
+
+def init_ledger(root: Path, bd: str, prefix: str) -> dict[str, str]:
+    if ledger_probe(root, bd) is not None:
+        return {"state": "already_initialized", "instance": str(root)}
+    git_dir = str(run(["git", "rev-parse", "--git-dir"], root).stdout).strip()
+    common_dir = str(run(["git", "rev-parse", "--git-common-dir"], root).stdout).strip()
+
+    def git_path(value: str) -> Path:
+        path = Path(value)
+        return path.resolve() if path.is_absolute() else (root / path).resolve()
+
+    if git_path(git_dir) != git_path(common_dir):
+        raise WorkflowError("first bd init requires a primary checkout or standalone clone")
+    if str(run(["git", "status", "--porcelain", "--untracked-files=all"], root).stdout).strip():
+        raise WorkflowError("bd init creates a commit and requires a clean Git checkout")
+    run(
+        [
+            bd,
+            "init",
+            "--prefix",
+            prefix,
+            "--skip-agents",
+            "--skip-hooks",
+            "--non-interactive",
+        ],
+        root,
+    )
+    if ledger_probe(root, bd) is None:
+        raise WorkflowError("bd init completed without a readable ledger")
+    return {"state": "initialized", "instance": str(root), "prefix": prefix}
+
+
+def registry_items(registry_path: Path) -> Iterable[dict[str, str]]:
+    try:
+        registry = json.loads(registry_path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as exc:
+        raise WorkflowError(f"cannot read Operations Registry: {registry_path}") from exc
+    if not isinstance(registry, dict) or registry.get("schema") != "opl_operations_registry.v1":
+        raise WorkflowError("Operations Registry must use opl_operations_registry.v1")
+    for section, kind in REGISTRY_SECTIONS:
+        entries = registry.get(section, [])
+        if not isinstance(entries, list):
+            raise WorkflowError(f"Operations Registry {section} must be an array")
+        for entry in entries:
+            maintenance = entry.get("maintenance") if isinstance(entry, dict) else None
+            asset_id = entry.get("id") if isinstance(entry, dict) else None
+            review_on = maintenance.get("next_review_on") if isinstance(maintenance, dict) else None
+            if not isinstance(asset_id, str) or not isinstance(review_on, str):
+                raise WorkflowError(f"Operations Registry {section} entry lacks id/next_review_on")
+            yield {
+                "asset_id": asset_id,
+                "kind": kind,
+                "display": str(entry.get("name") or entry.get("fqdn") or entry.get("provider") or asset_id),
+                "review_on": review_on,
+                "action": str(maintenance.get("action_zh") or "按 owner 路径核对状态并更新复核日期。"),
+            }
+
+
+def create_bead(
+    root: Path,
+    bd: str,
+    *,
+    title: str,
+    issue_type: str,
+    external_ref: str,
+    labels: str,
+    description: str,
+    metadata: dict[str, str],
+    due: str | None = None,
+    parent: str | None = None,
+) -> dict[str, Any]:
+    argv = [
+        bd,
+        "create",
+        title,
+        "--type",
+        issue_type,
+        "--priority",
+        "P2",
+        "--external-ref",
+        external_ref,
+        "--labels",
+        labels,
+        "--description",
+        description,
+        "--metadata",
+        json.dumps(metadata, ensure_ascii=False, sort_keys=True),
+    ]
+    if due:
+        argv += ["--defer", due, "--due", due]
+    if parent:
+        argv += ["--parent", parent]
+    payload = run([*argv, "--json"], root, json_output=True)
+    if not isinstance(payload, dict) or not isinstance(payload.get("id"), str):
+        raise WorkflowError("bd create returned an invalid payload")
+    return payload
+
+
+def reconcile_operations(
+    root: Path,
+    bd: str,
+    registry_path: Path | None = None,
+    *,
+    dry_run: bool = False,
+) -> dict[str, Any]:
+    registry = (registry_path or root / "operations" / "registry.json").expanduser().resolve()
+    items = list(registry_items(registry))
+    listed = run([bd, "list", "--all", "--limit", "0", "--json"], root, json_output=True)
+    if not isinstance(listed, list):
+        raise WorkflowError("bd list returned an invalid payload")
+    existing = {
+        item["external_ref"]: item
+        for item in listed
+        if isinstance(item, dict) and isinstance(item.get("external_ref"), str)
+    }
+    created: list[dict[str, str]] = []
+    unchanged: list[dict[str, str]] = []
+    program = existing.get(PROGRAM_REF)
+    program_id = str(program["id"]) if program else None
+    if program and program.get("status") == "open" and not dry_run:
+        run([bd, "update", program_id, "--status", "in_progress", "--json"], root)
+    if not program_id:
+        created.append({"kind": "program", "external_ref": PROGRAM_REF})
+        if not dry_run:
+            program = create_bead(
+                root,
+                bd,
+                title="OPL Operations maintenance",
+                issue_type="epic",
+                external_ref=PROGRAM_REF,
+                labels="opl,operations",
+                description="Operations Registry 到期复核的持久总账；凭据和 live state 仍由各 owner 管理。",
+                metadata={"source": "operations/registry.json"},
+            )
+            program_id = str(program["id"])
+            run([bd, "update", program_id, "--status", "in_progress", "--json"], root)
+
+    for item in items:
+        external_ref = f"opl://operations/{item['kind']}/{item['asset_id']}/review/{item['review_on']}"
+        summary = {key: item[key] for key in ("kind", "asset_id", "review_on")}
+        summary["external_ref"] = external_ref
+        if external_ref in existing:
+            unchanged.append(summary)
+            continue
+        created.append(summary)
+        if not dry_run:
+            create_bead(
+                root,
+                bd,
+                title=f"复核运维资产：{item['display']}",
+                issue_type="task",
+                external_ref=external_ref,
+                labels=f"opl,operations-review,{item['kind']}",
+                description=(
+                    f"资产：{item['kind']}/{item['asset_id']}\n"
+                    f"计划日期：{item['review_on']}\n维护动作：{item['action']}\n"
+                    "完成后更新 Registry 的 verified_on/next_review_on；不得记录 secret。"
+                ),
+                metadata={
+                    "asset_id": item["asset_id"],
+                    "asset_kind": item["kind"],
+                    "source": "operations/registry.json",
+                },
+                due=item["review_on"],
+                parent=program_id,
+            )
+    return {
+        "schema": "opl_flow_operations_reconcile.v1",
+        "instance": str(root),
+        "registry": str(registry),
+        "dry_run": dry_run,
+        "created": created,
+        "unchanged": unchanged,
+        "counts": {
+            "scheduled_assets": len(items),
+            "created": len(created),
+            "unchanged": len(unchanged),
+        },
+    }
+
+
+def workflow_status(instance: Path | None, bd_arg: str | None, fleet_arg: str | None) -> dict[str, Any]:
+    payload: dict[str, Any] = {"schema": "opl_flow_workflow_status.v1", "instance": str(instance) if instance else None}
+    try:
+        bd = executable("bd", bd_arg)
+        version = run([bd, "version"], instance or Path.cwd())
+        assert isinstance(version, subprocess.CompletedProcess)
+        payload["beads"] = {"available": True, "path": str(Path(bd).resolve()), "version": version.stdout.strip()}
+        payload["ledger"] = ledger_probe(instance, bd) if instance else {"state": "not_configured"}
+    except WorkflowError as exc:
+        payload["beads"] = {"available": False, "error": str(exc)}
+        payload["ledger"] = {"state": "unknown" if instance else "not_configured"}
+    try:
+        fleet = executable("codex-fleet", fleet_arg, "OPL_FLEET_BIN")
+        payload["fleet"] = {"available": True, "path": str(Path(fleet).resolve()), "owner": "codex-fleet"}
+    except WorkflowError as exc:
+        payload["fleet"] = {"available": False, "error": str(exc), "owner": "codex-fleet"}
+    return payload
+
+
+def parser() -> argparse.ArgumentParser:
+    root = argparse.ArgumentParser(description=__doc__)
+    commands = root.add_subparsers(dest="command", required=True)
+    status = commands.add_parser("status")
+    status.add_argument("--instance")
+    status.add_argument("--bd-bin")
+    status.add_argument("--fleet-bin")
+    ledger = commands.add_parser("ledger")
+    ledger_commands = ledger.add_subparsers(dest="ledger_command", required=True)
+    init = ledger_commands.add_parser("init")
+    init.add_argument("--instance", required=True)
+    init.add_argument("--prefix", default="opl")
+    init.add_argument("--bd-bin")
+    reconcile = ledger_commands.add_parser("reconcile-operations")
+    reconcile.add_argument("--instance")
+    reconcile.add_argument("--registry", type=Path)
+    reconcile.add_argument("--dry-run", action="store_true")
+    reconcile.add_argument("--bd-bin")
+    fleet = commands.add_parser("fleet", add_help=False)
+    fleet.add_argument("--fleet-bin")
+    fleet.add_argument("fleet_args", nargs=argparse.REMAINDER)
+    return root
+
+
+def main(argv: list[str] | None = None) -> int:
+    args = parser().parse_args(argv)
+    try:
+        if args.command == "status":
+            print(json.dumps(workflow_status(instance_root(args.instance, required=False), args.bd_bin, args.fleet_bin), ensure_ascii=False, indent=2, sort_keys=True))
+            return 0
+        if args.command == "fleet":
+            fleet = executable("codex-fleet", args.fleet_bin, "OPL_FLEET_BIN")
+            return subprocess.run([fleet, *(args.fleet_args or ["status"])], check=False).returncode
+        root = instance_root(args.instance)
+        assert root is not None
+        bd = executable("bd", args.bd_bin)
+        result = (
+            init_ledger(root, bd, args.prefix)
+            if args.ledger_command == "init"
+            else reconcile_operations(root, bd, args.registry, dry_run=args.dry_run)
+        )
+        print(json.dumps(result, ensure_ascii=False, indent=2, sort_keys=True))
+        return 0
+    except WorkflowError as exc:
+        print(f"ERROR: {exc}", file=sys.stderr)
+        return 1
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

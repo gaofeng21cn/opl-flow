@@ -59,17 +59,16 @@ opl-flow/
 |   |-- develop-and-deliver/
 |   |-- task-mode-gate/
 |   `-- recover-codex-tasks/
-|-- modules/
-|   |-- ledger/
-|   `-- fleet/
 |-- scripts/
+|   `-- opl_workflow.py        # small Ledger reconciler and Fleet migration facade
 |-- contracts/
 |-- docs/
 `-- tests/
 ```
 
-Do not split `modules/` into separately published packages until independent
-versioning or consumers prove that need.
+Keep Ledger and the Fleet migration facade inside OPL Flow. Do not split them
+into packages or internal module trees until independent consumers prove that
+need.
 
 Each user gets one private instance:
 
@@ -102,6 +101,40 @@ The private instance contains related but distinct authorities:
 OPL Fleet may consume Repository Governance to discover approved repositories.
 It must not rewrite governance policy as a side effect of synchronization.
 Repository policy changes remain explicit owner actions.
+
+### Scheduled Work
+
+Beads stores `due`/`defer`, dependencies, owner, and completion state. OPL Flow
+may reconcile a periodic source such as `Operations Registry.next_review_on`
+into a uniquely identified Bead. A Codex Automation, cron job, or CI schedule
+may wake a new Codex task to run reconciliation and inspect `bd ready`; Beads
+itself is not a scheduler or agent dispatcher.
+
+Compared with a recurring single-conversation task:
+
+| Behavior | Single conversation timer | OPL Ledger flow |
+| --- | --- | --- |
+| Durable task truth | conversation state | Beads/Dolt |
+| Wakeup | Codex Automation | Codex Automation |
+| Missed wakeup | may lose continuity | next wakeup resumes from Beads |
+| Duplicate wakeup | prompt-dependent | deterministic `external_ref` deduplication |
+| New conversation/machine | manual context reconstruction | `bd bootstrap` / `bd dolt pull` |
+
+The supported recurring pattern is therefore `registry or policy -> Flow
+reconcile -> Beads due/defer -> external wakeup -> Codex claim/execute`. Closing
+an Operations review includes updating `next_review_on`; the next reconciliation
+then creates the next dated occurrence. Flow does not infer a recurrence that
+the owning registry did not declare.
+
+Beads locates its database through the Git common directory. First
+initialization therefore runs only in a clean primary checkout or standalone
+clone; linked task worktrees share that ledger after initialization instead of
+creating separate task databases.
+
+Embedded Dolt is single-writer per machine. Multi-machine work uses the
+official `refs/dolt/data` remote: `bd dolt pull` before a coherent write batch,
+then `bd dolt push`; a new clone uses `bd bootstrap --yes`. These remain direct
+owner commands; OPL Flow does not wrap them or add a second replication protocol.
 
 Each service repository continues to own Compose files, `netlify.toml`,
 deployment scripts, health checks, and rollback procedures. External platforms
@@ -199,10 +232,14 @@ Fleet.
 
 ### Phase 1: Unified OPL Flow Entry
 
-- Add `$opl-flow setup`, `status`, and `update`.
-- Add a ledger-only Beads adapter and pilot one Program in shadow mode.
-- Expose existing Fleet behavior through the OPL Flow entry without moving
-  implementation yet.
+- **Implemented in source:** safe Beads initialization, Operations Registry
+  reconciliation, and an existing-Fleet pass-through. All ordinary ledger,
+  Dolt, and Linear operations use the official `bd` CLI directly.
+- **Pilot:** initialize one private Instance ledger and use one Operations
+  Program before making Ledger a default onboarding dependency.
+- **Remaining:** finish the guided `$opl-flow setup` / `update` experience and
+  release/install qualification. The source script is the migration entry, not
+  a second package manager.
 
 ### Phase 2: Authority Consolidation
 

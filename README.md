@@ -12,8 +12,8 @@ Standard, Full, ordinary Codex, another Package, or a domain Agent.
 ## Reusable Workflow System
 
 OPL Flow is the single public product for the reusable development workflow.
-Its target modules are the Beads-backed **OPL Ledger**, multi-machine
-**OPL Fleet**, Git/worktree lifecycle, bootstrap/doctor, and the workflow Skills
+Its capabilities include the Beads-backed **OPL Ledger**, a transitional facade
+for the existing multi-machine **OPL Fleet**, Git/worktree lifecycle, and the workflow Skills
 that are tightly coupled to those capabilities. Each owner keeps dynamic
 ledger data, Fleet nodes and policy, repository governance, private overlays,
 and personal Skills in one private **OPL Instance**.
@@ -21,8 +21,25 @@ and personal Skills in one private **OPL Instance**.
 [Reusable Development Workflow Architecture](docs/reusable-workflow-architecture.md)
 is the SSOT for product names, module ownership, public/private repository
 boundaries, multi-machine repository currentness, onboarding, and migration.
-The existing repositories remain transitional physical owners until the
-documented transfer and live readback are complete.
+The small Ledger reconciler is now source-available in OPL Flow. Beads remains
+the database and CLI owner; Fleet remains a pass-through to the installed
+`codex-fleet` owner until authority transfer and live readback are complete.
+
+The current developer entry is:
+
+```bash
+python3 scripts/opl_workflow.py status --instance <opl-instance>
+bd -C <opl-instance> dolt pull
+python3 scripts/opl_workflow.py ledger reconcile-operations --instance <opl-instance>
+bd -C <opl-instance> ready --json
+bd -C <opl-instance> dolt push
+bd -C <opl-instance> linear status --json
+python3 scripts/opl_workflow.py fleet status
+```
+
+Beads stores task truth and due/deferred state. OPL Flow performs idempotent
+reconciliation; Codex Automation or another owner scheduler performs wakeups.
+Beads never starts Codex or dispatches an agent by itself.
 
 ## Public Boundary
 
