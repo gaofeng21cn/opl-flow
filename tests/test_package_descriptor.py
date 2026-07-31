@@ -51,7 +51,13 @@ class PackageDescriptorTests(unittest.TestCase):
         self.assertEqual(codex_surface["plugin_id"], self.plugin["name"])
         self.assertEqual(
             codex_surface["required_skill_ids"],
-            ["coordinate-concurrent-tasks", "opl-flow"],
+            [
+                "coordinate-concurrent-tasks",
+                "develop-and-deliver",
+                "opl-flow",
+                "recover-codex-tasks",
+                "task-mode-gate",
+            ],
         )
         self.assertEqual(profile_surface["existing_profile_policy"], "semantic_merge_required")
         self.assertEqual(

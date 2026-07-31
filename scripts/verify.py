@@ -11,6 +11,14 @@ import sys
 from pathlib import Path, PurePosixPath
 
 
+CORE_SKILL_IDS = (
+    "coordinate-concurrent-tasks",
+    "develop-and-deliver",
+    "opl-flow",
+    "recover-codex-tasks",
+    "task-mode-gate",
+)
+
 REQUIRED_FILES = (
     ".agents/plugins/marketplace.json",
     ".codex-plugin/plugin.json",
@@ -23,8 +31,18 @@ REQUIRED_FILES = (
     "LICENSE",
     "skills/coordinate-concurrent-tasks/SKILL.md",
     "skills/coordinate-concurrent-tasks/agents/openai.yaml",
+    "skills/develop-and-deliver/SKILL.md",
+    "skills/develop-and-deliver/agents/openai.yaml",
     "skills/opl-flow/SKILL.md",
     "skills/opl-flow/agents/openai.yaml",
+    "skills/opl-flow/references/start-onboarding.json",
+    "skills/opl-flow/scripts/validate_start_onboarding.py",
+    "skills/recover-codex-tasks/SKILL.md",
+    "skills/recover-codex-tasks/agents/openai.yaml",
+    "skills/recover-codex-tasks/references/evidence-and-prompts.md",
+    "skills/recover-codex-tasks/scripts/inspect_codex_recovery.py",
+    "skills/task-mode-gate/SKILL.md",
+    "skills/task-mode-gate/agents/openai.yaml",
     "templates/AGENTS.md",
     "templates/TASTE.md",
     "scripts/install_local_plugin.py",
@@ -42,7 +60,9 @@ REQUIRED_FILES = (
 )
 
 CORE_TEST_MODULES = (
+    "tests/test_develop_and_deliver.py",
     "tests/test_install_local_plugin.py",
+    "tests/test_opl_flow_onboarding.py",
     "tests/test_profile_compose.py",
     "tests/test_repo_profile.py",
     "tests/test_verify_lanes.py",
@@ -54,6 +74,8 @@ CORE_TEST_MODULES = (
     "tests/test_fleet_inventory.py",
     "tests/test_package_descriptor.py",
     "tests/test_qualify_install.py",
+    "tests/test_task_mode_gate.py",
+    "skills/recover-codex-tasks/tests/test_inspect_codex_recovery.py",
 )
 VERIFY_LANES = ("core", "full")
 
@@ -72,8 +94,8 @@ def check_plugin_json(repo_root: Path) -> list[str]:
         path.name for path in (repo_root / "skills").iterdir()
         if path.is_dir() and (path / "SKILL.md").exists()
     }
-    if discoverable_skills != {"coordinate-concurrent-tasks", "opl-flow"}:
-        errors.append("default plugin must expose exactly the opl-flow and coordinate-concurrent-tasks skills")
+    if discoverable_skills != set(CORE_SKILL_IDS):
+        errors.append("default plugin must expose exactly the five OPL Flow core skills")
     policy = json.loads((repo_root / "contracts" / "workflow-policy.json").read_text(encoding="utf-8"))
     if manifest.get("version") != policy.get("package", {}).get("version"):
         errors.append("plugin version must match contracts/workflow-policy.json package.version")
@@ -140,8 +162,7 @@ def check_workflow_policy(repo_root: Path) -> list[str]:
         )
     expected_provides = {
         ("codex_plugin", "opl-flow"),
-        ("codex_skill", "opl-flow"),
-        ("codex_skill", "coordinate-concurrent-tasks"),
+        *(("codex_skill", skill_id) for skill_id in CORE_SKILL_IDS),
     }
     provides = policy.get("provides", [])
     if {(item.get("kind"), item.get("id")) for item in provides} != expected_provides:
@@ -159,6 +180,18 @@ def check_workflow_policy(repo_root: Path) -> list[str]:
         "coordinate-concurrent-tasks": (
             "https://github.com/gaofeng21cn/opl-flow",
             "skills/coordinate-concurrent-tasks",
+        ),
+        "develop-and-deliver": (
+            "https://github.com/gaofeng21cn/opl-flow",
+            "skills/develop-and-deliver",
+        ),
+        "recover-codex-tasks": (
+            "https://github.com/gaofeng21cn/opl-flow",
+            "skills/recover-codex-tasks",
+        ),
+        "task-mode-gate": (
+            "https://github.com/gaofeng21cn/opl-flow",
+            "skills/task-mode-gate",
         ),
     }
     if provided_skill_sources != expected_provided_skill_sources:
@@ -265,6 +298,31 @@ def check_workflow_policy(repo_root: Path) -> list[str]:
         errors.append("explicit Ponytail audit and review skills must remain outside workflow retirement")
     if any(not isinstance(item.get("config_markers"), list) or not isinstance(item.get("service_ids"), list) for item in migrations):
         errors.append("workflow migrations must declare config_markers and service_ids")
+    core_skill_retirement = next(
+        (
+            item
+            for item in policy.get("retires", [])
+            if item.get("id") == "opl-skills-core-workflow-projections"
+        ),
+        None,
+    )
+    expected_retired_ids = {"develop-and-deliver", "recover-codex-tasks", "task-mode-gate"}
+    expected_skill_paths = {
+        skill_id: f"skills/{skill_id}/SKILL.md" for skill_id in expected_retired_ids
+    }
+    expected_skill_source = {
+        "discovery_root": "agent_skills",
+        "lock_file": "agent_skill_lock",
+        "source": "gaofeng21cn/opl-skills",
+        "source_url": "https://github.com/gaofeng21cn/opl-skills.git",
+        "skill_paths": expected_skill_paths,
+    }
+    if (
+        core_skill_retirement is None
+        or set(core_skill_retirement.get("discovery_ids", [])) != expected_retired_ids
+        or core_skill_retirement.get("skill_source") != expected_skill_source
+    ):
+        errors.append("core Skill retirement must require exact former OPL Skills lock provenance")
     migration_policy = policy.get("migration_policy", {})
     if not migration_policy.get("discovery_root_ids"):
         errors.append("workflow migration policy must declare bounded discovery roots")

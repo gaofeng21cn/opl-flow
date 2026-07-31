@@ -1,0 +1,4 @@
+interface:
+  display_name: "Develop and Deliver"
+  short_description: "Route systematic development, validation, and delivery"
+  default_prompt: "Use $develop-and-deliver to implement and verify this change through the shortest safe path to the requested terminal outcome."

@@ -146,6 +146,28 @@
           "discovery_ids": { "type": "array", "items": { "type": "string", "minLength": 1 } },
           "config_markers": { "type": "array", "items": { "type": "string", "minLength": 1 } },
           "service_ids": { "type": "array", "items": { "type": "string", "minLength": 1 } },
+          "skill_source": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["discovery_root", "lock_file", "source", "source_url", "skill_paths"],
+            "properties": {
+              "discovery_root": { "const": "agent_skills" },
+              "lock_file": { "const": "agent_skill_lock" },
+              "source": { "type": "string", "minLength": 1 },
+              "source_url": {
+                "type": "string",
+                "pattern": "^https://github\\.com/[^/]+/[^/]+\\.git$"
+              },
+              "skill_paths": {
+                "type": "object",
+                "minProperties": 1,
+                "additionalProperties": {
+                  "type": "string",
+                  "pattern": "^(?!/)(?!.*(?:^|/)\\.\\.(?:/|$))(?!.*\\\\).+/SKILL\\.md$"
+                }
+              }
+            }
+          },
           "auto_retire_on_optimize": { "type": "boolean" },
           "reason": { "type": "string", "minLength": 1 }
         }

@@ -1,4 +1,4 @@
 interface:
   display_name: "OPL Flow"
-  short_description: "Codex workflow for OPL App"
-  default_prompt: "Use $opl-flow to install, sync, or diagnose the workflow profile and verify it through fresh readback."
+  short_description: "Start and supervise an OPL workflow"
+  default_prompt: "Use $opl-flow start to create or reuse my OPL ledger Dashboard and supervise it every hour."

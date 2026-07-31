@@ -16,7 +16,13 @@ from typing import Any
 SCHEMA = "opl_flow_install_qualification_receipt.v1"
 PLATFORMS = ("macos", "linux", "windows-wsl")
 INSTALL_MODES = ("fresh", "upgrade")
-REQUIRED_SKILLS = ("coordinate-concurrent-tasks", "opl-flow")
+REQUIRED_SKILLS = (
+    "coordinate-concurrent-tasks",
+    "develop-and-deliver",
+    "opl-flow",
+    "recover-codex-tasks",
+    "task-mode-gate",
+)
 ROUTINE_RELEASE = "routine-release"
 SYSTEM_CERTIFICATION = "system-certification"
 QUALIFICATION_LEVELS = (ROUTINE_RELEASE, SYSTEM_CERTIFICATION)
@@ -151,7 +157,7 @@ def validate_receipt(
     require(core == {"status": "current", "linear_configured": False, "fleet_configured": False}, "Core qualification must be current without Linear or Fleet")
 
     discovery = require_object(receipt.get("discovery"), "discovery")
-    require(tuple(sorted(discovery.get("skills", []))) == REQUIRED_SKILLS, "both bundled Skills must be discovered")
+    require(tuple(sorted(discovery.get("skills", []))) == REQUIRED_SKILLS, "all bundled core Skills must be discovered")
     invocation = discovery.get("new_codex_session_invocation")
     require(invocation in {"passed", "not_run"}, "new Codex session invocation status is invalid")
     return str(family), str(mode), invocation == "passed"

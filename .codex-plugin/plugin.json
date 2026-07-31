@@ -1,15 +1,15 @@
 {
   "name": "opl-flow",
-  "version": "0.1.29",
-  "description": "OPL Flow provides a model-native Codex profile, durable task ledger workflow, and optional multi-machine Fleet engine.",
+  "version": "0.1.30",
+  "description": "OPL Flow starts and supervises a durable task ledger, provides a model-native Codex profile, and coordinates optional Fleet execution.",
   "author": {
     "name": "Gaofeng"
   },
   "skills": "./skills/",
   "interface": {
     "displayName": "OPL Flow",
-    "shortDescription": "Reusable Codex development workflow",
-    "longDescription": "OPL Flow packages a concise Codex profile, Beads-backed durable task workflow, dynamic-capacity coordination, and an optional Instance-backed multi-machine Fleet engine.",
+    "shortDescription": "Start and supervise Codex work",
+    "longDescription": "OPL Flow creates or reuses one Beads-backed Dashboard and hourly supervisor, packages a concise Codex profile, and coordinates optional Instance-backed Fleet execution.",
     "developerName": "Gaofeng",
     "category": "Developer Tools",
     "capabilities": [
@@ -17,10 +17,12 @@
       "preferences",
       "task-coordination",
       "durable-ledger",
+      "dashboard-onboarding",
+      "hourly-supervision",
       "multi-machine-fleet",
       "codegraph-bootstrap"
     ],
-    "defaultPrompt": "Use OPL Flow to install or diagnose the profile, or coordinate concurrent Codex tasks safely."
+    "defaultPrompt": "Use $opl-flow start to create or reuse my OPL ledger Dashboard and supervise it every hour."
   },
   "homepage": "https://github.com/gaofeng21cn/opl-flow",
   "repository": "https://github.com/gaofeng21cn/opl-flow",

@@ -1,6 +1,6 @@
 ---
 name: "opl-flow"
-description: "Use when installing, syncing, diagnosing, or explaining the OPL Flow workflow profile, or when the user explicitly asks to use OPL Flow. OPL Flow keeps normal development model-native and does not bootstrap a development methodology."
+description: "Use when starting an OPL ledger dashboard and hourly supervisor, installing, syncing, diagnosing, or explaining the OPL Flow workflow profile, or when the user explicitly asks to use OPL Flow. OPL Flow keeps normal development model-native and does not bootstrap a development methodology."
 ---
 
 # OPL Flow
@@ -17,6 +17,9 @@ design and development directly.
 
 - Use this skill to install, update, sync, explain, or diagnose the minimal
   Profile.
+- Use `$opl-flow start` when the user asks to create or reuse an OPL ledger,
+  management Dashboard task, or hourly supervisor. Natural language such as
+  "创建 OPL 总账并每小时监督" routes to the same action.
 - Use the package-root `scripts/opl_workflow.py` only for workflow status,
   Profile safety, safe Ledger initialization, Operations Registry
   reconciliation, and the optional Fleet engine. Use `bd` directly for
@@ -28,6 +31,48 @@ design and development directly.
   readback for ordinary repository work.
 - Do not make Flow a prerequisite for Base, App, Standard, Full, plain Codex,
   another Package, or domain readiness.
+
+## One-Action Dashboard Start
+
+When the user says `$opl-flow start` or asks to create an OPL ledger or
+management task, perform the onboarding end to end. Read
+`references/start-onboarding.json` first and preserve every uniqueness key,
+native tool route, supervisor decision, terminal readback, and boundary in that
+contract.
+
+1. Discover the current saved project, local execution environment, and the
+   unique private OPL Instance. Ask only when project, Instance, or objective is
+   materially ambiguous.
+2. Use Codex native project and task tools to find a Dashboard task with the
+   same project and objective fingerprint. Reuse and pin one exact match;
+   create a local task only when none exists. Multiple matches are a collision,
+   not permission to create another task.
+3. Pull the Instance Ledger and initialize it only when no Ledger exists. Find
+   a Bead whose `external_ref` is exactly `codex://thread/<thread_id>`; reuse or
+   update it, or create one when absent. Never initialize a second Ledger.
+4. Inspect `$CODEX_HOME/automations/*/automation.toml` (or the documented
+   default root when `CODEX_HOME` is unset), parse the contract-required fields,
+   and use native Automation view readback before mutation. Reuse or update the
+   one hourly heartbeat bound to that Dashboard and objective. Unreadable or
+   ambiguous discovery fails closed; do not create a cron workaround or a
+   second supervision loop.
+5. Make the heartbeat supervise rather than poll. Each run pulls and
+   reconciles the Ledger, reads ready, in-progress, and overdue work plus live
+   execution tasks, makes one contract-defined decision per lane, and performs
+   the required continuation, correction, split, merge, or terminal review.
+   Write claim, checkpoint, blocker, and remaining facts to Beads, then push
+   and read back Dolt after coherent mutation.
+6. Finish by reading back the exact Dashboard thread, Bead link, heartbeat ID,
+   target, active hourly schedule, and Dolt parity. Report duplicate counts.
+   Dashboard, Automation, Linear, and Git branches are execution or projection
+   surfaces; Beads/Dolt remains the internal task ledger. Record that readback
+   as `opl_flow_start_onboarding_receipt.v1` and validate it with
+   `python3 skills/opl-flow/scripts/validate_start_onboarding.py --receipt <path>`.
+
+Use Linear only for `codex-ready` plus absent-delegate local admission and
+narrow status/result links. Use GitHub for delivery evidence and Fleet for
+capacity. Never use Codex Cloud for this route, and never archive a task unless
+the user freshly names and approves it.
 
 ## One-Action Setup And Update
 
@@ -68,11 +113,10 @@ verify the requested Skill IDs from the effective discovery surface. If a
 private Instance has `contracts/skill-reference.json`, use it only to select
 the user's desired owner routes; it does not make Fleet the Skill source.
 
-Current source ownership is intentionally explicit: Flow `0.1.29` bundles
-`opl-flow` and `coordinate-concurrent-tasks`; `develop-and-deliver`,
-`task-mode-gate`, and `recover-codex-tasks` remain in OPL Skills until their
-single-source migration is completed. `architect-and-simplify` remains an
-optional enhancement.
+Current source ownership is intentionally explicit: Flow `0.1.30` bundles
+`opl-flow`, `coordinate-concurrent-tasks`, `develop-and-deliver`,
+`task-mode-gate`, and `recover-codex-tasks`. `architect-and-simplify` remains
+an optional OPL Skills enhancement; its absence never blocks architecture work.
 
 For `setup`:
 

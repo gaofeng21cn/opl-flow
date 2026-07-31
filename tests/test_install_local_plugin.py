@@ -596,7 +596,6 @@ class InstallLocalPluginTests(unittest.TestCase):
 
             plugin_skill = plugins_dir / "opl-flow" / "skills" / "opl-flow"
             (plugin_skill / "SKILL.md").write_text("stale\n", encoding="utf-8")
-            (plugin_skill / "scripts").mkdir()
             (plugin_skill / "scripts" / "rho_wrapper.py").write_text("retired\n", encoding="utf-8")
 
             result = install_local_plugin.verify(

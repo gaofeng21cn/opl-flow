@@ -1,0 +1,99 @@
+{
+  "schema": "opl_flow_start_onboarding.v1",
+  "action": "start",
+  "natural_language_triggers": [
+    "create an OPL ledger dashboard and supervise it hourly",
+    "创建 OPL 总账并每小时监督",
+    "创建 OPL 管理任务"
+  ],
+  "defaults": {
+    "project": "current_saved_project",
+    "execution_environment": "local",
+    "instance": "unique_discoverable_private_opl_instance",
+    "cadence": "hourly"
+  },
+  "native_tool_routes": {
+    "project_discovery": "list_projects",
+    "task_discovery": "list_threads",
+    "task_creation": "create_thread",
+    "task_readback": "read_thread",
+    "task_continuation": "send_message_to_thread",
+    "task_wait": "wait_threads",
+    "task_pin": "set_thread_pinned",
+    "automation": "automation_update"
+  },
+  "automation_discovery": {
+    "glob": "$CODEX_HOME/automations/*/automation.toml",
+    "fallback_root": "~/.codex/automations",
+    "required_fields": [
+      "id",
+      "kind",
+      "target_thread_id",
+      "prompt"
+    ],
+    "match_keys": [
+      "kind=heartbeat",
+      "target_thread_id",
+      "objective_fingerprint_in_prompt"
+    ],
+    "readback_route": "automation_update mode=view",
+    "mutation_route": "automation_update mode=create_or_update",
+    "failure_policy": "fail_closed_on_unreadable_config_parse_error_or_multiple_matches"
+  },
+  "ledger_routes": [
+    "python3 scripts/opl_workflow.py ledger init --instance <opl-instance>",
+    "python3 scripts/opl_workflow.py ledger reconcile-operations --instance <opl-instance>",
+    "bd dolt pull",
+    "bd ready --json",
+    "bd list --status in_progress --json",
+    "bd list --overdue --json",
+    "bd dolt push"
+  ],
+  "uniqueness": {
+    "dashboard_task": [
+      "project_id",
+      "objective_fingerprint"
+    ],
+    "bead": [
+      "external_ref=codex://thread/<thread_id>"
+    ],
+    "heartbeat": [
+      "target_thread_id",
+      "objective_fingerprint",
+      "kind=heartbeat"
+    ],
+    "collision_policy": "reuse_or_update_existing; fail_closed_on_multiple_matches"
+  },
+  "supervisor_decisions": [
+    "continue",
+    "resume",
+    "scope_correct",
+    "parallelize",
+    "merge_scope",
+    "event_trigger_idle",
+    "terminal_review"
+  ],
+  "supervisor_actions": [
+    "continue_or_resume_existing_local_execution_task",
+    "correct_scope_against_latest_user_instruction",
+    "split_independent_work_or_merge_duplicate_scope",
+    "write_claim_checkpoint_blocker_remaining_to_beads",
+    "push_and_read_back_dolt_after_coherent_mutation"
+  ],
+  "terminal_readback": [
+    "dashboard_thread_id_and_project_id",
+    "bead_id_and_exact_codex_external_ref",
+    "heartbeat_id_target_thread_id_status_and_hourly_schedule",
+    "dolt_pull_push_parity_or_explicit_no_change",
+    "duplicate_counts_equal_zero"
+  ],
+  "receipt_schema": "opl_flow_start_onboarding_receipt.v1",
+  "boundaries": {
+    "task_ssot": "beads_dolt",
+    "linear": "codex_ready_local_admission_and_narrow_writeback_only",
+    "github": "delivery_evidence",
+    "fleet": "execution_capacity_only",
+    "codex_cloud": "forbidden",
+    "automatic_archive": "forbidden_without_fresh_user_approval"
+  }
+}

@@ -14,7 +14,7 @@ from scripts.qualify_install import (
 )
 
 
-VERSION = "0.1.29"
+VERSION = "0.1.30"
 PREDECESSOR = "0.1.24"
 SOURCE_COMMIT = "a" * 40
 DIGEST = "sha256:" + "b" * 64
@@ -42,7 +42,16 @@ def receipt(platform: str, mode: str, invocation: str = "not_run") -> dict[str, 
         },
         "profile": profile,
         "core": {"status": "current", "linear_configured": False, "fleet_configured": False},
-        "discovery": {"skills": ["opl-flow", "coordinate-concurrent-tasks"], "new_codex_session_invocation": invocation},
+        "discovery": {
+            "skills": [
+                "coordinate-concurrent-tasks",
+                "develop-and-deliver",
+                "opl-flow",
+                "recover-codex-tasks",
+                "task-mode-gate",
+            ],
+            "new_codex_session_invocation": invocation,
+        },
     }
     if mode == "upgrade":
         profile["target_before_sha256"] = "sha256:" + "d" * 64

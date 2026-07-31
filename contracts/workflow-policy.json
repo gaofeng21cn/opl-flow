@@ -3,7 +3,7 @@
   "schema": "opl_flow_workflow_policy.v3",
   "package": {
     "id": "opl-flow",
-    "version": "0.1.29",
+    "version": "0.1.30",
     "owner": "opl-flow",
     "kind": "workflow_profile"
   },
@@ -32,6 +32,33 @@
       "owner": "opl-flow",
       "source": "https://github.com/gaofeng21cn/opl-flow",
       "source_path": "skills/coordinate-concurrent-tasks",
+      "online_install_default": true,
+      "activation": "task_routed"
+    },
+    {
+      "id": "develop-and-deliver",
+      "kind": "codex_skill",
+      "owner": "opl-flow",
+      "source": "https://github.com/gaofeng21cn/opl-flow",
+      "source_path": "skills/develop-and-deliver",
+      "online_install_default": true,
+      "activation": "task_routed"
+    },
+    {
+      "id": "recover-codex-tasks",
+      "kind": "codex_skill",
+      "owner": "opl-flow",
+      "source": "https://github.com/gaofeng21cn/opl-flow",
+      "source_path": "skills/recover-codex-tasks",
+      "online_install_default": true,
+      "activation": "task_routed"
+    },
+    {
+      "id": "task-mode-gate",
+      "kind": "codex_skill",
+      "owner": "opl-flow",
+      "source": "https://github.com/gaofeng21cn/opl-flow",
+      "source_path": "skills/task-mode-gate",
       "online_install_default": true,
       "activation": "task_routed"
     }
@@ -223,6 +250,25 @@
       "service_ids": [],
       "auto_retire_on_optimize": true,
       "reason": "The repository-local OPL Flow marketplace identity was replaced by the Framework-owned package identity."
+    },
+    {
+      "id": "opl-skills-core-workflow-projections",
+      "discovery_ids": ["develop-and-deliver", "recover-codex-tasks", "task-mode-gate"],
+      "config_markers": [],
+      "service_ids": [],
+      "skill_source": {
+        "discovery_root": "agent_skills",
+        "lock_file": "agent_skill_lock",
+        "source": "gaofeng21cn/opl-skills",
+        "source_url": "https://github.com/gaofeng21cn/opl-skills.git",
+        "skill_paths": {
+          "develop-and-deliver": "skills/develop-and-deliver/SKILL.md",
+          "recover-codex-tasks": "skills/recover-codex-tasks/SKILL.md",
+          "task-mode-gate": "skills/task-mode-gate/SKILL.md"
+        }
+      },
+      "auto_retire_on_optimize": true,
+      "reason": "These core workflow Skills moved from the optional OPL Skills pack into the OPL Flow package; retire only Skills CLI projections whose lock still proves the former owner."
     }
   ],
   "codex_model_policy": {

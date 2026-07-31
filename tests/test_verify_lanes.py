@@ -7,6 +7,7 @@ import tempfile
 import unittest
 
 from scripts.verify import (
+    CORE_SKILL_IDS,
     CORE_TEST_MODULES,
     check_plugin_json,
     check_workflow_policy,
@@ -18,7 +19,7 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 
 
 class VerifyLaneTests(unittest.TestCase):
-    def test_plugin_exposes_the_two_bounded_flow_skills(self) -> None:
+    def test_plugin_exposes_the_five_bounded_flow_skills(self) -> None:
         self.assertEqual(check_plugin_json(REPO_ROOT), [])
 
         discoverable = {
@@ -26,7 +27,7 @@ class VerifyLaneTests(unittest.TestCase):
             for path in (REPO_ROOT / "skills").iterdir()
             if path.is_dir() and (path / "SKILL.md").exists()
         }
-        self.assertEqual(discoverable, {"coordinate-concurrent-tasks", "opl-flow"})
+        self.assertEqual(discoverable, set(CORE_SKILL_IDS))
 
     def test_full_lane_runs_the_complete_current_suite(self) -> None:
         core = contract_test_modules("core")
@@ -207,6 +208,30 @@ class VerifyLaneTests(unittest.TestCase):
         for invalid_path in ("../skill", "/skill", r"skills\agent-reach"):
             with self.subTest(schema_source_path=invalid_path):
                 self.assertIsNone(re.fullmatch(path_pattern, invalid_path))
+
+    def test_core_skill_retirement_requires_exact_former_owner_provenance(self) -> None:
+        mutation_cases = (
+            lambda source: source.update(source="other/skills"),
+            lambda source: source.update(source_url="https://github.com/other/skills.git"),
+            lambda source: source["skill_paths"].update(
+                {"develop-and-deliver": "skills/other/SKILL.md"}
+            ),
+        )
+        for mutate in mutation_cases:
+            with self.subTest(mutate=mutate):
+                errors = self.workflow_policy_errors_after(
+                    lambda policy, change=mutate: change(
+                        next(
+                            item
+                            for item in policy["retires"]
+                            if item["id"] == "opl-skills-core-workflow-projections"
+                        )["skill_source"]
+                    )
+                )
+                self.assertIn(
+                    "core Skill retirement must require exact former OPL Skills lock provenance",
+                    errors,
+                )
 
 
 if __name__ == "__main__":
