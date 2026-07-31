@@ -345,6 +345,7 @@ def amend_objective(
     expected_execution_owner: str,
     new_objective_id: str,
     next_action: str,
+    reason: str,
 ) -> dict[str, Any]:
     """CAS-amend one ACTIVE receipt without changing its source custody."""
     _, lane = resolve_repo(worktree, repo_root)
@@ -354,10 +355,11 @@ def amend_objective(
         "owner": expected_owner,
         "execution_owner": expected_execution_owner,
     }
-    required = (*expected_identity.values(), new_objective_id, next_action)
+    required = (*expected_identity.values(), new_objective_id, next_action, reason)
     if any(not value.strip() for value in required):
         raise LifecycleError(
-            "objective amendment identity, new objective-id, and next-action must be non-empty"
+            "objective amendment identity, new objective-id, next-action, and reason "
+            "must be non-empty"
         )
     if expected_objective_id == new_objective_id:
         raise LifecycleError("objective amendment must change the objective-id")
@@ -375,11 +377,46 @@ def amend_objective(
         if current_identity != expected_identity:
             raise LifecycleError(f"objective amendment identity changed for {lane}")
 
+        history = entry.setdefault("objective_amendments", [])
+        if not isinstance(history, list):
+            raise LifecycleError(f"objective amendment history is invalid for {lane}")
+        amended_at = now()
+        history.append(
+            {
+                "recorded_at": amended_at,
+                "reason": reason.strip(),
+                "actor": {
+                    "thread_id": expected_thread_id,
+                    "owner": expected_owner,
+                    "execution_owner": expected_execution_owner,
+                },
+                "from": {
+                    "objective_id": expected_objective_id,
+                    "next_action": entry["next_action"],
+                },
+                "to": {
+                    "objective_id": new_objective_id,
+                    "next_action": next_action,
+                },
+            }
+        )
         entry.update(
             objective_id=new_objective_id,
             next_action=next_action,
-            updated_at=now(),
+            updated_at=amended_at,
         )
+
+        for other in payload["entries"]:
+            if other is entry or other.get("status") != "ACTIVE":
+                continue
+            overlaps = other.get("integration_overlaps", [])
+            if not isinstance(overlaps, list):
+                continue
+            for overlap in overlaps:
+                if not isinstance(overlap, dict):
+                    continue
+                if overlap.get("worktree") == lane_key:
+                    overlap["objective_id"] = new_objective_id
         write_ledger(ledger_path, payload)
     return entry
 
@@ -1237,6 +1274,7 @@ def parser() -> argparse.ArgumentParser:
     amend_parser.add_argument("--expected-execution-owner", required=True)
     amend_parser.add_argument("--new-objective-id", required=True)
     amend_parser.add_argument("--next-action", required=True)
+    amend_parser.add_argument("--reason", required=True)
 
     checkpoint_parser = commands.add_parser("checkpoint")
     checkpoint_parser.add_argument("--worktree", required=True, type=Path)
@@ -1307,6 +1345,7 @@ def main() -> int:
                 expected_execution_owner=args.expected_execution_owner,
                 new_objective_id=args.new_objective_id,
                 next_action=args.next_action,
+                reason=args.reason,
             )
         elif args.command == "checkpoint":
             result = checkpoint(

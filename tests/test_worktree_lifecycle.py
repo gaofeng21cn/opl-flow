@@ -304,6 +304,9 @@ class WorktreeLifecycleTests(unittest.TestCase):
     def test_amend_objective_preserves_source_custody_and_recovery(self) -> None:
         self.register()
         self.commit_lane()
+        source_head = git(self.lane, "rev-parse", "HEAD")
+        source_tree = git(self.lane, "rev-parse", "HEAD^{tree}")
+        source_bytes = (self.lane / "lane.txt").read_bytes()
         recovery = worktree_lifecycle.checkpoint(
             self.ledger,
             worktree=self.lane,
@@ -331,30 +334,140 @@ class WorktreeLifecycleTests(unittest.TestCase):
         )
         before = self.register()
 
-        receipt = worktree_lifecycle.amend_objective(
-            self.ledger,
-            repo_root=self.repo,
-            worktree=self.lane,
-            expected_thread_id="thread-1",
-            expected_objective_id="objective-1",
-            expected_owner="owner-1",
-            expected_execution_owner="owner-1",
-            new_objective_id="objective-current",
-            next_action="continue under current objective",
-        )
+        with patch.object(
+            worktree_lifecycle,
+            "now",
+            return_value="2026-07-31T01:02:03Z",
+        ):
+            receipt = worktree_lifecycle.amend_objective(
+                self.ledger,
+                repo_root=self.repo,
+                worktree=self.lane,
+                expected_thread_id="thread-1",
+                expected_objective_id="objective-1",
+                expected_owner="owner-1",
+                expected_execution_owner="owner-1",
+                new_objective_id="objective-current",
+                next_action="continue under current objective",
+                reason="  user replaced the objective  ",
+            )
 
         self.assertEqual(receipt["objective_id"], "objective-current")
         self.assertEqual(receipt["next_action"], "continue under current objective")
-        self.assertTrue(receipt["updated_at"])
+        self.assertEqual(receipt["updated_at"], "2026-07-31T01:02:03Z")
         self.assertEqual(receipt["thread_id"], before["thread_id"])
         self.assertEqual(receipt["owner"], before["owner"])
         self.assertEqual(receipt["execution_owner"], before["execution_owner"])
         self.assertEqual(receipt["worktree"], before["worktree"])
         self.assertEqual(receipt["repo_root"], before["repo_root"])
+        self.assertEqual(receipt["status"], before["status"])
         self.assertEqual(receipt["write_set"], before["write_set"])
         self.assertEqual(receipt["integration_overlaps"], before["integration_overlaps"])
         self.assertEqual(receipt["remote_recovery"], recovery)
-        self.assertEqual(set(receipt) - set(before), {"updated_at"})
+        self.assertEqual(
+            set(receipt) - set(before),
+            {"objective_amendments", "updated_at"},
+        )
+        amendment = receipt["objective_amendments"][0]
+        self.assertEqual(amendment["recorded_at"], "2026-07-31T01:02:03Z")
+        self.assertEqual(amendment["reason"], "user replaced the objective")
+        self.assertEqual(
+            amendment["actor"],
+            {
+                "thread_id": "thread-1",
+                "owner": "owner-1",
+                "execution_owner": "owner-1",
+            },
+        )
+        self.assertEqual(
+            amendment["from"],
+            {
+                "objective_id": "objective-1",
+                "next_action": "continue",
+            },
+        )
+        self.assertEqual(
+            amendment["to"],
+            {
+                "objective_id": "objective-current",
+                "next_action": "continue under current objective",
+            },
+        )
+        entries = json.loads(self.ledger.read_text(encoding="utf-8"))["entries"]
+        other = next(
+            item for item in entries if item["worktree"] == str(self.other_lane.resolve())
+        )
+        self.assertEqual(
+            other["integration_overlaps"][0]["objective_id"],
+            "objective-current",
+        )
+        self.assertEqual(git(self.lane, "rev-parse", "HEAD"), source_head)
+        self.assertEqual(git(self.lane, "rev-parse", "HEAD^{tree}"), source_tree)
+        self.assertEqual((self.lane / "lane.txt").read_bytes(), source_bytes)
+
+    def test_amend_objective_appends_deterministic_history(self) -> None:
+        self.register()
+
+        with patch.object(
+            worktree_lifecycle,
+            "now",
+            side_effect=[
+                "2026-07-31T01:02:03Z",
+                "2026-07-31T01:02:03Z",
+                "2026-07-31T02:03:04Z",
+                "2026-07-31T02:03:04Z",
+            ],
+        ):
+            worktree_lifecycle.amend_objective(
+                self.ledger,
+                repo_root=self.repo,
+                worktree=self.lane,
+                expected_thread_id="thread-1",
+                expected_objective_id="objective-1",
+                expected_owner="owner-1",
+                expected_execution_owner="owner-1",
+                new_objective_id="objective-2",
+                next_action="continue objective 2",
+                reason="first amendment",
+            )
+            receipt = worktree_lifecycle.amend_objective(
+                self.ledger,
+                repo_root=self.repo,
+                worktree=self.lane,
+                expected_thread_id="thread-1",
+                expected_objective_id="objective-2",
+                expected_owner="owner-1",
+                expected_execution_owner="owner-1",
+                new_objective_id="objective-3",
+                next_action="continue objective 3",
+                reason="second amendment",
+            )
+
+        self.assertEqual(
+            [
+                (
+                    item["recorded_at"],
+                    item["from"]["objective_id"],
+                    item["to"]["objective_id"],
+                    item["reason"],
+                )
+                for item in receipt["objective_amendments"]
+            ],
+            [
+                (
+                    "2026-07-31T01:02:03Z",
+                    "objective-1",
+                    "objective-2",
+                    "first amendment",
+                ),
+                (
+                    "2026-07-31T02:03:04Z",
+                    "objective-2",
+                    "objective-3",
+                    "second amendment",
+                ),
+            ],
+        )
 
     def test_amend_objective_fails_closed_on_identity_drift(self) -> None:
         self.register()
@@ -380,8 +493,72 @@ class WorktreeLifecycleTests(unittest.TestCase):
                         **stale_identity,
                         new_objective_id="objective-current",
                         next_action="continue under current objective",
+                        reason="user replaced the objective",
                     )
                 self.assertEqual(self.ledger.read_bytes(), before)
+
+    def test_amend_objective_rejects_empty_reason_without_mutation(self) -> None:
+        self.register()
+        before = self.ledger.read_bytes()
+
+        with self.assertRaisesRegex(worktree_lifecycle.LifecycleError, "reason"):
+            worktree_lifecycle.amend_objective(
+                self.ledger,
+                repo_root=self.repo,
+                worktree=self.lane,
+                expected_thread_id="thread-1",
+                expected_objective_id="objective-1",
+                expected_owner="owner-1",
+                expected_execution_owner="owner-1",
+                new_objective_id="objective-current",
+                next_action="continue under current objective",
+                reason=" \t ",
+            )
+
+        self.assertEqual(self.ledger.read_bytes(), before)
+
+    def test_amend_objective_rejects_same_objective_without_mutation(self) -> None:
+        self.register()
+        before = self.ledger.read_bytes()
+
+        with self.assertRaisesRegex(worktree_lifecycle.LifecycleError, "must change"):
+            worktree_lifecycle.amend_objective(
+                self.ledger,
+                repo_root=self.repo,
+                worktree=self.lane,
+                expected_thread_id="thread-1",
+                expected_objective_id="objective-1",
+                expected_owner="owner-1",
+                expected_execution_owner="owner-1",
+                new_objective_id="objective-1",
+                next_action="continue under current objective",
+                reason="user replaced the objective",
+            )
+
+        self.assertEqual(self.ledger.read_bytes(), before)
+
+    def test_amend_objective_rejects_invalid_history_without_mutation(self) -> None:
+        self.register()
+        payload = json.loads(self.ledger.read_text(encoding="utf-8"))
+        payload["entries"][0]["objective_amendments"] = {}
+        self.ledger.write_text(json.dumps(payload), encoding="utf-8")
+        before = self.ledger.read_bytes()
+
+        with self.assertRaisesRegex(worktree_lifecycle.LifecycleError, "history is invalid"):
+            worktree_lifecycle.amend_objective(
+                self.ledger,
+                repo_root=self.repo,
+                worktree=self.lane,
+                expected_thread_id="thread-1",
+                expected_objective_id="objective-1",
+                expected_owner="owner-1",
+                expected_execution_owner="owner-1",
+                new_objective_id="objective-current",
+                next_action="continue under current objective",
+                reason="user replaced the objective",
+            )
+
+        self.assertEqual(self.ledger.read_bytes(), before)
 
     def test_amend_objective_fails_closed_without_active_receipt(self) -> None:
         self.register()
@@ -401,6 +578,7 @@ class WorktreeLifecycleTests(unittest.TestCase):
                 expected_execution_owner="owner-1",
                 new_objective_id="objective-current",
                 next_action="continue under current objective",
+                reason="user replaced the objective",
             )
 
         self.assertEqual(self.ledger.read_bytes(), before)
@@ -417,6 +595,7 @@ class WorktreeLifecycleTests(unittest.TestCase):
                 expected_execution_owner="owner-1",
                 new_objective_id="objective-current",
                 next_action="continue under current objective",
+                reason="user replaced the objective",
             )
 
         self.assertFalse(self.ledger.exists())
@@ -441,11 +620,58 @@ class WorktreeLifecycleTests(unittest.TestCase):
                 "objective-current",
                 "--next-action",
                 "continue",
+                "--reason",
+                "user replaced the objective",
             ]
         )
 
         self.assertEqual(arguments.command, "amend-objective")
+        self.assertEqual(arguments.reason, "user replaced the objective")
         self.assertIn("amend-objective", worktree_lifecycle.parser().format_help())
+
+    def test_cli_amend_objective_records_reason(self) -> None:
+        self.register()
+
+        completed = subprocess.run(
+            [
+                "python3",
+                "-B",
+                str(Path(worktree_lifecycle.__file__).resolve()),
+                "--ledger",
+                str(self.ledger),
+                "amend-objective",
+                "--repo-root",
+                str(self.repo),
+                "--worktree",
+                str(self.lane),
+                "--expected-thread-id",
+                "thread-1",
+                "--expected-objective-id",
+                "objective-1",
+                "--expected-owner",
+                "owner-1",
+                "--expected-execution-owner",
+                "owner-1",
+                "--new-objective-id",
+                "objective-current",
+                "--next-action",
+                "continue under current objective",
+                "--reason",
+                "user replaced the objective",
+            ],
+            check=False,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
+        )
+
+        self.assertEqual(completed.returncode, 0, completed.stderr)
+        receipt = json.loads(completed.stdout)
+        self.assertEqual(receipt["objective_id"], "objective-current")
+        self.assertEqual(
+            receipt["objective_amendments"][0]["reason"],
+            "user replaced the objective",
+        )
 
     def test_checkpoint_rejects_noncanonical_remote(self) -> None:
         self.register()
