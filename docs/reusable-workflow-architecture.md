@@ -135,6 +135,8 @@ Embedded Dolt is single-writer per machine. Multi-machine work uses the
 official `refs/dolt/data` remote: `bd dolt pull` before a coherent write batch,
 then `bd dolt push`; a new clone uses `bd bootstrap --yes`. These remain direct
 owner commands; OPL Flow does not wrap them or add a second replication protocol.
+After bootstrap, keep `.beads` at mode `0700` and configure the checkout-local
+`beads.role` as `maintainer` or `contributor` according to the user's authority.
 
 Each service repository continues to own Compose files, `netlify.toml`,
 deployment scripts, health checks, and rollback procedures. External platforms

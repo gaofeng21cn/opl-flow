@@ -127,6 +127,17 @@ else:
                 with self.assertRaisesRegex(WorkflowError, "clean Git checkout"):
                     init_ledger(root, "/usr/bin/true", "opl")
 
+    def test_init_secures_existing_ledger_directory(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            (root / ".beads").mkdir()
+            with (
+                mock.patch("scripts.opl_workflow.ledger_probe", return_value={}),
+                mock.patch("scripts.opl_workflow.os.chmod") as chmod,
+            ):
+                self.assertEqual(init_ledger(root, "/usr/bin/true", "opl")["state"], "already_initialized")
+            chmod.assert_called_once_with(root / ".beads", 0o700)
+
     def test_fleet_is_an_argument_preserving_passthrough(self) -> None:
         with tempfile.TemporaryDirectory() as temp:
             root = Path(temp)

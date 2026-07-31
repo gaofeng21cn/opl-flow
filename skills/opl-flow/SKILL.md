@@ -51,7 +51,8 @@ references. Completing a review requires updating the Registry's
 
 Embedded Dolt is single-writer on one machine. Pull before claiming or writing
 on another machine, and push after a coherent mutation. New clones use
-`bd bootstrap --yes`; `.beads/issues.jsonl` is not the cross-machine authority.
+`bd bootstrap --yes`, mode `0700`, and a checkout-local `beads.role` matching
+the user's authority; `.beads/issues.jsonl` is not the cross-machine authority.
 
 Linear remains an optional Beads-native human portal:
 

@@ -91,6 +91,7 @@ def ledger_probe(root: Path, bd: str) -> dict[str, Any] | None:
 
 def init_ledger(root: Path, bd: str, prefix: str) -> dict[str, str]:
     if ledger_probe(root, bd) is not None:
+        os.chmod(root / ".beads", 0o700)
         return {"state": "already_initialized", "instance": str(root)}
     git_dir = str(run(["git", "rev-parse", "--git-dir"], root).stdout).strip()
     common_dir = str(run(["git", "rev-parse", "--git-common-dir"], root).stdout).strip()
@@ -117,6 +118,7 @@ def init_ledger(root: Path, bd: str, prefix: str) -> dict[str, str]:
     )
     if ledger_probe(root, bd) is None:
         raise WorkflowError("bd init completed without a readable ledger")
+    os.chmod(root / ".beads", 0o700)
     return {"state": "initialized", "instance": str(root), "prefix": prefix}
 
 
