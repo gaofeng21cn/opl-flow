@@ -34,6 +34,20 @@ of creating parallel documents with duplicate prose.
 | Hard invariants (`docs/invariants.md`) | Root `AGENTS.md` for target anti-regression; `skills/opl-flow/SKILL.md` for operator route; contracts/source/tests for current behavior | Human-readable target rules cannot override transitional machine truth or prove migration. |
 | Decisions (`docs/decisions.md`) | [Composition architecture](./capability-governance.md) for current target, [History and provenance](./history/README.md) plus Git history for superseded context | No duplicate active decision ledger is needed in this small repo. |
 
+## Coverage Terminal
+
+The tracked documentation set covered by this index is `README*` plus
+`docs/**/*.md`. The current set is reviewed `11/11`, with `unreviewed=0` and
+`remaining_stale_or_retire=0`. This is documentation coverage evidence only; it
+does not prove Package publication, installation, executor discovery, runtime,
+App, domain, or release readiness.
+
+Reopen this coverage result when a tracked document is added, moved, or changes
+lifecycle role; when contracts, source, tests, platform inventory, or fresh
+readback contradict an active claim; when a document loses a clear owner,
+purpose, state, or machine boundary; or when fresh no-active-caller evidence
+makes a public surface eligible for retirement.
+
 ## History
 
 [History and provenance](./history/README.md) contains dated baselines, completed
