@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Register, checkpoint, inspect, and safely close task-owned Git worktrees."""
+"""Register, amend, checkpoint, inspect, and safely close task-owned Git worktrees."""
 
 from __future__ import annotations
 
@@ -330,6 +330,56 @@ def transfer_owner(
                     objective_id=expected_objective_id,
                     owner=new_owner,
                 )
+        write_ledger(ledger_path, payload)
+    return entry
+
+
+def amend_objective(
+    ledger_path: Path,
+    *,
+    repo_root: Path,
+    worktree: Path,
+    expected_thread_id: str,
+    expected_objective_id: str,
+    expected_owner: str,
+    expected_execution_owner: str,
+    new_objective_id: str,
+    next_action: str,
+) -> dict[str, Any]:
+    """CAS-amend one ACTIVE receipt without changing its source custody."""
+    _, lane = resolve_repo(worktree, repo_root)
+    expected_identity = {
+        "thread_id": expected_thread_id,
+        "objective_id": expected_objective_id,
+        "owner": expected_owner,
+        "execution_owner": expected_execution_owner,
+    }
+    required = (*expected_identity.values(), new_objective_id, next_action)
+    if any(not value.strip() for value in required):
+        raise LifecycleError(
+            "objective amendment identity, new objective-id, and next-action must be non-empty"
+        )
+    if expected_objective_id == new_objective_id:
+        raise LifecycleError("objective amendment must change the objective-id")
+
+    with ledger_lock(ledger_path):
+        payload = read_ledger(ledger_path)
+        lane_key = str(lane)
+        entry = next(
+            (item for item in payload["entries"] if item["worktree"] == lane_key),
+            None,
+        )
+        if not entry or entry["status"] != "ACTIVE":
+            raise LifecycleError(f"ACTIVE receipt not found for {lane}")
+        current_identity = {key: entry.get(key) for key in expected_identity}
+        if current_identity != expected_identity:
+            raise LifecycleError(f"objective amendment identity changed for {lane}")
+
+        entry.update(
+            objective_id=new_objective_id,
+            next_action=next_action,
+            updated_at=now(),
+        )
         write_ledger(ledger_path, payload)
     return entry
 
@@ -1175,6 +1225,19 @@ def parser() -> argparse.ArgumentParser:
     transfer_parser.add_argument("--next-action", required=True)
     transfer_parser.add_argument("--reason", required=True)
 
+    amend_parser = commands.add_parser(
+        "amend-objective",
+        help="CAS-amend one ACTIVE receipt while preserving its source custody.",
+    )
+    amend_parser.add_argument("--repo-root", required=True, type=Path)
+    amend_parser.add_argument("--worktree", required=True, type=Path)
+    amend_parser.add_argument("--expected-thread-id", required=True)
+    amend_parser.add_argument("--expected-objective-id", required=True)
+    amend_parser.add_argument("--expected-owner", required=True)
+    amend_parser.add_argument("--expected-execution-owner", required=True)
+    amend_parser.add_argument("--new-objective-id", required=True)
+    amend_parser.add_argument("--next-action", required=True)
+
     checkpoint_parser = commands.add_parser("checkpoint")
     checkpoint_parser.add_argument("--worktree", required=True, type=Path)
     checkpoint_parser.add_argument("--remote", default="origin")
@@ -1232,6 +1295,18 @@ def main() -> int:
                 new_execution_owner=args.new_execution_owner or args.new_owner,
                 next_action=args.next_action,
                 reason=args.reason,
+            )
+        elif args.command == "amend-objective":
+            result = amend_objective(
+                ledger_path,
+                repo_root=args.repo_root,
+                worktree=args.worktree,
+                expected_thread_id=args.expected_thread_id,
+                expected_objective_id=args.expected_objective_id,
+                expected_owner=args.expected_owner,
+                expected_execution_owner=args.expected_execution_owner,
+                new_objective_id=args.new_objective_id,
+                next_action=args.next_action,
             )
         elif args.command == "checkpoint":
             result = checkpoint(
