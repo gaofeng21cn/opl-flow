@@ -15,6 +15,7 @@ owner, purpose, state, and machine boundary.
 
 | Doc | Role | Boundary |
 | --- | --- | --- |
+| [Reusable development workflow architecture](./reusable-workflow-architecture.md) | OPL Flow、Ledger、Fleet、Skills、私人 Instance 的产品命名、authority、自动化入门与迁移 SSOT | Target/planned；不替代当前 contracts/source/runtime readback |
 | [Composition architecture](./capability-governance.md) | Flow 仓唯一组合架构 SSOT：Package/carrier/executor、presence-only、GHCR、Official Profile 与 personalization safety | Target/planned；当前机器行为仍归 contracts/source/platform readback |
 | [Active truth and migration status](./status.md) | 当前兼容实现、目标差距、迁移顺序和 terminal proof | Human-readable status；不证明安装、发布或 target 已落地 |
 | [Compatibility and positioning](./compatibility.md) | Model-native、可选 Flow 与跨 executor 定位 | 不拥有 App/Base/Full/runtime/domain readiness |
@@ -30,14 +31,14 @@ of creating parallel documents with duplicate prose.
 | --- | --- | --- |
 | Project positioning (`docs/project.md`) | Root `README.md`, especially `Public Role Boundary` | The repository has one small product/profile scope and no separate project portfolio. |
 | Active status and plan (`docs/status.md`) | [Active truth and migration status](./status.md) | This is the single current-state, gap, migration-order, and terminal-proof owner. |
-| Architecture boundary (`docs/architecture.md`) | [capability-governance.md](./capability-governance.md), with root `README.md` as public summary | One SSOT owns Package/carrier/executor and presence-only composition; other pages link to it. |
+| Architecture boundary (`docs/architecture.md`) | [Reusable workflow architecture](./reusable-workflow-architecture.md) owns the system/repository boundary; [capability-governance.md](./capability-governance.md) owns Package/carrier/executor composition | The scopes are complementary and must not restate each other's policy. |
 | Hard invariants (`docs/invariants.md`) | Root `AGENTS.md` for target anti-regression; `skills/opl-flow/SKILL.md` for operator route; contracts/source/tests for current behavior | Human-readable target rules cannot override transitional machine truth or prove migration. |
 | Decisions (`docs/decisions.md`) | [Composition architecture](./capability-governance.md) for current target, [History and provenance](./history/README.md) plus Git history for superseded context | No duplicate active decision ledger is needed in this small repo. |
 
 ## Coverage Terminal
 
 The tracked documentation set covered by this index is `README*` plus
-`docs/**/*.md`. The current set is reviewed `11/11`, with `unreviewed=0` and
+`docs/**/*.md`. The current set is reviewed `12/12`, with `unreviewed=0` and
 `remaining_stale_or_retire=0`. This is documentation coverage evidence only; it
 does not prove Package publication, installation, executor discovery, runtime,
 App, domain, or release readiness.

@@ -9,6 +9,21 @@ Flow is optional. OPL App may include it as a default root in the App Official
 Profile, but Flow is not a readiness prerequisite for OPL Base, OPL App,
 Standard, Full, ordinary Codex, another Package, or a domain Agent.
 
+## Reusable Workflow System
+
+OPL Flow is the single public product for the reusable development workflow.
+Its target modules are the Beads-backed **OPL Ledger**, multi-machine
+**OPL Fleet**, Git/worktree lifecycle, bootstrap/doctor, and the workflow Skills
+that are tightly coupled to those capabilities. Each owner keeps dynamic
+ledger data, Fleet nodes and policy, repository governance, private overlays,
+and personal Skills in one private **OPL Instance**.
+
+[Reusable Development Workflow Architecture](docs/reusable-workflow-architecture.md)
+is the SSOT for product names, module ownership, public/private repository
+boundaries, multi-machine repository currentness, onboarding, and migration.
+The existing repositories remain transitional physical owners until the
+documented transfer and live readback are complete.
+
 ## Public Boundary
 
 The ecosystem model is:
