@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="assets/branding/opl-flow-loop-v2.png" alt="OPL Flow logo" width="128" />
+  <img src="assets/branding/opl-flow-logo.png" alt="OPL Flow logo" width="128" />
 </p>
 
 <p align="center">
@@ -12,7 +12,7 @@
 <p align="center">Raise the floor for one Codex. Keep many agents, repositories, and machines moving from one durable source of truth.</p>
 
 <p align="center">
-  <img src="assets/branding/opl-flow-system-v2.png" alt="OPL Flow connects a Codex workspace, a durable task ledger, optional human visibility, and Fleet nodes" width="100%" />
+  <img src="assets/branding/opl-flow-ai-fleet.png" alt="OPL Flow coordinates Codex, an OPL Ledger, optional Linear visibility, and optional Fleet nodes" width="100%" />
 </p>
 
 ## Why OPL Flow
@@ -139,10 +139,10 @@ delivery, reliability, learning, and artifact workflows without becoming a
 runtime dependency of OPL Flow. Codex discovers the installed Skills and routes
 to them by task intent; Flow does not copy or dynamically import their source.
 
-Enhancement Skills such as `develop-and-deliver`, `task-mode-gate`,
-`recover-codex-tasks`, and `architect-and-simplify` remain source-owned by OPL
-Skills. Installing or updating them does not change the identity or currentness
-of the two core OPL Flow Skills.
+The source consolidation is not yet complete. `develop-and-deliver`,
+`task-mode-gate`, and `recover-codex-tasks` remain owned by OPL Skills until
+their single-source migration into OPL Flow is completed. In contrast,
+`architect-and-simplify` remains an optional enhancement.
 
 Install the complete public enhancement pack from its owner:
 
