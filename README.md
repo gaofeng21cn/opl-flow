@@ -1,464 +1,252 @@
-# OPL Flow
+<p align="center">
+  <img src="assets/branding/opl-flow-logo.png" alt="OPL Flow logo" width="128" />
+</p>
 
-OPL Flow distributes a model-native development workflow. It is an OPL Package
-whose capabilities include the user-level Profile, workflow Skills, the
-Beads-backed OPL Ledger adapter, and the optional multi-machine OPL Fleet
-engine.
+<p align="center">
+  <a href="./README.md"><strong>English</strong></a> | <a href="./README.zh-CN.md">中文</a>
+</p>
 
-Flow is optional. OPL App may include it as a default root in the App Official
-Profile, but Flow is not a readiness prerequisite for OPL Base, OPL App,
-Standard, Full, ordinary Codex, another Package, or a domain Agent.
+<h1 align="center">OPL Flow</h1>
 
-## Reusable Workflow System
+<p align="center"><strong>The model-native workflow and collaboration layer for an AI development fleet</strong></p>
+<p align="center">Raise the floor for one Codex. Keep many agents, repositories, and machines moving from one durable source of truth.</p>
 
-OPL Flow is the single public product for the reusable development workflow.
-Its capabilities include the Beads-backed **OPL Ledger**, the multi-machine
-**OPL Fleet**, Git/worktree lifecycle, and the workflow Skills
-that are tightly coupled to those capabilities. Each owner keeps dynamic
-ledger data, Fleet nodes and policy, repository governance, private overlays,
-and personal Skills in one private **OPL Instance**.
+<p align="center">
+  <img src="assets/branding/opl-flow-ai-fleet.png" alt="OPL Flow coordinates Codex, an OPL Ledger, optional Linear visibility, and optional Fleet nodes" width="100%" />
+</p>
 
-[Reusable Development Workflow Architecture](docs/reusable-workflow-architecture.md)
-is the SSOT for product names, module ownership, public/private repository
-boundaries, multi-machine repository currentness, onboarding, and migration.
-The Ledger reconciler and generic Fleet engine are source-owned by OPL Flow.
-Beads remains the database and CLI owner; one private OPL Instance owns Fleet
-nodes, policy, assets, and sanitized receipts. The former `codex-fleet` command
-is only a compatibility entry for already enrolled personal nodes.
+## Why OPL Flow
 
-The user entry is one Codex action after the Plugin is installed:
+Codex can already reason, write code, use tools, and coordinate agents. The
+harder problem begins when development lasts longer than one conversation or
+spreads across several tasks, repositories, and machines:
 
-```text
-Use $opl-flow setup to initialize my reusable development workflow.
-Use $opl-flow update to update it from each component owner and verify it.
+- Which task owns the current objective, and what is ready next?
+- Which result has reached the canonical repository rather than a temporary branch?
+- How can work continue on another machine without copying private runtime state?
+- How can a person see progress without turning a project board into a second source of truth?
+- How can the workflow remain useful when the Ledger, Linear, or Fleet is absent?
+
+**OPL Flow provides that continuity without replacing Codex's native
+intelligence.** It starts as a small user-level Profile and a set of workflow
+Skills. When a project needs more, the same Flow can add a durable Beads-backed
+Ledger, an optional Linear portal, and an optional multi-machine Fleet engine.
+
+## One-Sentence Model
+
+**Codex does the work. OPL Flow organizes how work continues. OPL Ledger keeps
+task truth. Linear makes that truth easy for people to read. OPL Fleet provides
+the machines that can execute it.**
+
+Every layer is independently optional except the executor itself. A single
+developer can use only the Profile and Skills; a larger personal lab can enable
+the complete stack without changing the underlying development model.
+
+## From One Codex To An AI Fleet
+
+| Scale | What OPL Flow adds | What stays native or owner-managed |
+| --- | --- | --- |
+| One machine | A concise user Profile, workflow preferences, and reusable Skills | Codex reasoning, tools, project files, and repository instructions |
+| Several active tasks | Ownership, recovery, fresh-SSOT integration, and closeout conventions | Codex native multi-agent and conversation coordination |
+| Long-lived work | OPL Ledger initialization and idempotent reconciliation | Beads owns the database, dependency graph, claims, and Dolt sync |
+| Human visibility | A route to the official Beads Linear integration | Linear is a portal, not task truth or an agent dispatcher |
+| Several machines | A reusable Fleet engine for status, admission, repository currentness, and dispatch policy | Each machine installs from component owners; a private Instance owns topology and policy |
+
+This is why OPL Flow is no longer only an OPL App companion module. It remains
+an optional default workflow Profile for the App, while also standing on its
+own as the public workflow layer for model-native, multi-agent, multi-machine
+development.
+
+## How The Pieces Fit
+
+```mermaid
+flowchart LR
+    U[Developer] --> C[Codex]
+    C <--> F[OPL Flow]
+    F <--> B[OPL Ledger<br/>Beads]
+    B -. optional human portal .-> L[Linear]
+    F -. optional execution .-> N[OPL Fleet nodes]
+    I[Private OPL Instance] --- B
+    I --- N
 ```
 
-These are model-native Skill workflows, not a second package manager. Their
-machine-readable primitives remain independently callable:
+| Component | Authority |
+| --- | --- |
+| **Codex** | Reasoning, tool use, implementation, and native agent coordination |
+| **OPL Flow** | Profile, workflow Skills, reconciliation, Git/worktree lifecycle, and the reusable Fleet engine |
+| **OPL Ledger** | Durable task SSOT, implemented by Beads rather than a custom OPL database |
+| **Linear** | Optional human-readable view through Beads' owner-supported integration |
+| **OPL Fleet** | Optional machine execution and admission using fresh node evidence |
+| **OPL Instance** | Private ledger data, Fleet topology, policy, assets, and personal overlays |
 
-```bash
-python3 scripts/opl_workflow.py status --instance <opl-instance>
-python3 scripts/opl_workflow.py profile status
-python3 scripts/opl_workflow.py profile prepare
-(cd <opl-instance> && bd dolt pull)
-python3 scripts/opl_workflow.py ledger reconcile-operations --instance <opl-instance>
-(cd <opl-instance> && bd ready --json)
-(cd <opl-instance> && bd dolt push)
-(cd <opl-instance> && bd linear status --json)
-python3 scripts/opl_workflow.py fleet --instance <opl-instance> status
-```
+Flow does not become a central planner. It does not decide domain truth,
+quality, release acceptance, or what the model must think next. Beads does not
+wake Codex, Linear does not dispatch agents, and Fleet does not copy private
+sessions or tool binaries between machines.
 
-The Skill coordinates setup/update end to end while Git, GitHub, Codex, Beads,
-Linear, and Fleet keep their own install and readback authority. Beads stores
-task truth and due/deferred state. OPL Flow performs idempotent reconciliation;
-Codex Automation or another owner scheduler performs wakeups. Beads never
-starts Codex or dispatches an agent by itself.
+## Core Capabilities
 
-OPL Fleet is optional. Its public engine never contains an owner's topology or
-private assets and does not copy tool bytes between machines. Each node updates
-from component owners; the Instance contributes only desired policy and
-sanitized state.
+### Model-Native Profile
 
-## Public Boundary
+The user Profile raises the development baseline without installing a rigid
+methodology. It keeps communication preferences, source-first diagnosis,
+critical-path focus, dynamic concurrency, and tool routing concise and
+portable.
 
-The ecosystem model is:
+### Durable OPL Ledger
 
-```text
-OPL Base        ~= R
-OPL App         ~= RStudio / replaceable GUI and deployment carrier
-OPL Package     ~= R Package
-OPL Flow        = OPL Package(kind=workflow_profile)
-```
+OPL Flow provides safe initialization, status, and Operations Registry
+reconciliation. Ordinary task operations use the owner-provided `bd` CLI
+directly. Beads remains the storage and synchronization authority.
 
-Package, carrier, and executor are independent. Publication is a separate axis:
+### Optional Linear Portal
 
-```text
-Package     = stable identity, capabilities and dependency intent
-Publication = owner source/tag plus the official GHCR byte source
-Carrier     = local install/update/remove and fresh installed readback
-Executor    = the route that discovers and runs installed capabilities
-```
+Flow detects and reports the official Beads Linear connection. Sync starts with
+the Beads owner dry-run and never stores the API key in Flow, Git, or task text.
+Linear remains a human portal over the Ledger, not a parallel ledger.
 
-GHCR stores and serves published bytes; it is not a carrier and cannot report
-what a machine has installed. Codex Plugin Manager is the current carrier
-adapter, and Codex CLI is the only formal production executor today. This
-Codex-first path keeps implementation and maintenance small while the
-Package identity, Profile, preferences, tasks, and public status/actions remain
-OPL-owned and executor-neutral.
+### Optional OPL Fleet
 
-A minimal Git/local adapter proof may exercise the neutral Package/carrier
-contract so Codex-private fields cannot enter the public boundary. It is a
-conformance test, not a second supported carrier or Claude/Hermes product.
+The generic Fleet engine lives in this public repository. A private OPL
+Instance supplies node IDs, capabilities, scheduling policy, runner bindings,
+and sanitized receipts. Nodes update software from each component's official
+owner channel instead of copying the controller's bytes or version.
 
-For the complete ownership, GHCR, dependency, App, Full, Profile-safety, and
-migration boundary, use
-[OPL Flow Composition Architecture](docs/capability-governance.md). That page is
-the repository's human-readable composition SSOT.
+### Git And Worktree Continuity
 
-OPL Flow does not own App readiness, Framework runtime behavior, Package
-currentness, project facts, release truth, task truth, or domain acceptance.
-Those claims stay with the owning platform, Package, runtime, contract, fresh
-readback, or domain owner.
+Flow includes lifecycle and absorption tools for recoverable parallel Git work.
+Independent worktrees may progress concurrently, including overlapping write
+sets. Integration resolves conflicts against fresh canonical state; a worktree
+or pull request is never mistaken for the final SSOT.
 
-## Minimal Profile
+### Dynamic Composition
 
-The durable profile contains only:
+OPL Packages and capabilities update independently. Normal dependencies use a
+stable identity and callability, not a shared ecosystem version lock. Exact
+commit and digest binding is limited to proving one immutable release candidate.
 
-- Chinese, conclusion-first, concise communication preferences.
-- Read the effective repository, call path, repo-local instructions, contracts,
-  and implementation before editing.
-- Keep the user's highest-priority verifiable outcome on the critical path.
-- Depend only on prerequisites that reached their authority and took effect.
-- Delegate only independent critical-path work whose write sets, resources, and
-  recovery points justify parallel execution; do not impose a fixed global
-  concurrency cap.
-- Use RTK for compact shell output and native commands when fidelity matters.
-- Initialize and Git-ignore `.codegraph/` in development repositories.
+## Start In One Codex Action
 
-It does not install a planning methodology, global persona, release authority,
-project truth, or companion readiness ceremony.
-
-## Profile Source And Safety
-
-`templates/AGENTS.md` is rendered from
-`profile/modules/01-user-preferences.md`, declared by
-`profile/manifest.json`:
-
-```bash
-python3 scripts/profile_compose.py write
-python3 scripts/profile_compose.py check
-```
-
-The composer only renders deterministic repository bytes. Applying them to a
-user-owned `~/.codex/AGENTS.md` has a deliberately narrow safety invariant:
-
-1. read and hash the original target;
-2. back it up;
-3. remove only known marker blocks and preserve distinct user preferences;
-4. reject a stale target whose SHA changed before apply;
-5. validate and atomically replace the target.
-
-If automatic merge cannot be validated, the original stays in place and the
-current compatibility route returns a review packet. Framework no longer
-exposes a Profile apply command; reviewed bytes are written back only through
-the owner-controlled Profile workflow. This Profile-specific
-backup/stale-write/atomic behavior is not a generic Package carrier contract.
-
-`~/.codex/TASTE.md` remains a human-maintained authoring source, not runtime
-session input. Repo-specific facts and procedures stay repo-local.
-
-## For Codex / Agents
-
-This repository is both the canonical OPL Flow source and a repo marketplace.
-Add it to Codex, inspect the available entry, install it, and read back the
-installed carrier state:
+Install the OPL Flow Plugin from its public repository:
 
 ```bash
 codex plugin marketplace add gaofeng21cn/opl-flow
-codex plugin marketplace list --json
-codex plugin list --marketplace opl-flow-local --available --json
 codex plugin add opl-flow@opl-flow-local
-codex plugin list --marketplace opl-flow-local --json
 ```
 
-After installation, start a new conversation in the Codex app or a new Codex
-CLI session. Bundled skills are discovered for new conversations and sessions;
-an already-running conversation is not pickup evidence.
-
-To remove the Codex carrier and then the configured marketplace:
-
-```bash
-codex plugin remove opl-flow@opl-flow-local
-codex plugin marketplace remove opl-flow-local
-```
-
-These commands manage only the Codex Plugin carrier. `codex plugin list` can
-prove that carrier's installed or available entry; it does not prove the
-complete OPL Package or user Profile is installed, current, or applied.
-Installing or removing the Plugin does not edit `~/.codex/AGENTS.md` or
-`~/.codex/TASTE.md`.
-
-Use the OPL Framework lifecycle for the complete OPL Flow Package and Profile:
-
-```bash
-opl packages install opl-flow
-opl packages update opl-flow
-opl packages list --json
-opl packages status --package-id opl-flow --json
-```
-
-The configured carrier owns installed readback, and Framework aggregates the
-complete Package status plus any review-needed result. Profile writes remain
-owner-controlled. `~/.codex/TASTE.md` remains human-maintained authoring source.
-Neither the Codex carrier nor a repository checkout can promote its state into
-complete Package/Profile currentness.
-
-The target online publication and update path is:
+Start a new Codex conversation or CLI session, then ask:
 
 ```text
-Flow owner source/tag
-  -> ghcr.io/<owner>/one-person-lab-packages/opl-flow:<immutable-tag>
-  -> ghcr.io/<owner>/one-person-lab-packages/opl-flow:latest-stable
-  -> thin Base OCI download/verify and byte handoff
-  -> configured carrier install/update/remove
-  -> fresh carrier installed readback
-  -> Codex executor discovery/callability
+Use $opl-flow setup to initialize my reusable development workflow.
 ```
 
-The Flow owner advances its own `latest-stable` independently. The shared
-`one-person-lab-manifest:latest-stable` is only a Full/offline/integration-test/
-QA snapshot, not ordinary Flow currentness. Neither GHCR nor the shared
-snapshot is local installed truth.
-
-Codex Plugin Manager owns Codex Plugin/config/cache mechanics. Base may retain
-one thin OCI downloader because Codex does not consume GHCR OCI directly, but
-the downloader stops after verified byte handoff. The configured carrier runs
-the Package runtime adapter and reads back the complete Flow Package, including
-non-Plugin Profile surfaces.
-
-Restart the selected executor when its native discovery requires it.
-
-## Release Qualification
-
-OPL composition remains dynamic: Packages and capabilities update independently
-and normal dependencies require stable identity presence/callability, not a
-shared version lock. Exact commit and digest binding applies only while proving
-one candidate release, so evidence from different bytes cannot be combined into
-one release verdict.
-
-For each candidate, validate `fresh` and N-1 `upgrade` receipts on macOS, Linux,
-and Windows/WSL. Every receipt proves carrier readback, Profile backup/rollback
-and preservation, and Core operation without Linear or Fleet. The matrix also
-requires at least one real invocation from a new Codex session:
-
-```bash
-python3 scripts/qualify_install.py \
-  --expected-version <candidate-version> \
-  --expected-predecessor-version <n-1-version> \
-  --expected-source-commit <40-hex-owner-commit> \
-  --expected-digest sha256:<64-hex-ghcr-digest> \
-  --receipt <macos-fresh.json> --receipt <macos-upgrade.json> \
-  --receipt <linux-fresh.json> --receipt <linux-upgrade.json> \
-  --receipt <windows-wsl-fresh.json> --receipt <windows-wsl-upgrade.json>
-```
-
-The installer and publisher remain owner surfaces. Receipt files contain no
-credentials, session text, machine paths, Linear state, or Fleet topology. A
-source test, candidate commit, tag, or workflow run cannot replace live
-qualification and does not constrain later independent Package updates.
-
-## Capability Composition
-
-Flow declares capability intent by stable `(kind, id)`. A normal required edge
-means the identity must be present and callable. It does not require SemVer or
-ABI solving, an exact delivery record, or a shared release cohort.
-
-Breaking capability interfaces use a new identity or an owner-side adapter.
-Missing dependencies affect Flow only; they do not make Base, App, Full, plain
-Codex, or unrelated Packages unavailable.
-
-`contracts/workflow-policy.json` v3 has already removed exact version,
-install-source, lifecycle-owner and Standard/Full convergence requirements from
-normal capability declarations. It still contains a fixed capability graph,
-source metadata and migration policy. This is a partial contract migration, not
-terminal platform completion. OPL App must not parse this file or maintain a
-companion Skill/Tool/Plugin/MCP list from it; App consumes only the generic
-Framework projection of actual platform state.
-
-Model precedence remains:
+For an existing installation:
 
 ```text
-explicit user selection
-> installed Flow recommendation
-> fresh executor default
-> App fallback when Flow is unavailable
+Use $opl-flow update to update every component from its owner and verify the effective workflow.
 ```
 
-Credentials, OAuth state, account data, and unknown user or third-party MCP
-configuration are never bundled or overwritten.
+The Skill handles the end-to-end action and asks only when an external
+authorization is unavoidable. Core setup does not require Linear or Fleet.
 
-## Currentness And Readback
+## Choose The Deployment You Need
 
-Keep these independent:
+| Deployment | Components | Best for |
+| --- | --- | --- |
+| **Core** | Codex + OPL Flow Profile and Skills | One developer on one machine |
+| **Durable** | Core + private OPL Instance + Beads | Long-running work and many active tasks |
+| **Visible** | Durable + Linear | A human-readable project and operations portal |
+| **Fleet** | Durable + enrolled machines | Multi-machine development, testing, and compute |
 
-1. Owner publication: source/tag and per-Package GHCR `latest-stable`.
-2. Carrier installed truth: what the local platform reports installed and
-   healthy for the complete Package.
-3. Executor route: whether the selected executor can discover and call it.
-4. Full/QA snapshot: the exact bytes selected for one reproducible build only.
+Adding a layer does not change the authority of the layers below it. Removing
+an optional layer leaves Core usable.
 
-During migration, inspect current Framework output without promoting
-implementation details into composition gates:
+## Public And Private Boundary
+
+The reusable engine belongs here. Personal state does not.
+
+**Public OPL Flow source includes:**
+
+- Profile sources and workflow Skills;
+- Beads and Linear adapters without credentials;
+- the generic Fleet engine and schemas;
+- Git/worktree lifecycle and verification tools;
+- setup, update, status, and documentation.
+
+**A private OPL Instance includes:**
+
+- Beads/Dolt task data;
+- machine inventory, SSH routes, runner bindings, and dispatch policy;
+- private Skills, repository governance, deployment notes, and asset records;
+- sanitized receipts and personal workflow overlays.
+
+Credentials, sessions, conversation history, logs, caches, private machine
+paths, and Fleet lease secrets are never published or copied between nodes.
+
+## Product Relationship
+
+| Product | Role |
+| --- | --- |
+| **OPL Flow** | Workflow and collaboration layer for the AI development fleet |
+| **OPL Framework** | Runtime, Package lifecycle, contracts, and Agent execution substrate |
+| **One Person Lab App** | User-facing workbench and optional Flow carrier/profile entry |
+| **OPL Skills** | Optional reusable capability enhancements |
+| **OPL Instance** | One owner or organization's private operating configuration and state |
+
+OPL Flow is an `OPL Package(kind=workflow_profile)`, but its product meaning is
+larger than a profile file: it packages the reusable operating model around the
+Profile while preserving native Codex behavior and independent owners.
+
+## Machine-Readable Entry Points
+
+<details>
+<summary><strong>Developer and automation commands</strong></summary>
 
 ```bash
-opl packages list --json
-opl packages status --package-id opl-flow --json
-codex plugin list --json
-```
+# Combined readback
+python3 scripts/opl_workflow.py status --instance <opl-instance>
 
-An owner tag, a shared manifest, a clean checkout, docs, or tests do not prove
-this machine installed or activated the Package.
+# Profile
+python3 scripts/opl_workflow.py profile status
+python3 scripts/opl_workflow.py profile prepare
 
-## OPL App Standard And Full
+# Ledger
+python3 scripts/opl_workflow.py ledger init --instance <opl-instance>
+python3 scripts/opl_workflow.py ledger reconcile-operations --instance <opl-instance>
+(cd <opl-instance> && bd ready --json)
+(cd <opl-instance> && bd dolt pull)
+(cd <opl-instance> && bd dolt push)
 
-OPL Flow can be a default root in the single App Official Profile:
+# Optional Linear portal
+(cd <opl-instance> && bd linear status --json)
+(cd <opl-instance> && bd linear sync --dry-run --json)
 
-- Standard installs it online; Full may use offline seed bytes.
-- Both use the same desired roots.
-- The Profile runs only on first install or explicit Restore.
-- User removal persists across startup, App update, and silent maintenance.
-- Maintenance updates only Packages still reported installed by their carrier.
-- Flow failure remains local and does not block other roots.
+# Optional Fleet
+python3 scripts/opl_workflow.py fleet --instance <opl-instance> status
+python3 scripts/opl_workflow.py fleet --instance <opl-instance> repos status
 
-After an App carrier changes, the current implementation may request
-generic Framework reconciliation for already installed Packages. The target keeps the
-generic scheduling and readback result while delegating each physical update to its
-carrier; it never treats Official Profile drift as reinstall permission.
-
-## Developer Local-Source Tool
-
-`scripts/install_local_plugin.py` is for repository development and local-source
-testing only. It is not ordinary Package installation or currentness authority:
-
-```bash
-python3 scripts/install_local_plugin.py --no-profile
-python3 scripts/install_local_plugin.py --verify-only
+# Source verification
 scripts/verify.sh
 scripts/verify.sh full
 ```
 
-Its exact Plugin/cache byte checks prove only the local development carrier.
-They do not prove per-Package GHCR publication, platform installation, another
-executor route, or App/Full readiness.
+The old `codex-fleet` command is a transition fallback for existing private
+installations. New reusable Fleet capability is source-owned by OPL Flow.
 
-## Repo Profile Sync
+</details>
 
-OPL Flow can check or write only the metadata portion of an OPL-native repo
-profile:
+## Architecture And Operations
 
-```bash
-python3 scripts/repo_profile.py check --repo-root /path/to/repo
-python3 scripts/repo_profile.py sync --repo-root /path/to/repo
-python3 scripts/repo_profile.py sync --repo-root /path/to/repo --apply
-```
+- [Reusable workflow architecture](docs/reusable-workflow-architecture.md)
+- [Capability composition and ownership](docs/capability-governance.md)
+- [New machine setup](docs/new-machine-codex-setup.md)
+- [Current implementation status](docs/status.md)
+- [Documentation index](docs/README.md)
 
-`sync` is dry-run unless `--apply` is present. Apply updates
-`contracts/opl-native-profile.json` and removes known legacy Flow marker blocks.
-Repo-local instructions remain repository-owned.
+These documents contain exact ownership, carrier, Profile-safety, release
+qualification, and migration details. A passing test, tag, candidate, or
+published image is not a substitute for fresh installed readback.
 
-## Usage
+## License
 
-Ask Codex:
-
-```text
-Use OPL Flow for this task.
-```
-
-The minimal profile acts as preferences, not a task router. Ordinary reasoning
-remains model-native; specialist skills load only through their own triggers.
-
-For several active tasks:
-
-```text
-Use $coordinate-concurrent-tasks to rebuild the active execution graph, run
-independent work in parallel, integrate against fresh SSOT, and mark completed
-tasks SAFE_TO_ARCHIVE without archiving them before my review.
-```
-
-The skill coordinates existing owners. It cannot create release/package
-authority, authorize Git mutation, or archive a task without fresh user
-acceptance.
-
-For an explicit, read-only Git cleanup decision, inspect one lane against its
-target authority:
-
-```bash
-python3 scripts/worktree_absorption_audit.py \
-  --repo-root /path/to/repo \
-  --worktree /path/to/lane-worktree \
-  --target origin/main
-```
-
-The JSON result distinguishes exact, tree-equivalent, patch-equivalent,
-unabsorbed, and owner-review cases and reports `cleanup_allowed`. The utility
-never deletes a worktree or branch and is not an OPL Flow, App, Package, or
-release readiness dependency; it is invoked only when an owner needs cleanup
-evidence.
-
-For a Git-writing task, use the lifecycle wrapper from creation through cleanup:
-
-```bash
-python3 scripts/worktree_lifecycle.py register \
-  --repo-root /path/to/repo --worktree /path/to/task-worktree \
-  --thread-id <thread> --objective-id <objective> --owner <owner> \
-  --next-action "<next action>" --write-set path/to/file
-python3 scripts/worktree_lifecycle.py transfer-owner \
-  --repo-root /path/to/repo --worktree /path/to/task-worktree \
-  --expected-thread-id <old-thread> --expected-objective-id <objective> \
-  --expected-owner <old-owner> --expected-execution-owner <old-executor> \
-  --new-thread-id <recovery-thread> --new-owner <recovery-owner> \
-  --next-action "<next action>" --reason "<recovery authority>"
-python3 scripts/worktree_lifecycle.py checkpoint --worktree /path/to/task-worktree
-python3 scripts/worktree_lifecycle.py status
-python3 scripts/worktree_lifecycle.py close --worktree /path/to/task-worktree
-python3 scripts/worktree_lifecycle.py close-stale \
-  --repo-root /path/to/repo --worktree /path/to/absent-task-worktree \
-  --thread-id <thread> --objective-id <objective> --owner <owner> \
-  --branch <task-branch>
-```
-
-The private ledger defaults to
-`~/.local/state/opl-flow/worktree-ownership-ledger.json`. `checkpoint` requires
-a clean named branch and verifies its remote commit and tree. `close` refuses
-dirty, unabsorbed, held, stale-main, or remote-divergent lanes; on success it
-removes only that task's worktree and local/remote task branch. There is no
-daemon, age-based deletion, or cloud ledger.
-
-`transfer-owner` is the official recovery path for an existing `ACTIVE`
-receipt. It compare-and-swaps the complete prior identity, records the transfer
-reason and history, and preserves the objective, write set, and remote recovery
-checkpoint. Any stale expected identity fails without changing the ledger.
-
-If an external cleanup removed every task-owned Git surface before its ACTIVE
-receipt, `close-stale` removes only the exact bound receipt. It requires the
-original thread, objective, owner, and branch plus fresh proof that the path,
-registration, gitdir, local/tracking/wire refs, branch config, holders, and Git
-locks are all absent and that canonical tracking still matches the wire. It
-never removes a worktree, ref, branch, or unrelated ledger entry.
-
-Independent worktrees may register overlapping write sets. The lifecycle receipt
-and fleet audit expose `integration_overlaps` as an integration warning; this is
-not a development lock. Only shared checkouts, canonical `main` absorption, and
-external mutations remain short single-owner operations.
-
-## Compatibility With OPL App Full
-
-Full is an optional offline seed for the same App Official Profile. It is not a
-carrier, second Flow edition, dependency authority, or update channel. Missing
-embedded Flow bytes do not invalidate Base/App; Full must report the root
-failure locally. Once online, the installed Package follows its owner
-`latest-stable`, independently of the frozen Full snapshot.
-
-The target migration is incomplete until clean Standard and Full installs,
-remove-without-reinstall, owner-independent update, Profile safety, full
-Package readback, the formal Codex route, and the evidence-driven Git/local neutral
-contract proof all have fresh terminal evidence. A second executor product is
-not required for this migration.
-
-## Relationship To OPL Doc
-
-OPL Doc is a separate developer support repository for OPL-family documentation
-governance. It is not a normal-user dependency of OPL Flow or OPL Base.
-
-OPL Flow owns only its metadata entry in a consumer repo's
-`contracts/opl-native-profile.json`; repo-local `AGENTS.md` and project truth
-remain with that repository. This source repo intentionally has no self-owned
-`contracts/opl-native-profile.json`.
-
-## Development
-
-```bash
-scripts/verify.sh
-scripts/verify.sh full
-python3 /Users/gaofeng/.codex/skills/.system/plugin-creator/scripts/validate_plugin.py .
-```
+[MIT](LICENSE)
