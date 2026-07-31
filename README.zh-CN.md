@@ -12,7 +12,7 @@
 <p align="center">从一台 Codex 到多任务、多仓库、多机器，让工作始终围绕同一份可靠状态继续推进</p>
 
 <p align="center">
-  <img src="assets/branding/opl-flow-ai-fleet.png" alt="OPL Flow 协调 Codex、OPL 总账、Linear 门户与 Fleet 节点" width="100%" />
+  <img src="assets/branding/opl-flow-ai-fleet.png" alt="Linear 进入 Codex 与 OPL Flow，连接 Beads、GitHub 和 OPL Fleet，并由 Codex 回写 Linear" width="100%" />
 </p>
 
 ## OPL Flow 是什么
@@ -40,11 +40,13 @@ OPL Flow 解决的是这层连续性问题。它不会替代 Codex 的原生智�
 
 ```mermaid
 flowchart LR
-    U[开发者] --> C[Codex]
+    U[开发者] --> L[Linear]
+    L --> C[Codex]
     C <--> F[OPL Flow]
-    F <--> B[OPL 总账<br/>Beads]
-    B -. 可选的人类门户 .-> L[Linear]
+    F --> B[OPL 总账<br/>Beads]
+    F --> G[GitHub]
     F -. 可选的机器执行 .-> N[OPL Fleet 节点]
+    G -. 阶段、结果、交付链接 .-> L
     I[私人 OPL Instance] --- B
     I --- N
 ```
@@ -54,7 +56,8 @@ flowchart LR
 | **Codex** | 推理、工具调用、实现和原生多 Agent 协作 | 持久保存跨对话任务状态 |
 | **OPL Flow** | 用户配置、核心 Skill、总账接入、并发协作和通用 Fleet 引擎 | 代替模型思考或决定领域真相 |
 | **OPL 总账** | 以 Beads/Dolt 保存目标、依赖、负责人、检查点和剩余工作 | 唤醒 Codex 或分发 Agent |
-| **Linear** | 面向人的任务录入、浏览和进度门户 | 成为第二套总账或执行调度器 |
+| **GitHub** | 保存分支、PR、CI、合并和发布证据 | 成为任务总账或机器调度器 |
+| **Linear** | 面向人的任务录入、优先级和进度门户，并展示 Codex/GitHub 的窄回写 | 成为第二套总账或执行调度器 |
 | **OPL Fleet** | 节点检查、任务准入、仓库更新和可选分发 | 在机器之间复制凭据、会话或软件文件 |
 | **OPL Instance** | 某个个人或组织的私人总账、机器、策略、资产和个性化配置 | 承载通用公开产品代码 |
 
@@ -121,22 +124,23 @@ OPL Flow 不自建任务数据库。它通过官方 `bd` 命令使用 Beads：
 
 这样即使更换对话或机器，也可以从总账继续，而不必依赖一段越来越长的聊天记录。
 
-### Linear 门户
+### Linear 门户与 Codex 接单
 
-Linear 是可选的人类入口。推荐的数据流是：
+Linear 是可选的人类入口；日常推荐路径是 Linear 官方 Codex 接入，Beads 不参与
+Linear 与 Codex 之间的日常全量镜像。数据流是：
 
 ```text
-人在 Linear 提交任务
-  -> Beads 官方 Linear 接口拉取
-  -> Beads 判断依赖和可执行状态
-  -> 自动化唤醒 Codex
-  -> Codex 认领并执行
-  -> 结果写回 Beads
-  -> Beads 同步到 Linear
+人在 Linear 创建任务并标记为 codex-ready
+  -> Linear 官方 Codex 接入把任务交给 Codex
+  -> Codex 在 OPL Flow 下创建或关联 Bead
+  -> Codex 按 Beads 依赖、负责人和检查点执行
+  -> GitHub 保存分支、PR、CI 和交付证据
+  -> Codex/OPL Flow 向 Linear 窄回写阶段、阻断、结果和链接
 ```
 
 为了避免把所有想法都自动交给 Agent，推荐只自动接收带有 `codex-ready` 标签的
-任务。Linear 提供可见性和录入体验，Beads 仍是任务唯一事实来源。
+任务。Beads 的 Linear adapter 只用于迁移、恢复和审计，不作为日常同步链路；Beads
+仍是 Agent 内部的任务总账，GitHub 是代码和交付证据的权威来源。
 
 ## 从一台机器开始
 
@@ -239,7 +243,7 @@ python3 scripts/opl_workflow.py ledger reconcile-operations --instance <opl-inst
 (cd <opl-instance> && bd dolt pull)
 (cd <opl-instance> && bd dolt push)
 
-# 可选 Linear 门户
+# Linear 迁移/审计 adapter（非日常接单链路）
 (cd <opl-instance> && bd linear status --json)
 (cd <opl-instance> && bd linear sync --dry-run --json)
 
