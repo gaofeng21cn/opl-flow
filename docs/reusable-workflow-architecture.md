@@ -24,9 +24,9 @@ OPL Flow keeps Codex model-native:
   Codex scheduling or dispatch agents.
 - **OPL Fleet** supplies optional multi-machine enrollment, capability
   reconciliation, repository currentness, admission, and dispatch.
-- Linear is an optional human intake and progress portal. Its normal path is
-  the official Codex integration plus narrow status/result writeback; it is not
-  the execution or ledger authority.
+- Linear is an optional human intake and progress portal. On the primary local
+  path, the OPL App heartbeat admits `codex-ready` work with no Cloud delegate
+  to local Codex/OPL Flow; it is not the execution or ledger authority.
 - Gas City/Gas Town is not part of the supported architecture.
 
 ## Product And Repository Names
@@ -75,16 +75,18 @@ need.
 The supported interaction path is:
 
 ```text
-Linear -> Codex/OPL Flow -> Beads Ledger + GitHub delivery evidence -> Linear narrow writeback
-                                      |
-                                    Fleet
+Linear -> OPL App heartbeat -> local Codex/OPL Flow -> Beads Ledger + GitHub delivery evidence -> Linear narrow writeback
+                                                        |
+                                                      Fleet
 ```
 
-Codex creates or links the Bead after accepting a Linear task. Beads remains
-the durable internal ledger, GitHub remains the branch/PR/CI/release evidence
-authority, and Linear receives only human-useful stage, blocker, result, and
-delivery links. Beads' official Linear adapter is retained for migration,
-recovery, and audit; it is not the daily full-mirror path.
+The OPL App heartbeat is a lightweight local intake bridge, not another ledger
+or scheduler. Codex creates or links the Bead after accepting a Linear task.
+Beads remains the durable internal ledger, GitHub remains the
+branch/PR/CI/release evidence authority, and Linear receives only human-useful
+stage, blocker, result, and delivery links. Beads' official Linear adapter is
+retained for migration, recovery, and audit; it is not the daily full-mirror
+path.
 
 Each user gets one private instance:
 
@@ -240,8 +242,8 @@ The `$opl-flow` Skill coordinates these steps:
 The orchestration stays model-native rather than reimplementing package managers
 or owner APIs. `scripts/opl_workflow.py status` is the machine-readable doctor;
 `profile status/prepare/apply` owns Profile safety; ordinary Dolt and Linear
-commands remain direct `bd` calls, while normal Linear intake uses the official
-Codex integration and `bd linear` is reserved for migration/recovery/audit;
+commands remain direct `bd` calls, while normal local Linear intake uses the
+OPL App heartbeat and `bd linear` is reserved for migration/recovery/audit;
 Fleet remains optional. Only external private
 repository creation, OAuth, or another owner-required authorization remains
 interactive. Core setup does not require OPL App, a continuously running
@@ -259,9 +261,9 @@ controller, inbound SSH, Linear, or Fleet.
 
 - **Implemented in source:** safe Beads initialization, Operations Registry
   reconciliation, and the Instance-backed Fleet entry. Ordinary ledger and
-  Dolt operations use the official `bd` CLI directly; normal Linear intake uses
-  the official Codex integration, with `bd linear` reserved for migration,
-  recovery, and audit.
+  Dolt operations use the official `bd` CLI directly; normal local Linear intake
+  uses the OPL App heartbeat, with `bd linear` reserved for migration, recovery,
+  and audit.
 - **Implemented in source:** the guided `$opl-flow setup` / `update` Agent
   workflow plus machine-readable tool/auth/Profile/Ledger/Fleet readback. The
   source script remains a narrow owner surface, not a second package manager.

@@ -12,7 +12,7 @@
 <p align="center">从一台 Codex 到多任务、多仓库、多机器，让工作始终围绕同一份可靠状态继续推进</p>
 
 <p align="center">
-  <img src="assets/branding/opl-flow-ai-fleet.png" alt="Linear 进入 Codex 与 OPL Flow，连接 Beads、GitHub 和 OPL Fleet，并由 Codex 回写 Linear" width="100%" />
+  <img src="assets/branding/opl-flow-ai-fleet.png" alt="Linear 经 OPL App 定时心跳进入本机 Codex 与 OPL Flow，连接 Beads、GitHub 和 OPL Fleet，并回写 Linear" width="100%" />
 </p>
 
 ## OPL Flow 是什么
@@ -41,7 +41,8 @@ OPL Flow 解决的是这层连续性问题。它不会替代 Codex 的原生智�
 ```mermaid
 flowchart LR
     U[开发者] --> L[Linear]
-    L --> C[Codex]
+    L --> A[OPL App<br/>定时心跳]
+    A --> C[Codex]
     C <--> F[OPL Flow]
     F --> B[OPL 总账<br/>Beads]
     F --> G[GitHub]
@@ -126,12 +127,15 @@ OPL Flow 不自建任务数据库。它通过官方 `bd` 命令使用 Beads：
 
 ### Linear 门户与 Codex 接单
 
-Linear 是可选的人类入口；日常推荐路径是 Linear 官方 Codex 接入，Beads 不参与
-Linear 与 Codex 之间的日常全量镜像。数据流是：
+Linear 是可选的人类入口；本机默认路径是 OPL App 定时心跳消费带有
+`codex-ready` 且未设置云端委派的任务，并交给本机 Codex/OPL Flow。Linear 的
+ChatGPT Codex 或云端委派不是默认入口，Beads 也不参与 Linear 与 Codex 之间的
+日常全量镜像。数据流是：
 
 ```text
 人在 Linear 创建任务并标记为 codex-ready
-  -> Linear 官方 Codex 接入把任务交给 Codex
+  -> 本机 OPL App 定时心跳读取并准入未设置云端委派的任务
+  -> 本机 Codex/OPL Flow 接单
   -> Codex 在 OPL Flow 下创建或关联 Bead
   -> Codex 按 Beads 依赖、负责人和检查点执行
   -> GitHub 保存分支、PR、CI 和交付证据
@@ -140,7 +144,8 @@ Linear 与 Codex 之间的日常全量镜像。数据流是：
 
 为了避免把所有想法都自动交给 Agent，推荐只自动接收带有 `codex-ready` 标签的
 任务。Beads 的 Linear adapter 只用于迁移、恢复和审计，不作为日常同步链路；Beads
-仍是 Agent 内部的任务总账，GitHub 是代码和交付证据的权威来源。
+仍是 Agent 内部的任务总账，GitHub 是代码和交付证据的权威来源。若使用其他
+Codex 接入方式，也应保持同样的“创建/关联 Bead、写 GitHub、窄回写 Linear”边界。
 
 ## 从一台机器开始
 
