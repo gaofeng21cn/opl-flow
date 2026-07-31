@@ -60,13 +60,14 @@ opl-flow/
 |   |-- task-mode-gate/
 |   `-- recover-codex-tasks/
 |-- scripts/
-|   `-- opl_workflow.py        # small Ledger reconciler and Fleet migration facade
+|   |-- opl_workflow.py        # small workflow and Ledger entry
+|   `-- opl_fleet.py           # generic Instance-backed Fleet engine
 |-- contracts/
 |-- docs/
 `-- tests/
 ```
 
-Keep Ledger and the Fleet migration facade inside OPL Flow. Do not split them
+Keep Ledger and the Fleet engine inside OPL Flow. Do not split them
 into packages or internal module trees until independent consumers prove that
 need.
 
@@ -240,7 +241,7 @@ controller, inbound SSH, Linear, or Fleet.
 ### Phase 1: Unified OPL Flow Entry
 
 - **Implemented in source:** safe Beads initialization, Operations Registry
-  reconciliation, and an existing-Fleet pass-through. All ordinary ledger,
+  reconciliation, and the Instance-backed Fleet entry. All ordinary ledger,
   Dolt, and Linear operations use the official `bd` CLI directly.
 - **Implemented in source:** the guided `$opl-flow setup` / `update` Agent
   workflow plus machine-readable tool/auth/Profile/Ledger/Fleet readback. The
