@@ -3,12 +3,13 @@ from __future__ import annotations
 import json
 import os
 import stat
+import subprocess
 import tempfile
 import unittest
 from pathlib import Path
 from unittest import mock
 
-from scripts.opl_workflow import PROGRAM_REF, WorkflowError, init_ledger, main, reconcile_operations
+from scripts.opl_workflow import PROGRAM_REF, WorkflowError, init_ledger, main, reconcile_operations, workflow_status
 
 
 class OplWorkflowTest(unittest.TestCase):
@@ -145,6 +146,16 @@ else:
             fleet = self.executable(root / "codex-fleet", f"#!/bin/sh\nprintf '%s\\n' \"$@\" > {output}\n")
             self.assertEqual(main(["fleet", "--fleet-bin", str(fleet), "repos", "status", "--json"]), 0)
             self.assertEqual(output.read_text(encoding="utf-8").splitlines(), ["repos", "status", "--json"])
+
+    def test_status_separates_binary_and_ledger_failures(self) -> None:
+        with (
+            mock.patch("scripts.opl_workflow.executable", side_effect=["/usr/bin/true", WorkflowError("no fleet")]),
+            mock.patch("scripts.opl_workflow.run", return_value=subprocess.CompletedProcess([], 0, "bd version 1", "")),
+            mock.patch("scripts.opl_workflow.ledger_probe", side_effect=WorkflowError("database unreadable")),
+        ):
+            result = workflow_status(Path("/tmp"), None, None)
+        self.assertTrue(result["beads"]["available"])
+        self.assertEqual(result["ledger"]["state"], "error")
 
 
 if __name__ == "__main__":

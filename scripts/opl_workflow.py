@@ -89,9 +89,16 @@ def ledger_probe(root: Path, bd: str) -> dict[str, Any] | None:
     return payload
 
 
+def secure_ledger_dir(root: Path) -> None:
+    try:
+        os.chmod(root / ".beads", 0o700)
+    except OSError as exc:
+        raise WorkflowError(f"cannot secure {root / '.beads'}: {exc}") from exc
+
+
 def init_ledger(root: Path, bd: str, prefix: str) -> dict[str, str]:
     if ledger_probe(root, bd) is not None:
-        os.chmod(root / ".beads", 0o700)
+        secure_ledger_dir(root)
         return {"state": "already_initialized", "instance": str(root)}
     git_dir = str(run(["git", "rev-parse", "--git-dir"], root).stdout).strip()
     common_dir = str(run(["git", "rev-parse", "--git-common-dir"], root).stdout).strip()
@@ -118,7 +125,7 @@ def init_ledger(root: Path, bd: str, prefix: str) -> dict[str, str]:
     )
     if ledger_probe(root, bd) is None:
         raise WorkflowError("bd init completed without a readable ledger")
-    os.chmod(root / ".beads", 0o700)
+    secure_ledger_dir(root)
     return {"state": "initialized", "instance": str(root), "prefix": prefix}
 
 
@@ -278,10 +285,14 @@ def workflow_status(instance: Path | None, bd_arg: str | None, fleet_arg: str | 
         version = run([bd, "version"], instance or Path.cwd())
         assert isinstance(version, subprocess.CompletedProcess)
         payload["beads"] = {"available": True, "path": str(Path(bd).resolve()), "version": version.stdout.strip()}
-        payload["ledger"] = ledger_probe(instance, bd) if instance else {"state": "not_configured"}
     except WorkflowError as exc:
         payload["beads"] = {"available": False, "error": str(exc)}
         payload["ledger"] = {"state": "unknown" if instance else "not_configured"}
+    else:
+        try:
+            payload["ledger"] = ledger_probe(instance, bd) if instance else {"state": "not_configured"}
+        except WorkflowError as exc:
+            payload["ledger"] = {"state": "error", "error": str(exc)}
     try:
         fleet = executable("codex-fleet", fleet_arg, "OPL_FLEET_BIN")
         payload["fleet"] = {"available": True, "path": str(Path(fleet).resolve()), "owner": "codex-fleet"}
