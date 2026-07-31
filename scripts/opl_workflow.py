@@ -30,10 +30,15 @@ def flow_root() -> Path:
 
 
 def profile_owner():
+    previous = sys.dont_write_bytecode
+    sys.dont_write_bytecode = True
     try:
-        from scripts import install_local_plugin
-    except ImportError:
-        import install_local_plugin
+        try:
+            from scripts import install_local_plugin
+        except ImportError:
+            import install_local_plugin
+    finally:
+        sys.dont_write_bytecode = previous
 
     return install_local_plugin
 

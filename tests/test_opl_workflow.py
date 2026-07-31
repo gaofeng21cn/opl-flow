@@ -2,8 +2,10 @@ from __future__ import annotations
 
 import json
 import os
+import shutil
 import stat
 import subprocess
+import sys
 import tempfile
 import unittest
 from contextlib import redirect_stdout
@@ -198,6 +200,33 @@ else:
                 main(["profile", "prepare", "--codex-home", temp]),
                 2,
             )
+
+    def test_installed_profile_status_does_not_write_bytecode(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp) / "plugin"
+            scripts = root / "scripts"
+            scripts.mkdir(parents=True)
+            source_root = Path(__file__).resolve().parents[1]
+            for name in ("opl_workflow.py", "install_local_plugin.py"):
+                shutil.copy2(source_root / "scripts" / name, scripts / name)
+            shutil.copytree(source_root / "templates", root / "templates")
+            result = subprocess.run(
+                [
+                    sys.executable,
+                    str(scripts / "opl_workflow.py"),
+                    "profile",
+                    "status",
+                    "--codex-home",
+                    str(Path(temp) / ".codex"),
+                ],
+                cwd=root,
+                check=False,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                text=True,
+            )
+            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertFalse((scripts / "__pycache__").exists())
 
     def test_linear_status_drops_unknown_fields(self) -> None:
         with tempfile.TemporaryDirectory() as temp:
