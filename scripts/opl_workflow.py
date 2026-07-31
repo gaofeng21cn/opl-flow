@@ -33,9 +33,9 @@ def profile_owner():
     previous = sys.dont_write_bytecode
     sys.dont_write_bytecode = True
     try:
-        try:
+        if __package__:
             from scripts import install_local_plugin
-        except ImportError:
+        else:
             import install_local_plugin
     finally:
         sys.dont_write_bytecode = previous
