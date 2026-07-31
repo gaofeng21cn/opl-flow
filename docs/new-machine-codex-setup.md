@@ -178,3 +178,22 @@ python3 scripts/opl_workflow.py profile apply --packet <reviewed-packet>
 `prepare` leaves an unknown existing `AGENTS.md` untouched and returns a review
 packet. Only reviewed output can be applied, with stale-target and backup
 guards.
+
+## Release Qualification Boundary
+
+Normal OPL composition is dynamic and does not lock every Package to one release
+cohort. Exact version, owner commit, and GHCR digest are bound only inside the
+evidence packet for the candidate currently being qualified.
+
+Before that candidate becomes the supported machine source, validate six
+sanitized live receipts: macOS, Linux, and Windows/WSL, each in `fresh` and N-1
+`upgrade` mode. Run the real `opl packages install opl-flow` or
+`opl packages update opl-flow` route, preserve an existing Profile or leave an
+unreviewed merge packet unapplied, and read back the configured carrier. Core
+setup must pass with Linear and Fleet absent.
+
+At least one receipt must be backed by a newly started Codex session that
+actually invokes an installed OPL Flow Skill. `codex plugin list`, an existing
+conversation, and repository-local discovery are not equivalent. Windows Codex
+App mapped-home integration is a separate consumer qualification and is not
+implied by Windows/WSL carrier qualification.

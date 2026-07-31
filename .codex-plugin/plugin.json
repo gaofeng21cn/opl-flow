@@ -1,6 +1,6 @@
 {
   "name": "opl-flow",
-  "version": "0.1.28",
+  "version": "0.1.29",
   "description": "OPL Flow provides a model-native Codex profile, durable task ledger workflow, and optional multi-machine Fleet engine.",
   "author": {
     "name": "Gaofeng"

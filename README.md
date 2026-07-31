@@ -218,6 +218,35 @@ non-Plugin Profile surfaces.
 
 Restart the selected executor when its native discovery requires it.
 
+## Release Qualification
+
+OPL composition remains dynamic: Packages and capabilities update independently
+and normal dependencies require stable identity presence/callability, not a
+shared version lock. Exact commit and digest binding applies only while proving
+one candidate release, so evidence from different bytes cannot be combined into
+one release verdict.
+
+For each candidate, validate `fresh` and N-1 `upgrade` receipts on macOS, Linux,
+and Windows/WSL. Every receipt proves carrier readback, Profile backup/rollback
+and preservation, and Core operation without Linear or Fleet. The matrix also
+requires at least one real invocation from a new Codex session:
+
+```bash
+python3 scripts/qualify_install.py \
+  --expected-version <candidate-version> \
+  --expected-predecessor-version <n-1-version> \
+  --expected-source-commit <40-hex-owner-commit> \
+  --expected-digest sha256:<64-hex-ghcr-digest> \
+  --receipt <macos-fresh.json> --receipt <macos-upgrade.json> \
+  --receipt <linux-fresh.json> --receipt <linux-upgrade.json> \
+  --receipt <windows-wsl-fresh.json> --receipt <windows-wsl-upgrade.json>
+```
+
+The installer and publisher remain owner surfaces. Receipt files contain no
+credentials, session text, machine paths, Linear state, or Fleet topology. A
+source test, candidate commit, tag, or workflow run cannot replace live
+qualification and does not constrain later independent Package updates.
+
 ## Capability Composition
 
 Flow declares capability intent by stable `(kind, id)`. A normal required edge

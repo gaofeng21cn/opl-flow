@@ -248,8 +248,12 @@ controller, inbound SSH, Linear, or Fleet.
   source script remains a narrow owner surface, not a second package manager.
 - **Pilot:** initialize one private Instance ledger and use one Operations
   Program before making Ledger a default onboarding dependency.
-- **Remaining:** release/install qualification on supported fresh and upgrade
-  platforms.
+- **Implemented in source:** a receipt validator for one candidate's immutable
+  identity, macOS/Linux/Windows-WSL fresh plus N-1 upgrade, Profile
+  preservation, Core without Linear/Fleet, and a real new-session Skill
+  invocation. This evidence binding does not add a shared version cohort;
+  owner install, publication, and live platform receipts remain external
+  terminal evidence.
 
 ### Phase 2: Authority Consolidation
 

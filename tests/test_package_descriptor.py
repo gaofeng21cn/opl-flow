@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import json
 import re
-import subprocess
 import unittest
 from pathlib import Path, PurePosixPath
 
@@ -65,7 +64,7 @@ class PackageDescriptorTests(unittest.TestCase):
         )
         self.assertEqual(managed_policy_surface["policy_kind"], "opl_flow_workflow_policy")
 
-    def test_descriptor_versions_paths_and_source_commit_are_real(self) -> None:
+    def test_descriptor_versions_and_paths_are_real(self) -> None:
         codex_surface = self.manifest["codex_surface"]
         profile_surface = self.manifest["profile_surface"]
         managed_policy_surface = self.manifest["managed_policy_surface"]
@@ -78,16 +77,8 @@ class PackageDescriptorTests(unittest.TestCase):
         self.assertEqual(self.manifest["version"], self.plugin["version"])
         self.assertEqual(self.manifest["version"], package["version"])
         self.assertEqual(codex_surface["plugin_payload_manifest_url"], "opl-package.json")
-        self.assertEqual(self.manifest["source_commit"], codex_surface["carrier_source_commit"])
-        self.assertRegex(str(self.manifest["source_commit"]), r"^[0-9a-f]{40}$")
-        self.assertEqual(
-            subprocess.run(
-                ["git", "merge-base", "--is-ancestor", str(self.manifest["source_commit"]), "HEAD"],
-                cwd=REPO_ROOT,
-                check=False,
-            ).returncode,
-            0,
-        )
+        self.assertNotIn("source_commit", self.manifest)
+        self.assertNotIn("carrier_source_commit", codex_surface)
 
         references = [
             str(codex_surface["plugin_payload_manifest_url"]),
@@ -108,8 +99,10 @@ class PackageDescriptorTests(unittest.TestCase):
             "package_core",
             "rollback_ref",
             "transaction",
+            "source_commit",
         }
         self.assertTrue(forbidden_fields.isdisjoint(self.manifest))
+        self.assertNotIn("carrier_source_commit", self.manifest["codex_surface"])
         self.assertEqual(self.manifest["capability_dependencies"], [])
 
 

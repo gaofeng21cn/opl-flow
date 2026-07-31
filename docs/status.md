@@ -82,6 +82,13 @@ user-owned file，不授权保留通用 Package transaction engine。
 - 并发修改 Profile 时 stale-write fail closed；正常写入有 backup 和 atomic readback；
 - 旧 manager writer/reader 无 active caller 且已物理删除。
 
+每个 Flow candidate 还必须由 `scripts/qualify_install.py` 验证同一 owner commit
+与 GHCR digest 的六格 live matrix：macOS/Linux/Windows-WSL 各自 fresh 与 N-1
+upgrade；Profile 保留和回滚可用；Core 在 Linear/Fleet 缺席时 current；至少一个
+新 Codex session 实际调用已安装 Skill。这个 exact binding 仅属于该 candidate 的
+取证，不形成跨 Package 版本锁或 shared release cohort。Windows App mapped-home
+属于独立 consumer successor，不计入 Windows/WSL carrier receipt。
+
 Docs、schema、unit tests、dry-run、candidate、GHCR push 或 shared snapshot 都不是单独
 终态证明。
 
