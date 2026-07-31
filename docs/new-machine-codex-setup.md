@@ -185,15 +185,27 @@ Normal OPL composition is dynamic and does not lock every Package to one release
 cohort. Exact version, owner commit, and GHCR digest are bound only inside the
 evidence packet for the candidate currently being qualified.
 
-Before that candidate becomes the supported machine source, validate six
-sanitized live receipts: macOS, Linux, and Windows/WSL, each in `fresh` and N-1
-`upgrade` mode. Run the real `opl packages install opl-flow` or
-`opl packages update opl-flow` route, preserve an existing Profile or leave an
-unreviewed merge packet unapplied, and read back the configured carrier. Core
-setup must pass with Linear and Fleet absent.
+Qualification has two levels. Run `python3 scripts/qualify_install.py --plan`
+before each release. With no system trigger it selects `routine-release`: use
+one reference platform and validate both fresh install and upgrade. The upgrade
+predecessor is the real public `latest-stable` observed before candidate
+promotion, not a guessed adjacent SemVer version. Routine releases still bind
+the exact owner commit and GHCR digest, preserve an existing Profile or leave an
+unreviewed merge packet unapplied, and read back the configured carrier.
 
-At least one receipt must be backed by a newly started Codex session that
-actually invokes an installed OPL Flow Skill. `codex plugin list`, an existing
-conversation, and repository-local discovery are not equivalent. Windows Codex
-App mapped-home integration is a separate consumer qualification and is not
-implied by Windows/WSL carrier qualification.
+`system-certification` is not a per-version gate. It is selected only for the
+first supported release, a carrier or Package payload contract change, Profile
+mutation change, executor discovery change, supported-platform change, security
+boundary change, an install incident, or an explicit scheduled recertification.
+It validates six sanitized live receipts: macOS, Linux, and Windows/WSL, each
+in `fresh` and `upgrade` mode. Core must pass with Linear and Fleet absent, and
+at least one receipt must come from a newly started Codex session that actually
+invokes an installed OPL Flow Skill.
+
+Validate the receipts with the same `--trigger` arguments used for planning.
+The script selects the level; callers do not declare a second, potentially
+conflicting mode. Supplying any system trigger with only routine receipts fails
+closed. `codex plugin list`, an existing conversation, and repository-local
+discovery are not substitutes for the new-session evidence required by system
+certification. Windows Codex App mapped-home integration remains a separate
+consumer qualification.

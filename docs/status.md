@@ -82,12 +82,22 @@ user-owned file，不授权保留通用 Package transaction engine。
 - 并发修改 Profile 时 stale-write fail closed；正常写入有 backup 和 atomic readback；
 - 旧 manager writer/reader 无 active caller 且已物理删除。
 
-每个 Flow candidate 还必须由 `scripts/qualify_install.py` 验证同一 owner commit
-与 GHCR digest 的六格 live matrix：macOS/Linux/Windows-WSL 各自 fresh 与 N-1
-upgrade；Profile 保留和回滚可用；Core 在 Linear/Fleet 缺席时 current；至少一个
-新 Codex session 实际调用已安装 Skill。这个 exact binding 仅属于该 candidate 的
-取证，不形成跨 Package 版本锁或 shared release cohort。Windows App mapped-home
-属于独立 consumer successor，不计入 Windows/WSL carrier receipt。
+Flow 发布资格分成两个层级。普通版本由 `scripts/qualify_install.py --plan` 选择
+`routine-release`：只在一个参考平台验证 fresh 与 upgrade，同时绑定同一 owner commit
+和 GHCR digest。upgrade 基线必须是 candidate 晋升前 fresh 回读到的公开
+`latest-stable`，不能按版本号猜测所谓 N-1。
+
+六格 macOS/Linux/Windows-WSL fresh+upgrade matrix 属于一次性的或变化触发的
+`system-certification`，不是每个 candidate 的门禁。首次正式体系认证、carrier、
+Package payload contract、Profile mutation、executor discovery、支持平台或安全边界
+变化、真实安装事故，以及 owner 明确发起的周期复认证才触发它。system certification
+还要求 Core 在 Linear/Fleet 缺席时 current，并由至少一个新 Codex session 实际调用
+已安装 Skill。0.1.29 承担当前体系首次认证；后续未触发上述边界变化的普通内容版本
+只走 routine release。
+
+这两种资格都只绑定当前 candidate 的取证，不形成跨 Package 版本锁或 shared release
+cohort。Windows App mapped-home 属于独立 consumer successor，不计入 Windows/WSL
+carrier receipt。
 
 Docs、schema、unit tests、dry-run、candidate、GHCR push 或 shared snapshot 都不是单独
 终态证明。

@@ -248,12 +248,14 @@ controller, inbound SSH, Linear, or Fleet.
   source script remains a narrow owner surface, not a second package manager.
 - **Pilot:** initialize one private Instance ledger and use one Operations
   Program before making Ledger a default onboarding dependency.
-- **Implemented in source:** a receipt validator for one candidate's immutable
-  identity, macOS/Linux/Windows-WSL fresh plus N-1 upgrade, Profile
-  preservation, Core without Linear/Fleet, and a real new-session Skill
-  invocation. This evidence binding does not add a shared version cohort;
-  owner install, publication, and live platform receipts remain external
-  terminal evidence.
+- **Implemented in source:** a two-level qualification planner and receipt
+  validator. Routine releases bind one candidate's immutable identity and use
+  one reference platform for fresh plus upgrade. The full
+  macOS/Linux/Windows-WSL matrix, Core without Linear/Fleet, and real
+  new-session Skill invocation are reserved for first certification, boundary
+  changes, incidents, or explicit recertification. This evidence binding does
+  not add a shared version cohort; owner install, publication, and live
+  platform receipts remain external terminal evidence.
 
 ### Phase 2: Authority Consolidation
 
@@ -304,10 +306,20 @@ controller, inbound SSH, Linear, or Fleet.
 
 ### Phase 4: Release Qualification
 
-- Test fresh and upgrade installs with temporary homes on macOS, Linux, and
-  Windows/WSL.
-- Verify Core without Linear or Fleet, then the optional adapters.
-- Publish one OPL Flow release and perform live node readback.
+- Complete one system certification with temporary homes on macOS, Linux, and
+  Windows/WSL, covering fresh and upgrade installs.
+- For later routine releases, run fresh and upgrade on one reference platform;
+  reuse the system certification unless a declared boundary change or incident
+  invalidates it.
+- Select the level with `scripts/qualify_install.py --plan`; carrier, payload
+  contract, Profile mutation, executor discovery, platform, and security
+  changes fail closed to system certification.
+- Resolve the upgrade predecessor from the public `latest-stable` observed
+  before candidate promotion, never from SemVer adjacency.
+- Verify Core without Linear or Fleet during system certification, then the
+  optional adapters.
+- Publish each OPL Flow release and perform immutable digest and live carrier
+  readback appropriate to its selected qualification level.
 
 ## Maintainer Surface
 

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Validate owner-produced OPL Flow cross-platform install receipts."""
+"""Plan and validate OPL Flow release qualification receipts."""
 
 from __future__ import annotations
 
@@ -17,6 +17,20 @@ SCHEMA = "opl_flow_install_qualification_receipt.v1"
 PLATFORMS = ("macos", "linux", "windows-wsl")
 INSTALL_MODES = ("fresh", "upgrade")
 REQUIRED_SKILLS = ("coordinate-concurrent-tasks", "opl-flow")
+ROUTINE_RELEASE = "routine-release"
+SYSTEM_CERTIFICATION = "system-certification"
+QUALIFICATION_LEVELS = (ROUTINE_RELEASE, SYSTEM_CERTIFICATION)
+SYSTEM_CERTIFICATION_TRIGGERS = (
+    "carrier-contract-changed",
+    "executor-discovery-changed",
+    "first-supported-release",
+    "install-incident",
+    "package-payload-contract-changed",
+    "profile-mutation-contract-changed",
+    "scheduled-recertification",
+    "security-boundary-changed",
+    "supported-platform-changed",
+)
 SHA256 = re.compile(r"^sha256:[0-9a-f]{64}$")
 COMMIT = re.compile(r"^[0-9a-f]{40}$")
 SEMVER = re.compile(r"^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)$")
@@ -52,6 +66,37 @@ def validate_timestamp(value: object) -> None:
         datetime.fromisoformat(value.replace("Z", "+00:00"))
     except ValueError as exc:
         raise QualificationError("observed_at must be RFC3339 UTC") from exc
+
+
+def normalize_triggers(values: object) -> list[str]:
+    require(isinstance(values, list), "qualification triggers must be a list")
+    triggers = sorted(set(values))
+    unknown = sorted(set(triggers) - set(SYSTEM_CERTIFICATION_TRIGGERS))
+    require(not unknown, f"unsupported system-certification triggers: {unknown}")
+    return triggers
+
+
+def qualification_plan(triggers: list[str]) -> dict[str, Any]:
+    normalized = normalize_triggers(triggers)
+    level = SYSTEM_CERTIFICATION if normalized else ROUTINE_RELEASE
+    if level == ROUTINE_RELEASE:
+        requirements = {
+            "platform_scope": "one-reference-platform",
+            "install_modes": list(INSTALL_MODES),
+            "new_codex_session_invocation_required": False,
+        }
+    else:
+        requirements = {
+            "platform_scope": list(PLATFORMS),
+            "install_modes": list(INSTALL_MODES),
+            "new_codex_session_invocation_required": True,
+        }
+    return {
+        "schema": "opl_flow_release_qualification_plan.v1",
+        "qualification_level": level,
+        "system_certification_triggers": normalized,
+        "requirements": requirements,
+    }
 
 
 def validate_receipt(
@@ -97,7 +142,10 @@ def validate_receipt(
         before = profile.get("target_before_sha256")
         require(isinstance(before, str) and SHA256.fullmatch(before) is not None, "upgrade profile target_before_sha256 is invalid")
         require(profile.get("preserved_distinct_preferences") is True, "upgrade must preserve distinct profile preferences")
-        require(receipt.get("predecessor_version") == expected_predecessor_version, "upgrade predecessor is not the qualified N-1 release")
+        require(
+            receipt.get("predecessor_version") == expected_predecessor_version,
+            "upgrade predecessor is not the promoted latest-stable observed before candidate promotion",
+        )
 
     core = require_object(receipt.get("core"), "core")
     require(core == {"status": "current", "linear_configured": False, "fleet_configured": False}, "Core qualification must be current without Linear or Fleet")
@@ -109,7 +157,19 @@ def validate_receipt(
     return str(family), str(mode), invocation == "passed"
 
 
-def verify_matrix(args: argparse.Namespace) -> dict[str, Any]:
+def verify_qualification(
+    args: argparse.Namespace,
+    *,
+    qualification_level: str | None = None,
+) -> dict[str, Any]:
+    triggers = normalize_triggers(getattr(args, "trigger", []))
+    planned_level = qualification_plan(triggers)["qualification_level"]
+    level = qualification_level or planned_level
+    require(level in QUALIFICATION_LEVELS, "qualification level is unsupported")
+    require(
+        not (triggers and level != SYSTEM_CERTIFICATION),
+        "system-certification triggers cannot be satisfied by routine-release",
+    )
     require(SEMVER.fullmatch(args.expected_version) is not None, "expected version must be SemVer")
     require(SEMVER.fullmatch(args.expected_predecessor_version) is not None, "expected predecessor version must be SemVer")
     require(COMMIT.fullmatch(args.expected_source_commit) is not None, "expected source commit must be exact")
@@ -132,13 +192,28 @@ def verify_matrix(args: argparse.Namespace) -> dict[str, Any]:
         observed[key] = {"path": str(receipt_path.resolve()), "sha256": receipt_digest}
         invocation_count += int(invoked)
 
-    expected = {(platform, mode) for platform in PLATFORMS for mode in INSTALL_MODES}
-    missing = sorted(expected - set(observed))
-    require(not missing, f"qualification matrix is incomplete: {missing}")
-    require(invocation_count >= 1, "at least one receipt must prove a new Codex session Skill invocation")
+    require(bool(observed), "at least one qualification receipt is required")
+    if level == ROUTINE_RELEASE:
+        families = {family for family, _ in observed}
+        require(len(families) == 1, "routine-release receipts must use one reference platform")
+        family = next(iter(families))
+        expected = {(family, mode) for mode in INSTALL_MODES}
+        require(
+            set(observed) == expected,
+            "routine-release requires fresh and upgrade receipts on one reference platform",
+        )
+        schema = "opl_flow_routine_release_qualification.v1"
+    else:
+        expected = {(platform, mode) for platform in PLATFORMS for mode in INSTALL_MODES}
+        missing = sorted(expected - set(observed))
+        require(not missing, f"system-certification matrix is incomplete: {missing}")
+        require(invocation_count >= 1, "system-certification must prove a new Codex session Skill invocation")
+        schema = "opl_flow_install_qualification_matrix.v1"
     return {
-        "schema": "opl_flow_install_qualification_matrix.v1",
+        "schema": schema,
         "status": "passed",
+        "qualification_level": level,
+        "system_certification_triggers": triggers,
         "package": {
             "id": "opl-flow",
             "version": args.expected_version,
@@ -155,19 +230,35 @@ def verify_matrix(args: argparse.Namespace) -> dict[str, Any]:
     }
 
 
+def verify_matrix(args: argparse.Namespace) -> dict[str, Any]:
+    """Compatibility entrypoint for the full cross-platform certification."""
+    return verify_qualification(args, qualification_level=SYSTEM_CERTIFICATION)
+
+
 def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--expected-version", required=True)
-    parser.add_argument("--expected-predecessor-version", required=True)
-    parser.add_argument("--expected-source-commit", required=True)
-    parser.add_argument("--expected-digest", required=True)
-    parser.add_argument("--receipt", action="append", required=True, type=Path)
+    parser.add_argument("--plan", action="store_true", help="Print the required qualification level and exit")
+    parser.add_argument("--trigger", action="append", default=[], choices=SYSTEM_CERTIFICATION_TRIGGERS)
+    parser.add_argument("--expected-version")
+    parser.add_argument("--expected-predecessor-version")
+    parser.add_argument("--expected-source-commit")
+    parser.add_argument("--expected-digest")
+    parser.add_argument("--receipt", action="append", type=Path)
     return parser.parse_args(argv)
 
 
 def main(argv: list[str] | None = None) -> int:
     try:
-        result = verify_matrix(parse_args(argv))
+        args = parse_args(argv)
+        if args.plan:
+            result = qualification_plan(args.trigger)
+        else:
+            require(args.expected_version is not None, "expected version is required")
+            require(args.expected_predecessor_version is not None, "expected predecessor version is required")
+            require(args.expected_source_commit is not None, "expected source commit is required")
+            require(args.expected_digest is not None, "expected digest is required")
+            require(bool(args.receipt), "at least one receipt is required")
+            result = verify_qualification(args)
     except QualificationError as exc:
         print(f"ERROR: {exc}", file=sys.stderr)
         return 1
