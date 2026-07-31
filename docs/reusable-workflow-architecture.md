@@ -36,7 +36,7 @@ OPL Flow keeps Codex model-native:
 | **OPL Ledger** | OPL Flow module backed by Beads | Dynamic Program, slice, dependency, owner, task, checkpoint, and remaining state |
 | **OPL Fleet** | OPL Flow module | Multi-machine join, capability parity, repository currentness, lease/admission, and optional dispatch |
 | **OPL Skills** | `gaofeng21cn/opl-skills` | Optional, independently installable public enhancements |
-| **OPL Instance: `<owner>`** | one private repository per owner; for this owner `gaofeng21cn/opl-instance-gaofeng` | Private Ledger data, Fleet nodes/policy, repository governance, private overlays, personal Skills, and sanitized receipts |
+| **OPL Instance: `<owner>`** | one private repository per owner; for this owner `gaofeng21cn/opl-instance-gaofeng` | Private Ledger data, Fleet nodes/policy, repository governance, Operations Registry, private overlays, personal Skills, and sanitized receipts |
 | **OPL Personal Skills** | `skills/` inside the owner's OPL Instance | Private or personal Skill source; not a separate user-facing product |
 
 The GitHub repository renames to `opl-skills` and `opl-instance-gaofeng`
@@ -78,6 +78,7 @@ opl-instance-<owner>/
 |-- .beads/                    # durable dynamic task ledger
 |-- fleet/                     # nodes, policy, assets, sanitized receipts
 |-- governance/                # durable repository/account policy
+|-- operations/                # services, providers, domains, renewal metadata
 |-- profile/                   # private overlays
 `-- skills/                    # OPL Personal Skills
 ```
@@ -95,11 +96,21 @@ The private instance contains related but distinct authorities:
 | --- | --- | --- | --- |
 | OPL Ledger / Beads | frequent | objectives, slices, dependencies, task/thread references, checkpoints, remaining work | repository policy, machine mutation, agent dispatch |
 | Repository Governance | infrequent | active repositories, visibility, CI tier, default branch, review triggers | task progress, Fleet execution |
-| OPL Fleet state | periodic | approved nodes, capability policy, sanitized readback | task truth, source code authority |
+| Operations Registry | periodic | services, deploy owners, provider references, domains, renewal dates, health/runbook pointers | deployable configuration, credentials, provider live state, task progress |
+| OPL Fleet state | periodic | approved nodes, capability policy, sanitized readback | task truth, source code authority, hosted-service inventory |
 
 OPL Fleet may consume Repository Governance to discover approved repositories.
 It must not rewrite governance policy as a side effect of synchronization.
 Repository policy changes remain explicit owner actions.
+
+Each service repository continues to own Compose files, `netlify.toml`,
+deployment scripts, health checks, and rollback procedures. External platforms
+such as a NAS, Netlify, a registrar, and a DNS provider own their live state.
+The private Operations Registry stores only non-secret owner pointers,
+maintenance metadata, expiry dates, and review schedules. OPL Ledger turns due
+reviews, renewals, migrations, and incidents into work; Linear may display that
+work. Neither Ledger nor the registry copies credentials or becomes a second
+deployment control plane.
 
 ## Developer Workflow
 
@@ -198,8 +209,9 @@ Fleet.
 - Move the generic Fleet engine and `codex-machine-sync` behavior into OPL
   Flow.
 - Move workflow-coupled Skills into OPL Flow.
-- Move Fleet private data, Repository Governance, private overlays, personal
-  Skills, and Beads data into `OPL Instance: Gaofeng`.
+- Move Fleet private data, Repository Governance, the Operations Registry,
+  private overlays, personal Skills, and Beads data into
+  `OPL Instance: Gaofeng`.
 - Keep OPL Skills only for optional, independently useful public enhancements.
 - Maintain exactly one active source owner for every Skill and contract during
   transfer.
@@ -247,7 +259,8 @@ The maintainer releases:
 1. OPL Flow: product code, schemas, migrations, core Skills, bootstrap, doctor,
    and compatibility tests.
 2. OPL Skills: optional enhancements on their own cadence.
-3. OPL Instance: private data and policy changes, never public product code.
+3. OPL Instance: private data, policy, Operations Registry, and personal
+   workflow changes, never public product code.
 
 External dependencies use minimum compatible capabilities rather than pinning
 every node to the controller's older version. Each node installs or upgrades
@@ -258,7 +271,8 @@ from the component owner and records the observed version.
 The consolidation is complete only when:
 
 - a new user can install OPL Flow and initialize Core through one guided action;
-- one private instance contains the durable Ledger and private policy;
+- one private instance contains the durable Ledger, private policy, and
+  Operations Registry;
 - public workflow behavior has one source owner in OPL Flow;
 - OPL Fleet is usable without understanding a separate public repository;
 - OPL Skills is optional;
