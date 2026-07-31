@@ -225,6 +225,20 @@ codex plugin add opl-flow@opl-flow-local
 The source-implemented first-session action is:
 
 ```text
+Use $opl-flow start to create or reuse my OPL ledger Dashboard and supervise it every hour.
+```
+
+`start` discovers the saved project and unique private Instance, then uses Codex
+native task and Automation tools plus official `bd` and `opl_workflow.py` routes.
+It reuses or creates exactly one local Dashboard task, one Bead bound by
+`codex://thread/<thread_id>`, and one hourly supervisor Heartbeat. Every run
+ends with thread, Bead, Automation, and Dolt parity readback. Ambiguous matches
+fail closed; Automation, Linear, and the Dashboard never replace Beads/Dolt as
+the internal task ledger.
+
+The Profile and tool setup action is:
+
+```text
 Use $opl-flow setup to initialize this development workflow.
 ```
 
@@ -267,6 +281,9 @@ controller, inbound SSH, Linear, or Fleet.
 - **Implemented in source:** the guided `$opl-flow setup` / `update` Agent
   workflow plus machine-readable tool/auth/Profile/Ledger/Fleet readback. The
   source script remains a narrow owner surface, not a second package manager.
+- **Implemented in 0.1.30 source:** `$opl-flow start`, its machine-readable
+  uniqueness/supervision contract, and receipt validation for one Dashboard,
+  one Bead, one hourly Heartbeat, and final Dolt parity.
 - **Pilot:** initialize one private Instance ledger and use one Operations
   Program before making Ledger a default onboarding dependency.
 - **Implemented in source:** a two-level qualification planner and receipt

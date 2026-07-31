@@ -138,22 +138,28 @@ commit and digest binding is limited to proving one immutable release candidate.
 
 ## Core Skills And Optional Enhancements
 
-OPL Flow `0.1.29` bundles two core Skills with the Plugin:
+OPL Flow `0.1.30` bundles five core Skills with the Plugin:
 
-- `opl-flow` for setup, update, status, Ledger, Linear, and Fleet entry points;
+- `opl-flow` for Dashboard start, setup, update, status, Ledger, Linear, and
+  Fleet entry points;
 - `coordinate-concurrent-tasks` for concurrent tasks, conversations, and Git
-  worktrees.
+  worktrees;
+- `develop-and-deliver` for systematic implementation and delivery;
+- `task-mode-gate` for actual release, deployment, migration, and destructive
+  mutation boundaries;
+- `recover-codex-tasks` for evidence-based recovery of interrupted Codex work.
 
 [`gaofeng21cn/opl-skills`](https://github.com/gaofeng21cn/opl-skills) is the
-independently installable public enhancement pack. It supplies architecture,
-delivery, reliability, learning, and artifact workflows without becoming a
-runtime dependency of OPL Flow. Codex discovers the installed Skills and routes
-to them by task intent; Flow does not copy or dynamically import their source.
+independently installable public enhancement pack. It supplies optional
+architecture, reliability, learning, and artifact workflows without becoming a
+runtime dependency of OPL Flow. `architect-and-simplify` remains optional: Flow
+routes to it when installed and otherwise lets Codex perform the architecture
+work directly without blocking the task.
 
-The source consolidation is not yet complete. `develop-and-deliver`,
-`task-mode-gate`, and `recover-codex-tasks` remain owned by OPL Skills until
-their single-source migration into OPL Flow is completed. In contrast,
-`architect-and-simplify` remains an optional enhancement.
+During an upgrade, Framework retires the former OPL Skills projections for the
+three moved core Skill IDs only when the Skills CLI lock proves the exact former
+`gaofeng21cn/opl-skills` source and path. A same-name directory with missing or
+different provenance is preserved as a collision and never removed by name.
 
 Install the complete public enhancement pack from its owner:
 
@@ -175,6 +181,17 @@ codex plugin add opl-flow@opl-flow-local
 ```
 
 Start a new Codex conversation or CLI session, then ask:
+
+```text
+Use $opl-flow start to create or reuse my OPL ledger Dashboard and supervise it every hour.
+```
+
+This one action reuses or creates one local Dashboard task, binds one Bead by
+`codex://thread/<thread_id>`, and reuses or configures one native hourly
+Heartbeat. It finishes with task, Bead, Automation, and Dolt readback; repeated
+runs do not create a second supervision loop.
+
+For Profile and tool setup, ask:
 
 ```text
 Use $opl-flow setup to initialize my reusable development workflow.

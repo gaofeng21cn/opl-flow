@@ -95,6 +95,12 @@ Package payload contract、Profile mutation、executor discovery、支持平台�
 已安装 Skill。0.1.29 承担当前体系首次认证；后续未触发上述边界变化的普通内容版本
 只走 routine release。
 
+0.1.30 源码候选增加三个核心 Skill、来源感知迁移、capability-aware Profile 路由和
+`$opl-flow start` onboarding contract，属于 Package payload、Profile 和 executor
+discovery 边界变化，因此不能继承 0.1.29 的安装资格。若后续进入正式 publication，
+必须以 0.1.30 自身不可变字节重新完成对应 system certification；当前源码、测试、
+Dashboard live receipt 或 canonical main 都不等于 Release，也不授权在本任务中发布。
+
 这两种资格都只绑定当前 candidate 的取证，不形成跨 Package 版本锁或 shared release
 cohort。Windows App mapped-home 属于独立 consumer successor，不计入 Windows/WSL
 carrier receipt。

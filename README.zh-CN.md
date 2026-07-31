@@ -72,20 +72,24 @@ OPL Flow 和 OPL Skills 不是两套相互竞争的工作流，而是“核心�
 
 ### OPL Flow 内置 Skill
 
-当前 `0.1.29` 随插件安装两个核心 Skill：
+当前 `0.1.30` 随插件安装五个核心 Skill：
 
-- `opl-flow`：安装、更新、状态检查，以及总账、Linear 和 Fleet 的统一入口；
-- `coordinate-concurrent-tasks`：多任务、多对话和多 worktree 的并发协调。
+- `opl-flow`：创建总账 Dashboard、安装、更新、状态检查，以及 Linear 和 Fleet 入口；
+- `coordinate-concurrent-tasks`：多任务、多对话和多 worktree 的并发协调；
+- `develop-and-deliver`：系统化开发、验证与交付；
+- `task-mode-gate`：真实发布、部署、迁移和破坏性写入边界；
+- `recover-codex-tasks`：基于证据恢复中断或缺失的 Codex 任务。
 
 ### OPL Skills 可选增强包
 
 公开仓库 [`gaofeng21cn/opl-skills`](https://github.com/gaofeng21cn/opl-skills)
-保存可以脱离 OPL Flow 独立使用的增强能力，例如架构简化、可靠性交付、学习和
+保存可以脱离 OPL Flow 独立使用的增强能力，例如架构简化、生产可靠性、学习和
 文档工作流。它按自己的节奏更新，不与 OPL Flow 绑定版本。
 
-当前源码迁移尚未全部完成：`develop-and-deliver`、`task-mode-gate` 和
-`recover-codex-tasks` 仍由 OPL Skills 维护；`architect-and-simplify` 继续作为
-可选增强能力。完成正式迁移前，同一个 Skill 不会在两个仓库重复维护。
+`architect-and-simplify` 继续作为可选增强：已安装时按任务意图路由，未安装时由
+Codex 直接完成同类架构判断，不阻断任务。升级时，Framework 只有在 Skills CLI lock
+精确证明旧目录来自 `gaofeng21cn/opl-skills` 及对应路径时，才移出三个旧核心 Skill
+投影；无锁、来源不同或格式异常都会保留并报告冲突，不按同名目录删除。
 
 两者的联动方式很简单：
 
@@ -108,6 +112,16 @@ npx skills add gaofeng21cn/opl-skills -g -a codex -s '*' -y --full-depth
 ```text
 使用 $opl-flow setup 初始化我的开发工作流，并安装 OPL Skills 公开增强包。
 ```
+
+第一次建立总账与监督任务时，直接说：
+
+```text
+使用 $opl-flow start 创建或复用我的 OPL 总账 Dashboard，并每小时监督。
+```
+
+该动作幂等复用或创建一个本机 Dashboard 任务、一个以
+`codex://thread/<thread_id>` 关联的 Bead，以及一个原生每小时 Heartbeat，并以
+任务、Bead、Automation 和 Dolt 的 fresh readback 收尾；重复执行不会创建第二套循环。
 
 私人 Skill 放在各自的 OPL Instance 中，不进入公开增强包。
 

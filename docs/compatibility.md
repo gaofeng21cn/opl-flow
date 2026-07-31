@@ -25,6 +25,9 @@ executor-neutral 的 Package identity、Profile、偏好和公共 status/actions
 | Codex Plugin Manager | 当前正式 Plugin/config/cache carrier adapter。 | Flow identity、完整 Package authority、其他 carrier 或生态 currentness。 |
 | Git/local neutral proof | 验证公共 Package/status/action 合同不需要 Codex 私有字段。 | 第二个正式 carrier、第二 executor 产品或 ordinary currentness。 |
 | `skills/coordinate-concurrent-tasks` | 有界协调现有 owner、fresh-main integration 和 archive-readiness review。 | Git/release/package mutation authority 或自动 archive。 |
+| `skills/develop-and-deliver` | 多步骤软件实现、验证、fresh-main 吸收与真实交付。 | 领域 truth、发布授权或独立 Package lifecycle。 |
+| `skills/task-mode-gate` | 约束真实发布、部署、迁移、公共或破坏性 mutation。 | 普通开发方法论或只读任务门禁。 |
+| `skills/recover-codex-tasks` | 基于本机任务数据库和证据恢复中断工作。 | 伪造任务状态、外部 authority 或自动归档。 |
 | Specialist skills | 由自己的 explicit/narrow trigger 按需加载。 | Flow-managed 固定 companion readiness 清单。 |
 | Ponytail | Retired conflict: hooks 和 broad main persona 不属于最小 Flow Profile。 | 独立显式安装的 audit/review capability。 |
 | OPL App | 可选 GUI；一个 Official Profile 和统一状态展示。 | Flow policy parser、companion list、Package lifecycle 或 installed mirror。 |
@@ -38,6 +41,9 @@ Flow Package 可以暴露：
 - `~/.codex/TASTE.md` non-runtime authoring source；
 - `skills/opl-flow`；
 - `skills/coordinate-concurrent-tasks`；
+- `skills/develop-and-deliver`；
+- `skills/task-mode-gate`；
+- `skills/recover-codex-tasks`；
 - model recommendation 和其他 stable capability identities。
 
 这些 capability 不是独立 OPL install objects。App 不解析
