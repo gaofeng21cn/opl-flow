@@ -49,6 +49,34 @@ def valid_receipt() -> dict[str, object]:
             "performs_adjustments": True,
         },
         "ledger": {"pull": "passed", "push": "no_change", "parity": "passed"},
+        "linear": {
+            "connector": "official_linear_connector",
+            "ledger_bead_count": 8,
+            "projected_issue_count": 8,
+            "missing_bead_ids": [],
+            "duplicate_bead_ids": [],
+            "hierarchy_parity": "passed",
+            "projected_fields": [
+                "bead_id",
+                "title",
+                "hierarchy",
+                "status",
+                "priority",
+                "due",
+                "codex_ready",
+                "cancel",
+                "short_blocker",
+                "short_result",
+                "links",
+            ],
+            "field_authority": {
+                "linear_to_beads": ["human_intent", "priority", "due", "codex_ready", "cancel"],
+                "beads_to_linear": ["execution_state", "blocker", "result"],
+            },
+            "excluded_fields_absent": True,
+            "terminal_readback": "passed",
+            "bd_linear_sync_used": False,
+        },
         "boundaries": {
             "task_ssot": "beads_dolt",
             "codex_cloud_used": False,
@@ -75,6 +103,10 @@ class OplFlowOnboardingTests(unittest.TestCase):
                 "wait_threads",
                 "set_thread_pinned",
                 "automation_update",
+                "mcp__codex_apps__linear_list_issues",
+                "mcp__codex_apps__linear_search",
+                "mcp__codex_apps__linear_get_issue",
+                "mcp__codex_apps__linear_save_issue",
             },
         )
         self.assertEqual(
@@ -93,6 +125,20 @@ class OplFlowOnboardingTests(unittest.TestCase):
             contract["automation_discovery"]["failure_policy"],
             "fail_closed_on_unreadable_config_parse_error_or_multiple_matches",
         )
+        linear = contract["linear_projection"]
+        self.assertEqual(
+            linear["availability"],
+            "required_for_start_when_user_ledger_is_created_or_reused",
+        )
+        self.assertEqual(linear["coverage_scope"], "all_user_ledger_beads_including_dashboard_children")
+        self.assertEqual(linear["forbidden_route"], "bd linear sync")
+        self.assertEqual(
+            linear["field_authority"],
+            {
+                "linear_to_beads": ["human_intent", "priority", "due", "codex_ready", "cancel"],
+                "beads_to_linear": ["execution_state", "blocker", "result"],
+            },
+        )
         self.assertEqual(contract["boundaries"]["codex_cloud"], "forbidden")
         self.assertEqual(
             contract["boundaries"]["automatic_archive"],
@@ -105,12 +151,19 @@ class OplFlowOnboardingTests(unittest.TestCase):
         self.assertIn("$opl-flow start", skill)
         self.assertIn("references/start-onboarding.json", skill)
         self.assertIn("validate_start_onboarding.py --receipt", skill)
+        self.assertIn("every user-ledger Bead", skill)
+        self.assertIn("official Linear Connector", skill)
+        self.assertIn("`bd linear sync` for onboarding or routine maintenance", skill)
 
     def test_receipt_validator_accepts_one_reused_dashboard(self) -> None:
         result = validate_receipt(valid_receipt())
 
         self.assertEqual(result["status"], "passed")
-        self.assertEqual(result["duplicate_counts"], {"dashboard": 0, "bead": 0, "heartbeat": 0})
+        self.assertEqual(result["linear_projected_issue_count"], 8)
+        self.assertEqual(
+            result["duplicate_counts"],
+            {"dashboard": 0, "bead": 0, "heartbeat": 0, "linear_issue": 0},
+        )
 
     def test_receipt_validator_rejects_duplicate_or_misbound_surfaces(self) -> None:
         mutations = (
@@ -132,6 +185,13 @@ class OplFlowOnboardingTests(unittest.TestCase):
             ("passive poll", lambda value: value["supervisor"].update(performs_adjustments=False)),
             ("missing decision", lambda value: value["supervisor"]["decisions"].remove("scope_correct")),
             ("no Dolt parity", lambda value: value["ledger"].update(parity="unknown")),
+            ("partial Linear coverage", lambda value: value["linear"].update(projected_issue_count=7)),
+            ("missing Linear Bead", lambda value: value["linear"].update(missing_bead_ids=["opl-8"])),
+            ("duplicate Linear mapping", lambda value: value["linear"].update(duplicate_bead_ids=["opl-3"])),
+            ("wrong hierarchy", lambda value: value["linear"].update(hierarchy_parity="failed")),
+            ("wrong Linear authority", lambda value: value["linear"]["field_authority"]["linear_to_beads"].remove("cancel")),
+            ("sensitive Linear field", lambda value: value["linear"].update(excluded_fields_absent=False)),
+            ("bd Linear sync", lambda value: value["linear"].update(bd_linear_sync_used=True)),
             ("Codex Cloud", lambda value: value["boundaries"].update(codex_cloud_used=True)),
             ("automatic archive", lambda value: value["boundaries"].update(automatic_archive_performed=True)),
         )

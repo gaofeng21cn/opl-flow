@@ -12,7 +12,7 @@
 <p align="center">从一台 Codex 到多任务、多仓库、多机器，让工作始终围绕同一份可靠状态继续推进</p>
 
 <p align="center">
-  <img src="assets/branding/opl-flow-ai-fleet.png" alt="Linear 经 OPL App 定时心跳进入本机 Codex 与 OPL Flow，连接 Beads、GitHub 和 OPL Fleet，并回写 Linear" width="100%" />
+  <img src="assets/branding/opl-flow-ai-fleet.png" alt="Linear 与本机 Codex 通过 OPL Flow 协作，所有用户总账任务都可读，同时 Beads 仍是持久任务权威" width="100%" />
 </p>
 
 ## OPL Flow 是什么
@@ -47,7 +47,8 @@ flowchart LR
     F --> B[OPL 总账<br/>Beads]
     F --> G[GitHub]
     F -. 可选的机器执行 .-> N[OPL Fleet 节点]
-    G -. 阶段、结果、交付链接 .-> L
+    F -. 全部总账任务、窄字段 .-> L
+    G -. 交付链接 .-> L
     I[私人 OPL Instance] --- B
     I --- N
 ```
@@ -58,7 +59,7 @@ flowchart LR
 | **OPL Flow** | 用户配置、核心 Skill、总账接入、并发协作和通用 Fleet 引擎 | 代替模型思考或决定领域真相 |
 | **OPL 总账** | 以 Beads/Dolt 保存目标、依赖、负责人、检查点和剩余工作 | 唤醒 Codex 或分发 Agent |
 | **GitHub** | 保存分支、PR、CI、合并和发布证据 | 成为任务总账或机器调度器 |
-| **Linear** | 面向人的任务录入、优先级和进度门户，并展示 Codex/GitHub 的窄回写 | 成为第二套总账或执行调度器 |
+| **Linear** | 完整展示所有用户总账任务，但仅保留意图、层级、优先级、到期、状态、简短阻断/结果和链接 | 成为第二套总账或执行调度器 |
 | **OPL Fleet** | 节点检查、任务准入、仓库更新和可选分发 | 在机器之间复制凭据、会话或软件文件 |
 | **OPL Instance** | 某个个人或组织的私人总账、机器、策略、资产和个性化配置 | 承载通用公开产品代码 |
 
@@ -120,8 +121,10 @@ npx skills add gaofeng21cn/opl-skills -g -a codex -s '*' -y --full-depth
 ```
 
 该动作幂等复用或创建一个本机 Dashboard 任务、一个以
-`codex://thread/<thread_id>` 关联的 Bead，以及一个原生每小时 Heartbeat，并以
-任务、Bead、Automation 和 Dolt 的 fresh readback 收尾；重复执行不会创建第二套循环。
+`codex://thread/<thread_id>` 关联的 Bead，以及一个原生每小时 Heartbeat；同时通过
+官方 Linear Connector 把每个用户总账 Bead 投影为唯一 Linear issue，保留层级并限制
+字段集合，最后以任务、Bead、Automation、Linear 和 Dolt 的 fresh readback 收尾。
+重复执行不会创建第二套循环或重复 issue。
 
 私人 Skill 放在各自的 OPL Instance 中，不进入公开增强包。
 
@@ -141,25 +144,22 @@ OPL Flow 不自建任务数据库。它通过官方 `bd` 命令使用 Beads：
 
 ### Linear 门户与 Codex 接单
 
-Linear 是可选的人类入口；本机默认路径是 OPL App 定时心跳消费带有
-`codex-ready` 且未设置云端委派的任务，并交给本机 Codex/OPL Flow。Linear 的
-ChatGPT Codex 或云端委派不是默认入口，Beads 也不参与 Linear 与 Codex 之间的
-日常全量镜像。数据流是：
+Linear 是用户总账的完整人读投影：每个用户总账 Bead 都必须有且只有一个 Linear
+issue，并保留父子层级；“窄”指字段集合，不是覆盖率。Codex 通过官方 Linear
+Connector 维护这份投影，ChatGPT Codex 或云端委派不是默认执行入口。数据流是：
 
 ```text
-人在 Linear 创建任务并标记为 codex-ready
-  -> 本机 OPL App 定时心跳读取并准入未设置云端委派的任务
-  -> 本机 Codex/OPL Flow 接单
-  -> Codex 在 OPL Flow 下创建或关联 Bead
+人从 Linear 写入意图、优先级、到期、codex-ready 或取消
+  -> Codex/OPL Flow 幂等创建或关联唯一 Bead/Linear issue
   -> Codex 按 Beads 依赖、负责人和检查点执行
-  -> GitHub 保存分支、PR、CI 和交付证据
-  -> Codex/OPL Flow 向 Linear 窄回写阶段、阻断、结果和链接
+  -> Beads 向 Linear 投影执行状态、简短阻断和结果
+  -> GitHub 提供分支、PR、CI、合并、发布和交付链接
 ```
 
-为了避免把所有想法都自动交给 Agent，推荐只自动接收带有 `codex-ready` 标签的
-任务。Beads 的 Linear adapter 只用于迁移、恢复和审计，不作为日常同步链路；Beads
-仍是 Agent 内部的任务总账，GitHub 是代码和交付证据的权威来源。若使用其他
-Codex 接入方式，也应保持同样的“创建/关联 Bead、写 GitHub、窄回写 Linear”边界。
+`codex-ready` 控制本机执行准入，但不控制 Linear 覆盖率。Linear 不接收凭据、本机
+路径、日志、完整 notes、内部 metadata 或 checkpoints；Beads/Dolt 仍是执行总账，
+GitHub 仍是代码和交付证据的权威来源。日常 onboarding 和对账不使用或要求
+`bd linear sync`。
 
 ## 从一台机器开始
 
@@ -262,9 +262,9 @@ python3 scripts/opl_workflow.py ledger reconcile-operations --instance <opl-inst
 (cd <opl-instance> && bd dolt pull)
 (cd <opl-instance> && bd dolt push)
 
-# Linear 迁移/审计 adapter（非日常接单链路）
-(cd <opl-instance> && bd linear status --json)
-(cd <opl-instance> && bd linear sync --dry-run --json)
+# Linear 人读投影
+# Codex 通过官方 Linear Connector 为每个用户总账 Bead 搜索、读取、保存并回读
+# 唯一的窄字段 issue。
 
 # 可选 Fleet
 python3 scripts/opl_workflow.py fleet --instance <opl-instance> status

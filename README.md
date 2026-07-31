@@ -12,7 +12,7 @@
 <p align="center">Raise the floor for one Codex. Keep many agents, repositories, and machines moving from one durable source of truth.</p>
 
 <p align="center">
-  <img src="assets/branding/opl-flow-ai-fleet.png" alt="Linear enters the local Codex and OPL Flow through the OPL App heartbeat, which connects Beads, GitHub, and OPL Fleet before narrow writeback to Linear" width="100%" />
+  <img src="assets/branding/opl-flow-ai-fleet.png" alt="Linear and the local Codex connect through OPL Flow, which keeps every user-ledger task human-readable while Beads remains the durable task authority" width="100%" />
 </p>
 
 ## Why OPL Flow
@@ -49,7 +49,7 @@ the complete stack without changing the underlying development model.
 | One machine | A concise user Profile, workflow preferences, and reusable Skills | Codex reasoning, tools, project files, and repository instructions |
 | Several active tasks | Ownership, recovery, fresh-SSOT integration, and closeout conventions | Codex native multi-agent and conversation coordination |
 | Long-lived work | OPL Ledger initialization and idempotent reconciliation | Beads owns the database, dependency graph, claims, and Dolt sync |
-| Human visibility | Linear intake, local OPL App heartbeat, and narrow progress writeback | Linear is a portal, not task truth or an agent scheduler |
+| Human visibility | Complete Linear projection of every user-ledger task with a narrow field set | Linear is a portal, not task truth or an agent scheduler |
 | Several machines | A reusable Fleet engine for status, admission, repository currentness, and dispatch policy | Each machine installs from component owners; a private Instance owns topology and policy |
 
 This is why OPL Flow is no longer only an OPL App companion module. It remains
@@ -68,7 +68,8 @@ flowchart LR
     F --> B[OPL Ledger<br/>Beads]
     F --> G[GitHub]
     F -. optional execution .-> N[OPL Fleet nodes]
-    G -. stage, result, delivery link .-> L
+    F -. all ledger tasks, narrow fields .-> L
+    G -. delivery links .-> L
     I[Private OPL Instance] --- B
     I --- N
 ```
@@ -79,18 +80,17 @@ flowchart LR
 | **OPL Flow** | Profile, workflow Skills, reconciliation, Git/worktree lifecycle, and the reusable Fleet engine |
 | **OPL Ledger** | Durable internal task SSOT, implemented by Beads rather than a custom OPL database |
 | **GitHub** | Branch, PR, CI, merge, and release evidence authority |
-| **Linear** | Optional human intake and progress portal with narrow Codex/GitHub writeback |
+| **Linear** | Complete human-readable projection of every user-ledger task, limited to intent, hierarchy, priority, due, status, short blocker/result, and links |
 | **OPL Fleet** | Optional machine execution and admission using fresh node evidence |
 | **OPL Instance** | Private ledger data, Fleet topology, policy, assets, and personal overlays |
 
 Flow does not become a central planner. It does not decide domain truth,
 quality, release acceptance, or what the model must think next. Beads does not
 wake Codex, Linear does not become an agent scheduler, and Fleet does not copy
-private sessions or tool binaries between machines. The normal local intake
-path is the OPL App heartbeat consuming `codex-ready` work with no Cloud delegate
-and starting local Codex/OPL Flow. ChatGPT Codex or Cloud delegation is not the
-default path; Beads' Linear adapter is reserved for migration, recovery, and
-audit rather than daily full mirroring.
+private sessions or tool binaries between machines. Codex maintains Linear
+through the official Connector: every user-ledger Bead is visible, while the
+projected fields stay intentionally narrow. Linear does not replace Beads/Dolt,
+and ChatGPT Codex or Cloud delegation is not the default execution path.
 
 ## Core Capabilities
 
@@ -109,12 +109,12 @@ directly. Beads remains the storage and synchronization authority.
 
 ### Optional Linear Portal
 
-Flow documents and reports the local Linear intake bridge. The OPL App heartbeat
-hands an accepted task to local Codex/OPL Flow. Codex creates or links the Bead,
-then writes only stage,
-blocker, result, and delivery links back to Linear. The Beads Linear adapter is
-used only for migration, recovery, and audit; it never becomes a daily full
-mirror and never stores an API key in Flow, Git, or task text.
+Codex maintains one Linear issue for every user-ledger Bead through the official
+Linear Connector and preserves parent/child hierarchy. Linear owns human intent,
+priority, due date, `codex-ready`, and cancel input; Beads owns execution state,
+blocker, and result. The projection excludes credentials, local paths, logs,
+full notes, internal metadata, and checkpoints. It does not use `bd linear sync`
+as the onboarding or routine reconciliation path.
 
 ### Optional OPL Fleet
 
@@ -188,8 +188,9 @@ Use $opl-flow start to create or reuse my OPL ledger Dashboard and supervise it 
 
 This one action reuses or creates one local Dashboard task, binds one Bead by
 `codex://thread/<thread_id>`, and reuses or configures one native hourly
-Heartbeat. It finishes with task, Bead, Automation, and Dolt readback; repeated
-runs do not create a second supervision loop.
+Heartbeat. It projects every user-ledger Bead to one Linear issue with hierarchy
+and narrow-field parity, then finishes with task, Bead, Automation, Linear, and
+Dolt readback. Repeated runs do not create a second supervision loop or issue.
 
 For Profile and tool setup, ask:
 
@@ -280,9 +281,9 @@ python3 scripts/opl_workflow.py ledger reconcile-operations --instance <opl-inst
 (cd <opl-instance> && bd dolt pull)
 (cd <opl-instance> && bd dolt push)
 
-# Linear migration/audit adapter (not the daily intake path)
-(cd <opl-instance> && bd linear status --json)
-(cd <opl-instance> && bd linear sync --dry-run --json)
+# Linear human projection
+# Codex uses the official Linear Connector to search, read, save, and read back
+# exactly one narrow-field issue for every user-ledger Bead.
 
 # Optional Fleet
 python3 scripts/opl_workflow.py fleet --instance <opl-instance> status

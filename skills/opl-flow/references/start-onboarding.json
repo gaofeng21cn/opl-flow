@@ -20,7 +20,11 @@
     "task_continuation": "send_message_to_thread",
     "task_wait": "wait_threads",
     "task_pin": "set_thread_pinned",
-    "automation": "automation_update"
+    "automation": "automation_update",
+    "linear_issue_list": "mcp__codex_apps__linear_list_issues",
+    "linear_issue_search": "mcp__codex_apps__linear_search",
+    "linear_issue_readback": "mcp__codex_apps__linear_get_issue",
+    "linear_issue_upsert": "mcp__codex_apps__linear_save_issue"
   },
   "automation_discovery": {
     "glob": "$CODEX_HOME/automations/*/automation.toml",
@@ -49,6 +53,55 @@
     "bd list --overdue --json",
     "bd dolt push"
   ],
+  "linear_projection": {
+    "availability": "required_for_start_when_user_ledger_is_created_or_reused",
+    "connector": "official_linear_connector",
+    "coverage_scope": "all_user_ledger_beads_including_dashboard_children",
+    "identity_key": "bead_id",
+    "routes": {
+      "discover": "mcp__codex_apps__linear_list_issues_or_mcp__codex_apps__linear_search",
+      "read_before_write": "mcp__codex_apps__linear_get_issue",
+      "create_or_update": "mcp__codex_apps__linear_save_issue",
+      "terminal_readback": "mcp__codex_apps__linear_get_issue"
+    },
+    "projected_fields": [
+      "bead_id",
+      "title",
+      "hierarchy",
+      "status",
+      "priority",
+      "due",
+      "codex_ready",
+      "cancel",
+      "short_blocker",
+      "short_result",
+      "links"
+    ],
+    "excluded_fields": [
+      "credentials",
+      "local_paths",
+      "logs",
+      "full_notes",
+      "internal_metadata",
+      "checkpoints"
+    ],
+    "field_authority": {
+      "linear_to_beads": [
+        "human_intent",
+        "priority",
+        "due",
+        "codex_ready",
+        "cancel"
+      ],
+      "beads_to_linear": [
+        "execution_state",
+        "blocker",
+        "result"
+      ]
+    },
+    "idempotency": "reuse_or_update_one_issue_per_bead_id; fail_closed_on_missing_identity_or_multiple_matches",
+    "forbidden_route": "bd linear sync"
+  },
   "uniqueness": {
     "dashboard_task": [
       "project_id",
@@ -78,6 +131,7 @@
     "correct_scope_against_latest_user_instruction",
     "split_independent_work_or_merge_duplicate_scope",
     "write_claim_checkpoint_blocker_remaining_to_beads",
+    "reconcile_all_user_ledger_beads_to_linear_with_narrow_fields",
     "push_and_read_back_dolt_after_coherent_mutation"
   ],
   "terminal_readback": [
@@ -85,12 +139,13 @@
     "bead_id_and_exact_codex_external_ref",
     "heartbeat_id_target_thread_id_status_and_hourly_schedule",
     "dolt_pull_push_parity_or_explicit_no_change",
+    "linear_all_user_bead_coverage_field_authority_and_hierarchy_parity",
     "duplicate_counts_equal_zero"
   ],
   "receipt_schema": "opl_flow_start_onboarding_receipt.v1",
   "boundaries": {
     "task_ssot": "beads_dolt",
-    "linear": "codex_ready_local_admission_and_narrow_writeback_only",
+    "linear": "complete_human_projection_of_all_user_ledger_beads_with_narrow_fields",
     "github": "delivery_evidence",
     "fleet": "execution_capacity_only",
     "codex_cloud": "forbidden",

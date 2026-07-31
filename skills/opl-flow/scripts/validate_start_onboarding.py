@@ -20,6 +20,27 @@ SUPERVISOR_DECISIONS = {
     "event_trigger_idle",
     "terminal_review",
 }
+LINEAR_PROJECTED_FIELDS = {
+    "bead_id",
+    "title",
+    "hierarchy",
+    "status",
+    "priority",
+    "due",
+    "codex_ready",
+    "cancel",
+    "short_blocker",
+    "short_result",
+    "links",
+}
+LINEAR_TO_BEADS_FIELDS = {
+    "human_intent",
+    "priority",
+    "due",
+    "codex_ready",
+    "cancel",
+}
+BEADS_TO_LINEAR_FIELDS = {"execution_state", "blocker", "result"}
 
 
 class ReceiptError(ValueError):
@@ -81,6 +102,23 @@ def validate_receipt(receipt: dict[str, Any]) -> dict[str, Any]:
     require(ledger.get("push") in {"passed", "no_change"}, "Dolt push must pass or report no_change")
     require(ledger.get("parity") == "passed", "Dolt parity must pass")
 
+    linear = require_object(receipt.get("linear"), "linear")
+    require(linear.get("connector") == "official_linear_connector", "official Linear Connector is required")
+    ledger_bead_count = linear.get("ledger_bead_count")
+    projected_issue_count = linear.get("projected_issue_count")
+    require(isinstance(ledger_bead_count, int) and ledger_bead_count > 0, "linear.ledger_bead_count must be positive")
+    require(projected_issue_count == ledger_bead_count, "Linear must project every user-ledger Bead")
+    require(linear.get("missing_bead_ids") == [], "Linear projection has missing Beads")
+    require(linear.get("duplicate_bead_ids") == [], "Linear projection has duplicate Bead mappings")
+    require(linear.get("hierarchy_parity") == "passed", "Linear hierarchy parity must pass")
+    require(set(linear.get("projected_fields", [])) == LINEAR_PROJECTED_FIELDS, "Linear projected field set is incomplete or contains extras")
+    authority = require_object(linear.get("field_authority"), "linear.field_authority")
+    require(set(authority.get("linear_to_beads", [])) == LINEAR_TO_BEADS_FIELDS, "Linear-to-Beads authority is invalid")
+    require(set(authority.get("beads_to_linear", [])) == BEADS_TO_LINEAR_FIELDS, "Beads-to-Linear authority is invalid")
+    require(linear.get("excluded_fields_absent") is True, "sensitive or internal fields escaped into Linear")
+    require(linear.get("terminal_readback") == "passed", "Linear terminal readback must pass")
+    require(linear.get("bd_linear_sync_used") is False, "bd linear sync is forbidden for this route")
+
     boundaries = require_object(receipt.get("boundaries"), "boundaries")
     require(boundaries.get("task_ssot") == "beads_dolt", "Beads/Dolt must remain task SSOT")
     require(boundaries.get("codex_cloud_used") is False, "Codex Cloud must not be used")
@@ -92,7 +130,8 @@ def validate_receipt(receipt: dict[str, Any]) -> dict[str, Any]:
         "dashboard_thread_id": thread_id,
         "bead_id": bead["id"],
         "heartbeat_id": heartbeat["id"],
-        "duplicate_counts": {"dashboard": 0, "bead": 0, "heartbeat": 0},
+        "linear_projected_issue_count": projected_issue_count,
+        "duplicate_counts": {"dashboard": 0, "bead": 0, "heartbeat": 0, "linear_issue": 0},
     }
 
 

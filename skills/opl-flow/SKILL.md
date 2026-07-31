@@ -60,19 +60,31 @@ contract.
    reconciles the Ledger, reads ready, in-progress, and overdue work plus live
    execution tasks, makes one contract-defined decision per lane, and performs
    the required continuation, correction, split, merge, or terminal review.
-   Write claim, checkpoint, blocker, and remaining facts to Beads, then push
-   and read back Dolt after coherent mutation.
+   Write claim, checkpoint, blocker, and remaining facts to Beads. Use the
+   official Linear Connector to idempotently reconcile every user-ledger Bead,
+   including hierarchy, rather than only ready or active work. Missing Linear
+   authorization is a real external blocker for `start`, not permission to
+   accept partial coverage. Then push and read back Dolt after coherent mutation.
 6. Finish by reading back the exact Dashboard thread, Bead link, heartbeat ID,
-   target, active hourly schedule, and Dolt parity. Report duplicate counts.
+   target, active hourly schedule, Dolt parity, and Linear coverage parity.
+   Linear coverage must prove that every user-ledger Bead has exactly one issue;
+   report missing and duplicate counts rather than accepting partial projection.
    Dashboard, Automation, Linear, and Git branches are execution or projection
    surfaces; Beads/Dolt remains the internal task ledger. Record that readback
    as `opl_flow_start_onboarding_receipt.v1` and validate it with
    `python3 skills/opl-flow/scripts/validate_start_onboarding.py --receipt <path>`.
 
-Use Linear only for `codex-ready` plus absent-delegate local admission and
-narrow status/result links. Use GitHub for delivery evidence and Fleet for
-capacity. Never use Codex Cloud for this route, and never archive a task unless
-the user freshly names and approves it.
+Linear is a complete human-readable projection of the user Ledger, but its
+field set stays narrow. Use Linear's official Connector search/read/save/readback
+route and preserve only Bead identity, title, hierarchy, status, priority, due,
+`codex-ready`, cancel intent, short blocker/result, and links. Never project
+credentials, local paths, logs, full notes, internal metadata, or checkpoints.
+Human intent, priority, due, `codex-ready`, and cancel flow from Linear to
+Beads; execution state, blocker, and result flow from Beads to Linear. Do not
+require or use `bd linear sync` for onboarding or routine maintenance. Use
+GitHub for delivery evidence and Fleet for capacity. Never use Codex Cloud for
+this route, and never archive a task unless the user freshly names and approves
+it.
 
 ## One-Action Setup And Update
 
@@ -138,8 +150,10 @@ For `update`:
   through the Beads owner channel, then run `bd dolt pull` in the Instance.
 - Run `profile prepare`, reconcile declared Operations, and inspect
   `bd ready --json`. Push Dolt only after a coherent Ledger mutation.
-- Update optional Fleet nodes from each component owner and verify them only
-  when Fleet is configured. Linear sync starts with the official Beads dry-run.
+- When Linear is configured, reconcile every user-ledger Bead through the
+  official Linear Connector and read back complete narrow-field parity. Update
+  optional Fleet nodes from each component owner and verify them only when
+  Fleet is configured.
 
 Terminal readback includes `opl_workflow.py status`, Profile status, `bd stats`,
 the applicable Dolt pull/push result, and carrier/executor discovery. Restart
@@ -174,15 +188,13 @@ on another machine, and push after a coherent mutation. In a new clone, set
 `bd bootstrap --yes`; choose the role according to the user's authority.
 `.beads/issues.jsonl` is not the cross-machine authority.
 
-Linear remains an optional Beads-native human portal:
-
-```bash
-(cd <opl-instance> && bd linear status --json)
-(cd <opl-instance> && bd linear sync --dry-run --json)
-```
-
-Use `LINEAR_API_KEY` or Beads-supported OAuth environment variables. Never
-write those values to Git, Beads issue text, logs, or Flow configuration.
+Linear remains optional for the Profile-only Core, but `$opl-flow start`
+requires it for the user-ledger Dashboard. Codex maintains it through the
+official Linear Connector, with exactly one
+narrow-field issue for every user-ledger Bead while preserving the Bead hierarchy.
+Do not use `bd linear sync` as an onboarding, routine reconciliation, or
+coverage route. Connector OAuth remains outside Flow, Git, Beads issue text,
+logs, and committed configuration.
 
 When the Instance contains `fleet/fleet.json` and `fleet/nodes.json`, OPL Flow
 runs its bundled generic Fleet engine. The old `codex-fleet` binary is accepted

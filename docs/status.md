@@ -96,7 +96,8 @@ Package payload contract、Profile mutation、executor discovery、支持平台�
 只走 routine release。
 
 0.1.30 源码候选增加三个核心 Skill、来源感知迁移、capability-aware Profile 路由和
-`$opl-flow start` onboarding contract，属于 Package payload、Profile 和 executor
+`$opl-flow start` onboarding contract（包括官方 Linear Connector 的全用户总账覆盖、
+窄字段投影和双向 field authority），属于 Package payload、Profile 和 executor
 discovery 边界变化，因此不能继承 0.1.29 的安装资格。若后续进入正式 publication，
 必须以 0.1.30 自身不可变字节重新完成对应 system certification；当前源码、测试、
 Dashboard live receipt 或 canonical main 都不等于 Release，也不授权在本任务中发布。

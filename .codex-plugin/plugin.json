@@ -9,7 +9,7 @@
   "interface": {
     "displayName": "OPL Flow",
     "shortDescription": "Start and supervise Codex work",
-    "longDescription": "OPL Flow creates or reuses one Beads-backed Dashboard and hourly supervisor, packages a concise Codex profile, and coordinates optional Instance-backed Fleet execution.",
+    "longDescription": "OPL Flow creates or reuses one Beads-backed Dashboard and hourly supervisor, projects every user-ledger task to Linear with a narrow field set, packages a concise Codex profile, and coordinates optional Instance-backed Fleet execution.",
     "developerName": "Gaofeng",
     "category": "Developer Tools",
     "capabilities": [
@@ -19,10 +19,11 @@
       "durable-ledger",
       "dashboard-onboarding",
       "hourly-supervision",
+      "linear-ledger-projection",
       "multi-machine-fleet",
       "codegraph-bootstrap"
     ],
-    "defaultPrompt": "Use $opl-flow start to create or reuse my OPL ledger Dashboard and supervise it every hour."
+    "defaultPrompt": "Use $opl-flow start to reuse my ledger Dashboard, project every ledger task to Linear, and supervise hourly."
   },
   "homepage": "https://github.com/gaofeng21cn/opl-flow",
   "repository": "https://github.com/gaofeng21cn/opl-flow",
