@@ -185,14 +185,15 @@ This keeps clean canonical checkouts current while preserving independent
 multi-machine work. Fleet synchronization cannot replace the task owner's duty
 to push checkpoints and integrate against fresh canonical SSOT.
 
-During migration the executable surface is:
+The executable surface is:
 
 ```bash
-codex-fleet repos status
-codex-fleet repos sync
+python3 scripts/opl_workflow.py fleet --instance <opl-instance> repos status
+python3 scripts/opl_workflow.py fleet --instance <opl-instance> repos sync
 ```
 
-The target public surface is `opl-flow fleet repos ...`.
+`opl-fleet` is the stable node-local command installed during enrollment. The
+Flow workflow entry remains the public user-facing surface.
 
 ## Public Onboarding
 

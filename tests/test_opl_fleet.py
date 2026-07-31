@@ -658,7 +658,7 @@ class CodexFleetTests(unittest.TestCase):
             catalog = json.loads((root / "ASSETS.json").read_text(encoding="utf-8"))
         self.assertEqual(stored["hardware"]["gpus"][0]["name"], "Example GPU")
         self.assertIn("Fan Control", assets)
-        self.assertIn("# Codex Fleet 资产清单", assets)
+        self.assertIn("# OPL Fleet 资产清单", assets)
         self.assertIn("## 设备总览", assets)
         self.assertIn("GPU 风扇由专用 Windows 控制软件管理", assets)
         self.assertIn("#### 运维注意事项", assets)
@@ -817,9 +817,51 @@ class CodexFleetTests(unittest.TestCase):
         self.assertEqual(registry["schema"], "codex_fleet_nodes.v1")
 
     def test_instance_configuration_is_required(self) -> None:
-        with mock.patch.dict(fleet.os.environ, {}, clear=True):
+        with (
+            tempfile.TemporaryDirectory() as temp_dir,
+            mock.patch.dict(fleet.os.environ, {}, clear=True),
+            mock.patch.object(
+                fleet, "INSTANCE_POINTER_PATH", Path(temp_dir) / "missing.json"
+            ),
+        ):
             with self.assertRaisesRegex(fleet.FleetError, "pass --instance"):
                 fleet.configure_instance(None)
+
+    def test_instance_pointer_is_private_and_resolves_fleet_root(self) -> None:
+        previous = fleet.CONTROL_ROOT
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            instance = root / "instance"
+            (instance / "fleet").mkdir(parents=True)
+            for name in ("fleet.json", "nodes.json"):
+                (instance / "fleet" / name).write_text("{}\n", encoding="utf-8")
+            pointer = root / "instance.json"
+            pointer.write_text(
+                json.dumps(
+                    {
+                        "schema": "opl_flow_instance_pointer.v1",
+                        "path": str(instance),
+                    }
+                ),
+                encoding="utf-8",
+            )
+            pointer.chmod(0o600)
+            try:
+                with (
+                    mock.patch.dict(fleet.os.environ, {}, clear=True),
+                    mock.patch.object(fleet, "INSTANCE_POINTER_PATH", pointer),
+                ):
+                    self.assertEqual(fleet.configure_instance(None), instance.resolve())
+            finally:
+                fleet.CONTROL_ROOT = previous
+
+    def test_install_fleet_command_creates_stable_owner_entry(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            home = Path(temp_dir)
+            with mock.patch.object(fleet.Path, "home", return_value=home):
+                destination = fleet.install_fleet_command()
+            self.assertEqual(destination, home / ".local/bin/opl-fleet")
+            self.assertEqual(destination.resolve(), SCRIPT.resolve())
 
     def test_lease_lifecycle_enforces_owner_and_compare_and_swap(self) -> None:
         now = fleet.dt.datetime(2026, 7, 27, tzinfo=fleet.dt.timezone.utc)
@@ -2006,6 +2048,10 @@ class CodexFleetTests(unittest.TestCase):
             plist_path = home / "Library/LaunchAgents/dev.one-person-lab.opl-fleet.plist"
             payload = plistlib.loads(plist_path.read_bytes())
         self.assertEqual(
+            payload["ProgramArguments"],
+            [str(home / ".local/bin/opl-fleet"), "reconcile", "--report"],
+        )
+        self.assertEqual(
             payload["EnvironmentVariables"]["PATH"].split(":"),
             [
                 str(home / ".local/bin"),
@@ -2038,9 +2084,9 @@ class CodexFleetTests(unittest.TestCase):
             action,
             "C:\\Windows\\System32\\cmd.exe /d /c "
             "C:\\Windows\\System32\\wsl.exe -d Ubuntu -- "
-            f"{Path.home() / '.local/bin/codex-fleet'} reconcile --report "
-            "1>>%TEMP%\\codex-fleet-reconcile.stdout.log "
-            "2>>%TEMP%\\codex-fleet-reconcile.stderr.log",
+            f"{Path.home() / '.local/bin/opl-fleet'} reconcile --report "
+            "1>>%TEMP%\\opl-fleet-reconcile.stdout.log "
+            "2>>%TEMP%\\opl-fleet-reconcile.stderr.log",
         )
         self.assertLessEqual(len(action), 261)
 

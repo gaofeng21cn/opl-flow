@@ -34,6 +34,7 @@ CONTROL_ROOT = FLOW_ROOT
 CONFIG_PATH = Path.home() / ".config/codex-fleet/node.json"
 ROUTES_PATH = Path.home() / ".config/codex-fleet/routes.json"
 STATE_ROOT = Path.home() / ".local/state/codex-fleet"
+INSTANCE_POINTER_PATH = Path.home() / ".config/opl-flow/instance.json"
 RUNNER_PATH = Path.home() / ".agents/skills/codex-machine-sync/scripts/codex_machine_sync.py"
 NODE_ID_PATTERN = re.compile(r"^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$")
 OWNER_ID_PATTERN = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._:@-]{0,127}$")
@@ -108,6 +109,15 @@ class FleetError(RuntimeError):
 
 def configure_instance(value: str | Path | None) -> Path:
     configured = value or os.environ.get("OPL_INSTANCE")
+    if not configured and INSTANCE_POINTER_PATH.is_file():
+        if INSTANCE_POINTER_PATH.stat().st_mode & 0o077:
+            raise FleetError("OPL Instance pointer must have mode 0600")
+        pointer = read_json(INSTANCE_POINTER_PATH)
+        if set(pointer) != {"schema", "path"} or pointer.get("schema") != (
+            "opl_flow_instance_pointer.v1"
+        ):
+            raise FleetError("OPL Instance pointer is invalid")
+        configured = pointer.get("path")
     if not configured:
         raise FleetError("pass --instance or set OPL_INSTANCE")
     instance = Path(configured).expanduser().resolve()
@@ -119,6 +129,27 @@ def configure_instance(value: str | Path | None) -> Path:
     global CONTROL_ROOT
     CONTROL_ROOT = fleet_root
     return instance
+
+
+def install_fleet_command() -> Path:
+    source = Path(__file__).resolve()
+    destination = Path.home() / ".local/bin/opl-fleet"
+    destination.parent.mkdir(parents=True, exist_ok=True)
+    staged = destination.with_name(f".{destination.name}.stage-{os.getpid()}")
+    if staged.exists() or staged.is_symlink():
+        staged.unlink()
+    staged.symlink_to(source)
+    staged.replace(destination)
+    return destination
+
+
+def write_instance_pointer(instance: Path) -> Path:
+    atomic_json(
+        INSTANCE_POINTER_PATH,
+        {"schema": "opl_flow_instance_pointer.v1", "path": str(instance)},
+        mode=0o600,
+    )
+    return INSTANCE_POINTER_PATH
 
 
 def run(
@@ -937,7 +968,7 @@ def render_status(state_root: Path) -> str:
     for path in sorted((state_root / "nodes").glob("*/receipt.json")):
         receipts.append(validate_receipt(read_json(path)))
     lines = [
-        "# Codex Fleet Status",
+        "# OPL Fleet Status",
         "",
         "| Node | State | Platform | Last Seen (UTC) | Drift | Control | Runner |",
         "| --- | --- | --- | --- | --- | --- | --- |",
@@ -1042,7 +1073,7 @@ def render_assets(catalog: dict[str, Any]) -> str:
         "virtualization": "虚拟化",
     }
     lines = [
-        "# Codex Fleet 资产清单",
+        "# OPL Fleet 资产清单",
         "",
         f"根据脱敏节点报告生成：`{catalog.get('generated_at') or '尚无报告'}`。",
         "",
@@ -1190,7 +1221,7 @@ def render_assets(catalog: dict[str, Any]) -> str:
                     f"{'是' if scheduling.get('interactive_busy') is True else '否' if scheduling.get('interactive_busy') is False else '未知'}；"
                     f"{'繁忙' if scheduling.get('busy') else '空闲'}",
                     "- 租约：由主控实时管理，不写入资产快照；"
-                    "使用 `codex-fleet lease show` 回读。",
+                    "使用 `opl-fleet lease show` 回读。",
                     f"- 优先角色：{', '.join(f'`{item}`' for item in scheduling.get('preferred_for', [])) or '-'}",
                     f"- 资产采集时间：`{inventory['observed_at']}`",
                     "",
@@ -1246,7 +1277,7 @@ def render_assets(catalog: dict[str, Any]) -> str:
             "## 调度边界",
             "",
             "本文档是持久化的脱敏资产清单，不代表节点当前一定可用。"
-            "分配任务前必须运行 `codex-fleet doctor <node-id>` 做实时检查。",
+            "分配任务前必须运行 `opl-fleet doctor <node-id>` 做实时检查。",
             "",
         ]
     )
@@ -1332,7 +1363,7 @@ def install_macos_schedule(
     path = Path.home() / f"Library/LaunchAgents/{label}.plist"
     log_root = STATE_ROOT / "logs"
     log_root.mkdir(parents=True, exist_ok=True)
-    command = Path.home() / ".local/bin/codex-fleet"
+    command = Path.home() / ".local/bin/opl-fleet"
     launchd_path = ":".join(
         [
             str(Path.home() / ".local/bin"),
@@ -1391,10 +1422,10 @@ def install_wsl_schedule(hour: int, minute: int) -> None:
         raise FleetError("Windows scheduler launcher paths are unavailable")
     command = (
         f"{windows_cmd} /d /c {windows_wsl} -d {distro} -- "
-        f'{Path.home() / ".local/bin/codex-fleet"} '
+        f'{Path.home() / ".local/bin/opl-fleet"} '
         "reconcile --report "
-        "1>>%TEMP%\\codex-fleet-reconcile.stdout.log "
-        "2>>%TEMP%\\codex-fleet-reconcile.stderr.log"
+        "1>>%TEMP%\\opl-fleet-reconcile.stdout.log "
+        "2>>%TEMP%\\opl-fleet-reconcile.stderr.log"
     )
     if len(command) > 261:
         raise FleetError("Windows Task Scheduler command exceeds 261 characters")
@@ -1408,7 +1439,7 @@ def install_wsl_schedule(hour: int, minute: int) -> None:
             "/ST",
             f"{hour:02d}:{minute:02d}",
             "/TN",
-            "CodexFleet-Reconcile",
+            "OPLFleet-Reconcile",
             "/TR",
             command,
         ]
@@ -1418,15 +1449,15 @@ def install_wsl_schedule(hour: int, minute: int) -> None:
 def install_linux_schedule(hour: int, minute: int) -> None:
     unit_root = Path.home() / ".config/systemd/user"
     unit_root.mkdir(parents=True, exist_ok=True)
-    command = Path.home() / ".local/bin/codex-fleet"
-    (unit_root / "codex-fleet.service").write_text(
-        "[Unit]\nDescription=Reconcile private Codex fleet node\n"
+    command = Path.home() / ".local/bin/opl-fleet"
+    (unit_root / "opl-fleet.service").write_text(
+        "[Unit]\nDescription=Reconcile OPL Fleet node\n"
         "[Service]\nType=oneshot\n"
         f"ExecStart={command} reconcile --report\n",
         encoding="utf-8",
     )
-    (unit_root / "codex-fleet.timer").write_text(
-        "[Unit]\nDescription=Daily private Codex fleet reconciliation\n"
+    (unit_root / "opl-fleet.timer").write_text(
+        "[Unit]\nDescription=Daily OPL Fleet reconciliation\n"
         "[Timer]\n"
         f"OnCalendar=*-*-* {hour:02d}:{minute:02d}:00\n"
         "Persistent=true\nRandomizedDelaySec=900\n"
@@ -1434,7 +1465,7 @@ def install_linux_schedule(hour: int, minute: int) -> None:
         encoding="utf-8",
     )
     run(["systemctl", "--user", "daemon-reload"])
-    run(["systemctl", "--user", "enable", "--now", "codex-fleet.timer"])
+    run(["systemctl", "--user", "enable", "--now", "opl-fleet.timer"])
 
 
 def install_schedule(spec: dict[str, Any]) -> None:
@@ -2525,7 +2556,10 @@ def doctor_result(
                 str(ssh_alias),
                 "bash",
                 "-lc",
-                shlex.quote("codex-fleet inventory --json"),
+                shlex.quote(
+                    "if command -v opl-fleet >/dev/null 2>&1; then "
+                    "opl-fleet inventory --json; else codex-fleet inventory --json; fi"
+                ),
             ],
             check=False,
         )
@@ -3813,7 +3847,10 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
 
 def main(argv: list[str] | None = None) -> int:
     args = parse_args(argv)
-    configure_instance(args.instance)
+    instance = configure_instance(args.instance)
+    if args.action in {"join", "reconcile"}:
+        write_instance_pointer(instance)
+        install_fleet_command()
     if args.action == "join":
         return join(args)
     if args.action == "reconcile":
@@ -3865,5 +3902,5 @@ if __name__ == "__main__":
     try:
         raise SystemExit(main())
     except Exception as exc:
-        print(f"codex-fleet failed: {exc}", file=sys.stderr)
+        print(f"opl-fleet failed: {exc}", file=sys.stderr)
         raise SystemExit(1)
