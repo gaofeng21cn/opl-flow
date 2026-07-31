@@ -1,28 +1,39 @@
 # OPL Flow New Machine Setup
 
-Owner: `gaofeng`
-Purpose: `new_machine_flow_profile_setup`
-State: `active_transitional_runbook`
-Machine boundary: 本页给出现行可执行安装路径，并明确 target composition 边界。
-命令输出、platform inventory 和 fresh executor discovery 才是本机事实。
-
-This page installs the OPL Flow Profile only. For a complete OPL family setup,
-use the canonical
-[One Person Lab bootstrap guide](https://github.com/gaofeng21cn/one-person-lab/blob/main/docs/references/current-support/opl-new-machine-codex-bootstrap.md).
+Purpose: reusable workflow setup for a new Codex machine
+State: source-implemented guided workflow
+Machine boundary: commands run through each component owner; live owner and
+executor readback, not this page, proves the machine state.
 
 ## Install
 
-Current compatibility commands:
+Install the public Codex Plugin from its owner repository:
+
+```bash
+codex plugin marketplace add gaofeng21cn/opl-flow
+codex plugin add opl-flow@opl-flow-local
+```
+
+Start a new Codex task so native Skill discovery refreshes, then give one
+instruction:
+
+```text
+Use $opl-flow setup to initialize my reusable development workflow.
+```
+
+The Skill performs the guided action end to end. It doctors Git, GitHub auth,
+Codex, Beads, Profile, and optional Fleet/Linear; resolves one private
+`opl-instance-<owner>`; initializes or bootstraps its Ledger; safely prepares
+the Profile; and finishes with live readback. External repository creation and
+OAuth remain explicit user-authorized actions.
+
+For an existing OPL Framework installation, these remain supported
+compatibility carrier commands:
 
 ```bash
 opl packages install opl-flow
 opl packages update opl-flow
 ```
-
-They install the current normal Plugin identity
-`opl-flow@opl-agent-opl-flow-local`, the minimal `~/.codex/AGENTS.md`,
-non-runtime `~/.codex/TASTE.md`, `opl-flow`, and
-`coordinate-concurrent-tasks`.
 
 The current Framework route still performs policy migration and may produce
 lock, payload, provenance, rollback receipt, or other lifecycle fields. They
@@ -86,6 +97,43 @@ new executor route may report adapter missing or unavailable.
 Credentials, API keys, OAuth state, account data, and unknown user/third-party
 MCP configuration are never bundled.
 
+## Private Instance And Ledger
+
+The setup action reuses or clones an existing private Instance. Creating
+`opl-instance-<owner>` on GitHub requires fresh confirmation of the account,
+repository name, and private visibility.
+
+A new clean primary checkout uses:
+
+```bash
+python3 scripts/opl_workflow.py ledger init --instance <opl-instance>
+```
+
+A clone of an existing Instance uses Beads' owner recovery route instead:
+
+```bash
+chmod 700 .beads
+git config beads.role maintainer  # or contributor for that user's authority
+bd bootstrap --yes
+```
+
+Use the Instance as the real cwd for `bd`. Pull before a coherent mutation on
+another machine and push after it. Do not copy `.beads` runtime data, sessions,
+credentials, or logs between machines.
+
+## Update
+
+On an existing machine, give one instruction:
+
+```text
+Use $opl-flow update to update this workflow from each component owner and verify it.
+```
+
+The Skill updates Flow through its carrier, Beads through its owner channel,
+pulls Dolt, prepares any Profile update, reconciles declared Operations, and
+checks optional Linear/Fleet only when configured. A controller's older version
+never forces another machine to downgrade.
+
 ## Development Repositories
 
 The installed global Profile tells Codex to initialize CodeGraph when a
@@ -117,3 +165,16 @@ python3 scripts/install_local_plugin.py --verify-only
 The developer command validates a local Plugin/cache payload. It does not prove
 per-Package GHCR publication, complete Package currentness, Standard/Full,
 another executor, or the target migration.
+
+The public machine-readable Profile route is independent of that developer
+installer:
+
+```bash
+python3 scripts/opl_workflow.py profile status
+python3 scripts/opl_workflow.py profile prepare
+python3 scripts/opl_workflow.py profile apply --packet <reviewed-packet>
+```
+
+`prepare` leaves an unknown existing `AGENTS.md` untouched and returns a review
+packet. Only reviewed output can be applied, with stale-target and backup
+guards.

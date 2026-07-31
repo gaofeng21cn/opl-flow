@@ -203,13 +203,13 @@ codex plugin marketplace add gaofeng21cn/opl-flow
 codex plugin add opl-flow@opl-flow-local
 ```
 
-The target first-session action is:
+The source-implemented first-session action is:
 
 ```text
 Use $opl-flow setup to initialize this development workflow.
 ```
 
-`setup` must:
+The `$opl-flow` Skill coordinates these steps:
 
 1. doctor Codex, Git, GitHub authentication, and Beads;
 2. install missing dependencies only through owner-supported channels;
@@ -220,9 +220,13 @@ Use $opl-flow setup to initialize this development workflow.
 7. optionally enroll Fleet nodes through outbound authentication;
 8. finish with live readback.
 
-Only OAuth or owner-required authorization remains interactive. Core setup must
-not require OPL App, a continuously running controller, inbound SSH, Linear, or
-Fleet.
+The orchestration stays model-native rather than reimplementing package managers
+or owner APIs. `scripts/opl_workflow.py status` is the machine-readable doctor;
+`profile status/prepare/apply` owns Profile safety; ordinary Dolt and Linear
+commands remain direct `bd` calls; Fleet remains optional. Only external private
+repository creation, OAuth, or another owner-required authorization remains
+interactive. Core setup does not require OPL App, a continuously running
+controller, inbound SSH, Linear, or Fleet.
 
 ## Migration
 
@@ -237,11 +241,13 @@ Fleet.
 - **Implemented in source:** safe Beads initialization, Operations Registry
   reconciliation, and an existing-Fleet pass-through. All ordinary ledger,
   Dolt, and Linear operations use the official `bd` CLI directly.
+- **Implemented in source:** the guided `$opl-flow setup` / `update` Agent
+  workflow plus machine-readable tool/auth/Profile/Ledger/Fleet readback. The
+  source script remains a narrow owner surface, not a second package manager.
 - **Pilot:** initialize one private Instance ledger and use one Operations
   Program before making Ledger a default onboarding dependency.
-- **Remaining:** finish the guided `$opl-flow setup` / `update` experience and
-  release/install qualification. The source script is the migration entry, not
-  a second package manager.
+- **Remaining:** release/install qualification on supported fresh and upgrade
+  platforms.
 
 ### Phase 2: Authority Consolidation
 

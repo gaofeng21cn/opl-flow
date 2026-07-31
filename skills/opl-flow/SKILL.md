@@ -17,9 +17,10 @@ design and development directly.
 
 - Use this skill to install, update, sync, explain, or diagnose the minimal
   Profile.
-- Use the package-root `scripts/opl_workflow.py` only for workflow status, safe
-  Ledger initialization, Operations Registry reconciliation, and the
-  transitional Fleet facade. Use `bd` directly for ordinary ledger operations.
+- Use the package-root `scripts/opl_workflow.py` only for workflow status,
+  Profile safety, safe Ledger initialization, Operations Registry
+  reconciliation, and the transitional Fleet facade. Use `bd` directly for
+  ordinary ledger operations.
 - Use `$coordinate-concurrent-tasks` only for evidence-driven dynamic-capacity
   multi-task ownership, parallel execution, fresh-SSOT integration, and
   archive-readiness review.
@@ -27,6 +28,55 @@ design and development directly.
   readback for ordinary repository work.
 - Do not make Flow a prerequisite for Base, App, Standard, Full, plain Codex,
   another Package, or domain readiness.
+
+## One-Action Setup And Update
+
+When the user says `$opl-flow setup` or `$opl-flow update`, treat it as one
+end-to-end Agent action. Do not invent an all-in-one package manager or ask the
+user to manually execute every step. Ask only for unavoidable GitHub/OAuth
+authorization or approval to create an external private repository.
+
+For both actions:
+
+1. Run `python3 scripts/opl_workflow.py status --instance <opl-instance>` when
+   an Instance is known. Read Git, GitHub auth, Codex, Beads, Profile, Linear,
+   and Fleet independently; a missing optional component does not fail core
+   setup.
+2. Resolve one private `opl-instance-<owner>` checkout. Reuse or clone an
+   existing private repository. Before creating a GitHub repository, confirm
+   the owner/name and private visibility with the user.
+3. Install or update missing tools only from their current owner-supported
+   channel. Resolve the latest compatible release on each machine; never copy
+   binaries from another Fleet node or pin everyone to the controller version.
+4. Preserve owner boundaries and finish with live readback. Do not treat the
+   Skill prompt, Automation, Linear, a test, or a dry-run as installed truth.
+
+For `setup`:
+
+- A fresh Instance with no remote Ledger uses `ledger init`. A clone whose
+  `.beads` metadata points to existing Dolt data uses `chmod 700 .beads`, a
+  checkout-local `beads.role`, and `bd bootstrap --yes`; do not initialize a
+  second Ledger.
+- Run `profile prepare`. It installs a missing Profile, updates a previously
+  approved source update, or returns a semantic-merge packet without changing
+  an unknown existing `AGENTS.md`. Complete and review that packet before
+  `profile apply --packet <path>`.
+- Reconcile Operations only when the Instance owns
+  `operations/registry.json`. Connect Linear and enroll Fleet nodes only when
+  requested; their absence is a valid core setup.
+
+For `update`:
+
+- Update the installed OPL Flow through its current carrier owner, update `bd`
+  through the Beads owner channel, then run `bd dolt pull` in the Instance.
+- Run `profile prepare`, reconcile declared Operations, and inspect
+  `bd ready --json`. Push Dolt only after a coherent Ledger mutation.
+- Update optional Fleet nodes from each component owner and verify them only
+  when Fleet is configured. Linear sync starts with the official Beads dry-run.
+
+Terminal readback includes `opl_workflow.py status`, Profile status, `bd stats`,
+the applicable Dolt pull/push result, and carrier/executor discovery. Restart
+the selected Codex executor when Plugin discovery requires a new session.
 
 ## Ledger, Linear, And Fleet
 
@@ -36,6 +86,8 @@ mapping. Initialize only from a clean primary checkout or standalone clone;
 linked worktrees intentionally share the primary checkout's Beads database:
 
 ```bash
+python3 scripts/opl_workflow.py profile status
+python3 scripts/opl_workflow.py profile prepare
 python3 scripts/opl_workflow.py ledger init --instance <opl-instance>
 (cd <opl-instance> && bd dolt pull)
 python3 scripts/opl_workflow.py ledger reconcile-operations --instance <opl-instance>
@@ -148,6 +200,17 @@ If semantic merge cannot be validated, follow the review/apply fallback route re
 Current compatibility implementations may use a merge packet and rollback
 receipt. Do not generalize that Profile-specific safety into a Package
 lock/payload/receipt requirement.
+
+The public Profile owner surface is:
+
+```bash
+python3 scripts/opl_workflow.py profile status
+python3 scripts/opl_workflow.py profile prepare
+python3 scripts/opl_workflow.py profile apply --packet <reviewed-packet>
+```
+
+`prepare` never overwrites an unknown existing `AGENTS.md`; it returns a
+semantic-merge packet and exit status 2 until reviewed output is ready.
 
 Restart the selected executor when its discovery requires refresh.
 

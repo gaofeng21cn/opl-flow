@@ -6,10 +6,21 @@ import stat
 import subprocess
 import tempfile
 import unittest
+from contextlib import redirect_stdout
+from io import StringIO
 from pathlib import Path
 from unittest import mock
 
-from scripts.opl_workflow import PROGRAM_REF, WorkflowError, init_ledger, main, reconcile_operations, workflow_status
+from scripts.opl_workflow import (
+    PROGRAM_REF,
+    WorkflowError,
+    init_ledger,
+    linear_probe,
+    main,
+    profile_action,
+    reconcile_operations,
+    workflow_status,
+)
 
 
 class OplWorkflowTest(unittest.TestCase):
@@ -147,11 +158,67 @@ else:
             self.assertEqual(main(["fleet", "--fleet-bin", str(fleet), "repos", "status", "--json"]), 0)
             self.assertEqual(output.read_text(encoding="utf-8").splitlines(), ["repos", "status", "--json"])
 
+    def test_profile_prepare_installs_an_empty_codex_home(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            codex_home = Path(temp) / ".codex"
+            result = profile_action("prepare", codex_home)
+            self.assertEqual(result["status"], "installed")
+            self.assertTrue((codex_home / "AGENTS.md").is_file())
+            self.assertTrue((codex_home / "TASTE.md").is_file())
+            self.assertEqual(profile_action("status", codex_home)["status"], "current")
+
+    def test_profile_prepare_preserves_an_existing_custom_profile(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            codex_home = Path(temp) / ".codex"
+            codex_home.mkdir()
+            target = codex_home / "AGENTS.md"
+            target.write_text("user-owned rule\n", encoding="utf-8")
+            result = profile_action("prepare", codex_home)
+            self.assertEqual(result["status"], "requires_codex_semantic_merge")
+            self.assertEqual(target.read_text(encoding="utf-8"), "user-owned rule\n")
+            packet = Path(result["merge_packet"])
+            self.assertTrue((packet / "prompt.md").is_file())
+            self.assertTrue((packet / "merge-plan.json").is_file())
+
+    def test_profile_apply_requires_a_packet(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            with self.assertRaisesRegex(WorkflowError, "requires --packet"):
+                profile_action("apply", Path(temp))
+
+    def test_profile_prepare_uses_exit_two_for_review(self) -> None:
+        with (
+            tempfile.TemporaryDirectory() as temp,
+            mock.patch(
+                "scripts.opl_workflow.profile_action",
+                return_value={"status": "requires_codex_semantic_merge"},
+            ),
+            redirect_stdout(StringIO()),
+        ):
+            self.assertEqual(
+                main(["profile", "prepare", "--codex-home", temp]),
+                2,
+            )
+
+    def test_linear_status_drops_unknown_fields(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            bd = self.executable(
+                root / "bd",
+                "#!/bin/sh\nprintf '%s\\n' '{\"configured\":true,\"auth_mode\":\"oauth\",\"api_key\":\"secret\"}'\n",
+            )
+            result = linear_probe(root, str(bd))
+            self.assertTrue(result["configured"])
+            self.assertNotIn("api_key", result)
+
     def test_status_separates_binary_and_ledger_failures(self) -> None:
         with (
+            mock.patch("scripts.opl_workflow.cli_probe", return_value={"available": True}),
+            mock.patch("scripts.opl_workflow.github_probe", return_value={"available": True, "authenticated": True}),
+            mock.patch("scripts.opl_workflow.profile_action", return_value={"status": "current"}),
             mock.patch("scripts.opl_workflow.executable", side_effect=["/usr/bin/true", WorkflowError("no fleet")]),
             mock.patch("scripts.opl_workflow.run", return_value=subprocess.CompletedProcess([], 0, "bd version 1", "")),
             mock.patch("scripts.opl_workflow.ledger_probe", side_effect=WorkflowError("database unreadable")),
+            mock.patch("scripts.opl_workflow.linear_probe", return_value={"state": "not_configured"}),
         ):
             result = workflow_status(Path("/tmp"), None, None)
         self.assertTrue(result["beads"]["available"])

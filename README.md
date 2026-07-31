@@ -25,10 +25,20 @@ The small Ledger reconciler is now source-available in OPL Flow. Beads remains
 the database and CLI owner; Fleet remains a pass-through to the installed
 `codex-fleet` owner until authority transfer and live readback are complete.
 
-The current developer entry is:
+The user entry is one Codex action after the Plugin is installed:
+
+```text
+Use $opl-flow setup to initialize my reusable development workflow.
+Use $opl-flow update to update it from each component owner and verify it.
+```
+
+These are model-native Skill workflows, not a second package manager. Their
+machine-readable primitives remain independently callable:
 
 ```bash
 python3 scripts/opl_workflow.py status --instance <opl-instance>
+python3 scripts/opl_workflow.py profile status
+python3 scripts/opl_workflow.py profile prepare
 (cd <opl-instance> && bd dolt pull)
 python3 scripts/opl_workflow.py ledger reconcile-operations --instance <opl-instance>
 (cd <opl-instance> && bd ready --json)
@@ -37,9 +47,11 @@ python3 scripts/opl_workflow.py ledger reconcile-operations --instance <opl-inst
 python3 scripts/opl_workflow.py fleet status
 ```
 
-Beads stores task truth and due/deferred state. OPL Flow performs idempotent
-reconciliation; Codex Automation or another owner scheduler performs wakeups.
-Beads never starts Codex or dispatches an agent by itself.
+The Skill coordinates setup/update end to end while Git, GitHub, Codex, Beads,
+Linear, and Fleet keep their own install and readback authority. Beads stores
+task truth and due/deferred state. OPL Flow performs idempotent reconciliation;
+Codex Automation or another owner scheduler performs wakeups. Beads never
+starts Codex or dispatches an agent by itself.
 
 ## Public Boundary
 

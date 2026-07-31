@@ -25,6 +25,19 @@ class WorkflowError(RuntimeError):
     pass
 
 
+def flow_root() -> Path:
+    return Path(__file__).resolve().parents[1]
+
+
+def profile_owner():
+    try:
+        from scripts import install_local_plugin
+    except ImportError:
+        import install_local_plugin
+
+    return install_local_plugin
+
+
 def executable(name: str, explicit: str | None = None, env: str | None = None) -> str:
     candidate = explicit or (os.environ.get(env) if env else None) or shutil.which(name)
     if not candidate:
@@ -33,6 +46,70 @@ def executable(name: str, explicit: str | None = None, env: str | None = None) -
     if path.is_absolute() and not os.access(path, os.X_OK):
         raise WorkflowError(f"owner CLI is not executable: {path}")
     return str(path)
+
+
+def cli_probe(
+    name: str,
+    cwd: Path,
+    explicit: str | None = None,
+    *,
+    version_args: tuple[str, ...] = ("--version",),
+) -> dict[str, Any]:
+    try:
+        command = executable(name, explicit)
+        result = run([command, *version_args], cwd)
+        assert isinstance(result, subprocess.CompletedProcess)
+        version = (result.stdout or result.stderr).strip()
+        resolved = shutil.which(command) or command
+        return {
+            "available": True,
+            "path": str(Path(resolved).resolve()),
+            "version": version,
+        }
+    except WorkflowError as exc:
+        return {"available": False, "error": str(exc)}
+
+
+def github_probe(cwd: Path, explicit: str | None = None) -> dict[str, Any]:
+    tool = cli_probe("gh", cwd, explicit)
+    if not tool["available"]:
+        return tool
+    auth = run(
+        [str(tool["path"]), "auth", "status", "--hostname", "github.com"],
+        cwd,
+        check=False,
+    )
+    assert isinstance(auth, subprocess.CompletedProcess)
+    tool["authenticated"] = auth.returncode == 0
+    return tool
+
+
+def profile_action(
+    action: str,
+    codex_home: Path,
+    *,
+    packet: Path | None = None,
+) -> dict[str, Any]:
+    owner = profile_owner()
+    try:
+        if action == "status":
+            result = owner.verify_profile(flow_root(), codex_home, True)
+        elif action == "prepare":
+            result = owner.install_profile(flow_root(), codex_home)
+        elif action == "apply":
+            if packet is None:
+                raise WorkflowError("profile apply requires --packet")
+            result = owner.apply_merge_packet(flow_root(), codex_home, packet)
+        else:
+            raise WorkflowError(f"unsupported profile action: {action}")
+    except (OSError, ValueError) as exc:
+        raise WorkflowError(str(exc)) from exc
+    return {
+        "schema": "opl_flow_profile_action.v1",
+        "action": action,
+        "codex_home": str(codex_home),
+        **result,
+    }
 
 
 def run(
@@ -87,6 +164,32 @@ def ledger_probe(root: Path, bd: str) -> dict[str, Any] | None:
     if not isinstance(payload, dict):
         raise WorkflowError("bd status returned an invalid payload")
     return payload
+
+
+def linear_probe(root: Path, bd: str) -> dict[str, Any]:
+    result = run([bd, "linear", "status", "--json"], root, check=False)
+    assert isinstance(result, subprocess.CompletedProcess)
+    if result.returncode:
+        return {"state": "error", "error": (result.stderr or result.stdout).strip()}
+    try:
+        payload = json.loads(result.stdout)
+    except json.JSONDecodeError:
+        return {"state": "error", "error": "bd linear status returned invalid JSON"}
+    if not isinstance(payload, dict):
+        return {"state": "error", "error": "bd linear status returned an invalid payload"}
+    allowed = (
+        "auth_mode",
+        "configured",
+        "has_api_key",
+        "has_oauth",
+        "last_sync",
+        "pending_push",
+        "team_id",
+        "team_ids",
+        "total_issues",
+        "with_linear_ref",
+    )
+    return {"state": "current", **{key: payload.get(key) for key in allowed}}
 
 
 def secure_ledger_dir(root: Path) -> None:
@@ -278,21 +381,43 @@ def reconcile_operations(
     }
 
 
-def workflow_status(instance: Path | None, bd_arg: str | None, fleet_arg: str | None) -> dict[str, Any]:
+def workflow_status(
+    instance: Path | None,
+    bd_arg: str | None,
+    fleet_arg: str | None,
+    *,
+    git_arg: str | None = None,
+    gh_arg: str | None = None,
+    codex_arg: str | None = None,
+    codex_home: Path | None = None,
+) -> dict[str, Any]:
     payload: dict[str, Any] = {"schema": "opl_flow_workflow_status.v1", "instance": str(instance) if instance else None}
+    cwd = instance or Path.cwd()
+    payload["git"] = cli_probe("git", cwd, git_arg)
+    payload["github"] = github_probe(cwd, gh_arg)
+    payload["codex"] = cli_probe("codex", cwd, codex_arg)
+    try:
+        payload["profile"] = profile_action(
+            "status",
+            (codex_home or Path.home() / ".codex").expanduser().resolve(),
+        )
+    except WorkflowError as exc:
+        payload["profile"] = {"status": "error", "error": str(exc)}
     try:
         bd = executable("bd", bd_arg)
-        version = run([bd, "version"], instance or Path.cwd())
+        version = run([bd, "version"], cwd)
         assert isinstance(version, subprocess.CompletedProcess)
         payload["beads"] = {"available": True, "path": str(Path(bd).resolve()), "version": version.stdout.strip()}
     except WorkflowError as exc:
         payload["beads"] = {"available": False, "error": str(exc)}
         payload["ledger"] = {"state": "unknown" if instance else "not_configured"}
+        payload["linear"] = {"state": "unknown" if instance else "not_configured"}
     else:
         try:
             payload["ledger"] = ledger_probe(instance, bd) if instance else {"state": "not_configured"}
         except WorkflowError as exc:
             payload["ledger"] = {"state": "error", "error": str(exc)}
+        payload["linear"] = linear_probe(instance, bd) if instance else {"state": "not_configured"}
     try:
         fleet = executable("codex-fleet", fleet_arg, "OPL_FLEET_BIN")
         payload["fleet"] = {"available": True, "path": str(Path(fleet).resolve()), "owner": "codex-fleet"}
@@ -308,6 +433,18 @@ def parser() -> argparse.ArgumentParser:
     status.add_argument("--instance")
     status.add_argument("--bd-bin")
     status.add_argument("--fleet-bin")
+    status.add_argument("--git-bin")
+    status.add_argument("--gh-bin")
+    status.add_argument("--codex-bin")
+    status.add_argument("--codex-home", type=Path)
+    profile = commands.add_parser("profile")
+    profile_commands = profile.add_subparsers(dest="profile_command", required=True)
+    for name in ("status", "prepare"):
+        command = profile_commands.add_parser(name)
+        command.add_argument("--codex-home", type=Path, default=Path.home() / ".codex")
+    apply_profile = profile_commands.add_parser("apply")
+    apply_profile.add_argument("--codex-home", type=Path, default=Path.home() / ".codex")
+    apply_profile.add_argument("--packet", required=True, type=Path)
     ledger = commands.add_parser("ledger")
     ledger_commands = ledger.add_subparsers(dest="ledger_command", required=True)
     init = ledger_commands.add_parser("init")
@@ -329,8 +466,31 @@ def main(argv: list[str] | None = None) -> int:
     args = parser().parse_args(argv)
     try:
         if args.command == "status":
-            print(json.dumps(workflow_status(instance_root(args.instance, required=False), args.bd_bin, args.fleet_bin), ensure_ascii=False, indent=2, sort_keys=True))
+            print(
+                json.dumps(
+                    workflow_status(
+                        instance_root(args.instance, required=False),
+                        args.bd_bin,
+                        args.fleet_bin,
+                        git_arg=args.git_bin,
+                        gh_arg=args.gh_bin,
+                        codex_arg=args.codex_bin,
+                        codex_home=args.codex_home,
+                    ),
+                    ensure_ascii=False,
+                    indent=2,
+                    sort_keys=True,
+                )
+            )
             return 0
+        if args.command == "profile":
+            result = profile_action(
+                args.profile_command,
+                args.codex_home.expanduser().resolve(),
+                packet=getattr(args, "packet", None),
+            )
+            print(json.dumps(result, ensure_ascii=False, indent=2, sort_keys=True))
+            return 2 if result.get("status") == "requires_codex_semantic_merge" else 0
         if args.command == "fleet":
             fleet = executable("codex-fleet", args.fleet_bin, "OPL_FLEET_BIN")
             return subprocess.run([fleet, *(args.fleet_args or ["status"])], check=False).returncode
