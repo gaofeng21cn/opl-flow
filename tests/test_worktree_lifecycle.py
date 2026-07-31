@@ -301,6 +301,152 @@ class WorktreeLifecycleTests(unittest.TestCase):
 
         self.assertEqual(self.ledger.read_bytes(), before)
 
+    def test_amend_objective_preserves_source_custody_and_recovery(self) -> None:
+        self.register()
+        self.commit_lane()
+        recovery = worktree_lifecycle.checkpoint(
+            self.ledger,
+            worktree=self.lane,
+            remote="origin",
+        )
+        git(
+            self.repo,
+            "worktree",
+            "add",
+            "-b",
+            "other-lane",
+            str(self.other_lane),
+            "main",
+        )
+        worktree_lifecycle.register(
+            self.ledger,
+            repo_root=self.repo,
+            worktree=self.other_lane,
+            thread_id="thread-2",
+            objective_id="objective-2",
+            owner="owner-2",
+            execution_owner="owner-2",
+            next_action="continue",
+            write_set=["lane.txt"],
+        )
+        before = self.register()
+
+        receipt = worktree_lifecycle.amend_objective(
+            self.ledger,
+            repo_root=self.repo,
+            worktree=self.lane,
+            expected_thread_id="thread-1",
+            expected_objective_id="objective-1",
+            expected_owner="owner-1",
+            expected_execution_owner="owner-1",
+            new_objective_id="objective-current",
+            next_action="continue under current objective",
+        )
+
+        self.assertEqual(receipt["objective_id"], "objective-current")
+        self.assertEqual(receipt["next_action"], "continue under current objective")
+        self.assertTrue(receipt["updated_at"])
+        self.assertEqual(receipt["thread_id"], before["thread_id"])
+        self.assertEqual(receipt["owner"], before["owner"])
+        self.assertEqual(receipt["execution_owner"], before["execution_owner"])
+        self.assertEqual(receipt["worktree"], before["worktree"])
+        self.assertEqual(receipt["repo_root"], before["repo_root"])
+        self.assertEqual(receipt["write_set"], before["write_set"])
+        self.assertEqual(receipt["integration_overlaps"], before["integration_overlaps"])
+        self.assertEqual(receipt["remote_recovery"], recovery)
+        self.assertEqual(set(receipt) - set(before), {"updated_at"})
+
+    def test_amend_objective_fails_closed_on_identity_drift(self) -> None:
+        self.register()
+        before = self.ledger.read_bytes()
+        expected_identity = {
+            "expected_thread_id": "thread-1",
+            "expected_objective_id": "objective-1",
+            "expected_owner": "owner-1",
+            "expected_execution_owner": "owner-1",
+        }
+
+        for field in expected_identity:
+            stale_identity = {**expected_identity, field: "stale"}
+            with self.subTest(field=field):
+                with self.assertRaisesRegex(
+                    worktree_lifecycle.LifecycleError,
+                    "identity changed",
+                ):
+                    worktree_lifecycle.amend_objective(
+                        self.ledger,
+                        repo_root=self.repo,
+                        worktree=self.lane,
+                        **stale_identity,
+                        new_objective_id="objective-current",
+                        next_action="continue under current objective",
+                    )
+                self.assertEqual(self.ledger.read_bytes(), before)
+
+    def test_amend_objective_fails_closed_without_active_receipt(self) -> None:
+        self.register()
+        payload = json.loads(self.ledger.read_text(encoding="utf-8"))
+        payload["entries"][0]["status"] = "SAFE_TO_ARCHIVE"
+        self.ledger.write_text(json.dumps(payload), encoding="utf-8")
+        before = self.ledger.read_bytes()
+
+        with self.assertRaisesRegex(worktree_lifecycle.LifecycleError, "ACTIVE receipt"):
+            worktree_lifecycle.amend_objective(
+                self.ledger,
+                repo_root=self.repo,
+                worktree=self.lane,
+                expected_thread_id="thread-1",
+                expected_objective_id="objective-1",
+                expected_owner="owner-1",
+                expected_execution_owner="owner-1",
+                new_objective_id="objective-current",
+                next_action="continue under current objective",
+            )
+
+        self.assertEqual(self.ledger.read_bytes(), before)
+
+    def test_amend_objective_fails_closed_without_receipt(self) -> None:
+        with self.assertRaisesRegex(worktree_lifecycle.LifecycleError, "ACTIVE receipt"):
+            worktree_lifecycle.amend_objective(
+                self.ledger,
+                repo_root=self.repo,
+                worktree=self.lane,
+                expected_thread_id="thread-1",
+                expected_objective_id="objective-1",
+                expected_owner="owner-1",
+                expected_execution_owner="owner-1",
+                new_objective_id="objective-current",
+                next_action="continue under current objective",
+            )
+
+        self.assertFalse(self.ledger.exists())
+
+    def test_parser_exposes_amend_objective_identity_guards(self) -> None:
+        arguments = worktree_lifecycle.parser().parse_args(
+            [
+                "amend-objective",
+                "--repo-root",
+                str(self.repo),
+                "--worktree",
+                str(self.lane),
+                "--expected-thread-id",
+                "thread-1",
+                "--expected-objective-id",
+                "objective-1",
+                "--expected-owner",
+                "owner-1",
+                "--expected-execution-owner",
+                "owner-1",
+                "--new-objective-id",
+                "objective-current",
+                "--next-action",
+                "continue",
+            ]
+        )
+
+        self.assertEqual(arguments.command, "amend-objective")
+        self.assertIn("amend-objective", worktree_lifecycle.parser().format_help())
+
     def test_checkpoint_rejects_noncanonical_remote(self) -> None:
         self.register()
 
