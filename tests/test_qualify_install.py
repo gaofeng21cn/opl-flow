@@ -26,7 +26,7 @@ def receipt(platform: str, mode: str, invocation: str = "not_run") -> dict[str, 
         "target_after_sha256": "sha256:" + "c" * 64,
         "preserved_distinct_preferences": mode == "upgrade",
         "review_packet_status": "not_required",
-        "rollback_available": True,
+        "rollback_available": mode == "upgrade",
     }
     value: dict[str, object] = {
         "schema": "opl_flow_install_qualification_receipt.v1",
@@ -129,6 +129,18 @@ class QualificationTests(unittest.TestCase):
         values = self.matrix()
         values[1]["profile"]["preserved_distinct_preferences"] = False  # type: ignore[index]
         with self.assertRaisesRegex(QualificationError, "preserve distinct"):
+            self.verify(values, legacy_full_matrix=True)
+
+    def test_upgrade_requires_profile_rollback(self) -> None:
+        values = self.matrix()
+        values[1]["profile"]["rollback_available"] = False  # type: ignore[index]
+        with self.assertRaisesRegex(QualificationError, "upgrade profile rollback must be available"):
+            self.verify(values, legacy_full_matrix=True)
+
+    def test_profile_rollback_availability_must_be_boolean(self) -> None:
+        values = self.matrix()
+        values[0]["profile"]["rollback_available"] = "unknown"  # type: ignore[index]
+        with self.assertRaisesRegex(QualificationError, "profile rollback availability must be boolean"):
             self.verify(values, legacy_full_matrix=True)
 
     def test_core_must_not_depend_on_optional_adapters(self) -> None:

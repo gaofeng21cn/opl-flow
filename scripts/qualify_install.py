@@ -142,9 +142,11 @@ def validate_receipt(
     require(profile.get("initial_state") == ("absent" if mode == "fresh" else "existing"), "profile initial state does not match install mode")
     after = profile.get("target_after_sha256")
     require(isinstance(after, str) and SHA256.fullmatch(after) is not None, "profile target_after_sha256 is invalid")
-    require(profile.get("rollback_available") is True, "profile rollback must be available")
+    rollback_available = profile.get("rollback_available")
+    require(isinstance(rollback_available, bool), "profile rollback availability must be boolean")
     require(profile.get("review_packet_status") in {"not_required", "produced_and_unapplied", "reviewed_and_applied"}, "profile review packet status is invalid")
     if mode == "upgrade":
+        require(rollback_available is True, "upgrade profile rollback must be available")
         before = profile.get("target_before_sha256")
         require(isinstance(before, str) and SHA256.fullmatch(before) is not None, "upgrade profile target_before_sha256 is invalid")
         require(profile.get("preserved_distinct_preferences") is True, "upgrade must preserve distinct profile preferences")
