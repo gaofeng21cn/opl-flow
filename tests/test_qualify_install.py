@@ -18,9 +18,24 @@ VERSION = "0.1.30"
 PREDECESSOR = "0.1.24"
 SOURCE_COMMIT = "a" * 40
 DIGEST = "sha256:" + "b" * 64
+SKILLS_0_1_29 = ["coordinate-concurrent-tasks", "opl-flow"]
+SKILLS_0_1_30 = [
+    "coordinate-concurrent-tasks",
+    "develop-and-deliver",
+    "opl-flow",
+    "recover-codex-tasks",
+    "task-mode-gate",
+]
 
 
-def receipt(platform: str, mode: str, invocation: str = "not_run") -> dict[str, object]:
+def receipt(
+    platform: str,
+    mode: str,
+    invocation: str = "not_run",
+    *,
+    version: str = VERSION,
+    skills: list[str] | None = None,
+) -> dict[str, object]:
     profile: dict[str, object] = {
         "initial_state": "absent" if mode == "fresh" else "existing",
         "target_after_sha256": "sha256:" + "c" * 64,
@@ -33,23 +48,17 @@ def receipt(platform: str, mode: str, invocation: str = "not_run") -> dict[str, 
         "status": "passed",
         "observed_at": "2026-07-31T12:00:00Z",
         "platform": {"family": platform, "install_mode": mode, "os_version": "test", "arch": "test"},
-        "package": {"id": "opl-flow", "version": VERSION, "owner_source_commit": SOURCE_COMMIT, "publication_digest": DIGEST},
+        "package": {"id": "opl-flow", "version": version, "owner_source_commit": SOURCE_COMMIT, "publication_digest": DIGEST},
         "carrier": {
             "owner_route": f"opl packages {'install' if mode == 'fresh' else 'update'} opl-flow",
-            "installed_version": VERSION,
+            "installed_version": version,
             "installed_source_commit": SOURCE_COMMIT,
             "readback_status": "current",
         },
         "profile": profile,
         "core": {"status": "current", "linear_configured": False, "fleet_configured": False},
         "discovery": {
-            "skills": [
-                "coordinate-concurrent-tasks",
-                "develop-and-deliver",
-                "opl-flow",
-                "recover-codex-tasks",
-                "task-mode-gate",
-            ],
+            "skills": SKILLS_0_1_30 if skills is None else skills,
             "new_codex_session_invocation": invocation,
         },
     }
@@ -65,6 +74,7 @@ class QualificationTests(unittest.TestCase):
         values: list[dict[str, object]],
         triggers: list[str] | None = None,
         legacy_full_matrix: bool = False,
+        expected_version: str = VERSION,
     ) -> dict[str, object]:
         with tempfile.TemporaryDirectory() as temp_dir:
             paths = []
@@ -73,7 +83,7 @@ class QualificationTests(unittest.TestCase):
                 path.write_text(json.dumps(value), encoding="utf-8")
                 paths.append(path)
             args = argparse.Namespace(
-                expected_version=VERSION,
+                expected_version=expected_version,
                 expected_predecessor_version=PREDECESSOR,
                 expected_source_commit=SOURCE_COMMIT,
                 expected_digest=DIGEST,
@@ -84,9 +94,20 @@ class QualificationTests(unittest.TestCase):
                 return verify_matrix(args)
             return verify_qualification(args)
 
-    def matrix(self) -> list[dict[str, object]]:
+    def matrix(
+        self,
+        *,
+        version: str = VERSION,
+        skills: list[str] | None = None,
+    ) -> list[dict[str, object]]:
         return [
-            receipt(platform, mode, "passed" if (platform, mode) == ("macos", "fresh") else "not_run")
+            receipt(
+                platform,
+                mode,
+                "passed" if (platform, mode) == ("macos", "fresh") else "not_run",
+                version=version,
+                skills=skills,
+            )
             for platform in ("macos", "linux", "windows-wsl")
             for mode in ("fresh", "upgrade")
         ]
@@ -96,6 +117,24 @@ class QualificationTests(unittest.TestCase):
         self.assertEqual(result["status"], "passed")
         self.assertEqual(result["receipt_count"], 6)
         self.assertEqual(result["qualification_level"], "system-certification")
+
+    def test_0_1_29_uses_its_release_bound_skill_set(self) -> None:
+        values = self.matrix(version="0.1.29", skills=SKILLS_0_1_29)
+        result = self.verify(
+            values,
+            triggers=["first-supported-release"],
+            expected_version="0.1.29",
+        )
+        self.assertEqual(result["status"], "passed")
+        self.assertEqual(result["receipt_count"], 6)
+
+    def test_unknown_release_skill_set_fails_closed(self) -> None:
+        values = [
+            receipt("linux", mode, version="0.1.31")
+            for mode in ("fresh", "upgrade")
+        ]
+        with self.assertRaisesRegex(QualificationError, "no declared core Skill set"):
+            self.verify(values, expected_version="0.1.31")
 
     def test_routine_release_uses_one_reference_platform(self) -> None:
         values = [receipt("linux", "fresh"), receipt("linux", "upgrade")]
