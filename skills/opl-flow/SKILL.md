@@ -19,7 +19,7 @@ design and development directly.
   Profile.
 - Use the package-root `scripts/opl_workflow.py` only for workflow status,
   Profile safety, safe Ledger initialization, Operations Registry
-  reconciliation, and the transitional Fleet facade. Use `bd` directly for
+  reconciliation, and the optional Fleet engine. Use `bd` directly for
   ordinary ledger operations.
 - Use `$coordinate-concurrent-tasks` only for evidence-driven dynamic-capacity
   multi-task ownership, parallel execution, fresh-SSOT integration, and
@@ -117,13 +117,18 @@ Linear remains an optional Beads-native human portal:
 Use `LINEAR_API_KEY` or Beads-supported OAuth environment variables. Never
 write those values to Git, Beads issue text, logs, or Flow configuration.
 
-During Fleet authority migration, pass Fleet arguments unchanged to the
-installed owner CLI:
+When the Instance contains `fleet/fleet.json` and `fleet/nodes.json`, OPL Flow
+runs its bundled generic Fleet engine. The old `codex-fleet` binary is accepted
+only as a transition fallback:
 
 ```bash
-python3 scripts/opl_workflow.py fleet status
-python3 scripts/opl_workflow.py fleet repos status
+python3 scripts/opl_workflow.py fleet --instance <opl-instance> status
+python3 scripts/opl_workflow.py fleet --instance <opl-instance> repos status
 ```
+
+The Instance owns node IDs, scheduling policy, runner bindings, private assets,
+and sanitized receipts. Flow owns the reusable engine. Never infer machine
+availability from static policy; use fresh `doctor` admission before dispatch.
 
 Beads stores due/deferred state but never wakes Codex. Codex Automation, cron,
 or CI owns wakeup; OPL Flow owns idempotent reconciliation; Codex owns task

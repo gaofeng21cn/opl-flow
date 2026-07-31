@@ -1,21 +1,23 @@
 {
   "name": "opl-flow",
   "version": "0.1.28",
-  "description": "OPL Flow installs a minimal Codex preference profile and an evidence-driven dynamic-capacity concurrent-task coordination skill.",
+  "description": "OPL Flow provides a model-native Codex profile, durable task ledger workflow, and optional multi-machine Fleet engine.",
   "author": {
     "name": "Gaofeng"
   },
   "skills": "./skills/",
   "interface": {
     "displayName": "OPL Flow",
-    "shortDescription": "Pragmatic Codex workflow profile",
-    "longDescription": "OPL Flow packages a minimal AGENTS.md preference profile, RTK and CodeGraph guidance, plus dynamic-capacity multi-task coordination with user-approved archival.",
+    "shortDescription": "Reusable Codex development workflow",
+    "longDescription": "OPL Flow packages a concise Codex profile, Beads-backed durable task workflow, dynamic-capacity coordination, and an optional Instance-backed multi-machine Fleet engine.",
     "developerName": "Gaofeng",
     "category": "Developer Tools",
     "capabilities": [
       "workflow",
       "preferences",
       "task-coordination",
+      "durable-ledger",
+      "multi-machine-fleet",
       "codegraph-bootstrap"
     ],
     "defaultPrompt": "Use OPL Flow to install or diagnose the profile, or coordinate concurrent Codex tasks safely."

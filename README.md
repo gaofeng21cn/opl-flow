@@ -1,9 +1,9 @@
 # OPL Flow
 
-OPL Flow distributes a minimal, model-native preference profile. It is an OPL
-Package whose capabilities include the user-level `AGENTS.md`, non-runtime
-`TASTE.md`, the `opl-flow` skill, and the evidence-driven dynamic-capacity
-`coordinate-concurrent-tasks` skill.
+OPL Flow distributes a model-native development workflow. It is an OPL Package
+whose capabilities include the user-level Profile, workflow Skills, the
+Beads-backed OPL Ledger adapter, and the optional multi-machine OPL Fleet
+engine.
 
 Flow is optional. OPL App may include it as a default root in the App Official
 Profile, but Flow is not a readiness prerequisite for OPL Base, OPL App,
@@ -12,8 +12,8 @@ Standard, Full, ordinary Codex, another Package, or a domain Agent.
 ## Reusable Workflow System
 
 OPL Flow is the single public product for the reusable development workflow.
-Its capabilities include the Beads-backed **OPL Ledger**, a transitional facade
-for the existing multi-machine **OPL Fleet**, Git/worktree lifecycle, and the workflow Skills
+Its capabilities include the Beads-backed **OPL Ledger**, the multi-machine
+**OPL Fleet**, Git/worktree lifecycle, and the workflow Skills
 that are tightly coupled to those capabilities. Each owner keeps dynamic
 ledger data, Fleet nodes and policy, repository governance, private overlays,
 and personal Skills in one private **OPL Instance**.
@@ -21,9 +21,10 @@ and personal Skills in one private **OPL Instance**.
 [Reusable Development Workflow Architecture](docs/reusable-workflow-architecture.md)
 is the SSOT for product names, module ownership, public/private repository
 boundaries, multi-machine repository currentness, onboarding, and migration.
-The small Ledger reconciler is now source-available in OPL Flow. Beads remains
-the database and CLI owner; Fleet remains a pass-through to the installed
-`codex-fleet` owner until authority transfer and live readback are complete.
+The Ledger reconciler and generic Fleet engine are source-owned by OPL Flow.
+Beads remains the database and CLI owner; one private OPL Instance owns Fleet
+nodes, policy, assets, and sanitized receipts. The former `codex-fleet` command
+is only a compatibility entry for already enrolled personal nodes.
 
 The user entry is one Codex action after the Plugin is installed:
 
@@ -44,7 +45,7 @@ python3 scripts/opl_workflow.py ledger reconcile-operations --instance <opl-inst
 (cd <opl-instance> && bd ready --json)
 (cd <opl-instance> && bd dolt push)
 (cd <opl-instance> && bd linear status --json)
-python3 scripts/opl_workflow.py fleet status
+python3 scripts/opl_workflow.py fleet --instance <opl-instance> status
 ```
 
 The Skill coordinates setup/update end to end while Git, GitHub, Codex, Beads,
@@ -52,6 +53,11 @@ Linear, and Fleet keep their own install and readback authority. Beads stores
 task truth and due/deferred state. OPL Flow performs idempotent reconciliation;
 Codex Automation or another owner scheduler performs wakeups. Beads never
 starts Codex or dispatches an agent by itself.
+
+OPL Fleet is optional. Its public engine never contains an owner's topology or
+private assets and does not copy tool bytes between machines. Each node updates
+from component owners; the Instance contributes only desired policy and
+sanitized state.
 
 ## Public Boundary
 

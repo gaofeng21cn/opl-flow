@@ -34,6 +34,8 @@ REQUIRED_FILES = (
     "scripts/worktree_fleet_audit.py",
     "scripts/worktree_lifecycle.py",
     "scripts/opl_workflow.py",
+    "scripts/opl_fleet.py",
+    "scripts/fleet_inventory.py",
     "profile/manifest.json",
     "profile/modules/01-user-preferences.md",
 )
@@ -47,6 +49,8 @@ CORE_TEST_MODULES = (
     "tests/test_worktree_fleet_audit.py",
     "tests/test_worktree_lifecycle.py",
     "tests/test_opl_workflow.py",
+    "tests/test_opl_fleet.py",
+    "tests/test_fleet_inventory.py",
 )
 VERIFY_LANES = ("core", "full")
 

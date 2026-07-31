@@ -154,6 +154,19 @@ def instance_root(value: str | Path | None, *, required: bool = True) -> Path | 
     return root
 
 
+def fleet_command(instance: Path | None, explicit: str | None) -> tuple[list[str], str]:
+    bundled = flow_root() / "scripts" / "opl_fleet.py"
+    if instance and (instance / "fleet/fleet.json").is_file() and (
+        instance / "fleet/nodes.json"
+    ).is_file():
+        return (
+            [sys.executable, str(bundled), "--instance", str(instance)],
+            "opl-flow",
+        )
+    fleet = executable("codex-fleet", explicit, "OPL_FLEET_BIN")
+    return ([fleet], "codex-fleet-compatibility")
+
+
 def ledger_probe(root: Path, bd: str) -> dict[str, Any] | None:
     result = run([bd, "status", "--no-activity", "--json"], root, check=False)
     assert isinstance(result, subprocess.CompletedProcess)
@@ -424,10 +437,19 @@ def workflow_status(
             payload["ledger"] = {"state": "error", "error": str(exc)}
         payload["linear"] = linear_probe(instance, bd) if instance else {"state": "not_configured"}
     try:
-        fleet = executable("codex-fleet", fleet_arg, "OPL_FLEET_BIN")
-        payload["fleet"] = {"available": True, "path": str(Path(fleet).resolve()), "owner": "codex-fleet"}
+        fleet, owner = fleet_command(instance, fleet_arg)
+        executable_path = Path(fleet[1] if fleet[0] == sys.executable else fleet[0])
+        payload["fleet"] = {
+            "available": True,
+            "path": str(executable_path.resolve()),
+            "owner": owner,
+        }
     except WorkflowError as exc:
-        payload["fleet"] = {"available": False, "error": str(exc), "owner": "codex-fleet"}
+        payload["fleet"] = {
+            "available": False,
+            "error": str(exc),
+            "owner": "opl-flow",
+        }
     return payload
 
 
@@ -462,6 +484,7 @@ def parser() -> argparse.ArgumentParser:
     reconcile.add_argument("--dry-run", action="store_true")
     reconcile.add_argument("--bd-bin")
     fleet = commands.add_parser("fleet", add_help=False)
+    fleet.add_argument("--instance")
     fleet.add_argument("--fleet-bin")
     fleet.add_argument("fleet_args", nargs=argparse.REMAINDER)
     return root
@@ -497,8 +520,15 @@ def main(argv: list[str] | None = None) -> int:
             print(json.dumps(result, ensure_ascii=False, indent=2, sort_keys=True))
             return 2 if result.get("status") == "requires_codex_semantic_merge" else 0
         if args.command == "fleet":
-            fleet = executable("codex-fleet", args.fleet_bin, "OPL_FLEET_BIN")
-            return subprocess.run([fleet, *(args.fleet_args or ["status"])], check=False).returncode
+            instance = instance_root(args.instance, required=False)
+            fleet, _ = fleet_command(instance, args.fleet_bin)
+            environment = os.environ.copy()
+            environment["PYTHONDONTWRITEBYTECODE"] = "1"
+            return subprocess.run(
+                [*fleet, *(args.fleet_args or ["status"])],
+                check=False,
+                env=environment,
+            ).returncode
         root = instance_root(args.instance)
         assert root is not None
         bd = executable("bd", args.bd_bin)

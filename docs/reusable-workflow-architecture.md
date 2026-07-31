@@ -251,8 +251,14 @@ controller, inbound SSH, Linear, or Fleet.
 
 ### Phase 2: Authority Consolidation
 
-- Move the generic Fleet engine and `codex-machine-sync` behavior into OPL
-  Flow.
+- **Implemented in source:** the generic Fleet engine is owned by OPL Flow and
+  consumes an explicit private Instance root; personal node policy, assets, and
+  the receipt workflow live under `opl-instance-<owner>/fleet/`.
+- **Compatibility rollout:** existing personal nodes may continue invoking the
+  `codex-fleet` command while it delegates to the Flow engine. The alias is not
+  a source or data authority and can be retired after installed readback.
+- Move reusable `codex-machine-sync` behavior into OPL Flow after the Fleet
+  engine rollout; keep its private preset in the Instance.
 - Move workflow-coupled Skills into OPL Flow.
 - Move Fleet private data, Repository Governance, the Operations Registry,
   private overlays, personal Skills, and Beads data into

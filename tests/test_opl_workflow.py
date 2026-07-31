@@ -160,6 +160,36 @@ else:
             self.assertEqual(main(["fleet", "--fleet-bin", str(fleet), "repos", "status", "--json"]), 0)
             self.assertEqual(output.read_text(encoding="utf-8").splitlines(), ["repos", "status", "--json"])
 
+    def test_fleet_uses_bundled_engine_for_an_instance(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            instance = Path(temp) / "instance"
+            (instance / "fleet").mkdir(parents=True)
+            for name in ("fleet.json", "nodes.json"):
+                (instance / "fleet" / name).write_text("{}\n", encoding="utf-8")
+            with mock.patch("scripts.opl_workflow.subprocess.run") as command:
+                command.return_value = subprocess.CompletedProcess([], 0, "", "")
+                self.assertEqual(
+                    main(
+                        [
+                            "fleet",
+                            "--instance",
+                            str(instance),
+                            "nodes",
+                            "--json",
+                        ]
+                    ),
+                    0,
+                )
+            argv = command.call_args.args[0]
+            self.assertEqual(argv[0], sys.executable)
+            self.assertEqual(Path(argv[1]).name, "opl_fleet.py")
+            self.assertEqual(argv[2:4], ["--instance", str(instance.resolve())])
+            self.assertEqual(argv[4:], ["nodes", "--json"])
+            self.assertEqual(
+                command.call_args.kwargs["env"]["PYTHONDONTWRITEBYTECODE"],
+                "1",
+            )
+
     def test_profile_prepare_installs_an_empty_codex_home(self) -> None:
         with tempfile.TemporaryDirectory() as temp:
             codex_home = Path(temp) / ".codex"
