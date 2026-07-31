@@ -37,10 +37,10 @@ linked worktrees intentionally share the primary checkout's Beads database:
 
 ```bash
 python3 scripts/opl_workflow.py ledger init --instance <opl-instance>
-bd -C <opl-instance> dolt pull
+(cd <opl-instance> && bd dolt pull)
 python3 scripts/opl_workflow.py ledger reconcile-operations --instance <opl-instance>
-bd -C <opl-instance> ready --json
-bd -C <opl-instance> dolt push
+(cd <opl-instance> && bd ready --json)
+(cd <opl-instance> && bd dolt push)
 ```
 
 The adapter always passes `--skip-agents --skip-hooks --non-interactive` to
@@ -50,15 +50,16 @@ references. Completing a review requires updating the Registry's
 `next_review_on` before the next reconciliation.
 
 Embedded Dolt is single-writer on one machine. Pull before claiming or writing
-on another machine, and push after a coherent mutation. New clones use
-`bd bootstrap --yes`, mode `0700`, and a checkout-local `beads.role` matching
-the user's authority; `.beads/issues.jsonl` is not the cross-machine authority.
+on another machine, and push after a coherent mutation. In a new clone, set
+`.beads` to mode `0700` and configure checkout-local `beads.role` before
+`bd bootstrap --yes`; choose the role according to the user's authority.
+`.beads/issues.jsonl` is not the cross-machine authority.
 
 Linear remains an optional Beads-native human portal:
 
 ```bash
-bd -C <opl-instance> linear status --json
-bd -C <opl-instance> linear sync --dry-run --json
+(cd <opl-instance> && bd linear status --json)
+(cd <opl-instance> && bd linear sync --dry-run --json)
 ```
 
 Use `LINEAR_API_KEY` or Beads-supported OAuth environment variables. Never

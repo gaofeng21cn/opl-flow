@@ -29,11 +29,11 @@ The current developer entry is:
 
 ```bash
 python3 scripts/opl_workflow.py status --instance <opl-instance>
-bd -C <opl-instance> dolt pull
+(cd <opl-instance> && bd dolt pull)
 python3 scripts/opl_workflow.py ledger reconcile-operations --instance <opl-instance>
-bd -C <opl-instance> ready --json
-bd -C <opl-instance> dolt push
-bd -C <opl-instance> linear status --json
+(cd <opl-instance> && bd ready --json)
+(cd <opl-instance> && bd dolt push)
+(cd <opl-instance> && bd linear status --json)
 python3 scripts/opl_workflow.py fleet status
 ```
 
