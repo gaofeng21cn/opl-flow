@@ -35,14 +35,15 @@ OPL Flow keeps Codex model-native:
 | **OPL Flow** | `gaofeng21cn/opl-flow` | Single public product, Codex Plugin/Profile, bootstrap, doctor, core workflow Skills, Ledger adapter, Git lifecycle, and Fleet engine |
 | **OPL Ledger** | OPL Flow module backed by Beads | Dynamic Program, slice, dependency, owner, task, checkpoint, and remaining state |
 | **OPL Fleet** | OPL Flow module | Multi-machine join, capability parity, repository currentness, lease/admission, and optional dispatch |
-| **OPL Skills** | target `gaofeng21cn/opl-skills`; currently `gaofeng21cn/codex-skills-public` | Optional, independently installable public enhancements |
-| **OPL Instance: `<owner>`** | one private repository per owner; for this owner target `gaofeng21cn/opl-instance-gaofeng` | Private Ledger data, Fleet nodes/policy, repository governance, private overlays, personal Skills, and sanitized receipts |
+| **OPL Skills** | `gaofeng21cn/opl-skills` | Optional, independently installable public enhancements |
+| **OPL Instance: `<owner>`** | one private repository per owner; for this owner `gaofeng21cn/opl-instance-gaofeng` | Private Ledger data, Fleet nodes/policy, repository governance, private overlays, personal Skills, and sanitized receipts |
 | **OPL Personal Skills** | `skills/` inside the owner's OPL Instance | Private or personal Skill source; not a separate user-facing product |
 
-The target names are approved product names. Physical GitHub repository and
-local-directory renames happen only in the migration phase that also updates
-all clone URLs, remotes, manifests, installer routes, workflows, and live node
-checkouts. A GitHub redirect is compatibility help, not migration proof.
+The GitHub repository renames to `opl-skills` and `opl-instance-gaofeng`
+completed on 2026-07-31. The old names remain permanently reserved and are not
+canonical URLs. This physical rename does not prove authority consolidation:
+generic Fleet code, private instance data, contracts, installed routes, and
+live nodes move only through the remaining migration and readback gates below.
 
 ## Authority Layout
 
@@ -205,12 +206,12 @@ Fleet.
 
 ### Phase 3: Physical Rename And Retirement
 
-- Make source constants, schemas, validators, tests, presets, and installer
-  routes rename-ready before changing a GitHub repository name. Use one
-  compatibility transition or one atomic owner transaction; do not leave
-  machine-readable contracts pointing at a name that no longer exists.
-- Rename `codex-skills-public` to `opl-skills`.
-- Establish or rename the private instance as `opl-instance-gaofeng`.
+- **Completed 2026-07-31:** rename `codex-skills-public` to `opl-skills` and
+  `codex-skills-private` to `opl-instance-gaofeng`, with the GitHub Repository
+  Governance owner performing the physical mutation and remote readback.
+- Keep source constants, schemas, validators, tests, presets, installer routes,
+  local remotes, and live node routes on the new canonical names. Do not leave
+  machine-readable contracts dependent on redirects.
 - Treat the GitHub Repository Governance task as the sole writer for GitHub
   rename, redirect, topics, settings, Actions, and owner-authoritative remote
   readback; OPL Flow supplies the source checkpoint and expected mapping.
@@ -228,8 +229,9 @@ Fleet.
   Action references hosted inside a renamed repository do not follow repository
   redirects. The current two source repositories expose none of those surfaces
   and are not Action sources, so they do not require old-name shim repositories.
-- Retire `codex-skills-private` only after all generic and personal authorities
-  have moved and live nodes use the new routes.
+- Retire transitional layouts and compatibility references only after all
+  generic and personal authorities have moved and live nodes use the new
+  routes. Repository rename completion alone does not satisfy this gate.
 
 ### Phase 4: Release Qualification
 
