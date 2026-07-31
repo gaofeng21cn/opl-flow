@@ -51,6 +51,29 @@ For both actions:
 4. Preserve owner boundaries and finish with live readback. Do not treat the
    Skill prompt, Automation, Linear, a test, or a dry-run as installed truth.
 
+### Optional OPL Skills enhancement pack
+
+The Plugin-bundled core Skill set comes from `opl-package.json`. OPL Skills is
+an independent public enhancement pack, not a required Flow dependency. When
+the user explicitly asks to include public development enhancements in setup or
+update, install or update them from their current owner instead of copying
+their source into Flow or a private Instance:
+
+```bash
+npx skills add gaofeng21cn/opl-skills -g -a codex -s '*' -y --full-depth
+```
+
+After installation, start a new Codex session when discovery requires it and
+verify the requested Skill IDs from the effective discovery surface. If a
+private Instance has `contracts/skill-reference.json`, use it only to select
+the user's desired owner routes; it does not make Fleet the Skill source.
+
+Current source ownership is intentionally explicit: Flow `0.1.29` bundles
+`opl-flow` and `coordinate-concurrent-tasks`; `develop-and-deliver`,
+`task-mode-gate`, and `recover-codex-tasks` remain in OPL Skills until their
+single-source migration is completed. `architect-and-simplify` remains an
+optional enhancement.
+
 For `setup`:
 
 - A fresh Instance with no remote Ledger uses `ledger init`. A clone whose

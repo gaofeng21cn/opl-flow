@@ -8,49 +8,33 @@
 
 <h1 align="center">OPL Flow</h1>
 
-<p align="center"><strong>面向 AI 开发舰队的模型原生工作流与协作层</strong></p>
-<p align="center">提高一台 Codex 的工作下限，也让多个 Agent、仓库和机器围绕同一份持久真相持续协作</p>
+<p align="center"><strong>面向 AI 开发舰队的工作流与协作层</strong></p>
+<p align="center">从一台 Codex 到多任务、多仓库、多机器，让工作始终围绕同一份可靠状态继续推进</p>
 
 <p align="center">
-  <img src="assets/branding/opl-flow-ai-fleet.png" alt="OPL Flow 协调 Codex、OPL Ledger、可选 Linear 门户与可选 Fleet 节点" width="100%" />
+  <img src="assets/branding/opl-flow-ai-fleet.png" alt="OPL Flow 协调 Codex、OPL 总账、Linear 门户与 Fleet 节点" width="100%" />
 </p>
 
-## 为什么需要 OPL Flow
+## OPL Flow 是什么
 
-Codex 已经能够推理、写代码、调用工具并原生协调多个 Agent。真正困难的
-部分，往往出现在开发超出一个对话，开始跨越多个任务、仓库和机器之后：
+Codex 已经能够推理、编程、调用工具并协调多个 Agent。真正容易失控的，通常
+不是某一次编码，而是工作跨越多个任务、仓库、对话和机器之后：谁在负责，进展
+写到了哪里，哪个结果已经进入主线，下一步应由谁继续。
 
-- 当前目标由哪个任务负责，下一项真正可执行的工作是什么？
-- 哪项成果已经进入 canonical 仓库，哪项还只在临时分支里？
-- 如何在另一台机器继续工作，同时不复制凭据、会话和运行缓存？
-- 如何让人方便地查看进度，又不把项目看板变成第二份任务真相？
-- 当 Ledger、Linear 或 Fleet 没有启用时，核心工作流能否继续使用？
+OPL Flow 解决的是这层连续性问题。它不会替代 Codex 的原生智能，也不会再造
+一套 Agent 调度器，而是把以下能力组织在同一个公开产品中：
 
-**OPL Flow 负责提供这种连续性，但不替代 Codex 的原生智能。**
-它从一个精简的用户级 Profile 和一组工作流 Skill 开始；项目需要时，再按需
-加入基于 Beads 的持久总账、Linear 人读门户和多机 Fleet 引擎。
+- 一份精简、可安全合并的用户级工作配置；
+- 面向日常开发和并发协作的核心 Skill；
+- 以 Beads 为底层的持久 OPL 总账；
+- 可选的 Linear 人类门户；
+- 可选的多机 Fleet 引擎；
+- 并行 Git 工作的恢复、合并与清理工具。
 
-## 一句话理解
+一句话概括：
 
-**Codex 负责干活，OPL Flow 负责组织工作如何持续；OPL Ledger 保存任务
-真相，Linear 让人方便查看，OPL Fleet 提供实际执行这些工作的机器。**
-
-除执行器本身外，每一层都可以独立选用。个人开发者可以只使用 Profile 和
-Skills；一个更完整的个人实验室则可以启用整套能力，而不改变底层的开发模式。
-
-## 从一台 Codex 到 AI 舰队
-
-| 使用规模 | OPL Flow 增加什么 | 什么仍由原生能力或各 owner 负责 |
-| --- | --- | --- |
-| 一台机器 | 精简用户 Profile、工作偏好和可复用 Skills | Codex 推理、工具、项目文件和仓库规则 |
-| 多个活跃任务 | owner、恢复、fresh SSOT 集成和收口约定 | Codex 原生多 Agent 与多对话协作 |
-| 长周期开发 | OPL Ledger 初始化与幂等 reconciliation | Beads 负责数据库、依赖图、claim 和 Dolt 同步 |
-| 人类查看 | 对接 Beads 官方 Linear 集成 | Linear 是门户，不是任务真相或 Agent 调度器 |
-| 多台机器 | Fleet 状态、准入、仓库 currentness 与分发策略 | 各机器从组件官方 owner 安装；私人 Instance 保存拓扑和策略 |
-
-因此，OPL Flow 已经不再只是 OPL App 的一个辅助模块。它仍可作为 App
-Official Profile 中的可选默认工作流，同时也成为一个可以独立安装、面向
-模型原生多 Agent 和多机开发的公开工作流产品。
+> **Codex 负责执行，OPL Flow 负责让工作持续有序；OPL 总账保存任务真相，
+> Linear 方便人查看和录入，OPL Fleet 提供实际干活的机器。**
 
 ## 各模块如何协作
 
@@ -58,147 +42,197 @@ Official Profile 中的可选默认工作流，同时也成为一个可以独立
 flowchart LR
     U[开发者] --> C[Codex]
     C <--> F[OPL Flow]
-    F <--> B[OPL Ledger<br/>Beads]
-    B -. 可选人读门户 .-> L[Linear]
-    F -. 可选机器执行 .-> N[OPL Fleet 节点]
+    F <--> B[OPL 总账<br/>Beads]
+    B -. 可选的人类门户 .-> L[Linear]
+    F -. 可选的机器执行 .-> N[OPL Fleet 节点]
     I[私人 OPL Instance] --- B
     I --- N
 ```
 
-| 模块 | 权威边界 |
-| --- | --- |
-| **Codex** | 推理、工具使用、实现和原生 Agent 协作 |
-| **OPL Flow** | Profile、工作流 Skills、reconciliation、Git/worktree lifecycle 与通用 Fleet 引擎 |
-| **OPL Ledger** | 持久任务 SSOT，底层使用 Beads，不自建第二套 OPL 数据库 |
-| **Linear** | 通过 Beads 官方集成提供可选的人类可读视图 |
-| **OPL Fleet** | 基于 fresh 节点证据完成可选的机器准入和执行 |
-| **OPL Instance** | 私人总账数据、机器拓扑、策略、资产和个性化 overlay |
+| 模块 | 负责什么 | 不负责什么 |
+| --- | --- | --- |
+| **Codex** | 推理、工具调用、实现和原生多 Agent 协作 | 持久保存跨对话任务状态 |
+| **OPL Flow** | 用户配置、核心 Skill、总账接入、并发协作和通用 Fleet 引擎 | 代替模型思考或决定领域真相 |
+| **OPL 总账** | 以 Beads/Dolt 保存目标、依赖、负责人、检查点和剩余工作 | 唤醒 Codex 或分发 Agent |
+| **Linear** | 面向人的任务录入、浏览和进度门户 | 成为第二套总账或执行调度器 |
+| **OPL Fleet** | 节点检查、任务准入、仓库更新和可选分发 | 在机器之间复制凭据、会话或软件文件 |
+| **OPL Instance** | 某个个人或组织的私人总账、机器、策略、资产和个性化配置 | 承载通用公开产品代码 |
 
-Flow 不会变成中央规划器，也不负责领域真相、质量结论、发布验收或规定模型
-下一步必须怎么思考。Beads 不会唤醒 Codex，Linear 不会分发 Agent，Fleet
-也不会在机器之间复制私人会话或工具二进制文件。
+这些模块可以逐层启用。Linear、Fleet 或私人 Instance 未配置时，OPL Flow 的
+核心工作流仍然可以独立使用。
 
-## 核心能力
+## 核心 Skill 与增强包
 
-### 模型原生 Profile
+OPL Flow 和 OPL Skills 不是两套相互竞争的工作流，而是“核心产品 + 可选增强”
+的关系。
 
-用户 Profile 在不安装僵硬方法论的前提下提高开发下限。它只保留沟通偏好、
-source-first 诊断、关键路径、动态并发和工具路由等稳定规则。
+### OPL Flow 内置 Skill
 
-### 持久 OPL Ledger
+当前 `0.1.29` 随插件安装两个核心 Skill：
 
-OPL Flow 提供安全初始化、状态读取和 Operations Registry reconciliation。
-普通账本操作直接使用 owner 提供的 `bd` CLI；Beads 始终是存储和同步权威。
+- `opl-flow`：安装、更新、状态检查，以及总账、Linear 和 Fleet 的统一入口；
+- `coordinate-concurrent-tasks`：多任务、多对话和多 worktree 的并发协调。
 
-### 可选 Linear 人读门户
+### OPL Skills 可选增强包
 
-Flow 可以发现并回读 Beads 官方 Linear 连接。同步从 Beads owner 的 dry-run
-开始，API Key 不写入 Flow、Git 或任务文本。Linear 是 Ledger 的人读入口，
-不是并行总账。
+公开仓库 [`gaofeng21cn/opl-skills`](https://github.com/gaofeng21cn/opl-skills)
+保存可以脱离 OPL Flow 独立使用的增强能力，例如架构简化、可靠性交付、学习和
+文档工作流。它按自己的节奏更新，不与 OPL Flow 绑定版本。
 
-### 可选 OPL Fleet
+当前源码迁移尚未全部完成：`develop-and-deliver`、`task-mode-gate` 和
+`recover-codex-tasks` 仍由 OPL Skills 维护；`architect-and-simplify` 继续作为
+可选增强能力。完成正式迁移前，同一个 Skill 不会在两个仓库重复维护。
 
-通用 Fleet 引擎位于本公开仓库。私人 OPL Instance 提供节点 ID、能力、调度
-策略、runner binding 和脱敏回执。各节点从每个组件的官方 owner channel
-自行更新，不复制主控机器的字节，也不锁定主控机器的旧版本。
+两者的联动方式很简单：
 
-### Git 与 Worktree 连续性
+1. OPL Flow 插件提供核心工作流；
+2. 用户需要增强能力时，从 OPL Skills 官方仓安装；
+3. Codex 在新会话中发现这些 Skill，并按任务语义自动选用；
+4. 私人 OPL Instance 可以记录个人选择的增强清单；
+5. Fleet 只检查各节点是否具备这些能力，实际安装和升级仍由每个来源自行完成。
 
-Flow 提供 lifecycle 和 absorption 工具，让并行 Git 工作可恢复、可集成、可
-清理。不同 worktree 即使 write set 重叠也可以继续开发；冲突在 fresh
-canonical 集成时处理。worktree 或 PR 本身永远不等于最终 SSOT。
+OPL Flow 不会在运行时复制 OPL Skills 的源码，也不会把整套增强包变成核心依赖。
 
-### 动态弹性组合
+安装全部公开增强能力：
 
-OPL Package 和能力可以独立更新。普通依赖只要求稳定身份存在且可调用，不
-要求全生态共用一个版本锁。精确 commit 和 digest 只用于证明某一次不可变
-发布候选，不能升级为长期运行时耦合。
+```bash
+npx skills add gaofeng21cn/opl-skills -g -a codex -s '*' -y --full-depth
+```
 
-## 用一条 Codex 指令开始
+也可以让 Codex 一次完成核心与增强配置：
 
-从公开仓安装 OPL Flow Plugin：
+```text
+使用 $opl-flow setup 初始化我的开发工作流，并安装 OPL Skills 公开增强包。
+```
+
+私人 Skill 放在各自的 OPL Instance 中，不进入公开增强包。
+
+## OPL 总账、Linear 与自动接单
+
+### OPL 总账
+
+OPL Flow 不自建任务数据库。它通过官方 `bd` 命令使用 Beads：
+
+- Beads 保存任务、依赖、认领、到期时间和检查点；
+- Dolt 负责跨机器同步总账数据；
+- OPL Flow 负责安全初始化、周期事项对账和状态检查；
+- Codex 负责创建任务、判断、执行和原生多 Agent 协作；
+- Codex Automation、定时任务或持续集成负责按时唤醒，Beads 本身不负责唤醒。
+
+这样即使更换对话或机器，也可以从总账继续，而不必依赖一段越来越长的聊天记录。
+
+### Linear 门户
+
+Linear 是可选的人类入口。推荐的数据流是：
+
+```text
+人在 Linear 提交任务
+  -> Beads 官方 Linear 接口拉取
+  -> Beads 判断依赖和可执行状态
+  -> 自动化唤醒 Codex
+  -> Codex 认领并执行
+  -> 结果写回 Beads
+  -> Beads 同步到 Linear
+```
+
+为了避免把所有想法都自动交给 Agent，推荐只自动接收带有 `codex-ready` 标签的
+任务。Linear 提供可见性和录入体验，Beads 仍是任务唯一事实来源。
+
+## 从一台机器开始
+
+从公开仓安装 OPL Flow 插件：
 
 ```bash
 codex plugin marketplace add gaofeng21cn/opl-flow
 codex plugin add opl-flow@opl-flow-local
 ```
 
-启动一个新的 Codex 对话或 CLI session，然后输入：
+启动新的 Codex 会话，然后输入：
 
 ```text
 使用 $opl-flow setup 初始化我的可复用开发工作流。
 ```
 
-已有安装需要更新时：
+更新现有安装：
 
 ```text
-使用 $opl-flow update，从各组件官方 owner 更新并验证实际生效的工作流。
+使用 $opl-flow update，从各组件的官方来源更新，并验证实际生效状态。
 ```
 
-Skill 会端到端完成该动作，只在外部授权不可避免时询问用户。Core setup
-不要求配置 Linear 或 Fleet。
+Skill 会完成能够自动完成的步骤，只在 GitHub、Linear 等外部服务必须授权时请求
+用户操作。基础安装不要求 Linear 或 Fleet。
 
-## 按需要选择部署规模
+## 按需要选择规模
 
-| 部署方式 | 组件 | 适合场景 |
+| 方案 | 组成 | 适合场景 |
 | --- | --- | --- |
-| **Core** | Codex + OPL Flow Profile 和 Skills | 一个人、一台机器的日常开发 |
-| **Durable** | Core + 私人 OPL Instance + Beads | 长周期开发和多个活跃任务 |
-| **Visible** | Durable + Linear | 需要一个方便查看的项目与运维门户 |
-| **Fleet** | Durable + 已登记机器 | 多机开发、测试和计算任务 |
+| **基础工作流** | Codex + OPL Flow | 一个人、一台机器的日常开发 |
+| **增强工作流** | 基础工作流 + OPL Skills | 需要架构、交付和专项工作能力 |
+| **持久工作流** | 基础或增强工作流 + 私人 OPL Instance + Beads | 长周期开发和多个活跃任务 |
+| **可视工作流** | 持久工作流 + Linear | 需要面向人的任务入口和进度门户 |
+| **舰队工作流** | 持久工作流 + 已登记节点 | 多机开发、测试和计算任务 |
 
-增加上层能力不会改变下层 owner；删除任何可选层后，Core 仍然可用。
+增加上层能力不会改变下层的权威边界；删除任何可选层后，基础工作流仍然可用。
+
+## 多机 Fleet 的原则
+
+OPL Flow 提供通用 Fleet 引擎，私人 OPL Instance 保存节点名称、能力、调度策略、
+执行节点绑定和脱敏回执。
+
+- 每台机器从软件和 Skill 的官方来源自行安装、升级；
+- 版本尽量更新到各平台最新兼容版本，而不是照抄主控机器的旧版本；
+- 主控只分发期望状态和任务，不复制二进制文件、缓存或凭据；
+- 机器离线属于正常状态，下次上线时再对账；
+- 分发前使用实时检查判断电源、负载、磁盘、占用和任务所需能力；
+- 仓库只做安全的快进更新，脏分支、分叉分支和任务分支留给原任务处理。
 
 ## 公开与私人边界
 
-可复用引擎属于 OPL Flow，个人状态不属于。
+**公开 OPL Flow 包含：**
 
-**公开 OPL Flow 源码包括：**
+- 用户配置源码和核心 Skill；
+- 不含凭据的 Beads、Linear 接入逻辑；
+- 通用 Fleet 引擎和数据结构；
+- Git/worktree 生命周期与验证工具；
+- 安装、更新、状态检查和公开文档。
 
-- Profile 源码和工作流 Skills；
-- 不含凭据的 Beads、Linear adapter；
-- 通用 Fleet 引擎与 schema；
-- Git/worktree lifecycle 和验证工具；
-- setup、update、status 与公开文档。
+**私人 OPL Instance 包含：**
 
-**私人 OPL Instance 包括：**
+- Beads/Dolt 总账数据；
+- 机器清单、SSH 路由、执行节点绑定和分发策略；
+- 私人 Skill、仓库治理、部署说明、域名和资产记录；
+- 脱敏回执与个人补充配置。
 
-- Beads/Dolt 任务数据；
-- 机器清单、SSH route、runner binding 和分发策略；
-- 私人 Skills、仓库治理、部署说明和资产记录；
-- 脱敏回执与个人工作流 overlay。
-
-凭据、session、对话历史、日志、缓存、私人机器路径和 Fleet lease secret
-永远不会发布，也不会在节点之间复制。
+凭据、会话、对话历史、日志、缓存、机器私有路径和 Fleet 租约密钥不进入公开仓库，
+也不在节点之间复制。
 
 ## OPL 产品关系
 
 | 产品 | 定位 |
 | --- | --- |
 | **OPL Flow** | AI 开发舰队的工作流与协作层 |
-| **OPL Framework** | runtime、Package lifecycle、合同和 Agent 执行底座 |
-| **One Person Lab App** | 面向用户的工作台，也是可选的 Flow carrier/Profile 入口 |
-| **OPL Skills** | 可选的公开能力增强包 |
-| **OPL Instance** | 一个 owner 或组织的私人运行配置与状态 |
+| **OPL Framework** | 运行时、Package 生命周期、合同和 Agent 执行底座 |
+| **One Person Lab App** | 面向用户的工作台，也是可选的 Flow 安装载体 |
+| **OPL Skills** | 可独立安装的公开增强能力 |
+| **OPL Instance** | 某个个人或组织的私人运行配置与状态 |
 
-OPL Flow 在技术上仍是 `OPL Package(kind=workflow_profile)`，但产品含义不再
-只是一份 Profile 文件：它把围绕 Profile 的可复用运行方式一起产品化，同时
-保留 Codex 原生行为和各组件独立 owner。
+OPL Flow 在技术上仍是 `OPL Package(kind=workflow_profile)`，但它已经不只是一份
+用户配置文件，而是把总账、并发协作和多机执行的通用运行方式一起产品化。
 
-## 机器可读入口
+## 开发者命令
 
 <details>
-<summary><strong>展开开发者与自动化命令</strong></summary>
+<summary><strong>展开机器可读入口</strong></summary>
 
 ```bash
 # 综合状态
 python3 scripts/opl_workflow.py status --instance <opl-instance>
 
-# Profile
+# 用户配置
 python3 scripts/opl_workflow.py profile status
 python3 scripts/opl_workflow.py profile prepare
 
-# Ledger
+# 总账
 python3 scripts/opl_workflow.py ledger init --instance <opl-instance>
 python3 scripts/opl_workflow.py ledger reconcile-operations --instance <opl-instance>
 (cd <opl-instance> && bd ready --json)
@@ -218,21 +252,18 @@ scripts/verify.sh
 scripts/verify.sh full
 ```
 
-旧 `codex-fleet` 命令仅作为既有私人安装的过渡兼容入口；新的通用 Fleet
-能力由 OPL Flow 持有源码。
+旧 `codex-fleet` 命令仅用于已有私人安装的过渡兼容；通用 Fleet 源码由 OPL Flow
+维护。
 
 </details>
 
-## 架构与运维文档
+## 进一步阅读
 
 - [可复用开发工作流架构](docs/reusable-workflow-architecture.md)
-- [能力组合与 owner 边界](docs/capability-governance.md)
+- [能力组合与维护边界](docs/capability-governance.md)
 - [新机器安装](docs/new-machine-codex-setup.md)
 - [当前实现状态](docs/status.md)
 - [文档索引](docs/README.md)
-
-这些文档保存精确的 owner、carrier、Profile 安全、发布资格和迁移细节。
-测试通过、tag、候选或已发布镜像都不能替代 fresh installed readback。
 
 ## 许可证
 

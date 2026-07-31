@@ -125,6 +125,35 @@ OPL Packages and capabilities update independently. Normal dependencies use a
 stable identity and callability, not a shared ecosystem version lock. Exact
 commit and digest binding is limited to proving one immutable release candidate.
 
+## Core Skills And Optional Enhancements
+
+OPL Flow `0.1.29` bundles two core Skills with the Plugin:
+
+- `opl-flow` for setup, update, status, Ledger, Linear, and Fleet entry points;
+- `coordinate-concurrent-tasks` for concurrent tasks, conversations, and Git
+  worktrees.
+
+[`gaofeng21cn/opl-skills`](https://github.com/gaofeng21cn/opl-skills) is the
+independently installable public enhancement pack. It supplies architecture,
+delivery, reliability, learning, and artifact workflows without becoming a
+runtime dependency of OPL Flow. Codex discovers the installed Skills and routes
+to them by task intent; Flow does not copy or dynamically import their source.
+
+The source consolidation is not yet complete. `develop-and-deliver`,
+`task-mode-gate`, and `recover-codex-tasks` remain owned by OPL Skills until
+their single-source migration into OPL Flow is completed. In contrast,
+`architect-and-simplify` remains an optional enhancement.
+
+Install the complete public enhancement pack from its owner:
+
+```bash
+npx skills add gaofeng21cn/opl-skills -g -a codex -s '*' -y --full-depth
+```
+
+A private OPL Instance may record the selected enhancement inventory for its
+Fleet. Each node still installs and updates from the component owner; Fleet
+checks capability presence without copying Skill bytes between machines.
+
 ## Start In One Codex Action
 
 Install the OPL Flow Plugin from its public repository:
@@ -138,6 +167,12 @@ Start a new Codex conversation or CLI session, then ask:
 
 ```text
 Use $opl-flow setup to initialize my reusable development workflow.
+```
+
+To include the optional public enhancement pack in the same guided action:
+
+```text
+Use $opl-flow setup to initialize my development workflow and install the OPL Skills public enhancement pack.
 ```
 
 For an existing installation:
