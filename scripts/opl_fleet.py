@@ -685,11 +685,28 @@ def reconcile_repository(
     if slug is None:
         return None
 
+    default_ref_result = git_value(
+        repository,
+        [
+            "symbolic-ref",
+            "--quiet",
+            "--short",
+            f"refs/remotes/{remote_name}/HEAD",
+        ],
+        check=False,
+    )
+    default_ref = default_ref_result.stdout.strip()
+    default_branch = (
+        default_ref.removeprefix(f"{remote_name}/")
+        if default_ref.startswith(f"{remote_name}/")
+        else ""
+    )
+
     base: dict[str, Any] = {
         "repository": slug,
         "remote": remote_name,
         "branch": branch,
-        "default_branch": upstream_branch,
+        "default_branch": default_branch or upstream_branch,
         "dirty": None,
         "ahead": None,
         "behind": None,
@@ -698,10 +715,11 @@ def reconcile_repository(
     }
     if branch is None:
         return {**base, "state": "DETACHED"}
-    if branch != "main":
-        return {**base, "state": "TASK_BRANCH"}
-    if upstream_branch is None:
+    if not default_branch:
         return {**base, "state": "UPSTREAM_UNKNOWN"}
+
+    if branch != default_branch:
+        return {**base, "state": "TASK_BRANCH"}
 
     if fetch:
         try:
@@ -718,7 +736,7 @@ def reconcile_repository(
 
     dirty = bool(git_value(repository, ["status", "--porcelain"]).stdout.strip())
     local_commit = git_value(repository, ["rev-parse", "HEAD"]).stdout.strip()
-    remote_ref = f"refs/remotes/{remote_name}/{upstream_branch}"
+    remote_ref = f"refs/remotes/{remote_name}/{default_branch}"
     remote_commit = git_value(repository, ["rev-parse", remote_ref]).stdout.strip()
     counts = git_value(
         repository,
@@ -728,7 +746,7 @@ def reconcile_repository(
         raise FleetError(f"invalid repository divergence readback: {slug}")
     ahead, behind = (int(value) for value in counts)
 
-    if branch != upstream_branch:
+    if branch != default_branch:
         state = "TASK_BRANCH"
     elif dirty:
         state = "DIRTY"
@@ -754,7 +772,7 @@ def reconcile_repository(
         "repository": slug,
         "remote": remote_name,
         "branch": branch,
-        "default_branch": upstream_branch,
+        "default_branch": default_branch,
         "state": state,
         "dirty": dirty,
         "ahead": ahead,

@@ -273,16 +273,22 @@ def commit_file(repository: Path, content: str, message: str) -> str:
     return git(repository, "rev-parse", "HEAD")
 
 
-def repository_fixture(root: Path) -> tuple[Path, Path, Path]:
+def repository_fixture(
+    root: Path,
+    *,
+    default_branch: str = "main",
+) -> tuple[Path, Path, Path]:
     remote = root / "demo.git"
-    fleet.run(["git", "init", "--bare", "--initial-branch=main", str(remote)])
+    fleet.run(
+        ["git", "init", "--bare", f"--initial-branch={default_branch}", str(remote)]
+    )
     seed = root / "seed"
-    fleet.run(["git", "init", "--initial-branch=main", str(seed)])
+    fleet.run(["git", "init", f"--initial-branch={default_branch}", str(seed)])
     git(seed, "config", "user.name", "Fleet Test")
     git(seed, "config", "user.email", "fleet@example.invalid")
     commit_file(seed, "one\n", "initial")
     git(seed, "remote", "add", "origin", str(remote))
-    git(seed, "push", "-u", "origin", "main")
+    git(seed, "push", "-u", "origin", default_branch)
     workspace = root / "workspace"
     workspace.mkdir()
     checkout = workspace / "demo"
@@ -326,6 +332,23 @@ class CodexFleetTests(unittest.TestCase):
         self.assertEqual(report["repositories"][0]["state"], "UPDATED")
         self.assertEqual(report["repositories"][0]["local_commit"], expected)
         self.assertEqual(actual, expected)
+
+    def test_repository_sync_accepts_remote_default_master(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            _, workspace, checkout = repository_fixture(root, default_branch="master")
+            with mock.patch.object(fleet, "STATE_ROOT", root / "state"):
+                report = fleet.reconcile_workspace_repositories(
+                    root=workspace,
+                    fetch=True,
+                    apply=True,
+                    expected_owner=None,
+                )
+        entry = report["repositories"][0]
+        self.assertEqual(entry["default_branch"], "master")
+        self.assertEqual(entry["branch"], "master")
+        self.assertEqual(entry["state"], "CURRENT")
+        self.assertEqual(checkout, workspace / "demo")
 
     def test_repository_sync_prefers_branch_upstream_remote(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
