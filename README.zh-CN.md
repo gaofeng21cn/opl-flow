@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="assets/branding/opl-flow-logo.png" alt="OPL Flow 标志" width="128" />
+  <img src="assets/branding/opl-flow-loop-v2.png" alt="OPL Flow 标志" width="128" />
 </p>
 
 <p align="center">
@@ -9,10 +9,10 @@
 <h1 align="center">OPL Flow</h1>
 
 <p align="center"><strong>面向 AI 开发舰队的工作流与协作层</strong></p>
-<p align="center">从一台 Codex 到多任务、多仓库、多机器，让工作始终围绕同一份可靠状态继续推进</p>
+<p align="center">提高一台 Codex 的工作下限，让多个 Agent、仓库与机器围绕持久总账持续协作</p>
 
 <p align="center">
-  <img src="assets/branding/opl-flow-ai-fleet.png" alt="OPL Flow 协调 Codex、OPL 总账、Linear 门户与 Fleet 节点" width="100%" />
+  <img src="assets/branding/opl-flow-system-v2.png" alt="OPL Flow 连接 Codex 工作面、持久任务总账、可选人类门户与 Fleet 节点" width="100%" />
 </p>
 
 ## OPL Flow 是什么
@@ -79,9 +79,9 @@ OPL Flow 和 OPL Skills 不是两套相互竞争的工作流，而是“核心�
 保存可以脱离 OPL Flow 独立使用的增强能力，例如架构简化、可靠性交付、学习和
 文档工作流。它按自己的节奏更新，不与 OPL Flow 绑定版本。
 
-当前源码迁移尚未全部完成：`develop-and-deliver`、`task-mode-gate` 和
-`recover-codex-tasks` 仍由 OPL Skills 维护；`architect-and-simplify` 继续作为
-可选增强能力。完成正式迁移前，同一个 Skill 不会在两个仓库重复维护。
+`develop-and-deliver`、`task-mode-gate`、`recover-codex-tasks` 和
+`architect-and-simplify` 等增强 Skill 的源码始终由 OPL Skills 维护。安装或
+更新这些增强能力，不会改变 OPL Flow 两个核心 Skill 的身份与 currentness。
 
 两者的联动方式很简单：
 
@@ -107,7 +107,7 @@ npx skills add gaofeng21cn/opl-skills -g -a codex -s '*' -y --full-depth
 
 私人 Skill 放在各自的 OPL Instance 中，不进入公开增强包。
 
-## OPL 总账、Linear 与自动接单
+## OPL 总账与可选 Linear 门户
 
 ### OPL 总账
 
@@ -123,7 +123,8 @@ OPL Flow 不自建任务数据库。它通过官方 `bd` 命令使用 Beads：
 
 ### Linear 门户
 
-Linear 是可选的人类入口。推荐的数据流是：
+Linear 是可选的人类入口，不是 OPL Flow 的安装前提，也不是任务 SSOT。只有
+Beads 官方连接完成配置并通过 dry-run 后，下面的数据流才实际生效：
 
 ```text
 人在 Linear 提交任务
@@ -135,8 +136,9 @@ Linear 是可选的人类入口。推荐的数据流是：
   -> Beads 同步到 Linear
 ```
 
-为了避免把所有想法都自动交给 Agent，推荐只自动接收带有 `codex-ready` 标签的
-任务。Linear 提供可见性和录入体验，Beads 仍是任务唯一事实来源。
+为了避免把所有想法都自动交给 Agent，可以选择只接收带有 `codex-ready` 标签的
+任务；这是部署策略，不是 Flow 默认行为。Linear 提供可见性和录入体验，Beads
+仍是任务唯一事实来源。
 
 ## 从一台机器开始
 
