@@ -48,8 +48,13 @@ inoperable.
 ## One-Sentence Model
 
 **Codex does the work. OPL Flow establishes the usage baseline and organizes
-how work continues. OPL Ledger keeps task truth. Linear makes that truth easy
-for people to read. OPL Fleet provides the machines that can execute it.**
+how work continues. OPL Ledger is the owner's complete human work ledger and
+keeps durable task truth. Linear makes that truth easy for people to read and
+update. OPL Fleet provides execution capacity and observability.**
+
+`OPL Ledger` names the ledger, not its supervisor, and it is not limited to OPL
+source development. The one local hourly supervisor is named
+`OPL Flow Supervisor` and can cover one or more registered Linear projects.
 
 Every layer is independently optional except the executor itself. A single
 developer can use only the Profile and Skills; a larger personal lab can enable
@@ -74,14 +79,15 @@ development.
 
 ```mermaid
 flowchart LR
-    U[Developer] --> L[Linear]
-    L --> A[OPL App<br/>heartbeat]
-    A --> C[Codex]
+    U[Owner] --> L[Registered Linear projects]
+    L --> S[OPL Flow Supervisor<br/>one hourly heartbeat]
+    S --> C[Local Codex]
     C <--> F[OPL Flow]
     F --> B[OPL Ledger<br/>Beads]
     F --> G[GitHub]
     F -. optional execution .-> N[OPL Fleet nodes]
-    F -. all ledger tasks, narrow fields .-> L
+    F -. complete ledger projection, narrow fields .-> L
+    L -. authorized comments by ID .-> S
     G -. delivery links .-> L
     I[Private OPL Instance] --- B
     I --- N
@@ -91,10 +97,11 @@ flowchart LR
 | --- | --- |
 | **Codex** | Reasoning, tool use, implementation, and native agent coordination |
 | **OPL Flow** | Profile and model recommendation, capability intent, workflow Skills, reconciliation, Git/worktree lifecycle, and the reusable Fleet engine |
-| **OPL Ledger** | Durable internal task SSOT, implemented by Beads rather than a custom OPL database |
+| **OPL Ledger** | The owner Instance's complete human work ledger and durable internal task SSOT, implemented by Beads rather than a custom OPL database |
+| **OPL Flow Supervisor** | One local hourly supervision loop for all registered Linear projects, Dashboard work, and Ledger reconciliation |
 | **GitHub** | Branch, PR, CI, merge, and release evidence authority |
-| **Linear** | Complete human-readable projection of every user-ledger task, limited to intent, hierarchy, priority, due, status, short blocker/result, and links |
-| **OPL Fleet** | Optional machine execution and admission using fresh node evidence |
+| **Linear** | One or more registered human-readable projects covering every ledger task, limited to intent, hierarchy, priority, due, status, short blocker/result, and links |
+| **OPL Fleet** | Optional machine execution and admission using fresh node evidence, plus the Ambient Ops observability extension |
 | **OPL Instance** | Private ledger data, Fleet topology, policy, assets, and personal overlays |
 
 Flow does not become a central planner. It does not decide domain truth,
@@ -102,8 +109,9 @@ quality, release acceptance, or what the model must think next. Beads does not
 wake Codex, Linear does not become an agent scheduler, and Fleet does not copy
 private sessions or tool binaries between machines. Codex maintains Linear
 through the official Connector: every user-ledger Bead is visible, while the
-projected fields stay intentionally narrow. Linear does not replace Beads/Dolt,
-and ChatGPT Codex or Cloud delegation is not the default execution path.
+projected fields stay intentionally narrow. Linear does not replace Beads/Dolt.
+Registered projects are local-Codex managed by default; a Codex Cloud delegate
+conflicts with this route and fails closed.
 
 ## Core Capabilities
 
@@ -135,23 +143,39 @@ does not parse `workflow-policy.json` or maintain a second companion list.
 
 OPL Flow provides safe initialization, status, and Operations Registry
 reconciliation. Ordinary task operations use the owner-provided `bd` CLI
-directly. Beads remains the storage and synchronization authority.
+directly. Beads remains the storage and synchronization authority. The Ledger
+contains the owner's complete human work inventory, not only OPL repositories
+or software-development work.
 
 ### Optional Linear Portal
 
-Codex maintains one Linear issue for every user-ledger Bead through the official
-Linear Connector and preserves parent/child hierarchy. Linear owns human intent,
-priority, due date, `codex-ready`, and cancel input; Beads owns execution state,
-blocker, and result. The projection excludes credentials, local paths, logs,
-full notes, internal metadata, and checkpoints. It does not use `bd linear sync`
-as the onboarding or routine reconciliation path.
+One `OPL Flow Supervisor` can supervise one or more registered Linear projects;
+the current default registration is `OPL Ledger`. Codex maintains one Linear
+issue for every user-ledger Bead through the official Linear Connector and
+preserves parent/child hierarchy. Every registered issue is local-managed by
+default. `codex-ready` is an optional compatibility hint, while `codex-paused`
+blocks dispatch only: reconciliation and authorized user-comment intake keep
+running.
+
+The Supervisor uses the official `linear_list_comments` route, a per-project
+Linear comment-ID high-watermark, and the comment ID as the idempotency key. It
+delivers each authorized user comment exactly once to the matching local Codex
+task, ignores Supervisor/Agent/Automation comments to prevent feedback loops,
+and processes new comments no later than the next heartbeat. Linear owns human
+intent, priority, due date, pause/cancel input, and optional readiness hints;
+Beads owns execution state, blocker, and result. The projection excludes
+credentials, local paths, logs, full notes, internal metadata, and checkpoints.
+It does not use `bd linear sync` as the onboarding or routine reconciliation
+path.
 
 ### Optional OPL Fleet
 
 The generic Fleet engine lives in this public repository. A private OPL
 Instance supplies node IDs, capabilities, scheduling policy, runner bindings,
-and sanitized receipts. Nodes update software from each component's official
-owner channel instead of copying the controller's bytes or version.
+and sanitized receipts. Ambient Ops is the Fleet observability extension inside
+the same OPL Ledger and Supervisor, not a second heartbeat. Nodes update
+software from each component's official owner channel instead of copying the
+controller's bytes or version.
 
 Flow uses one dispatch contract rather than a second scheduler:
 
@@ -234,17 +258,22 @@ codex plugin marketplace add gaofeng21cn/opl-flow
 codex plugin add opl-flow@opl-flow-local
 ```
 
-Start a new Codex conversation or CLI session, then ask:
+Installation deploys capability only. It does not create a Dashboard, Bead,
+Linear registration, or Automation. Start a new Codex conversation or CLI
+session, then explicitly ask for formal onboarding:
 
 ```text
-Use $opl-flow start to create or reuse my OPL ledger Dashboard and supervise it every hour.
+Use $opl-flow start to onboard my complete OPL Ledger and supervise it every hour.
 ```
 
 This one action reuses or creates one local Dashboard task, binds one Bead by
 `codex://thread/<thread_id>`, and reuses or configures one native hourly
-Heartbeat. It projects every user-ledger Bead to one Linear issue with hierarchy
-and narrow-field parity, then finishes with task, Bead, Automation, Linear, and
-Dolt readback. Repeated runs do not create a second supervision loop or issue.
+heartbeat named `OPL Flow Supervisor`. It registers `OPL Ledger` by default,
+projects every user-ledger Bead to one Linear issue with hierarchy and
+narrow-field parity, enables exact-once authorized comment intake, and records
+the fresh Dashboard/Bead/Automation/Linear/Dolt receipt. The same Supervisor can
+later add more registered Linear projects. Repeated runs do not create a second
+supervision loop, Dashboard Bead, or issue.
 
 For Profile and tool setup, ask:
 
@@ -272,7 +301,8 @@ Use $opl-flow update to update every component from its owner and verify the eff
 ```
 
 The Skill handles the end-to-end action and asks only when an external
-authorization is unavoidable. Core setup does not require Linear or Fleet.
+authorization is unavoidable. Core setup does not require Linear or Fleet and
+never implies that `$opl-flow start` has run.
 
 ## Choose The Deployment You Need
 

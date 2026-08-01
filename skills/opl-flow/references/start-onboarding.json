@@ -1,6 +1,12 @@
 {
   "schema": "opl_flow_start_onboarding.v1",
   "action": "start",
+  "invocation": {
+    "onboarding_trigger": "explicit_opl_flow_start_only",
+    "installation_side_effects": "none",
+    "setup_update_side_effects": "must_not_create_dashboard_bead_heartbeat_or_linear_project"
+  },
+  "ledger_definition": "the_owner_instance_complete_human_ledger_supervised_by_opl_flow_not_the_supervisor_itself_and_not_limited_to_opl_source_development",
   "natural_language_triggers": [
     "create an OPL ledger dashboard and supervise it hourly",
     "创建 OPL 总账并每小时监督",
@@ -10,7 +16,9 @@
     "project": "current_saved_project",
     "execution_environment": "local",
     "instance": "unique_discoverable_private_opl_instance",
-    "cadence": "hourly"
+    "cadence": "hourly",
+    "supervisor_display_name": "OPL Flow Supervisor",
+    "initial_registered_linear_project": "OPL Ledger"
   },
   "native_tool_routes": {
     "project_discovery": "list_projects",
@@ -24,7 +32,8 @@
     "linear_issue_list": "mcp__codex_apps__linear_list_issues",
     "linear_issue_search": "mcp__codex_apps__linear_search",
     "linear_issue_readback": "mcp__codex_apps__linear_get_issue",
-    "linear_issue_upsert": "mcp__codex_apps__linear_save_issue"
+    "linear_issue_upsert": "mcp__codex_apps__linear_save_issue",
+    "linear_comment_list": "mcp__codex_apps__linear_list_comments"
   },
   "automation_discovery": {
     "glob": "$CODEX_HOME/automations/*/automation.toml",
@@ -72,6 +81,7 @@
       "priority",
       "due",
       "codex_ready",
+      "codex_paused",
       "cancel",
       "short_blocker",
       "short_result",
@@ -91,6 +101,7 @@
         "priority",
         "due",
         "codex_ready",
+        "codex_paused",
         "cancel"
       ],
       "beads_to_linear": [
@@ -98,6 +109,29 @@
         "blocker",
         "result"
       ]
+    },
+    "execution_admission": {
+      "default": "local_codex_manages_every_registered_project_issue",
+      "codex_ready": "compatibility_hint_not_required_on_each_issue",
+      "codex_paused": "blocks_dispatch_only_reconciliation_and_comment_intake_continue"
+    },
+    "registered_projects": {
+      "cardinality": "one_or_more",
+      "default_project": "OPL Ledger",
+      "expansion_policy": "add_to_the_existing_supervisor_never_create_a_second_heartbeat"
+    },
+    "comment_intake": {
+      "route": "mcp__codex_apps__linear_list_comments",
+      "cursor_scope": "per_registered_linear_project",
+      "cursor_kind": "linear_comment_id_high_watermark",
+      "selection": "authorized_user_comments_strictly_after_the_saved_comment_id",
+      "idempotency_key": "linear_comment_id",
+      "delivery": "idempotently_send_each_comment_to_the_corresponding_local_codex_task",
+      "loop_prevention": "ignore_supervisor_agent_automation_and_other_non_user_comments",
+      "paused_issue_policy": "continue_reconciliation_and_comment_intake_without_dispatch",
+      "cursor_advance": "only_after_successful_delivery_or_documented_non_user_ignore",
+      "processing_deadline": "no_later_than_the_next_hourly_heartbeat",
+      "cloud_delegate_policy": "conflict_and_fail_closed"
     },
     "idempotency": "reuse_or_update_one_issue_per_bead_id; fail_closed_on_missing_identity_or_multiple_matches",
     "forbidden_route": "bd linear sync"
@@ -126,29 +160,42 @@
     "event_trigger_idle",
     "terminal_review"
   ],
+  "supervisor_identity": {
+    "display_name": "OPL Flow Supervisor",
+    "heartbeat_cardinality": "one_for_all_registered_linear_projects",
+    "project_cardinality": "one_or_more"
+  },
   "supervisor_actions": [
     "continue_or_resume_existing_local_execution_task",
     "correct_scope_against_latest_user_instruction",
     "split_independent_work_or_merge_duplicate_scope",
     "write_claim_checkpoint_blocker_remaining_to_beads",
     "reconcile_all_user_ledger_beads_to_linear_with_narrow_fields",
+    "consume_authorized_user_linear_comments_after_each_project_cursor_without_feedback_loops",
+    "deliver_new_comments_idempotently_to_corresponding_local_codex_tasks",
+    "include_ambient_ops_as_an_opl_fleet_observability_extension",
     "push_and_read_back_dolt_after_coherent_mutation"
   ],
   "terminal_readback": [
     "dashboard_thread_id_and_project_id",
     "bead_id_and_exact_codex_external_ref",
     "heartbeat_id_target_thread_id_status_and_hourly_schedule",
+    "supervisor_display_name_registered_projects_and_single_heartbeat_parity",
     "dolt_pull_push_parity_or_explicit_no_change",
     "linear_all_user_bead_coverage_field_authority_and_hierarchy_parity",
+    "linear_comment_cursor_delivery_deduplication_and_loop_prevention_parity",
+    "ambient_ops_observability_registration",
     "duplicate_counts_equal_zero"
   ],
   "receipt_schema": "opl_flow_start_onboarding_receipt.v1",
   "boundaries": {
     "task_ssot": "beads_dolt",
+    "ledger_meaning": "complete_owner_human_ledger_not_the_supervisor",
     "linear": "complete_human_projection_of_all_user_ledger_beads_with_narrow_fields",
     "github": "delivery_evidence",
-    "fleet": "execution_capacity_only",
+    "fleet": "execution_capacity_and_ambient_ops_observability_extension",
     "codex_cloud": "forbidden",
+    "cloud_delegate": "conflict_fail_closed",
     "automatic_archive": "forbidden_without_fresh_user_approval"
   }
 }

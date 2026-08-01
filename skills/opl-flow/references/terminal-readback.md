@@ -12,9 +12,14 @@ After any Flow mutation, read the owner-authoritative surfaces that apply:
 5. Requested Skill IDs from fresh executor discovery; each core Skill must have
    one source owner.
 6. For Ledger: Beads/Dolt pull/push or explicit no-change parity.
-7. For `start`: Dashboard, exact `codex://thread/` Bead link, one active hourly
-   heartbeat, complete Linear mapping, duplicate counts zero, and validated
-   onboarding receipt.
+7. For `start`: explicit action identity and install-side-effect count zero;
+   Dashboard; exact `codex://thread/` Bead link; one active hourly
+   `OPL Flow Supervisor`; one-or-more registered Linear projects sharing that
+   heartbeat; complete narrow-field mapping; local-managed/default,
+   `codex-ready` compatibility, and dispatch-only `codex-paused` parity;
+   per-project Linear comment-ID high-watermarks, exact-once delivery and
+   non-user loop prevention; duplicate counts zero; Ambient Ops registration;
+   and a validated onboarding receipt.
 8. For Fleet: explicit Instance root, fresh node admission, repository
    currentness, lease/runner receipt, and sanitized private-state boundary.
 

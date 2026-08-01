@@ -36,8 +36,12 @@ Codex 已经能够推理、编程、调用工具并协调多个 Agent。OPL Flow
 
 一句话概括：
 
-> **Codex 负责执行，OPL Flow 负责保证使用下限并让工作持续有序；OPL 总账保存任务真相，
-> Linear 方便人查看和录入，OPL Fleet 提供实际干活的机器。**
+> **Codex 负责执行，OPL Flow 负责保证使用下限并让工作持续有序；OPL 总账是当前
+> owner/Instance 的完整人类工作总账并保存任务真相，Linear 方便人查看和录入，
+> OPL Fleet 提供执行算力与可观测性。**
+
+`OPL Ledger` 指总账本身，不是监督器，也不限于 OPL 源码开发。一个本机、每小时运行的
+`OPL Flow Supervisor` 可以监督一个或多个已登记 Linear Projects。
 
 Flow 自身仍是可选 Package。没有 Flow 不得阻断 OPL App、OPL Base、普通 Codex、
 其他 Package 或领域工作；推荐体验能力缺失只产生 `degraded` 与修复入口，不得把
@@ -47,14 +51,15 @@ Flow 本身判为不可用。
 
 ```mermaid
 flowchart LR
-    U[开发者] --> L[Linear]
-    L --> A[OPL App<br/>定时心跳]
-    A --> C[Codex]
+    U[Owner] --> L[已登记 Linear Projects]
+    L --> S[OPL Flow Supervisor<br/>唯一每小时 Heartbeat]
+    S --> C[本机 Codex]
     C <--> F[OPL Flow]
     F --> B[OPL 总账<br/>Beads]
     F --> G[GitHub]
     F -. 可选的机器执行 .-> N[OPL Fleet 节点]
-    F -. 全部总账任务、窄字段 .-> L
+    F -. 总账完整覆盖、窄字段 .-> L
+    L -. 按 comment ID 摄入授权评论 .-> S
     G -. 交付链接 .-> L
     I[私人 OPL Instance] --- B
     I --- N
@@ -64,10 +69,11 @@ flowchart LR
 | --- | --- | --- |
 | **Codex** | 推理、工具调用、实现和原生多 Agent 协作 | 持久保存跨对话任务状态 |
 | **OPL Flow** | 用户配置与模型建议、体验能力意图、核心 Skill、总账接入、并发协作和通用 Fleet 引擎 | 代替模型思考、维护 App UI 状态或决定领域真相 |
-| **OPL 总账** | 以 Beads/Dolt 保存目标、依赖、负责人、检查点和剩余工作 | 唤醒 Codex 或分发 Agent |
+| **OPL 总账** | 当前 owner/Instance 的完整人类工作总账；以 Beads/Dolt 保存目标、依赖、负责人、检查点和剩余工作 | 唤醒 Codex 或分发 Agent |
+| **OPL Flow Supervisor** | 用唯一每小时 Heartbeat 监督全部已登记 Linear Projects、Dashboard 工作与总账对账 | 取代总账或创建多个并行监督循环 |
 | **GitHub** | 保存分支、PR、CI、合并和发布证据 | 成为任务总账或机器调度器 |
-| **Linear** | 完整展示所有用户总账任务，但仅保留意图、层级、优先级、到期、状态、简短阻断/结果和链接 | 成为第二套总账或执行调度器 |
-| **OPL Fleet** | 节点检查、任务准入、仓库更新和可选分发 | 在机器之间复制凭据、会话或软件文件 |
+| **Linear** | 以一个或多个已登记 Project 完整展示所有用户总账任务，但仅保留意图、层级、优先级、到期、状态、简短阻断/结果和链接 | 成为第二套总账或执行调度器 |
+| **OPL Fleet** | 节点检查、任务准入、仓库更新、可选分发和 Ambient Ops 可观测性扩展 | 在机器之间复制凭据、会话或软件文件 |
 | **OPL Instance** | 某个个人或组织的私人总账、机器、策略、资产和个性化配置 | 承载通用公开产品代码 |
 
 这些模块可以逐层启用。Linear、Fleet 或私人 Instance 未配置时，OPL Flow 的
@@ -141,10 +147,11 @@ OPL Skills 的浏览分类与安装 preset 分离，Flow 不使用 wildcard 安�
 ```
 
 该动作幂等复用或创建一个本机 Dashboard 任务、一个以
-`codex://thread/<thread_id>` 关联的 Bead，以及一个原生每小时 Heartbeat；同时通过
-官方 Linear Connector 把每个用户总账 Bead 投影为唯一 Linear issue，保留层级并限制
-字段集合，最后以任务、Bead、Automation、Linear 和 Dolt 的 fresh readback 收尾。
-重复执行不会创建第二套循环或重复 issue。
+`codex://thread/<thread_id>` 关联的 Bead，以及唯一原生每小时
+`OPL Flow Supervisor` Heartbeat；默认登记 `OPL Ledger`，同时通过官方 Linear
+Connector 把每个用户总账 Bead 投影为唯一 Linear issue，保留层级并限制字段集合，
+最后以任务、Bead、Automation、Linear 和 Dolt 的 fresh receipt 收尾。同一 Supervisor
+以后可以增加更多已登记 Project；重复执行不会创建第二套循环、Dashboard Bead 或 issue。
 
 私人 Skill 放在各自的 OPL Instance 中，不进入公开增强包。
 
@@ -166,20 +173,26 @@ OPL Flow 不自建任务数据库。它通过官方 `bd` 命令使用 Beads：
 
 Linear 是用户总账的完整人读投影：每个用户总账 Bead 都必须有且只有一个 Linear
 issue，并保留父子层级；“窄”指字段集合，不是覆盖率。Codex 通过官方 Linear
-Connector 维护这份投影，ChatGPT Codex 或云端委派不是默认执行入口。数据流是：
+Connector 维护这份投影。已登记 Project 默认由本机 Codex 管理；Codex Cloud delegate
+与这条路由冲突并 fail closed。数据流是：
 
 ```text
-人从 Linear 写入意图、优先级、到期、codex-ready 或取消
+人从 Linear 写入意图、优先级、到期、可选 codex-ready、codex-paused 或取消
   -> Codex/OPL Flow 幂等创建或关联唯一 Bead/Linear issue
   -> Codex 按 Beads 依赖、负责人和检查点执行
   -> Beads 向 Linear 投影执行状态、简短阻断和结果
   -> GitHub 提供分支、PR、CI、合并、发布和交付链接
 ```
 
-`codex-ready` 控制本机执行准入，但不控制 Linear 覆盖率。Linear 不接收凭据、本机
-路径、日志、完整 notes、内部 metadata 或 checkpoints；Beads/Dolt 仍是执行总账，
-GitHub 仍是代码和交付证据的权威来源。日常 onboarding 和对账不使用或要求
-`bd linear sync`。
+`codex-ready` 只是兼容提示，不再是逐 issue 准入门槛；`codex-paused` 只阻止 dispatch，
+该 issue 的 Linear 对账和授权用户评论摄入仍继续。监督器通过官方
+`linear_list_comments`，按每个 Project 保存 Linear comment-ID 水位，以 comment ID
+作为幂等键，把每条新授权用户评论恰好一次送入对应本机 Codex task；它忽略
+Supervisor、Agent 和 Automation 自身评论以防回环，并最迟在下一次 Heartbeat 处理。
+
+Linear 不接收凭据、本机路径、日志、完整 notes、内部 metadata 或 checkpoints；
+Beads/Dolt 仍是执行总账，GitHub 仍是代码和交付证据的权威来源。日常 onboarding
+和对账不使用或要求 `bd linear sync`。
 
 ## 从一台机器开始
 
@@ -188,6 +201,13 @@ GitHub 仍是代码和交付证据的权威来源。日常 onboarding 和对账�
 ```bash
 codex plugin marketplace add gaofeng21cn/opl-flow
 codex plugin add opl-flow@opl-flow-local
+```
+
+安装只部署能力，不会创建 Dashboard、Bead、Linear Project 或 Automation。只有显式
+执行 `$opl-flow start` 才进行正式 onboarding：
+
+```text
+使用 $opl-flow start 正式接入我的完整 OPL 总账，并由 OPL Flow Supervisor 每小时监督。
 ```
 
 启动新的 Codex 会话，然后输入：
@@ -210,7 +230,7 @@ codex plugin add opl-flow@opl-flow-local
 ```
 
 Skill 会完成能够自动完成的步骤，只在 GitHub、Linear 等外部服务必须授权时请求
-用户操作。基础安装不要求 Linear 或 Fleet。
+用户操作。基础安装不要求 Linear 或 Fleet，也不表示 `$opl-flow start` 已执行。
 
 ## 按需要选择规模
 

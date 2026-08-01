@@ -2,6 +2,10 @@
 
 Use this reference for `setup` and `update`.
 
+These actions install, repair, and update capabilities only. They must not
+create a Ledger Dashboard, Bead, Linear project, or Automation. Formal Ledger
+onboarding is a separate explicit `$opl-flow start` action.
+
 ## Inspect First
 
 Read the configured carrier and Framework projection, then run the combined

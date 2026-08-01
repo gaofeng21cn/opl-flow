@@ -2,6 +2,11 @@
 
 Use this reference only after reading `start-onboarding.json`.
 
+`OPL Ledger` is the owner Instance's complete human work ledger. It is not the
+Supervisor itself and is not limited to OPL repository development. Installing
+Flow, running `setup`, or running `update` only deploys or maintains capability;
+formal onboarding happens only after explicit `$opl-flow start`.
+
 ## Idempotent Onboarding
 
 1. Resolve the current saved project, local environment, unique private
@@ -15,18 +20,34 @@ Use this reference only after reading `start-onboarding.json`.
    heartbeat bound to the Dashboard and objective. Unreadable or ambiguous
    discovery fails closed. Use native Automation view/update; never create a
    cron workaround or second loop.
-5. Configure a supervisor, not a passive poller. Each run reads ready,
+5. Configure the fixed display name `OPL Flow Supervisor`, not a passive
+   poller. One heartbeat supervises one or more registered Linear projects;
+   adding a project updates the existing Supervisor rather than creating a
+   second heartbeat. Register `OPL Ledger` by default.
+6. Each run reads ready,
    in-progress, overdue, and live execution tasks; chooses one allowed decision
    per lane; performs continuation, correction, split, merge, idle-event, or
    terminal review; and writes claim/checkpoint/blocker/remaining to Beads.
-6. Reconcile every user-ledger Bead to exactly one Linear issue through the
+7. Reconcile every user-ledger Bead to exactly one Linear issue through the
    official Connector, preserving hierarchy and the narrow field contract.
-7. Push and read back Dolt only after coherent mutation. Finish with exact
-   Dashboard, Bead, heartbeat, Linear coverage, and Dolt parity.
+8. For each registered project, call
+   `mcp__codex_apps__linear_list_comments`, consume authorized user comments
+   after its saved Linear comment-ID high-watermark, and send each new comment
+   exactly once to the corresponding local Codex task using the comment ID as
+   the idempotency key. Advance the cursor only after successful delivery or a
+   documented non-user ignore. Ignore Supervisor, Agent, Automation, and other
+   non-user comments. Process comments no later than the next heartbeat. A
+   Cloud delegate is a conflict and fails closed.
+9. Register Ambient Ops as an OPL Fleet observability extension inside the
+   current Ledger; do not create another heartbeat.
+10. Push and read back Dolt only after coherent mutation. Finish with exact
+    Dashboard, Bead, heartbeat, registered-project, comment-cursor/delivery,
+    Ambient Ops, Linear coverage, and Dolt parity.
 
 ## Linear Field Authority
 
-Linear to Beads: human intent, priority, due, `codex-ready`, cancel.
+Linear to Beads: human intent, priority, due, optional compatibility
+`codex-ready`, explicit opt-out `codex-paused`, and cancel.
 
 Beads to Linear: execution state, blocker, result.
 
@@ -34,6 +55,12 @@ Project only identity, title, hierarchy, status, priority, due, readiness,
 cancel intent, short blocker/result, and links. Exclude credentials, local
 paths, logs, full notes, metadata, and checkpoints. Do not use `bd linear sync`.
 
+Every issue in a registered project is managed by local Codex by default.
+`codex-ready` may remain for compatibility but is not required on every issue.
+`codex-paused` blocks dispatch only; Linear reconciliation and authorized user
+comment intake continue so resumption does not lose human intent.
+
 Beads/Dolt is task SSOT. Linear is the complete human-readable projection;
-GitHub carries delivery evidence; Fleet carries capacity. Do not use Codex
-Cloud for this route and do not archive without fresh user approval.
+GitHub carries delivery evidence; Fleet carries capacity and the optional
+Ambient Ops observability extension. Do not use Codex Cloud or Cloud delegate
+for this route and do not archive without fresh user approval.
