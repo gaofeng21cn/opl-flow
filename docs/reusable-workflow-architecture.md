@@ -264,17 +264,40 @@ control commit, and remaining TTL. `dispatch release` performs the owner CAS
 against the controller's private 0600 lease store. Dispatch does not create a
 second state database.
 
-The current real adapters are `local-codex` (no Fleet lease) and `lease-only`
-(capacity reservation for an explicit caller-owned executor). The existing
-GitHub Runner start/stop transaction remains the runner adapter boundary but
-does not submit a GitHub job. `ssh-session` and `remote-codex` are declared
-planned adapters and fail closed. A plan, lease, or online runner is never an
-execution result.
+The Bead may carry one `metadata.opl_execution_requirements` object conforming
+to `contracts/execution-requirements.schema.json`. It is task intent, not live
+capacity: adapter, required capabilities, host and GPU memory, CUDA or Metal,
+optional GPU model, workload class, priority, preemption phase, and TTL. Fleet
+binds the admitted values into the lease. GPU nodes remain peers; model and
+memory differences affect eligibility or expected duration, not a static node
+priority.
+
+The current real adapters are `local-codex` (no Fleet lease), `lease-only`
+(capacity reservation for an explicit caller-owned executor), and
+`ssh-session` (one structured argv through a private SSH route after lease
+verification). Windows SSH routes execute inside WSL. The existing GitHub
+Runner start/stop transaction remains the runner adapter boundary but does not
+submit a GitHub job. `remote-codex` is declared but remains planned and fails
+closed. A plan, lease, or online runner is never an execution result.
+
+`ssh-session` does not accept a composed shell string. It returns bounded
+stdout/stderr, exit code, and timing directly to the controller without storing
+task output in Git, the Instance, or the lease database. Unknown SSH transport
+state retains the lease and requires read-only reconciliation before retry.
+Known results require an explicit owner release.
 
 This keeps Codex's native task and agent coordination in charge. Flow routes a
 task with declared resource needs; Fleet admits capacity; the selected
 executor reports the actual work result. The hourly supervisor may inspect and
 continue such work, but it is not a hidden general-purpose job scheduler.
+
+Dynamic composition has two separate meanings. OPL Flow installs one stable
+primary Skill plus bundled specialist Skills; Codex loads the specialist
+instructions only when task semantics route to them. Separately installed OPL
+Skills remain optional enhancements. The private Instance and Fleet runtime are
+consulted only for tasks with explicit remote resource requirements. Thus OPL
+Flow is the common operating layer without making every optional capability or
+machine backend a permanent context dependency.
 
 ## Public Onboarding
 

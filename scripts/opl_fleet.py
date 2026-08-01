@@ -71,7 +71,7 @@ DISPATCH_ADAPTERS = {
         "execution": "existing-runner-transaction",
     },
     "ssh-session": {
-        "status": "planned",
+        "status": "supported",
         "requires_fleet": True,
         "execution": "controlled-ssh-session",
     },
@@ -93,6 +93,62 @@ ADMISSION_FIELDS = {
     "busy",
     "work_volume_ready",
 }
+ADMISSION_OPTIONAL_FIELDS = {
+    "gpu_api",
+    "min_gpu_memory_gb",
+    "gpu_model",
+}
+GPU_APIS = {"any", "cuda", "metal"}
+EXECUTION_REQUIREMENTS_SCHEMA = "opl_execution_requirements.v1"
+MAX_EXECUTION_REQUIREMENTS_BYTES = 16_384
+MAX_EXECUTION_OUTPUT_BYTES = 64 * 1024
+REMOTE_EXECUTION_TIMEOUT_SECONDS = 3_600
+REMOTE_EXECUTOR = r'''
+import datetime, json, subprocess, sys
+
+def now():
+    return datetime.datetime.now(datetime.timezone.utc).isoformat()
+
+def bounded(value, limit):
+    text = value.decode("utf-8", "replace") if isinstance(value, bytes) else str(value)
+    return text[:limit], len(text) > limit
+
+payload = json.load(sys.stdin)
+argv = payload["argv"]
+started = now()
+timed_out = False
+try:
+    completed = subprocess.run(
+        argv,
+        cwd=payload.get("cwd") or None,
+        capture_output=True,
+        timeout=payload["timeout_seconds"],
+        check=False,
+    )
+    exit_code = completed.returncode
+    stdout, stdout_truncated = bounded(completed.stdout, payload["output_limit"])
+    stderr, stderr_truncated = bounded(completed.stderr, payload["output_limit"])
+except subprocess.TimeoutExpired as error:
+    timed_out = True
+    exit_code = None
+    stdout, stdout_truncated = bounded(error.stdout or b"", payload["output_limit"])
+    stderr, stderr_truncated = bounded(error.stderr or b"", payload["output_limit"])
+except OSError as error:
+    exit_code = 127
+    stdout, stdout_truncated = "", False
+    stderr, stderr_truncated = bounded(str(error), payload["output_limit"])
+print(json.dumps({
+    "schema": "codex_fleet_ssh_execution_result.v1",
+    "started_at": started,
+    "finished_at": now(),
+    "exit_code": exit_code,
+    "timed_out": timed_out,
+    "stdout": stdout,
+    "stderr": stderr,
+    "stdout_truncated": stdout_truncated,
+    "stderr_truncated": stderr_truncated,
+}, ensure_ascii=False))
+'''
 LEASE_FIELDS = {
     "lease_id",
     "generation",
@@ -111,6 +167,8 @@ LEASE_FIELDS = {
     "control_commit",
     "admission",
 }
+LEASE_REQUIRED_FIELDS = LEASE_FIELDS
+LEASE_OPTIONAL_FIELDS = {"dispatch_adapter"}
 RECEIPT_FIELDS = {
     "schema",
     "node_id",
@@ -1702,6 +1760,81 @@ def inventory_age_seconds(
     return int(age.total_seconds())
 
 
+def parse_memory_bytes(value: Any) -> int | None:
+    if isinstance(value, (int, float)) and value >= 0:
+        return int(value)
+    text = str(value or "").strip().replace(",", "")
+    match = re.fullmatch(r"(\d+(?:\.\d+)?)\s*(b|kb|mb|gb|tb)?", text, re.I)
+    if not match:
+        return None
+    amount = float(match.group(1))
+    multiplier = {
+        "b": 1,
+        "kb": 1024,
+        "mb": 1024**2,
+        "gb": 1024**3,
+        "tb": 1024**4,
+        None: 1,
+    }[match.group(2).lower() if match.group(2) else None]
+    return int(amount * multiplier)
+
+
+def gpu_profiles(entry: dict[str, Any]) -> list[dict[str, Any]]:
+    inventory = entry.get("inventory") or {}
+    hardware = inventory.get("hardware") or {}
+    host = inventory.get("host") or {}
+    system = str(host.get("system") or "").lower()
+    execution = inventory.get("execution") or {}
+    profiles: list[dict[str, Any]] = []
+    for raw in hardware.get("gpus") or []:
+        if not isinstance(raw, dict):
+            continue
+        name = str(raw.get("name") or raw.get("model") or "").strip()
+        if not name:
+            continue
+        name_lower = name.casefold()
+        apis: set[str] = set()
+        if "nvidia" in name_lower or "rtx" in name_lower or "quadro" in name_lower:
+            apis.add("cuda")
+        if system == "darwin" or str(execution.get("kind")) == "macos":
+            apis.add("metal")
+        memory = parse_memory_bytes(raw.get("memory_bytes") or raw.get("memory"))
+        # Apple reports unified memory at the host level rather than as VRAM.
+        if memory is None and "metal" in apis:
+            memory = parse_memory_bytes(hardware.get("memory_bytes"))
+        profiles.append(
+            {
+                "name": name,
+                "apis": sorted(apis),
+                "memory_bytes": memory,
+                "driver_version": raw.get("driver_version"),
+            }
+        )
+    return profiles
+
+
+def matching_gpus(
+    entry: dict[str, Any],
+    *,
+    gpu_api: str = "any",
+    min_gpu_memory_gb: int = 0,
+    gpu_model: str | None = None,
+) -> list[dict[str, Any]]:
+    if gpu_api not in GPU_APIS:
+        raise FleetError("GPU API must be any, cuda, or metal")
+    if min_gpu_memory_gb < 0:
+        raise FleetError("minimum GPU memory must not be negative")
+    model = gpu_model.casefold() if gpu_model else None
+    minimum = min_gpu_memory_gb * 1024**3
+    return [
+        gpu
+        for gpu in gpu_profiles(entry)
+        if (gpu_api == "any" or gpu_api in gpu["apis"])
+        and (gpu["memory_bytes"] or 0) >= minimum
+        and (not model or model in gpu["name"].casefold())
+    ]
+
+
 def node_features(
     entry: dict[str, Any],
     *,
@@ -1720,8 +1853,11 @@ def node_features(
     for key in ("kind", "architecture"):
         if execution.get(key):
             features.add(str(execution[key]))
-    if hardware.get("gpus"):
+    profiles = gpu_profiles(entry)
+    if profiles:
         features.add("gpu")
+        for profile in profiles:
+            features.update(profile["apis"])
     for capability, detail in baseline.items():
         if detail.get("ready") or detail.get("online") or detail.get("installed"):
             features.add(str(capability))
@@ -1793,8 +1929,15 @@ def validate_role(value: Any, *, required: bool = False) -> str | None:
 
 
 def validate_admission(payload: Any) -> dict[str, Any]:
-    if not isinstance(payload, dict) or set(payload) != ADMISSION_FIELDS:
+    if (
+        not isinstance(payload, dict)
+        or not ADMISSION_FIELDS.issubset(payload)
+        or set(payload) - ADMISSION_FIELDS - ADMISSION_OPTIONAL_FIELDS
+    ):
         raise FleetError("lease admission fields are invalid")
+    payload.setdefault("gpu_api", "any")
+    payload.setdefault("min_gpu_memory_gb", 0)
+    payload.setdefault("gpu_model", None)
     parse_utc(payload["checked_at"])
     requirements = payload["requirements"]
     if (
@@ -1806,6 +1949,20 @@ def validate_admission(payload: Any) -> dict[str, Any]:
         or any(not re.fullmatch(r"[a-z0-9-]{1,40}", item) for item in requirements)
         or not isinstance(payload["min_memory_gb"], int)
         or payload["min_memory_gb"] < 0
+        or payload["gpu_api"] not in GPU_APIS
+        or not isinstance(payload["min_gpu_memory_gb"], int)
+        or payload["min_gpu_memory_gb"] < 0
+        or (
+            payload["gpu_model"] is not None
+            and (
+                not isinstance(payload["gpu_model"], str)
+                or not 1 <= len(payload["gpu_model"]) <= 120
+                or any(
+                    character in payload["gpu_model"]
+                    for character in ("\x00", "\r", "\n")
+                )
+            )
+        )
         or any(
             not isinstance(payload[field], bool)
             for field in (
@@ -1823,8 +1980,14 @@ def validate_admission(payload: Any) -> dict[str, Any]:
 
 
 def validate_lease(payload: dict[str, Any]) -> dict[str, Any]:
-    if not isinstance(payload, dict) or set(payload) != LEASE_FIELDS:
+    if (
+        not isinstance(payload, dict)
+        or not LEASE_REQUIRED_FIELDS.issubset(payload)
+        or set(payload) - LEASE_REQUIRED_FIELDS - LEASE_OPTIONAL_FIELDS
+    ):
         raise FleetError("lease fields are invalid")
+    payload.setdefault("dispatch_adapter", "lease-only")
+    dispatch_adapter(str(payload["dispatch_adapter"]))
     try:
         uuid.UUID(str(payload["lease_id"]))
     except ValueError as exc:
@@ -1885,6 +2048,7 @@ def validate_lease_store(payload: dict[str, Any]) -> dict[str, Any]:
         if normalize_node_id(str(node_id)) != node_id:
             raise FleetError("lease store node id is invalid")
         validated = validate_lease(lease)
+        payload["leases"][node_id] = validated
         if validated["node_id"] != node_id:
             raise FleetError("lease store node identity mismatch")
         maximum = max(maximum, int(validated["generation"]))
@@ -2053,6 +2217,7 @@ def build_lease(
     control_revision: str,
     admission: dict[str, Any],
     now: dt.datetime,
+    dispatch_adapter_name: str = "lease-only",
 ) -> dict[str, Any]:
     lease = {
         "lease_id": str(uuid.uuid4()),
@@ -2073,6 +2238,7 @@ def build_lease(
         ).isoformat(),
         "control_commit": control_revision,
         "admission": admission,
+        "dispatch_adapter": dispatch_adapter_name,
     }
     return validate_lease(lease)
 
@@ -2096,6 +2262,7 @@ def acquire_lease_record(
     preempt_nonce: str | None = None,
     state_root: Path | None = None,
     now: dt.datetime | None = None,
+    dispatch_adapter_name: str = "lease-only",
 ) -> dict[str, Any]:
     observed = now or utc_now()
     node_id = normalize_node_id(node_id)
@@ -2153,6 +2320,7 @@ def acquire_lease_record(
             control_revision=control_revision,
             admission=admission,
             now=observed,
+            dispatch_adapter_name=dispatch_adapter_name,
         )
         store["leases"][node_id] = lease
         audit_lease(
@@ -2292,6 +2460,9 @@ def select_nodes(
     required: set[str],
     min_memory_gb: int,
     max_age_hours: int,
+    gpu_api: str = "any",
+    min_gpu_memory_gb: int = 0,
+    gpu_model: str | None = None,
     leases: dict[str, dict[str, Any]] | None = None,
 ) -> list[dict[str, Any]]:
     selected = []
@@ -2308,6 +2479,15 @@ def select_nodes(
             or not inventory_is_fresh(inventory, max_age_hours)
             or int((inventory.get("hardware") or {}).get("memory_bytes") or 0) < minimum
             or not required.issubset(node_features(entry))
+            or (
+                (gpu_api != "any" or min_gpu_memory_gb or gpu_model)
+                and not matching_gpus(
+                    entry,
+                    gpu_api=gpu_api,
+                    min_gpu_memory_gb=min_gpu_memory_gb,
+                    gpu_model=gpu_model,
+                )
+            )
             or entry["node_id"] in leases
         ):
             continue
@@ -2317,6 +2497,7 @@ def select_nodes(
                 "display_name": policy.get("display_name"),
                 "features": sorted(node_features(entry)),
                 "memory_bytes": inventory["hardware"].get("memory_bytes"),
+                "gpus": gpu_profiles(entry),
                 "inventory_observed_at": inventory["observed_at"],
                 "scheduling": inventory.get("scheduling"),
                 "lease": {"state": "available"},
@@ -2335,11 +2516,16 @@ def fleet_select(args: argparse.Namespace) -> int:
     }
     if any(not re.fullmatch(r"[a-z0-9-]{1,40}", item) for item in required):
         raise FleetError("select requirements are invalid")
+    if args.gpu_api not in GPU_APIS or args.min_gpu_memory_gb < 0:
+        raise FleetError("select GPU requirements are invalid")
     max_age = int((manifest().get("inventory") or {}).get("max_age_hours", 36))
     selected = select_nodes(
         remote_asset_catalog(),
         required=required,
         min_memory_gb=args.min_memory_gb,
+        gpu_api=args.gpu_api,
+        min_gpu_memory_gb=args.min_gpu_memory_gb,
+        gpu_model=args.gpu_model,
         max_age_hours=max_age,
         leases=active_lease_map(),
     )
@@ -2348,6 +2534,9 @@ def fleet_select(args: argparse.Namespace) -> int:
         "scope": "catalog-plus-controller-lease-live-doctor-on-acquire",
         "requires": sorted(required),
         "min_memory_gb": args.min_memory_gb,
+        "gpu_api": args.gpu_api,
+        "min_gpu_memory_gb": args.min_gpu_memory_gb,
+        "gpu_model": args.gpu_model,
         "nodes": selected,
     }
     print(json.dumps(result, indent=2, sort_keys=True))
@@ -2361,24 +2550,176 @@ def dispatch_adapter(adapter: str) -> dict[str, Any]:
         raise FleetError(f"unknown dispatch adapter: {adapter}") from exc
 
 
+def validate_execution_requirements(value: Any) -> dict[str, Any]:
+    if not isinstance(value, dict):
+        raise FleetError("execution requirements must be a JSON object")
+    encoded = json.dumps(value, ensure_ascii=False, sort_keys=True)
+    if len(encoded.encode("utf-8")) > MAX_EXECUTION_REQUIREMENTS_BYTES:
+        raise FleetError("execution requirements exceed size limit")
+    allowed = {
+        "schema",
+        "adapter",
+        "requires",
+        "min_memory_gb",
+        "gpu_api",
+        "min_gpu_memory_gb",
+        "gpu_model",
+        "workload_class",
+        "priority",
+        "preemptible",
+        "phase",
+        "ttl_seconds",
+    }
+    if set(value) - allowed or value.get("schema") != EXECUTION_REQUIREMENTS_SCHEMA:
+        raise FleetError("execution requirements schema or fields are invalid")
+    requires = value.get("requires", [])
+    if (
+        not isinstance(requires, list)
+        or any(not isinstance(item, str) for item in requires)
+        or len(requires) != len(set(requires))
+    ):
+        raise FleetError("execution requirements list is invalid")
+    parse_requirements(",".join(requires))
+    for field in ("adapter", "gpu_api", "workload_class", "phase"):
+        if field in value and not isinstance(value[field], str):
+            raise FleetError(f"execution requirements {field} is invalid")
+    adapter = str(value.get("adapter", "lease-only"))
+    dispatch_adapter(adapter)
+    gpu_api = str(value.get("gpu_api", "any"))
+    if gpu_api not in GPU_APIS:
+        raise FleetError("execution requirements GPU API is invalid")
+    for field in ("min_memory_gb", "min_gpu_memory_gb", "priority", "ttl_seconds"):
+        if field in value and (
+            not isinstance(value[field], int)
+            or isinstance(value[field], bool)
+            or value[field] < 0
+        ):
+            raise FleetError(f"execution requirements {field} is invalid")
+    if "priority" in value and value["priority"] > 1000:
+        raise FleetError("execution requirements priority is invalid")
+    if "ttl_seconds" in value and not 60 <= value["ttl_seconds"] <= 86_400:
+        raise FleetError("execution requirements TTL is invalid")
+    if "gpu_model" in value:
+        model = value["gpu_model"]
+        if (
+            not isinstance(model, str)
+            or not 1 <= len(model) <= 120
+            or any(character in model for character in ("\x00", "\r", "\n"))
+        ):
+            raise FleetError("execution requirements GPU model is invalid")
+    workload = str(value.get("workload_class", "background"))
+    if workload not in LEASE_WORKLOAD_CLASSES:
+        raise FleetError("execution requirements workload class is invalid")
+    phase = str(value.get("phase", "interruptible"))
+    if phase not in LEASE_PHASES:
+        raise FleetError("execution requirements phase is invalid")
+    if "preemptible" in value and not isinstance(value["preemptible"], bool):
+        raise FleetError("execution requirements preemptible is invalid")
+    preemptible = bool(value.get("preemptible", False))
+    if preemptible and workload not in PREEMPTIBLE_WORKLOAD_CLASSES:
+        raise FleetError("execution requirements workload cannot be preemptible")
+    normalized = {
+        "schema": EXECUTION_REQUIREMENTS_SCHEMA,
+        "adapter": adapter,
+        "requires": sorted(set(requires)),
+        "min_memory_gb": int(value.get("min_memory_gb", 0)),
+        "gpu_api": gpu_api,
+        "min_gpu_memory_gb": int(value.get("min_gpu_memory_gb", 0)),
+        "gpu_model": value.get("gpu_model"),
+        "workload_class": workload,
+        "priority": int(value.get("priority", 300)),
+        "preemptible": preemptible,
+        "phase": phase,
+        "ttl_seconds": int(value.get("ttl_seconds", 3600)),
+    }
+    if normalized["gpu_api"] != "any":
+        normalized["requires"] = sorted(
+            set(normalized["requires"]) | {normalized["gpu_api"], "gpu"}
+        )
+    elif normalized["min_gpu_memory_gb"] or normalized["gpu_model"]:
+        normalized["requires"] = sorted(set(normalized["requires"]) | {"gpu"})
+    return normalized
+
+
+def read_execution_requirements(value: str | None) -> dict[str, Any]:
+    if not value:
+        return validate_execution_requirements(
+            {"schema": EXECUTION_REQUIREMENTS_SCHEMA}
+        )
+    source = value
+    if value.startswith("@"):
+        path = Path(value[1:]).expanduser()
+        if not path.is_file() or path.stat().st_size > MAX_EXECUTION_REQUIREMENTS_BYTES:
+            raise FleetError("execution requirements file is unavailable or too large")
+        source = path.read_text(encoding="utf-8")
+    try:
+        payload = json.loads(source)
+    except json.JSONDecodeError as exc:
+        raise FleetError("execution requirements must be valid JSON") from exc
+    return validate_execution_requirements(payload)
+
+
+def request_value(
+    args: argparse.Namespace,
+    requirements: dict[str, Any],
+    name: str,
+    default: Any,
+) -> Any:
+    explicit = getattr(args, name, None)
+    return requirements.get(name, default) if explicit is None else explicit
+
+
+def dispatch_adapter_from_args(args: argparse.Namespace) -> str:
+    requirements = read_execution_requirements(getattr(args, "requirements_json", None))
+    explicit = getattr(args, "adapter", None)
+    return str(explicit if explicit is not None else requirements["adapter"])
+
+
 def dispatch_request(args: argparse.Namespace) -> dict[str, Any]:
-    adapter = str(args.adapter)
+    requirements = read_execution_requirements(getattr(args, "requirements_json", None))
+    adapter = str(request_value(args, requirements, "adapter", "lease-only"))
     metadata = dispatch_adapter(adapter)
-    required = parse_requirements(str(args.requires or ""))
-    min_memory_gb = int(args.min_memory_gb)
+    explicit_requires = getattr(args, "requires", None)
+    required = parse_requirements(
+        str(explicit_requires)
+    ) if explicit_requires is not None else set(requirements["requires"])
+    min_memory_gb = int(request_value(args, requirements, "min_memory_gb", 0))
+    gpu_api = str(request_value(args, requirements, "gpu_api", "any"))
+    min_gpu_memory_gb = int(
+        request_value(args, requirements, "min_gpu_memory_gb", 0)
+    )
+    gpu_model = request_value(args, requirements, "gpu_model", None)
+    if gpu_api not in GPU_APIS:
+        raise FleetError("dispatch GPU API is invalid")
+    if gpu_api != "any":
+        required.update({gpu_api, "gpu"})
+    elif min_gpu_memory_gb or gpu_model:
+        required.add("gpu")
     if min_memory_gb < 0:
         raise FleetError("minimum memory must not be negative")
-    priority = int(args.priority)
+    if min_gpu_memory_gb < 0:
+        raise FleetError("minimum GPU memory must not be negative")
+    if gpu_model is not None and (
+        not isinstance(gpu_model, str)
+        or not 1 <= len(gpu_model) <= 120
+        or any(character in gpu_model for character in ("\x00", "\r", "\n"))
+    ):
+        raise FleetError("dispatch GPU model is invalid")
+    priority = int(request_value(args, requirements, "priority", 300))
     if not 0 <= priority <= 1000:
         raise FleetError("dispatch priority must be between 0 and 1000")
-    workload_class = str(args.workload_class)
+    workload_class = str(
+        request_value(args, requirements, "workload_class", "background")
+    )
     if workload_class not in LEASE_WORKLOAD_CLASSES:
         raise FleetError("dispatch workload class is invalid")
-    phase = str(args.phase)
+    phase = str(request_value(args, requirements, "phase", "interruptible"))
     if phase not in LEASE_PHASES:
         raise FleetError("dispatch phase is invalid")
-    ttl_seconds = validate_ttl(int(args.ttl_seconds))
-    preemptible = bool(args.preemptible)
+    ttl_seconds = validate_ttl(
+        int(request_value(args, requirements, "ttl_seconds", 3600))
+    )
+    preemptible = bool(request_value(args, requirements, "preemptible", False))
     if preemptible and workload_class not in PREEMPTIBLE_WORKLOAD_CLASSES:
         raise FleetError("dispatch workload cannot be preemptible")
     role = validate_role(getattr(args, "role", None))
@@ -2403,6 +2744,9 @@ def dispatch_request(args: argparse.Namespace) -> dict[str, Any]:
         "execution": metadata["execution"],
         "requires": sorted(required),
         "min_memory_gb": min_memory_gb,
+        "gpu_api": gpu_api,
+        "min_gpu_memory_gb": min_gpu_memory_gb,
+        "gpu_model": gpu_model,
         "workload_class": workload_class,
         "priority": priority,
         "preemptible": preemptible,
@@ -2423,6 +2767,9 @@ def dispatch_candidates(request: dict[str, Any]) -> list[dict[str, Any]]:
         required=set(request["requires"]),
         min_memory_gb=int(request["min_memory_gb"]),
         max_age_hours=max_age,
+        gpu_api=str(request.get("gpu_api", "any")),
+        min_gpu_memory_gb=int(request.get("min_gpu_memory_gb", 0)),
+        gpu_model=request.get("gpu_model"),
         leases=active_lease_map(),
     )
     role = request.get("role")
@@ -2520,42 +2867,62 @@ def fleet_dispatch_acquire(args: argparse.Namespace) -> int:
         )
         return 0
     controller_guard()
-    if request["adapter"] != "lease-only":
+    if request["adapter"] not in {"lease-only", "ssh-session"}:
         if request["adapter"] == "github-runner":
             raise FleetError(
                 "github-runner uses the existing runner start/stop transaction; "
                 "dispatch does not submit a GitHub job"
             )
         raise FleetError(
-            f"adapter {request['adapter']} is planned and has no acquire route"
+            f"adapter {request['adapter']} has no dispatch acquire route"
         )
     candidates = dispatch_candidates(request)
-    node_id = request.get("node_id") or (
-        candidates[0]["node_id"] if candidates else None
-    )
-    if not node_id:
+    if not candidates:
         raise FleetError("no dispatch candidate is available")
     registry = node_registry()
-    role = request.get("role")
-    if role:
-        role = assert_runner_role_node(str(role), node_id, registry=registry)
-        assert_runner_role_workload(
-            role,
-            str(request["workload_class"]),
-            registry=registry,
-        )
-    doctor = doctor_result(node_id)
     required = set(request["requires"])
-    assert_lease_admission(
-        doctor,
-        required=required,
-        min_memory_gb=int(request["min_memory_gb"]),
-    )
-    admission = build_admission_receipt(
-        doctor,
-        required=required,
-        min_memory_gb=int(request["min_memory_gb"]),
-    )
+    node_id: str | None = None
+    role: str | None = None
+    admission: dict[str, Any] | None = None
+    rejected: list[str] = []
+    for candidate in candidates:
+        candidate_id = str(candidate["node_id"])
+        try:
+            candidate_role = request.get("role")
+            if candidate_role:
+                candidate_role = assert_runner_role_node(
+                    str(candidate_role), candidate_id, registry=registry
+                )
+                assert_runner_role_workload(
+                    candidate_role,
+                    str(request["workload_class"]),
+                    registry=registry,
+                )
+            doctor = doctor_result(candidate_id)
+            assert_lease_admission(
+                doctor,
+                required=required,
+                min_memory_gb=int(request["min_memory_gb"]),
+                gpu_api=str(request["gpu_api"]),
+                min_gpu_memory_gb=int(request["min_gpu_memory_gb"]),
+                gpu_model=request["gpu_model"],
+            )
+            admission = build_admission_receipt(
+                doctor,
+                required=required,
+                min_memory_gb=int(request["min_memory_gb"]),
+                gpu_api=str(request["gpu_api"]),
+                min_gpu_memory_gb=int(request["min_gpu_memory_gb"]),
+                gpu_model=request["gpu_model"],
+            )
+            node_id = candidate_id
+            role = candidate_role
+            break
+        except FleetError as exc:
+            rejected.append(f"{candidate_id}:{str(exc)[:120]}")
+    if node_id is None or admission is None:
+        detail = ";".join(rejected) or "no-fresh-admission"
+        raise FleetError(f"no dispatch candidate passed fresh doctor: {detail}")
     revision = control_commit()
     lease = acquire_lease_record(
         node_id=node_id,
@@ -2573,6 +2940,7 @@ def fleet_dispatch_acquire(args: argparse.Namespace) -> int:
         preempt_lease_id=args.preempt_lease_id,
         preempt_generation=args.preempt_generation,
         preempt_nonce=args.preempt_nonce,
+        dispatch_adapter_name=str(request["adapter"]),
     )
     dispatch_id = lease["lease_id"]
     print(
@@ -2584,7 +2952,7 @@ def fleet_dispatch_acquire(args: argparse.Namespace) -> int:
                 "dispatch_id": dispatch_id,
                 "request": request,
                 "lease": public_lease(lease, now=utc_now()),
-                "execution": "caller-controlled-after-lease",
+                "execution": request["execution"],
             },
             indent=2,
             sort_keys=True,
@@ -2611,6 +2979,10 @@ def fleet_dispatch_verify(args: argparse.Namespace) -> int:
         min_ttl_seconds=int(args.min_ttl_seconds),
         required=set(lease["admission"]["requirements"]),
         min_memory_gb=int(lease["admission"]["min_memory_gb"]),
+        gpu_api=str(lease["admission"]["gpu_api"]),
+        min_gpu_memory_gb=int(lease["admission"]["min_gpu_memory_gb"]),
+        gpu_model=lease["admission"]["gpu_model"],
+        expected_dispatch_adapter=str(lease["dispatch_adapter"]),
         max_admission_age_seconds=int(args.max_admission_age_seconds),
         expected_control_commit=lease["control_commit"],
         current_control_commit=control_commit(),
@@ -2629,6 +3001,204 @@ def fleet_dispatch_verify(args: argparse.Namespace) -> int:
             sort_keys=True,
         )
     )
+    return 0
+
+
+def validate_execution_argv(value: str) -> list[str]:
+    try:
+        payload = json.loads(value)
+    except json.JSONDecodeError as exc:
+        raise FleetError("dispatch argv must be valid JSON") from exc
+    if (
+        not isinstance(payload, list)
+        or not 1 <= len(payload) <= 128
+        or any(
+            not isinstance(item, str)
+            or not item
+            or len(item.encode("utf-8")) > 4096
+            or "\x00" in item
+            for item in payload
+        )
+        or len(json.dumps(payload, ensure_ascii=False).encode("utf-8")) > 32_768
+    ):
+        raise FleetError("dispatch argv is invalid")
+    return payload
+
+
+def validate_execution_result(value: Any) -> dict[str, Any]:
+    fields = {
+        "schema",
+        "started_at",
+        "finished_at",
+        "exit_code",
+        "timed_out",
+        "stdout",
+        "stderr",
+        "stdout_truncated",
+        "stderr_truncated",
+    }
+    if (
+        not isinstance(value, dict)
+        or set(value) != fields
+        or value.get("schema") != "codex_fleet_ssh_execution_result.v1"
+        or not isinstance(value.get("timed_out"), bool)
+        or not isinstance(value.get("stdout"), str)
+        or not isinstance(value.get("stderr"), str)
+        or not isinstance(value.get("stdout_truncated"), bool)
+        or not isinstance(value.get("stderr_truncated"), bool)
+        or (
+            value.get("exit_code") is not None
+            and not isinstance(value.get("exit_code"), int)
+        )
+        or len(value["stdout"].encode("utf-8")) > MAX_EXECUTION_OUTPUT_BYTES * 4
+        or len(value["stderr"].encode("utf-8")) > MAX_EXECUTION_OUTPUT_BYTES * 4
+    ):
+        raise FleetError("SSH execution result is invalid")
+    parse_utc(value["started_at"])
+    parse_utc(value["finished_at"])
+    return value
+
+
+def execute_ssh_session(
+    node_id: str,
+    *,
+    argv: list[str],
+    cwd: str | None,
+    timeout_seconds: int,
+) -> dict[str, Any]:
+    if not 1 <= timeout_seconds <= REMOTE_EXECUTION_TIMEOUT_SECONDS:
+        raise FleetError("SSH execution timeout is invalid")
+    if cwd is not None and (
+        not cwd
+        or len(cwd.encode("utf-8")) > 1024
+        or any(character in cwd for character in ("\x00", "\r", "\n"))
+    ):
+        raise FleetError("SSH execution cwd is invalid")
+    route = read_routes()["routes"].get(normalize_node_id(node_id)) or {}
+    ssh_alias = route.get("ssh")
+    if route.get("local") is True or not re.fullmatch(
+        r"[A-Za-z0-9._-]{1,120}", str(ssh_alias or "")
+    ):
+        raise FleetError(f"controlled SSH route is unavailable: {node_id}")
+    payload = {
+        "argv": argv,
+        "cwd": cwd,
+        "timeout_seconds": timeout_seconds,
+        "output_limit": MAX_EXECUTION_OUTPUT_BYTES,
+    }
+    command = f"python3 -c {shlex.quote(REMOTE_EXECUTOR)}"
+    try:
+        completed = run(
+            [
+                "ssh",
+                "-o",
+                "BatchMode=yes",
+                "-o",
+                "ConnectTimeout=8",
+                str(ssh_alias),
+                command,
+            ],
+            check=False,
+            input_text=json.dumps(payload, ensure_ascii=False),
+            timeout=timeout_seconds + 15,
+        )
+    except subprocess.TimeoutExpired:
+        return {
+            "known": False,
+            "reason": "ssh-controller-timeout",
+            "transport_returncode": None,
+        }
+    if completed.returncode:
+        return {
+            "known": False,
+            "reason": "ssh-transport-failed",
+            "transport_returncode": completed.returncode,
+        }
+    try:
+        result = validate_execution_result(json.loads(completed.stdout))
+    except (json.JSONDecodeError, FleetError):
+        return {
+            "known": False,
+            "reason": "ssh-result-invalid",
+            "transport_returncode": completed.returncode,
+        }
+    return {"known": True, "result": result}
+
+
+def fleet_dispatch_execute(args: argparse.Namespace) -> int:
+    controller_guard()
+    lease = dispatch_lease(args.dispatch_id)
+    if lease["dispatch_adapter"] != "ssh-session":
+        raise FleetError("dispatch execute requires an ssh-session lease")
+    expected_owners = {
+        "owner_task": validate_owner_id(args.owner_task, "owner task", required=True),
+        "owner_thread": validate_owner_id(args.owner_thread, "owner thread"),
+        "owner_run": validate_owner_id(args.owner_run, "owner run"),
+    }
+    for field, expected in expected_owners.items():
+        if lease[field] != expected:
+            raise FleetError(f"dispatch {field.replace('_', ' ')} mismatch")
+    minimum_ttl = max(int(args.min_ttl_seconds), int(args.timeout_seconds) + 30)
+    admission = lease["admission"]
+    verification = verify_lease_record(
+        lease,
+        node_id=lease["node_id"],
+        role=lease["role"],
+        lease_id=lease["lease_id"],
+        generation=int(lease["generation"]),
+        owner_task=lease["owner_task"],
+        owner_thread=lease["owner_thread"],
+        owner_run=lease["owner_run"],
+        workload_class=lease["workload_class"],
+        phase=lease["phase"],
+        preemptible=bool(lease["preemptible"]),
+        min_ttl_seconds=minimum_ttl,
+        required=set(admission["requirements"]),
+        min_memory_gb=int(admission["min_memory_gb"]),
+        max_admission_age_seconds=int(args.max_admission_age_seconds),
+        expected_control_commit=lease["control_commit"],
+        current_control_commit=control_commit(),
+        registry=node_registry(),
+        now=utc_now(),
+        gpu_api=str(admission["gpu_api"]),
+        min_gpu_memory_gb=int(admission["min_gpu_memory_gb"]),
+        gpu_model=admission["gpu_model"],
+        expected_dispatch_adapter="ssh-session",
+    )
+    execution = execute_ssh_session(
+        lease["node_id"],
+        argv=validate_execution_argv(args.argv_json),
+        cwd=args.cwd,
+        timeout_seconds=int(args.timeout_seconds),
+    )
+    if not execution["known"]:
+        payload = {
+            "schema": "codex_fleet_dispatch_readback.v1",
+            "action": "execute",
+            "status": "unknown",
+            "dispatch_id": lease["lease_id"],
+            "node_id": lease["node_id"],
+            "verification": verification,
+            "transport": execution,
+            "release_required": True,
+            "lease_retained": True,
+            "next_action": "reconcile the remote workload read-only; retain the lease before retry",
+        }
+        print(json.dumps(payload, indent=2, sort_keys=True))
+        return 1
+    result = execution["result"]
+    payload = {
+        "schema": "codex_fleet_dispatch_readback.v1",
+        "action": "execute",
+        "status": "timed-out" if result["timed_out"] else "completed",
+        "dispatch_id": lease["lease_id"],
+        "node_id": lease["node_id"],
+        "verification": verification,
+        "result": result,
+        "release_required": True,
+        "next_action": "record task evidence, then explicitly release the dispatch lease",
+    }
+    print(json.dumps(payload, indent=2, sort_keys=True))
     return 0
 
 
@@ -3029,6 +3599,7 @@ def doctor_result(
             if isinstance(inventory, dict)
             else None
         ),
+        "gpus": gpu_profiles(effective_entry),
         "lease": public_lease(lease, now=observed),
         "scheduling": scheduling,
         "ssh": {
@@ -3115,9 +3686,14 @@ def assert_lease_admission(
     *,
     required: set[str],
     min_memory_gb: int,
+    gpu_api: str = "any",
+    min_gpu_memory_gb: int = 0,
+    gpu_model: str | None = None,
 ) -> None:
     if min_memory_gb < 0:
         raise FleetError("minimum memory must not be negative")
+    if gpu_api not in GPU_APIS or min_gpu_memory_gb < 0:
+        raise FleetError("GPU admission requirement is invalid")
     scheduling = doctor.get("scheduling") or {}
     failures: list[str] = []
     if not doctor.get("approved"):
@@ -3152,6 +3728,18 @@ def assert_lease_admission(
     minimum = min_memory_gb * 1024**3
     if int(doctor.get("memory_bytes") or 0) < minimum:
         failures.append("memory")
+    # doctor GPU profiles are already normalized; match them directly here.
+    model = gpu_model.casefold() if gpu_model else None
+    minimum_gpu = min_gpu_memory_gb * 1024**3
+    matching = [
+        gpu
+        for gpu in doctor.get("gpus") or []
+        if (gpu_api == "any" or gpu_api in (gpu.get("apis") or []))
+        and int(gpu.get("memory_bytes") or 0) >= minimum_gpu
+        and (not model or model in str(gpu.get("name") or "").casefold())
+    ]
+    if (gpu_api != "any" or min_gpu_memory_gb or gpu_model) and not matching:
+        failures.append("gpu")
     if failures or not doctor.get("admission_ready"):
         detail = ",".join(dict.fromkeys(failures or ["doctor-not-ready"]))
         raise FleetError(f"lease admission rejected: {detail}")
@@ -3162,6 +3750,9 @@ def build_admission_receipt(
     *,
     required: set[str],
     min_memory_gb: int,
+    gpu_api: str = "any",
+    min_gpu_memory_gb: int = 0,
+    gpu_model: str | None = None,
 ) -> dict[str, Any]:
     scheduling = doctor.get("scheduling") or {}
     return validate_admission(
@@ -3170,6 +3761,9 @@ def build_admission_receipt(
             "inventory_age_seconds": int(doctor["inventory_age_seconds"]),
             "requirements": sorted(required),
             "min_memory_gb": min_memory_gb,
+            "gpu_api": gpu_api,
+            "min_gpu_memory_gb": min_gpu_memory_gb,
+            "gpu_model": gpu_model,
             "power_ok": scheduling.get("power_ok") is True,
             "storage_ok": scheduling.get("storage_ok") is True,
             "thermal_ok": scheduling.get("thermal_ok") is True,
@@ -3201,6 +3795,10 @@ def verify_lease_record(
     current_control_commit: str,
     registry: dict[str, Any],
     now: dt.datetime,
+    gpu_api: str = "any",
+    min_gpu_memory_gb: int = 0,
+    gpu_model: str | None = None,
+    expected_dispatch_adapter: str = "lease-only",
 ) -> dict[str, Any]:
     validated = validate_lease(lease)
     normalized_node = normalize_node_id(node_id)
@@ -3228,6 +3826,9 @@ def verify_lease_record(
         or min_memory_gb < 0
     ):
         raise FleetError("lease verification freshness requirement is invalid")
+    if gpu_api not in GPU_APIS or min_gpu_memory_gb < 0:
+        raise FleetError("lease verification GPU requirement is invalid")
+    dispatch_adapter(expected_dispatch_adapter)
     if (
         not COMMIT_PATTERN.fullmatch(expected_control_commit)
         or not COMMIT_PATTERN.fullmatch(current_control_commit)
@@ -3247,6 +3848,7 @@ def verify_lease_record(
         "phase": phase,
         "preemptible": preemptible,
         "control_commit": expected_control_commit,
+        "dispatch_adapter": expected_dispatch_adapter,
     }
     for field, value in expected.items():
         if validated[field] != value:
@@ -3267,6 +3869,12 @@ def verify_lease_record(
         failures.append("requirements")
     if admission["min_memory_gb"] != min_memory_gb:
         failures.append("memory")
+    if admission["gpu_api"] != gpu_api:
+        failures.append("gpu-api")
+    if admission["min_gpu_memory_gb"] != min_gpu_memory_gb:
+        failures.append("gpu-memory")
+    if admission["gpu_model"] != gpu_model:
+        failures.append("gpu-model")
     if not all(
         admission[field]
         for field in (
@@ -3662,6 +4270,7 @@ def fleet_runner_start(args: argparse.Namespace) -> int:
         ttl_seconds=args.ttl_seconds,
         control_revision=revision,
         admission=admission,
+        dispatch_adapter_name="github-runner",
     )
     try:
         verify_lease_record(
@@ -3684,6 +4293,7 @@ def fleet_runner_start(args: argparse.Namespace) -> int:
             current_control_commit=revision,
             registry=registry,
             now=utc_now(),
+            expected_dispatch_adapter="github-runner",
         )
     except Exception:
         release_lease_record(
@@ -4102,6 +4712,9 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     select_parser = subparsers.add_parser("select")
     select_parser.add_argument("--requires", default="")
     select_parser.add_argument("--min-memory-gb", type=int, default=0)
+    select_parser.add_argument("--gpu-api", choices=sorted(GPU_APIS), default="any")
+    select_parser.add_argument("--min-gpu-memory-gb", type=int, default=0)
+    select_parser.add_argument("--gpu-model")
     dispatch_parser = subparsers.add_parser(
         "dispatch",
         help="plan or lease task execution capacity",
@@ -4116,28 +4729,36 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         *,
         owner: bool,
     ) -> None:
+        command.add_argument("--requirements-json")
         command.add_argument(
             "--adapter",
             choices=sorted(DISPATCH_ADAPTERS),
-            default="lease-only",
+            default=None,
         )
         command.add_argument("--node-id")
         command.add_argument("--role")
-        command.add_argument("--requires", default="")
-        command.add_argument("--min-memory-gb", type=int, default=0)
+        command.add_argument("--requires", default=None)
+        command.add_argument("--min-memory-gb", type=int, default=None)
+        command.add_argument("--gpu-api", choices=sorted(GPU_APIS), default=None)
+        command.add_argument("--min-gpu-memory-gb", type=int, default=None)
+        command.add_argument("--gpu-model", default=None)
         command.add_argument(
             "--workload-class",
             choices=sorted(LEASE_WORKLOAD_CLASSES),
-            default="background",
+            default=None,
         )
-        command.add_argument("--priority", type=int, default=300)
-        command.add_argument("--preemptible", action="store_true")
+        command.add_argument("--priority", type=int, default=None)
+        command.add_argument(
+            "--preemptible",
+            action=argparse.BooleanOptionalAction,
+            default=None,
+        )
         command.add_argument(
             "--phase",
             choices=sorted(LEASE_PHASES),
-            default="interruptible",
+            default=None,
         )
-        command.add_argument("--ttl-seconds", type=int, default=3600)
+        command.add_argument("--ttl-seconds", type=int, default=None)
         if owner:
             command.add_argument("--owner-task", required=True)
             command.add_argument("--owner-thread")
@@ -4154,6 +4775,20 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     dispatch_verify_parser.add_argument("dispatch_id")
     dispatch_verify_parser.add_argument("--min-ttl-seconds", type=int, default=300)
     dispatch_verify_parser.add_argument(
+        "--max-admission-age-seconds",
+        type=int,
+        default=300,
+    )
+    dispatch_execute_parser = dispatch_subparsers.add_parser("execute")
+    dispatch_execute_parser.add_argument("dispatch_id")
+    dispatch_execute_parser.add_argument("--owner-task", required=True)
+    dispatch_execute_parser.add_argument("--owner-thread")
+    dispatch_execute_parser.add_argument("--owner-run")
+    dispatch_execute_parser.add_argument("--argv-json", required=True)
+    dispatch_execute_parser.add_argument("--cwd")
+    dispatch_execute_parser.add_argument("--timeout-seconds", type=int, default=900)
+    dispatch_execute_parser.add_argument("--min-ttl-seconds", type=int, default=60)
+    dispatch_execute_parser.add_argument(
         "--max-admission-age-seconds",
         type=int,
         default=300,
@@ -4279,7 +4914,7 @@ def main(argv: list[str] | None = None) -> int:
     local_dispatch = (
         args.action == "dispatch"
         and args.dispatch_action in {"plan", "acquire"}
-        and args.adapter == "local-codex"
+        and dispatch_adapter_from_args(args) == "local-codex"
     )
     instance = None if local_dispatch else configure_instance(args.instance)
     if args.action in {"join", "reconcile"}:
@@ -4314,6 +4949,8 @@ def main(argv: list[str] | None = None) -> int:
             return fleet_dispatch_acquire(args)
         if args.dispatch_action == "verify":
             return fleet_dispatch_verify(args)
+        if args.dispatch_action == "execute":
+            return fleet_dispatch_execute(args)
         return fleet_dispatch_release(args)
     if args.action == "runner":
         if args.runner_action == "start":

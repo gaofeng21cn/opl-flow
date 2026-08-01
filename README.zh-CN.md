@@ -267,11 +267,14 @@ Flow 通过一套统一的分发契约连接任务和机器，不再另建调度
 
 ```bash
 python3 scripts/opl_fleet.py --instance <opl-instance> dispatch plan \
-  --adapter lease-only --requires gpu --min-memory-gb 24
+  --requirements-json @execution-requirements.json
 python3 scripts/opl_fleet.py --instance <opl-instance> dispatch acquire \
-  --adapter lease-only --owner-task <task-id> --owner-thread <thread-id> \
-  --owner-run <run-id> --requires gpu --min-memory-gb 24
+  --requirements-json @execution-requirements.json \
+  --owner-task <task-id> --owner-thread <thread-id> --owner-run <run-id>
 python3 scripts/opl_fleet.py --instance <opl-instance> dispatch verify <dispatch-id>
+python3 scripts/opl_fleet.py --instance <opl-instance> dispatch execute <dispatch-id> \
+  --owner-task <task-id> --owner-thread <thread-id> --owner-run <run-id> \
+  --argv-json '["command", "argument"]'
 python3 scripts/opl_fleet.py --instance <opl-instance> dispatch release <dispatch-id> \
   --owner-task <task-id>
 ```
@@ -285,17 +288,25 @@ python3 scripts/opl_fleet.py --instance <opl-instance> dispatch release <dispatc
 - `local-codex`：当前 Codex 会话直接执行，不申请 Fleet 租约；
 - `lease-only`：只预留远端容量，由调用方负责实际执行；
 - `github-runner`：复用现有 Runner 启停事务，但不会代替 GitHub 提交任务；
-- `ssh-session`、`remote-codex`：仍是规划中的适配器，尚未实现时直接失败。
+- `ssh-session`：验证租约后，通过私人 Instance 的 SSH 路由执行一组结构化参数；
+  Windows 节点固定在 WSL 内执行；
+- `remote-codex`：仍是规划中的适配器，尚未实现时直接失败。
 
 租约、Runner 在线或分发规划都不等于任务已经执行；必须有执行适配器自己的结果
 回读，才能把任务记为实际完成。
 
+需要 Fleet 的任务在 Beads 的 `metadata.opl_execution_requirements` 中保存一份资源意图，
+并由 `contracts/execution-requirements.schema.json` 校验。它可以声明执行适配器、平台能力、
+内存、CUDA 或 Metal、最低显存、显卡型号、优先级、是否可抢占和租约时长。Fleet 只把
+这些条件与实时库存匹配，不在总账里固定偏好机器，也不建立第二套任务数据库。
+
 ### 动态加载，而不是全部预加载
 
-`opl-flow` 是始终稳定存在的主路由 Skill，但不是把所有能力一次性装入当前上下文：
+`opl-flow` 是稳定的主路由 Skill，但不是把所有能力一次性装入当前上下文：
 
 1. 所有 OPL 工作流请求先进入 `opl-flow`；
-2. 根据任务语义调用插件内置的核心 Skill，例如并发协调、开发交付、门禁或恢复；
+2. 安装 OPL Flow 时，内置专业 Skill 会一起变得可发现；主 Skill 再根据任务语义按需
+   调用并发协调、开发交付、Fleet、门禁或恢复，不会让每个任务都加载全部说明；
 3. 只有任务需要时，才调用已经安装的可选专业 Skill；未安装时由 Codex 直接完成同类
    判断，不因为可选增强缺失而阻断；
 4. 只有任务确实需要远端平台、GPU、虚拟机、图形界面或批量容量时，才启用 Fleet。

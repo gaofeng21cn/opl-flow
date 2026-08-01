@@ -724,6 +724,113 @@ class CodexFleetTests(unittest.TestCase):
         )
         self.assertEqual(rejected, [])
 
+    def test_execution_requirements_json_normalizes_gpu_intent(self) -> None:
+        request = fleet.dispatch_request(
+            fleet.argparse.Namespace(
+                requirements_json=json.dumps(
+                    {
+                        "schema": "opl_execution_requirements.v1",
+                        "adapter": "ssh-session",
+                        "requires": ["windows", "wsl"],
+                        "min_memory_gb": 32,
+                        "gpu_api": "cuda",
+                        "min_gpu_memory_gb": 20,
+                        "gpu_model": "RTX 4090",
+                        "workload_class": "background",
+                        "priority": 300,
+                        "preemptible": True,
+                        "phase": "interruptible",
+                        "ttl_seconds": 3600,
+                    }
+                ),
+                adapter=None,
+                node_id=None,
+                role=None,
+                requires=None,
+                min_memory_gb=None,
+                gpu_api=None,
+                min_gpu_memory_gb=None,
+                gpu_model=None,
+                workload_class=None,
+                priority=None,
+                preemptible=None,
+                phase=None,
+                ttl_seconds=None,
+            )
+        )
+        self.assertEqual(request["adapter"], "ssh-session")
+        self.assertEqual(request["gpu_api"], "cuda")
+        self.assertEqual(request["min_gpu_memory_gb"], 20)
+        self.assertEqual(request["gpu_model"], "RTX 4090")
+        self.assertEqual(request["requires"], ["cuda", "gpu", "windows", "wsl"])
+
+    def test_cuda_metal_model_and_gpu_memory_filter_the_same_gpu(self) -> None:
+        cuda_inventory = dispatchable_inventory("fictional-cuda")
+        cuda_inventory["hardware"]["gpus"] = [
+            {
+                "name": "NVIDIA GeForce RTX 4090",
+                "memory_bytes": 24 * 1024**3,
+                "driver_version": "999.1",
+            }
+        ]
+        metal_inventory = dispatchable_inventory("fictional-metal")
+        metal_inventory["host"]["system"] = "darwin"
+        metal_inventory["execution"] = {
+            "kind": "native",
+            "os_name": "macOS",
+            "os_version": "26.0",
+            "kernel": "25.0",
+            "architecture": "arm64",
+        }
+        metal_inventory["hardware"]["memory_bytes"] = 64 * 1024**3
+        metal_inventory["hardware"]["gpus"] = [{"name": "Apple M4 Max"}]
+        catalog = {
+            "nodes": [
+                {
+                    "node_id": "fictional-cuda",
+                    "policy": fictional_node_policy(["windows", "wsl", "gpu"]),
+                    "receipt": receipt("fictional-cuda"),
+                    "inventory": cuda_inventory,
+                },
+                {
+                    "node_id": "fictional-metal",
+                    "policy": fictional_node_policy(["macos", "apple-silicon"]),
+                    "receipt": receipt("fictional-metal"),
+                    "inventory": metal_inventory,
+                },
+            ]
+        }
+        cuda = fleet.select_nodes(
+            catalog,
+            required={"gpu", "cuda"},
+            min_memory_gb=16,
+            max_age_hours=36,
+            gpu_api="cuda",
+            min_gpu_memory_gb=20,
+            gpu_model="RTX 4090",
+        )
+        metal = fleet.select_nodes(
+            catalog,
+            required={"gpu", "metal"},
+            min_memory_gb=16,
+            max_age_hours=36,
+            gpu_api="metal",
+            min_gpu_memory_gb=32,
+            gpu_model="M4 Max",
+        )
+        rejected = fleet.select_nodes(
+            catalog,
+            required={"gpu", "cuda"},
+            min_memory_gb=16,
+            max_age_hours=36,
+            gpu_api="cuda",
+            min_gpu_memory_gb=25,
+            gpu_model="RTX 4090",
+        )
+        self.assertEqual([item["node_id"] for item in cuda], ["fictional-cuda"])
+        self.assertEqual([item["node_id"] for item in metal], ["fictional-metal"])
+        self.assertEqual(rejected, [])
+
     def test_windows_gpu_peers_have_equal_policy_and_selection_weight(self) -> None:
         registry = fictional_registry()
         entries = []
@@ -1172,6 +1279,250 @@ class CodexFleetTests(unittest.TestCase):
                     self.assertEqual(fleet.active_lease_map(), {})
             finally:
                 fleet.STATE_ROOT = previous_state_root
+
+    def test_dispatch_acquire_skips_offline_candidate_after_fresh_doctor(self) -> None:
+        now = fleet.dt.datetime(2026, 8, 1, tzinfo=fleet.dt.timezone.utc)
+        healthy = {
+            "approved": True,
+            "receipt_state": "CURRENT",
+            "inventory_fresh": True,
+            "codex_ready": True,
+            "ssh": {"reachable": True},
+            "tailscale": {"online": True},
+            "scheduling": {
+                "power_ok": True,
+                "storage_ok": True,
+                "thermal_ok": True,
+                "interactive_busy": False,
+                "busy": False,
+            },
+            "work_volume": {"ready": True},
+            "features": ["cuda", "gpu", "windows", "wsl"],
+            "memory_bytes": 64 * 1024**3,
+            "gpus": [
+                {
+                    "name": "NVIDIA GeForce RTX 4090",
+                    "apis": ["cuda"],
+                    "memory_bytes": 24 * 1024**3,
+                    "driver_version": "999.1",
+                }
+            ],
+            "inventory_age_seconds": 0,
+            "checked_at": now.isoformat(),
+            "admission_ready": True,
+        }
+        offline = json.loads(json.dumps(healthy))
+        offline["ssh"]["reachable"] = False
+        offline["tailscale"]["online"] = False
+        offline["admission_ready"] = False
+        args = fleet.argparse.Namespace(
+            adapter="ssh-session",
+            requirements_json=None,
+            node_id=None,
+            role=None,
+            requires="cuda,windows,wsl",
+            min_memory_gb=32,
+            gpu_api="cuda",
+            min_gpu_memory_gb=20,
+            gpu_model=None,
+            workload_class="background",
+            priority=300,
+            preemptible=True,
+            phase="interruptible",
+            ttl_seconds=3600,
+            owner_task="dispatch-task",
+            owner_thread="dispatch-thread",
+            owner_run="dispatch-run",
+            preempt_lease_id=None,
+            preempt_generation=None,
+            preempt_nonce=None,
+        )
+        candidates = [
+            {"node_id": "fictional-gpu-a"},
+            {"node_id": "fictional-gpu-b"},
+        ]
+        with tempfile.TemporaryDirectory() as temp_dir:
+            previous_state_root = fleet.STATE_ROOT
+            try:
+                fleet.STATE_ROOT = Path(temp_dir)
+                with (
+                    mock.patch.object(fleet, "controller_guard"),
+                    mock.patch.object(fleet, "dispatch_candidates", return_value=candidates),
+                    mock.patch.object(fleet, "node_registry", return_value=fictional_registry()),
+                    mock.patch.object(fleet, "doctor_result", side_effect=[offline, healthy]),
+                    mock.patch.object(fleet, "control_commit", return_value=TEST_CONTROL_COMMIT),
+                    mock.patch.object(fleet, "utc_now", return_value=now),
+                    contextlib.redirect_stdout(io.StringIO()) as output,
+                ):
+                    self.assertEqual(fleet.fleet_dispatch_acquire(args), 0)
+                payload = json.loads(output.getvalue())
+            finally:
+                fleet.STATE_ROOT = previous_state_root
+        self.assertEqual(payload["lease"]["node_id"], "fictional-gpu-b")
+        self.assertEqual(payload["lease"]["dispatch_adapter"], "ssh-session")
+
+    def test_ssh_session_uses_structured_argv_without_shell_interpolation(self) -> None:
+        remote_result = {
+            "schema": "codex_fleet_ssh_execution_result.v1",
+            "started_at": "2026-08-01T00:00:00+00:00",
+            "finished_at": "2026-08-01T00:00:01+00:00",
+            "exit_code": 0,
+            "timed_out": False,
+            "stdout": "ok\n",
+            "stderr": "",
+            "stdout_truncated": False,
+            "stderr_truncated": False,
+        }
+        argument = "value; touch /tmp/must-not-run"
+        with (
+            mock.patch.object(
+                fleet,
+                "read_routes",
+                return_value={
+                    "schema": "codex_fleet_routes.v1",
+                    "routes": {"fictional-gpu-a": {"ssh": "fictional-gpu-a"}},
+                },
+            ),
+            mock.patch.object(
+                fleet,
+                "run",
+                return_value=mock.Mock(
+                    returncode=0,
+                    stdout=json.dumps(remote_result),
+                    stderr="",
+                ),
+            ) as run_mock,
+        ):
+            result = fleet.execute_ssh_session(
+                "fictional-gpu-a",
+                argv=["printf", "%s", argument],
+                cwd=None,
+                timeout_seconds=60,
+            )
+        invocation = run_mock.call_args.args[0]
+        input_payload = json.loads(run_mock.call_args.kwargs["input_text"])
+        self.assertTrue(result["known"])
+        self.assertNotIn(argument, " ".join(invocation))
+        self.assertEqual(input_payload["argv"], ["printf", "%s", argument])
+
+    def test_unknown_ssh_result_retains_lease_and_blocks_retry_claim(self) -> None:
+        now = fleet.dt.datetime(2026, 8, 1, tzinfo=fleet.dt.timezone.utc)
+        lease = fleet.build_lease(
+            node_id="fictional-gpu-a",
+            generation=1,
+            owner_task="task-a",
+            owner_thread="thread-a",
+            owner_run="run-a",
+            role=None,
+            workload_class="background",
+            priority=300,
+            preemptible=True,
+            phase="interruptible",
+            ttl_seconds=3600,
+            control_revision=TEST_CONTROL_COMMIT,
+            admission=admission(now),
+            now=now,
+            dispatch_adapter_name="ssh-session",
+        )
+        args = fleet.argparse.Namespace(
+            dispatch_id=lease["lease_id"],
+            owner_task="task-a",
+            owner_thread="thread-a",
+            owner_run="run-a",
+            argv_json='["true"]',
+            cwd=None,
+            timeout_seconds=60,
+            min_ttl_seconds=30,
+            max_admission_age_seconds=300,
+        )
+        with (
+            mock.patch.object(fleet, "controller_guard"),
+            mock.patch.object(fleet, "dispatch_lease", return_value=lease),
+            mock.patch.object(fleet, "verify_lease_record", return_value={"verified": True}),
+            mock.patch.object(
+                fleet,
+                "execute_ssh_session",
+                return_value={
+                    "known": False,
+                    "reason": "ssh-transport-failed",
+                    "transport_returncode": 255,
+                },
+            ),
+            mock.patch.object(fleet, "control_commit", return_value=TEST_CONTROL_COMMIT),
+            mock.patch.object(fleet, "node_registry", return_value=fictional_registry()),
+            mock.patch.object(fleet, "utc_now", return_value=now),
+            mock.patch.object(fleet, "release_lease_record") as release_mock,
+            contextlib.redirect_stdout(io.StringIO()) as output,
+        ):
+            self.assertEqual(fleet.fleet_dispatch_execute(args), 1)
+        payload = json.loads(output.getvalue())
+        self.assertEqual(payload["status"], "unknown")
+        self.assertTrue(payload["lease_retained"])
+        self.assertTrue(payload["release_required"])
+        release_mock.assert_not_called()
+
+    def test_completed_ssh_result_requires_explicit_release(self) -> None:
+        now = fleet.dt.datetime(2026, 8, 1, tzinfo=fleet.dt.timezone.utc)
+        lease = fleet.build_lease(
+            node_id="fictional-gpu-a",
+            generation=1,
+            owner_task="task-a",
+            owner_thread="thread-a",
+            owner_run="run-a",
+            role=None,
+            workload_class="background",
+            priority=300,
+            preemptible=True,
+            phase="interruptible",
+            ttl_seconds=3600,
+            control_revision=TEST_CONTROL_COMMIT,
+            admission=admission(now),
+            now=now,
+            dispatch_adapter_name="ssh-session",
+        )
+        result = {
+            "schema": "codex_fleet_ssh_execution_result.v1",
+            "started_at": now.isoformat(),
+            "finished_at": (now + fleet.dt.timedelta(seconds=1)).isoformat(),
+            "exit_code": 0,
+            "timed_out": False,
+            "stdout": "done\n",
+            "stderr": "",
+            "stdout_truncated": False,
+            "stderr_truncated": False,
+        }
+        args = fleet.argparse.Namespace(
+            dispatch_id=lease["lease_id"],
+            owner_task="task-a",
+            owner_thread="thread-a",
+            owner_run="run-a",
+            argv_json='["true"]',
+            cwd=None,
+            timeout_seconds=60,
+            min_ttl_seconds=30,
+            max_admission_age_seconds=300,
+        )
+        with (
+            mock.patch.object(fleet, "controller_guard"),
+            mock.patch.object(fleet, "dispatch_lease", return_value=lease),
+            mock.patch.object(fleet, "verify_lease_record", return_value={"verified": True}),
+            mock.patch.object(
+                fleet,
+                "execute_ssh_session",
+                return_value={"known": True, "result": result},
+            ),
+            mock.patch.object(fleet, "control_commit", return_value=TEST_CONTROL_COMMIT),
+            mock.patch.object(fleet, "node_registry", return_value=fictional_registry()),
+            mock.patch.object(fleet, "utc_now", return_value=now),
+            mock.patch.object(fleet, "release_lease_record") as release_mock,
+            contextlib.redirect_stdout(io.StringIO()) as output,
+        ):
+            self.assertEqual(fleet.fleet_dispatch_execute(args), 0)
+        payload = json.loads(output.getvalue())
+        self.assertEqual(payload["status"], "completed")
+        self.assertTrue(payload["release_required"])
+        self.assertEqual(payload["result"]["stdout"], "done\n")
+        release_mock.assert_not_called()
 
     def test_expired_lease_is_reaped_before_reacquire(self) -> None:
         now = fleet.dt.datetime(2026, 7, 27, tzinfo=fleet.dt.timezone.utc)

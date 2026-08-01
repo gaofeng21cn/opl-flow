@@ -28,6 +28,13 @@ formal onboarding happens only after explicit `$opl-flow start`.
    in-progress, overdue, and live execution tasks; chooses one allowed decision
    per lane; performs continuation, correction, split, merge, idle-event, or
    terminal review; and writes claim/checkpoint/blocker/remaining to Beads.
+   Before remote dispatch, read the Bead's single
+   `metadata.opl_execution_requirements` object. If absent, keep execution in
+   the current Codex session. If present, validate it against
+   `contracts/execution-requirements.schema.json`, then use `$opl-fleet` for
+   plan, fresh admission, lease, adapter execution, result readback, and
+   release. Record only the dispatch ID and short outcome in the Bead; never
+   store lease nonces, private routes, command output, or credentials.
 7. Reconcile every user-ledger Bead to exactly one Linear issue through the
    official Connector, preserving hierarchy and the narrow field contract.
 8. For each registered project, call
@@ -64,3 +71,15 @@ Beads/Dolt is task SSOT. Linear is the complete human-readable projection;
 GitHub carries delivery evidence; Fleet carries capacity and the optional
 Ambient Ops observability extension. Do not use Codex Cloud or Cloud delegate
 for this route and do not archive without fresh user approval.
+
+## Execution Requirement Authority
+
+Beads owns task intent through `metadata.opl_execution_requirements`. Fleet
+owns observed capacity and the controller lease. The execution adapter owns the
+bounded result readback. These are one transaction, not three schedulers.
+
+Use `gpu_api=cuda` for NVIDIA CUDA work and `gpu_api=metal` for Apple GPU work.
+Apply `min_gpu_memory_gb` and `gpu_model` only when the task genuinely depends
+on them. Do not encode a preferred machine: nodes with equivalent policy remain
+peers, and selection follows fresh availability, admission, and concrete
+requirements.

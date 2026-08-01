@@ -187,8 +187,17 @@ task resource requirements -> dispatch plan -> fresh doctor -> lease CAS
 `local-codex` keeps short or ordinary work in the current session. `lease-only`
 reserves a remote node for an explicit caller-owned adapter. `github-runner`
 reuses the existing runner transaction but does not submit a GitHub job.
-`ssh-session` and `remote-codex` remain planned adapters and fail closed. A
-lease or an online runner is never reported as task completion.
+`ssh-session` executes one structured argv through a private Instance SSH route
+after lease verification; Windows nodes execute inside WSL. `remote-codex`
+remains planned and fails closed. A lease or an online runner is never reported
+as task completion.
+
+Tasks may store one `metadata.opl_execution_requirements` object in Beads,
+validated by `contracts/execution-requirements.schema.json`. It describes the
+adapter, platform capabilities, memory, CUDA or Metal API, GPU memory/model,
+priority, interruptibility, and TTL. Fleet evaluates that intent against fresh
+inventory; it does not encode a permanent machine preference or create another
+task database.
 
 ### Git And Worktree Continuity
 
@@ -203,13 +212,15 @@ OPL Packages and capabilities update independently. Normal dependencies use a
 stable identity and callability, not a shared ecosystem version lock. Exact
 commit and digest binding is limited to proving one immutable release candidate.
 
-The `opl-flow` Skill is always the routing entrypoint, but capabilities are
-progressively loaded. Bundled core Skills are discovered and invoked by task
-meaning; optional OPL Skills are installed from their own owner and used only
-when needed; Fleet is read and activated only when a private Instance and an
-explicit remote resource request exist. One installation can therefore serve a
-single-machine user and a multi-machine AI fleet without forcing every user to
-install every backend.
+The `opl-flow` Skill is the stable routing entrypoint, but capabilities are
+progressively loaded. Installing OPL Flow makes its bundled specialist Skills
+discoverable; it does not place all of their instructions in every task's
+context. The primary Skill routes by task meaning to `develop-and-deliver`,
+`coordinate-concurrent-tasks`, `opl-fleet`, or another specialist only when
+needed. Optional OPL Skills remain independently installed enhancements, and
+Fleet activates only when a private Instance and an explicit remote resource
+request exist. One Flow installation can therefore serve a single-machine user
+and a multi-machine AI fleet without loading or configuring every backend.
 
 ## Core Skills And Optional Enhancements
 

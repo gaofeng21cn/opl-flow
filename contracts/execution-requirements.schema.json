@@ -1,0 +1,92 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/gaofeng21cn/opl-flow/contracts/execution-requirements.schema.json",
+  "title": "OPL Flow execution requirements",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema"
+  ],
+  "properties": {
+    "schema": {
+      "const": "opl_execution_requirements.v1"
+    },
+    "adapter": {
+      "enum": [
+        "github-runner",
+        "lease-only",
+        "local-codex",
+        "remote-codex",
+        "ssh-session"
+      ],
+      "default": "lease-only"
+    },
+    "requires": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "pattern": "^[a-z0-9][a-z0-9-]{0,39}$"
+      },
+      "uniqueItems": true,
+      "default": []
+    },
+    "min_memory_gb": {
+      "type": "integer",
+      "minimum": 0,
+      "default": 0
+    },
+    "gpu_api": {
+      "enum": [
+        "any",
+        "cuda",
+        "metal"
+      ],
+      "default": "any"
+    },
+    "min_gpu_memory_gb": {
+      "type": "integer",
+      "minimum": 0,
+      "default": 0
+    },
+    "gpu_model": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 120
+    },
+    "workload_class": {
+      "enum": [
+        "background",
+        "experiment",
+        "foreground",
+        "guest",
+        "job",
+        "p0-release",
+        "vm"
+      ],
+      "default": "background"
+    },
+    "priority": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 1000,
+      "default": 300
+    },
+    "preemptible": {
+      "type": "boolean",
+      "default": false
+    },
+    "phase": {
+      "enum": [
+        "interruptible",
+        "non-interruptible"
+      ],
+      "default": "interruptible"
+    },
+    "ttl_seconds": {
+      "type": "integer",
+      "minimum": 60,
+      "maximum": 86400,
+      "default": 3600
+    }
+  }
+}

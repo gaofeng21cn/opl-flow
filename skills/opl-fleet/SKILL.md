@@ -27,8 +27,8 @@ Choose the narrow command family:
 - `repos status|sync`: verify or reconcile repository currentness.
 - `select`: choose a node from fresh capabilities and policy.
 - `lease`: acquire, verify, renew, release, or reconcile protected capacity.
-- `dispatch`: plan, acquire, verify, or release one adapter-bound execution
-  admission without claiming that the workload itself ran.
+- `dispatch`: plan, acquire, verify, execute, or release one adapter-bound
+  execution transaction.
 - `runner`: execute the guarded runner transaction.
 - `join` or `reconcile`: enroll or update node-local behavior through the
   Instance policy and owner routes.
@@ -43,13 +43,37 @@ capacity:
 
 ```bash
 python3 scripts/opl_fleet.py --instance <opl-instance> dispatch plan \
-  --adapter lease-only --requires gpu --min-memory-gb 24
+  --requirements-json @execution-requirements.json
 python3 scripts/opl_fleet.py --instance <opl-instance> dispatch acquire \
-  --adapter lease-only --owner-task <task-id> --owner-thread <thread-id> \
-  --owner-run <run-id> --requires gpu --min-memory-gb 24
+  --requirements-json @execution-requirements.json \
+  --owner-task <task-id> --owner-thread <thread-id> --owner-run <run-id>
 python3 scripts/opl_fleet.py --instance <opl-instance> dispatch verify <dispatch-id>
+python3 scripts/opl_fleet.py --instance <opl-instance> dispatch execute <dispatch-id> \
+  --owner-task <task-id> --owner-thread <thread-id> --owner-run <run-id> \
+  --argv-json '["command", "argument"]'
 python3 scripts/opl_fleet.py --instance <opl-instance> dispatch release <dispatch-id> \
   --owner-task <task-id>
+```
+
+Store task intent in the Bead's `metadata.opl_execution_requirements` object,
+using `contracts/execution-requirements.schema.json`. Pass that same object to
+`plan` and `acquire`; do not create a second dispatch database. For example:
+
+```json
+{
+  "schema": "opl_execution_requirements.v1",
+  "adapter": "ssh-session",
+  "requires": ["windows", "wsl"],
+  "min_memory_gb": 32,
+  "gpu_api": "cuda",
+  "min_gpu_memory_gb": 20,
+  "gpu_model": "RTX 4090",
+  "workload_class": "background",
+  "priority": 300,
+  "preemptible": true,
+  "phase": "interruptible",
+  "ttl_seconds": 3600
+}
 ```
 
 `plan` is candidate readback only. `acquire` runs fresh admission and takes the
@@ -63,8 +87,15 @@ Adapter boundaries are explicit:
 - `lease-only` reserves capacity for a caller-owned executor;
 - `github-runner` uses the existing guarded runner transaction but does not
   submit a GitHub job;
-- `ssh-session` and `remote-codex` remain fail-closed until their execution
-  adapters exist.
+- `ssh-session` runs one structured argv through the Instance's private SSH
+  route after lease verification; Windows routes execute inside WSL;
+- `remote-codex` remains planned and fails closed.
+
+`ssh-session` never accepts a joined shell command. It returns bounded
+stdout/stderr and an exit code without storing them in the repository or lease
+store. A transport failure is `unknown`: retain the lease, reconcile read-only,
+and do not retry automatically. A known result still requires an explicit
+owner release.
 
 ## Invariants
 
@@ -72,8 +103,9 @@ Adapter boundaries are explicit:
    `fleet/nodes.json`. Material ambiguity fails closed.
 2. Static inventory is desired state, not availability. Run fresh `doctor`
    admission before selection or dispatch.
-3. Every protected lease binds owner task/thread/run identity, requirements,
-   priority, expiry, and a safe release/reconciliation route.
+3. Every protected lease binds adapter, owner task/thread/run identity,
+   requirements, GPU constraints, priority, expiry, and a safe
+   release/reconciliation route.
 4. Pull/fetch current repository state before sync or dispatch. Do not copy a
    controller checkout, installed binary, Skill tree, credential, or session to
    another node.
