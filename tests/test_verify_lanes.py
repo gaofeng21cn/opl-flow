@@ -19,7 +19,7 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 
 
 class VerifyLaneTests(unittest.TestCase):
-    def test_plugin_exposes_the_five_bounded_flow_skills(self) -> None:
+    def test_plugin_exposes_the_six_bounded_flow_skills(self) -> None:
         self.assertEqual(check_plugin_json(REPO_ROOT), [])
 
         discoverable = {
@@ -104,7 +104,10 @@ class VerifyLaneTests(unittest.TestCase):
             policy = json.loads(
                 (REPO_ROOT / "contracts" / "workflow-policy.json").read_text(encoding="utf-8")
             )
-            ui_ux = next(item for item in policy["recommends"] if item["id"] == "ui-ux-pro-max")
+            ui_ux = next(
+                item for item in policy["experience_baseline"]
+                if item["id"] == "ui-ux-pro-max"
+            )
             ui_ux["source"] = "https://github.com/example/ui-ux-pro-max-skill"
             (contracts / "workflow-policy.json").write_text(
                 f"{json.dumps(policy, indent=2)}\n",
@@ -118,7 +121,7 @@ class VerifyLaneTests(unittest.TestCase):
             errors = check_workflow_policy(repo_root)
 
         self.assertIn(
-            "workflow policy external skills must use their canonical GitHub source and path",
+            "workflow policy experience baseline skills must use their canonical GitHub source and path",
             errors,
         )
 
@@ -176,7 +179,7 @@ class VerifyLaneTests(unittest.TestCase):
         errors = self.workflow_policy_errors_after(
             lambda policy: next(
                 item
-                for item in policy["requires"]
+                for item in policy["experience_baseline"]
                 if item["kind"] == "codex_skill" and item["id"] == "agent-reach"
             ).update(
                 version_requirement=">=0.0.0",
@@ -188,6 +191,36 @@ class VerifyLaneTests(unittest.TestCase):
         )
 
         self.assertEqual(errors, [])
+
+    def test_agent_reach_is_baseline_not_operational_dependency(self) -> None:
+        errors = self.workflow_policy_errors_after(
+            lambda policy: policy["requires"].append(
+                next(
+                    item
+                    for item in policy["experience_baseline"]
+                    if item["kind"] == "codex_skill" and item["id"] == "agent-reach"
+                ).copy()
+            )
+        )
+
+        self.assertIn(
+            "agent-reach must not make the OPL Flow package operational dependency set",
+            errors,
+        )
+
+    def test_architect_and_simplify_stays_optional_and_not_auto_repaired(self) -> None:
+        errors = self.workflow_policy_errors_after(
+            lambda policy: next(
+                item
+                for item in policy["compatible_optional"]
+                if item["kind"] == "codex_skill" and item["id"] == "architect-and-simplify"
+            ).update(online_install_default=True)
+        )
+
+        self.assertIn(
+            "architect-and-simplify must remain an observed optional OPL Skills capability",
+            errors,
+        )
 
     def test_skill_source_schema_patterns_reject_non_github_and_unsafe_paths(self) -> None:
         schema = json.loads(

@@ -48,17 +48,26 @@ executor reports the route callable.
 
 ## Dependencies
 
-Flow dependency intent uses stable identity. `requires` means present and
-callable; `recommends` means convenient by default. Neither requires SemVer/ABI
-resolution, lock, payload, receipt, digest, provenance match, App, Full, or a
-shared cohort.
+Flow dependency intent uses stable identity and three independent status planes:
+
+- `package_operational` is controlled by Flow itself plus `requires` presence
+  and callability;
+- `experience_baseline` is the recommended usage floor; missing capabilities
+  report `degraded` and an owner-supported repair route without disabling Flow;
+- `specialized_capabilities` observes optional enhancements; absence is normal
+  and does not require repair.
+
+None of these requires SemVer/ABI resolution, lock, payload, receipt, digest,
+provenance match, App, Full, or a shared cohort.
 
 `contracts/workflow-policy.json` still contains the current fixed companion
 graph and source metadata. Framework may consume it during transition. OPL App
 must not parse it or maintain a second companion list.
 
-A missing capability remains a visible Flow-local action. It must not block
-Base, App, plain Codex, Full, or unrelated Packages.
+A missing required capability affects only Flow's operational plane. A missing
+baseline capability remains a visible repair action; a missing specialized
+capability is only reported as absent. None may block Base, App, plain Codex,
+Full, or unrelated Packages.
 
 ## Existing Profile
 

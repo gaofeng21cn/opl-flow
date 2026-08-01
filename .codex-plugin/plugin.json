@@ -1,20 +1,23 @@
 {
   "name": "opl-flow",
   "version": "0.1.30",
-  "description": "OPL Flow starts and supervises a durable task ledger, provides a model-native Codex profile, and coordinates optional Fleet execution.",
+  "description": "OPL Flow establishes the Codex experience baseline and coordinates durable work across tasks, repositories, and machines.",
   "author": {
     "name": "Gaofeng"
   },
   "skills": "./skills/",
   "interface": {
     "displayName": "OPL Flow",
-    "shortDescription": "Start and supervise Codex work",
-    "longDescription": "OPL Flow creates or reuses one Beads-backed Dashboard and hourly supervisor, projects every user-ledger task to Linear with a narrow field set, packages a concise Codex profile, and coordinates optional Instance-backed Fleet execution.",
+    "shortDescription": "Configure and coordinate Codex work",
+    "longDescription": "OPL Flow configures a concise Codex profile and recommended capability baseline, diagnoses and updates the effective setup, coordinates development and recovery, starts a durable Beads-backed Dashboard when needed, and routes optional Instance-backed Fleet execution.",
     "developerName": "Gaofeng",
     "category": "Developer Tools",
     "capabilities": [
       "workflow",
       "preferences",
+      "codex-experience-baseline",
+      "model-recommendation",
+      "capability-management",
       "task-coordination",
       "durable-ledger",
       "dashboard-onboarding",
@@ -23,7 +26,7 @@
       "multi-machine-fleet",
       "codegraph-bootstrap"
     ],
-    "defaultPrompt": "Use $opl-flow start to reuse my ledger Dashboard, project every ledger task to Linear, and supervise hourly."
+    "defaultPrompt": "Use $opl-flow doctor to check my Codex baseline, or $opl-flow start to create and supervise my ledger."
   },
   "homepage": "https://github.com/gaofeng21cn/opl-flow",
   "repository": "https://github.com/gaofeng21cn/opl-flow",

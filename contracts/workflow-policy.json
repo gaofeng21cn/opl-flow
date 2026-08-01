@@ -1,6 +1,6 @@
 {
   "$schema": "./workflow-policy.schema.json",
-  "schema": "opl_flow_workflow_policy.v3",
+  "schema": "opl_flow_workflow_policy.v4",
   "package": {
     "id": "opl-flow",
     "version": "0.1.30",
@@ -61,6 +61,15 @@
       "source_path": "skills/task-mode-gate",
       "online_install_default": true,
       "activation": "task_routed"
+    },
+    {
+      "id": "opl-fleet",
+      "kind": "codex_skill",
+      "owner": "opl-flow",
+      "source": "https://github.com/gaofeng21cn/opl-flow",
+      "source_path": "skills/opl-fleet",
+      "online_install_default": true,
+      "activation": "task_routed"
     }
   ],
   "requires": [
@@ -71,7 +80,9 @@
       "online_install_default": true,
       "activation": "always",
       "source": "gaofeng21cn/one-person-lab"
-    },
+    }
+  ],
+  "experience_baseline": [
     {
       "id": "agent-reach",
       "kind": "codex_skill",
@@ -80,9 +91,7 @@
       "activation": "task_routed",
       "source": "https://github.com/Panniantong/Agent-Reach",
       "source_path": "agent_reach/skill"
-    }
-  ],
-  "recommends": [
+    },
     {
       "id": "officecli",
       "kind": "codex_skill",
@@ -191,6 +200,15 @@
     }
   ],
   "compatible_optional": [
+    {
+      "id": "architect-and-simplify",
+      "kind": "codex_skill",
+      "owner": "opl-skills",
+      "online_install_default": false,
+      "activation": "task_routed",
+      "source": "https://github.com/gaofeng21cn/opl-skills",
+      "source_path": "skills/architect-and-simplify"
+    },
     {
       "id": "openai-primary-runtime-office-pdf",
       "kind": "runtime_capability",

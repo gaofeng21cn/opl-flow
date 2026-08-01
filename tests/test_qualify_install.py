@@ -22,6 +22,7 @@ SKILLS_0_1_29 = ["coordinate-concurrent-tasks", "opl-flow"]
 SKILLS_0_1_30 = [
     "coordinate-concurrent-tasks",
     "develop-and-deliver",
+    "opl-fleet",
     "opl-flow",
     "recover-codex-tasks",
     "task-mode-gate",

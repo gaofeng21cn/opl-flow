@@ -14,6 +14,7 @@ from pathlib import Path, PurePosixPath
 CORE_SKILL_IDS = (
     "coordinate-concurrent-tasks",
     "develop-and-deliver",
+    "opl-fleet",
     "opl-flow",
     "recover-codex-tasks",
     "task-mode-gate",
@@ -35,9 +36,17 @@ REQUIRED_FILES = (
     "skills/coordinate-concurrent-tasks/agents/openai.yaml",
     "skills/develop-and-deliver/SKILL.md",
     "skills/develop-and-deliver/agents/openai.yaml",
+    "skills/opl-fleet/SKILL.md",
+    "skills/opl-fleet/agents/openai.yaml",
     "skills/opl-flow/SKILL.md",
     "skills/opl-flow/agents/openai.yaml",
+    "skills/opl-flow/references/app-integration.md",
+    "skills/opl-flow/references/codex-baseline.md",
+    "skills/opl-flow/references/ledger-start.md",
+    "skills/opl-flow/references/package-lifecycle.md",
+    "skills/opl-flow/references/setup-update.md",
     "skills/opl-flow/references/start-onboarding.json",
+    "skills/opl-flow/references/terminal-readback.md",
     "skills/opl-flow/scripts/validate_start_onboarding.py",
     "skills/recover-codex-tasks/SKILL.md",
     "skills/recover-codex-tasks/agents/openai.yaml",
@@ -98,7 +107,7 @@ def check_plugin_json(repo_root: Path) -> list[str]:
         if path.is_dir() and (path / "SKILL.md").exists()
     }
     if discoverable_skills != set(CORE_SKILL_IDS):
-        errors.append("default plugin must expose exactly the five OPL Flow core skills")
+        errors.append("default plugin must expose exactly the six OPL Flow core skills")
     policy = json.loads((repo_root / "contracts" / "workflow-policy.json").read_text(encoding="utf-8"))
     if manifest.get("version") != policy.get("package", {}).get("version"):
         errors.append("plugin version must match contracts/workflow-policy.json package.version")
@@ -123,12 +132,12 @@ def check_workflow_policy(repo_root: Path) -> list[str]:
         errors.append("workflow policy must point to ./workflow-policy.schema.json")
     if "$schema" not in schema.get("properties", {}):
         errors.append("workflow policy schema must admit the policy $schema pointer")
-    if policy.get("schema") != "opl_flow_workflow_policy.v3":
-        errors.append("workflow policy schema must be opl_flow_workflow_policy.v3")
+    if policy.get("schema") != "opl_flow_workflow_policy.v4":
+        errors.append("workflow policy schema must be opl_flow_workflow_policy.v4")
     if policy.get("package", {}).get("id") != "opl-flow":
         errors.append("workflow policy package id must be opl-flow")
     required_sections = (
-        "provides", "requires", "recommends", "compatible_optional",
+        "provides", "requires", "experience_baseline", "compatible_optional",
         "conflicts", "retires", "codex_model_policy", "migration_policy",
         "historical_fingerprints",
     )
@@ -137,7 +146,7 @@ def check_workflow_policy(repo_root: Path) -> list[str]:
             errors.append(f"workflow policy missing {section}")
     capabilities = [
         item
-        for section in ("provides", "requires", "recommends", "compatible_optional")
+        for section in ("provides", "requires", "experience_baseline", "compatible_optional")
         for item in policy.get(section, [])
     ]
     capability_keys = [(item.get("kind"), item.get("id")) for item in capabilities]
@@ -188,6 +197,10 @@ def check_workflow_policy(repo_root: Path) -> list[str]:
             "https://github.com/gaofeng21cn/opl-flow",
             "skills/develop-and-deliver",
         ),
+        "opl-fleet": (
+            "https://github.com/gaofeng21cn/opl-flow",
+            "skills/opl-fleet",
+        ),
         "recover-codex-tasks": (
             "https://github.com/gaofeng21cn/opl-flow",
             "skills/recover-codex-tasks",
@@ -207,25 +220,30 @@ def check_workflow_policy(repo_root: Path) -> list[str]:
     )
     if not {"codex_plugin", "mcp_server"}.issubset(schema_kind_enum):
         errors.append("workflow policy schema must admit codex_plugin and mcp_server capabilities")
-    recommended_ids = {
-        item.get("id") for item in policy.get("recommends", [])
+    baseline_ids = {
+        item.get("id") for item in policy.get("experience_baseline", [])
         if item.get("kind") == "codex_skill"
     }
     expected = {
+        "agent-reach",
         "officecli", "officecli-docx", "officecli-pptx", "officecli-xlsx",
         "officecli-academic-paper", "officecli-data-dashboard",
         "officecli-financial-model", "officecli-pitch-deck",
         "mineru-document-extractor", "ui-ux-pro-max",
     }
-    if recommended_ids != expected:
-        errors.append("workflow policy recommended skill set is incomplete or contains duplicates")
-    recommended_skill_sources = {
+    if baseline_ids != expected:
+        errors.append("workflow policy experience baseline is incomplete or contains duplicates")
+    baseline_skill_sources = {
         item.get("id"): (item.get("source"), item.get("source_path"))
-        for item in policy.get("recommends", [])
+        for item in policy.get("experience_baseline", [])
         if item.get("kind") == "codex_skill"
     }
     officecli_source = "https://github.com/iOfficeAI/OfficeCLI"
     expected_skill_sources = {
+        "agent-reach": (
+            "https://github.com/Panniantong/Agent-Reach",
+            "agent_reach/skill",
+        ),
         "officecli": (officecli_source, "."),
         "officecli-docx": (officecli_source, "skills/officecli-docx"),
         "officecli-pptx": (officecli_source, "skills/officecli-pptx"),
@@ -243,13 +261,13 @@ def check_workflow_policy(repo_root: Path) -> list[str]:
             ".claude/skills/ui-ux-pro-max",
         ),
     }
-    if recommended_skill_sources != expected_skill_sources:
-        errors.append("workflow policy external skills must use their canonical GitHub source and path")
-    if any(not item.get("online_install_default") for item in policy.get("recommends", [])):
-        errors.append("workflow policy recommendations must be resolved by default")
+    if baseline_skill_sources != expected_skill_sources:
+        errors.append("workflow policy experience baseline skills must use their canonical GitHub source and path")
+    if any(not item.get("online_install_default") for item in policy.get("experience_baseline", [])):
+        errors.append("workflow policy experience baseline must be repaired by default")
     agent_reach = next(
         (
-            item for item in policy.get("requires", [])
+            item for item in policy.get("experience_baseline", [])
             if item.get("kind") == "codex_skill" and item.get("id") == "agent-reach"
         ),
         None,
@@ -267,10 +285,33 @@ def check_workflow_policy(repo_root: Path) -> list[str]:
         agent_reach.get(key) != value
         for key, value in expected_agent_reach.items()
     ):
-        errors.append("workflow policy must require agent-reach from its canonical GitHub source")
+        errors.append("workflow policy experience baseline must include agent-reach from its canonical GitHub source")
+    if any(item.get("id") == "agent-reach" for item in policy.get("requires", [])):
+        errors.append("agent-reach must not make the OPL Flow package operational dependency set")
+    architect = next(
+        (
+            item for item in policy.get("compatible_optional", [])
+            if item.get("kind") == "codex_skill" and item.get("id") == "architect-and-simplify"
+        ),
+        None,
+    )
+    expected_architect = {
+        "id": "architect-and-simplify",
+        "kind": "codex_skill",
+        "owner": "opl-skills",
+        "online_install_default": False,
+        "activation": "task_routed",
+        "source": "https://github.com/gaofeng21cn/opl-skills",
+        "source_path": "skills/architect-and-simplify",
+    }
+    if architect is None or any(
+        architect.get(key) != value
+        for key, value in expected_architect.items()
+    ):
+        errors.append("architect-and-simplify must remain an observed optional OPL Skills capability")
     dependencies = [
         item
-        for section in ("requires", "recommends")
+        for section in ("requires", "experience_baseline")
         for item in policy.get(section, [])
     ]
     if any(
@@ -345,7 +386,7 @@ def check_workflow_policy(repo_root: Path) -> list[str]:
         errors.append("model precedence must be user, installed Flow, live Codex, then App fallback")
     dependency_ids = {
         item.get("id")
-        for section in ("requires", "recommends", "compatible_optional")
+        for section in ("requires", "experience_baseline", "compatible_optional")
         for item in policy.get(section, [])
     }
     if "codex-ops-kit" in dependency_ids:

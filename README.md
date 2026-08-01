@@ -8,8 +8,8 @@
 
 <h1 align="center">OPL Flow</h1>
 
-<p align="center"><strong>The model-native workflow and collaboration layer for an AI development fleet</strong></p>
-<p align="center">Raise the floor for one Codex. Keep many agents, repositories, and machines moving from one durable source of truth.</p>
+<p align="center"><strong>The Codex experience baseline and work-coordination control layer</strong></p>
+<p align="center">Raise the floor for one Codex, then keep many tasks, repositories, and machines moving from durable truth.</p>
 
 <p align="center">
   <img src="assets/branding/opl-flow-ai-fleet.png" alt="Linear and the local Codex connect through OPL Flow, which keeps every user-ledger task human-readable while Beads remains the durable task authority" width="100%" />
@@ -17,9 +17,16 @@
 
 ## Why OPL Flow
 
-Codex can already reason, write code, use tools, and coordinate agents. The
-harder problem begins when development lasts longer than one conversation or
-spreads across several tasks, repositories, and machines:
+Codex can already reason, write code, use tools, and coordinate agents. Two
+product problems remain outside that native intelligence:
+
+- establish a dependable usage floor for one Codex: a concise `AGENTS.md`,
+  model/reasoning recommendation, effective context boundaries, and the
+  recommended research, document, extraction, and UI capabilities;
+- preserve execution continuity when work spans conversations, tasks,
+  repositories, and machines.
+
+The second problem introduces familiar questions:
 
 - Which task owns the current objective, and what is ready next?
 - Which result has reached the canonical repository rather than a temporary branch?
@@ -27,16 +34,22 @@ spreads across several tasks, repositories, and machines:
 - How can a person see progress without turning a project board into a second source of truth?
 - How can the workflow remain useful when the Ledger, Linear, or Fleet is absent?
 
-**OPL Flow provides that continuity without replacing Codex's native
-intelligence.** It starts as a small user-level Profile and a set of workflow
-Skills. When a project needs more, the same Flow can add a durable Beads-backed
-Ledger, an optional Linear portal, and an optional multi-machine Fleet engine.
+**OPL Flow is the Codex experience baseline and work-coordination control
+layer.** It provides the small user-level Profile, model policy, capability
+intent, and core workflow Skills that establish the baseline. When work needs
+durability or capacity, the same Flow adds a Beads-backed Ledger, a complete
+narrow-field Linear projection, and an optional multi-machine Fleet engine.
+
+Flow remains optional. Its absence must not block OPL App, OPL Base, plain
+Codex, another Package, or domain work. A missing recommended baseline
+capability degrades the experience and offers repair; it does not make Flow
+inoperable.
 
 ## One-Sentence Model
 
-**Codex does the work. OPL Flow organizes how work continues. OPL Ledger keeps
-task truth. Linear makes that truth easy for people to read. OPL Fleet provides
-the machines that can execute it.**
+**Codex does the work. OPL Flow establishes the usage baseline and organizes
+how work continues. OPL Ledger keeps task truth. Linear makes that truth easy
+for people to read. OPL Fleet provides the machines that can execute it.**
 
 Every layer is independently optional except the executor itself. A single
 developer can use only the Profile and Skills; a larger personal lab can enable
@@ -46,7 +59,7 @@ the complete stack without changing the underlying development model.
 
 | Scale | What OPL Flow adds | What stays native or owner-managed |
 | --- | --- | --- |
-| One machine | A concise user Profile, workflow preferences, and reusable Skills | Codex reasoning, tools, project files, and repository instructions |
+| One machine | A concise user Profile, model recommendation, capability baseline, and reusable Skills | Codex reasoning, live model catalog, tools, project files, and repository instructions |
 | Several active tasks | Ownership, recovery, fresh-SSOT integration, and closeout conventions | Codex native multi-agent and conversation coordination |
 | Long-lived work | OPL Ledger initialization and idempotent reconciliation | Beads owns the database, dependency graph, claims, and Dolt sync |
 | Human visibility | Complete Linear projection of every user-ledger task with a narrow field set | Linear is a portal, not task truth or an agent scheduler |
@@ -77,7 +90,7 @@ flowchart LR
 | Component | Authority |
 | --- | --- |
 | **Codex** | Reasoning, tool use, implementation, and native agent coordination |
-| **OPL Flow** | Profile, workflow Skills, reconciliation, Git/worktree lifecycle, and the reusable Fleet engine |
+| **OPL Flow** | Profile and model recommendation, capability intent, workflow Skills, reconciliation, Git/worktree lifecycle, and the reusable Fleet engine |
 | **OPL Ledger** | Durable internal task SSOT, implemented by Beads rather than a custom OPL database |
 | **GitHub** | Branch, PR, CI, merge, and release evidence authority |
 | **Linear** | Complete human-readable projection of every user-ledger task, limited to intent, hierarchy, priority, due, status, short blocker/result, and links |
@@ -100,6 +113,23 @@ The user Profile raises the development baseline without installing a rigid
 methodology. It keeps communication preferences, source-first diagnosis,
 critical-path focus, dynamic concurrency, and tool routing concise and
 portable.
+
+Flow recommends `gpt-5.6-sol` with `max` reasoning. Explicit user selection has
+priority. OPL App owns Auto resolution, the visible model controls, persistence,
+and fallback when Flow is unavailable; Flow does not inject a hidden prompt or
+claim that a model missing from the live Codex catalog is usable.
+
+### Three Independent Status Planes
+
+- `package_operational`: Flow itself is installed, enabled, and callable.
+- `experience_baseline`: recommended research, Office, extraction, and UI
+  capabilities are current or `degraded`; degradation offers repair but does
+  not block Flow.
+- `specialized_capabilities`: optional enhancements are present or absent;
+  absence is normal and has no repair requirement.
+
+Framework projects these planes generically. App consumes that projection and
+does not parse `workflow-policy.json` or maintain a second companion list.
 
 ### Durable OPL Ledger
 
@@ -159,13 +189,15 @@ install every backend.
 
 ## Core Skills And Optional Enhancements
 
-OPL Flow `0.1.30` bundles five core Skills with the Plugin:
+OPL Flow `0.1.30` bundles six core Skills with the Plugin:
 
-- `opl-flow` for Dashboard start, setup, update, status, Ledger, Linear, and
-  Fleet entry points;
+- `opl-flow` as the progressive primary router for `doctor`, `setup`, `tune`,
+  `update`, `start`, and `fleet`;
 - `coordinate-concurrent-tasks` for concurrent tasks, conversations, and Git
   worktrees;
 - `develop-and-deliver` for systematic implementation and delivery;
+- `opl-fleet` for Instance-backed node admission, leases, repository
+  currentness, and dispatch;
 - `task-mode-gate` for actual release, deployment, migration, and destructive
   mutation boundaries;
 - `recover-codex-tasks` for evidence-based recovery of interrupted Codex work.
@@ -182,11 +214,12 @@ three moved core Skill IDs only when the Skills CLI lock proves the exact former
 `gaofeng21cn/opl-skills` source and path. A same-name directory with missing or
 different provenance is preserved as a collision and never removed by name.
 
-Install the complete public enhancement pack from its owner:
-
-```bash
-npx skills add gaofeng21cn/opl-skills -g -a codex -s '*' -y --full-depth
-```
+OPL Skills separates catalog categories from installation presets. Flow never
+uses wildcard installation. The `development-complete` preset resolves to the
+explicit architecture/development methods `architect-and-simplify`, `zoom-out`,
+`improve-codebase-architecture`, `grill-with-docs`, and `prototype`, plus the
+six `book-*` architecture lenses. Setup passes those exact IDs to the
+OPL Skills owner-supported installer.
 
 A private OPL Instance may record the selected enhancement inventory for its
 Fleet. Each node still installs and updates from the component owner; Fleet
@@ -219,6 +252,13 @@ For Profile and tool setup, ask:
 Use $opl-flow setup to initialize my reusable development workflow.
 ```
 
+To inspect without mutation or tune one surface:
+
+```text
+Use $opl-flow doctor to inspect my effective Codex baseline.
+Use $opl-flow tune to optimize my AGENTS.md and model settings.
+```
+
 To include the optional public enhancement pack in the same guided action:
 
 ```text
@@ -238,7 +278,7 @@ authorization is unavoidable. Core setup does not require Linear or Fleet.
 
 | Deployment | Components | Best for |
 | --- | --- | --- |
-| **Core** | Codex + OPL Flow Profile and Skills | One developer on one machine |
+| **Core** | Codex + OPL Flow Profile, model policy, baseline projection, and Skills | One developer on one machine |
 | **Durable** | Core + private OPL Instance + Beads | Long-running work and many active tasks |
 | **Visible** | Durable + Linear | A human-readable project and operations portal |
 | **Fleet** | Durable + enrolled machines | Multi-machine development, testing, and compute |
@@ -272,7 +312,7 @@ paths, and Fleet lease secrets are never published or copied between nodes.
 
 | Product | Role |
 | --- | --- |
-| **OPL Flow** | Workflow and collaboration layer for the AI development fleet |
+| **OPL Flow** | Codex experience baseline and work-coordination control layer |
 | **OPL Framework** | Runtime, Package lifecycle, contracts, and Agent execution substrate |
 | **One Person Lab App** | User-facing workbench and optional Flow carrier/profile entry |
 | **OPL Skills** | Optional reusable capability enhancements |

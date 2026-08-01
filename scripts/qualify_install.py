@@ -24,6 +24,7 @@ REQUIRED_SKILLS_BY_VERSION = {
     "0.1.30": (
         "coordinate-concurrent-tasks",
         "develop-and-deliver",
+        "opl-fleet",
         "opl-flow",
         "recover-codex-tasks",
         "task-mode-gate",

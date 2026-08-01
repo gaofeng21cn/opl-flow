@@ -54,6 +54,7 @@ class PackageDescriptorTests(unittest.TestCase):
             [
                 "coordinate-concurrent-tasks",
                 "develop-and-deliver",
+                "opl-fleet",
                 "opl-flow",
                 "recover-codex-tasks",
                 "task-mode-gate",

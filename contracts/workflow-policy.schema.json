@@ -10,7 +10,7 @@
     "workflow_generation",
     "provides",
     "requires",
-    "recommends",
+    "experience_baseline",
     "compatible_optional",
     "conflicts",
     "retires",
@@ -20,7 +20,7 @@
   ],
   "properties": {
     "$schema": { "const": "./workflow-policy.schema.json" },
-    "schema": { "const": "opl_flow_workflow_policy.v3" },
+    "schema": { "const": "opl_flow_workflow_policy.v4" },
     "package": {
       "type": "object",
       "additionalProperties": false,
@@ -35,7 +35,7 @@
     "workflow_generation": { "type": "string", "minLength": 1 },
     "provides": { "$ref": "#/$defs/providedCapabilities" },
     "requires": { "$ref": "#/$defs/dependencies" },
-    "recommends": { "$ref": "#/$defs/dependencies" },
+    "experience_baseline": { "$ref": "#/$defs/dependencies" },
     "compatible_optional": { "$ref": "#/$defs/dependencies" },
     "conflicts": { "$ref": "#/$defs/migrations" },
     "retires": { "$ref": "#/$defs/migrations" },

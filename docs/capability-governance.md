@@ -21,6 +21,10 @@ OPL Flow 是可选 Package，也是 App Official Profile 的默认 root 之一�
 产品便利性，不是生态依赖：缺少 Flow 不得阻断 Base、App、Standard、Full、普通
 Codex、其他 Package 或 domain readiness。
 
+产品定位是“Codex 体验基线 + 工作协同控制层”。Flow 不只拥有总账和并发语义，
+也拥有精简 Profile、模型建议、推荐能力意图、渐进主入口和通用 Fleet Skill；但
+安装生效、App Auto、UI 持久化和平台 readback 仍由各自 owner 负责。
+
 Package 是唯一安装单元。Skill、Tool、Plugin、MCP、profile 和 model recommendation
 是 Package 暴露的 capability，不获得第二套 App 清单或独立 OPL lifecycle。
 
@@ -50,7 +54,7 @@ platform readback 必须报告 physical unavailable，不能由 App metadata 伪
 
 | Owner | Owns | Must not own |
 | --- | --- | --- |
-| OPL Flow | Package identity、最小 Profile source、capability intent、冲突/迁移意图、model recommendation。 | App/Standard/Full readiness、平台 installed truth、其他 Package、中央版本求解。 |
+| OPL Flow | Package identity、最小 Profile source、model recommendation、experience-baseline 与 specialized intent、六动作主路由、冲突/迁移意图。 | App Auto/UI/persistence、平台 installed truth、其他 Package、中央版本求解。 |
 | Package owner / publication | 独立 source/tag、per-Package GHCR official bytes 和自己的 `latest-stable`。 | 本机 install/update/remove、installed truth、shared family currentness。 |
 | Carrier platform | 自己承载的 install/list/update/remove、physical bytes、platform currentness 和恢复。 | OPL identity、业务状态、其他 carrier truth。 |
 | Executor adapter | 把已安装 capability 暴露给一个 executor，并 fresh 检查 callability。 | Package 安装、用户 Profile ownership、其他 executor route。 |
@@ -58,19 +62,27 @@ platform readback 必须报告 physical unavailable，不能由 App metadata 伪
 | OPL App | 一个 Official Profile、首次安装/显式 Restore、统一 Settings 状态和用户偏好。 | 解析 Flow companion Skill/Tool/Plugin/MCP 清单、Package 版本选择或 lifecycle 镜像。 |
 | Full / release tooling | 某次 Full/offline/integration-test/QA 构建实际选择 bytes 的精确快照。 | 普通安装、更新、composition 或 `latest-stable`。 |
 
-## Presence-Only Composition
+## Three Status Planes And Presence-Only Composition
 
 Capability identity 使用 `(kind, id)`；Package dependency 使用稳定 Package 或
-capability identity。`requires` 表示“存在且可调用”，`recommends` 表示默认便利
-组合。普通解析不比较 SemVer、ABI、exact digest、lock、payload、receipt、
-provenance 或 family cohort。
+capability identity。Policy v4 将结果分成三个平面：
+
+- `package_operational` 只由 Flow 本体和 `requires` 的 presence/callability 决定；
+- `experience_baseline` 是默认体验下限，缺失时输出 `degraded`、failure IDs 和
+  owner-supported repair command，但 `package_operational` 仍为 true；
+- `specialized_capabilities` 只观察 `compatible_optional` discovery，缺失是正常状态，
+  不触发 managed install 或 repair。
+
+普通解析不比较 SemVer、ABI、exact digest、lock、payload、receipt、provenance 或
+family cohort。
 
 解析顺序保持最小：
 
 1. 从实际 carrier/platform fresh inventory 发现 identity。
 2. 检查 required identity 是否 present，并对选定 route 检查 callability。
-3. 缺失时调用该 identity 的 carrier ensure；仍失败只使直接 dependent unavailable。
-4. unrelated Package、App、Base 和其他 executor route 继续工作。
+3. required 缺失时调用该 identity 的 carrier ensure；仍失败只使直接 dependent unavailable。
+4. baseline 缺失时提供 repair，optional 缺失时只报告 absent。
+5. unrelated Package、App、Base 和其他 executor route 继续工作。
 
 稳定 identity 只做向后兼容扩展。Breaking interface 发布新 identity，或由 owner
 保留兼容 adapter；不为此建立中央 version/ABI solver。
@@ -144,9 +156,12 @@ Package 的组合依赖。
 ## App And Workflow Boundaries
 
 App 只消费 Framework 的 generic installed/callable projection，可以分组、展示和调用
-owner-projected actions。App 不解析 Flow 的 `requires`/`recommends`，不保存第二份
-Skill/Plugin/Tool/MCP/model inventory，也不从 Codex plugin list 推断完整 Package
-installed state。
+owner-projected actions。App 不解析 Flow 的 `requires`、`experience_baseline` 或
+`compatible_optional`，不保存第二份 Skill/Plugin/Tool/MCP/model inventory，也不从
+Codex plugin list 推断完整 Package installed state。
+
+`opl_flow_context` 只是已安装 Flow 的状态元数据，不是 base prompt。只有 Framework
+fresh projection 证明 `opl-flow` 已安装时才能注入；Flow 缺席时字段必须完全省略。
 
 Model precedence remains:
 
@@ -162,14 +177,15 @@ fresh user acceptance。Flow 不拥有 project、release、runtime、domain 或 
 
 ## Current Transitional Gap
 
-截至 2026-07-24，`contracts/workflow-policy.json` v3 已删除普通 capability 的
+截至 2026-08-01，`contracts/workflow-policy.json` v4 已删除普通 capability 的
 exact version、install-source、lifecycle-owner、fixed Standard/Full convergence
-等组合要求，machine contract 已部分迁移。它仍固定声明 provides/requires/
-recommends、source/source_path、Codex model policy 和 migration policy。
+等组合要求，并将旧 `recommends` 明确拆为 `experience_baseline`，同时通过
+`compatible_optional` 表达 specialized capabilities。它仍固定声明 source/source_path、
+Codex model policy 和 migration policy。
 Framework Package lifecycle/runtime 仍包含 resolver、lock/payload、receipt、
 rollback 和 provenance compatibility fields。
 
-因此当前命令仍走 compatibility lifecycle，不能从 contract v3 或本文推断 target
+因此当前命令仍走 compatibility lifecycle，不能从 contract v4 或本文推断 target
 已落地。删除旧 reader/writer 前至少需要 fresh terminal proof：
 
 - per-Package GHCR `latest-stable` 独立提供 bytes，shared manifest 不参与普通选择；

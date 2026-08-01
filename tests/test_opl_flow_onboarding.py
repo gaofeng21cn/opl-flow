@@ -9,6 +9,9 @@ from pathlib import Path
 REPO_ROOT = Path(__file__).resolve().parents[1]
 CONTRACT_PATH = REPO_ROOT / "skills" / "opl-flow" / "references" / "start-onboarding.json"
 SKILL_PATH = REPO_ROOT / "skills" / "opl-flow" / "SKILL.md"
+LEDGER_START_PATH = REPO_ROOT / "skills" / "opl-flow" / "references" / "ledger-start.md"
+CODEX_BASELINE_PATH = REPO_ROOT / "skills" / "opl-flow" / "references" / "codex-baseline.md"
+APP_INTEGRATION_PATH = REPO_ROOT / "skills" / "opl-flow" / "references" / "app-integration.md"
 VALIDATOR_PATH = REPO_ROOT / "skills" / "opl-flow" / "scripts" / "validate_start_onboarding.py"
 
 SPEC = importlib.util.spec_from_file_location("opl_flow_start_onboarding_validator", VALIDATOR_PATH)
@@ -147,13 +150,37 @@ class OplFlowOnboardingTests(unittest.TestCase):
 
     def test_skill_routes_start_to_the_machine_contract(self) -> None:
         skill = SKILL_PATH.read_text(encoding="utf-8")
+        ledger_start = LEDGER_START_PATH.read_text(encoding="utf-8")
+        progressive_route = f"{skill}\n{ledger_start}"
 
         self.assertIn("$opl-flow start", skill)
         self.assertIn("references/start-onboarding.json", skill)
         self.assertIn("validate_start_onboarding.py --receipt", skill)
-        self.assertIn("every user-ledger Bead", skill)
-        self.assertIn("official Linear Connector", skill)
-        self.assertIn("`bd linear sync` for onboarding or routine maintenance", skill)
+        self.assertIn("every user-ledger Bead", progressive_route)
+        self.assertIn("official Connector", progressive_route)
+        self.assertIn("Do not use `bd linear sync`", progressive_route)
+
+    def test_primary_router_declares_six_actions_and_status_planes(self) -> None:
+        skill = SKILL_PATH.read_text(encoding="utf-8")
+        baseline = CODEX_BASELINE_PATH.read_text(encoding="utf-8")
+        app_integration = APP_INTEGRATION_PATH.read_text(encoding="utf-8")
+
+        for action in ("doctor", "setup", "tune", "update", "start", "fleet"):
+            with self.subTest(action=action):
+                self.assertIn(f"$opl-flow {action}", skill)
+        for plane in (
+            "package_operational",
+            "experience_baseline",
+            "specialized_capabilities",
+        ):
+            with self.subTest(plane=plane):
+                self.assertIn(plane, skill)
+                self.assertIn(plane, baseline)
+        self.assertIn("`gpt-5.6-sol` and `max`", baseline)
+        self.assertIn("`opl_flow_context` is metadata", app_integration)
+        self.assertIn("prompt body", app_integration)
+        self.assertIn("only when fresh package projection says", app_integration)
+        self.assertIn("Flow absence means omit the metadata", app_integration)
 
     def test_receipt_validator_accepts_one_reused_dashboard(self) -> None:
         result = validate_receipt(valid_receipt())

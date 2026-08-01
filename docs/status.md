@@ -13,6 +13,12 @@ OPL Flow 的目标边界已经收敛：
 
 - Flow 是可选、默认进入 App Official Profile 的
   `OPL Package(kind=workflow_profile)`，不是任何产品的 readiness 前置。
+- Flow 的产品定位是 Codex 体验基线与工作协同控制层；主入口固定为
+  `doctor/setup/tune/update/start/fleet`，并渐进加载动作所需合同。
+- 状态分为 `package_operational`、`experience_baseline` 和
+  `specialized_capabilities`；baseline 缺失只降级，optional 缺失是正常状态。
+- Flow 推荐 `gpt-5.6-sol + max`；App 拥有 Auto、UI、持久化、用户选择和 Flow
+  缺席 fallback。`opl_flow_context` 只在 Flow fresh installed 时作为元数据注入。
 - Package、carrier、executor 三层分离，publication 是独立轴；GHCR 只存储并提供
   official bytes，不是本机 carrier。
 - Codex Plugin Manager 和 Codex CLI 是当前唯一正式 carrier/executor 路径；
@@ -32,7 +38,7 @@ Flow machine contract 已部分迁移，但 Framework/runtime 和真实 carrier 
 
 | Surface | Current fact | Target gap |
 | --- | --- | --- |
-| `contracts/workflow-policy.json` v3 | 已删除普通 capability 的 exact version、install-source、lifecycle-owner 和 fixed Standard/Full convergence；仍固定 provides/requires/recommends、source 与 migration policy。 | 收敛为 Package-owned intent；普通依赖只检查 identity；App 不解析 companion list。 |
+| `contracts/workflow-policy.json` v4 | 已声明六个 bundled Skill、required `opl-base`、可修复的 `experience_baseline` 和只观察的 `compatible_optional`。 | Framework 需兼容 v1-v3 并投影三平面；App 不解析 companion list。 |
 | Framework `opl packages` | 当前正常命令仍负责 resolver、install/update、lock/payload、receipt/rollback 和 profile migration。 | Base 只下载/校验/handoff OCI bytes；carrier 执行本机 lifecycle；Framework 动态聚合 presence/callability 与 generic projection。 |
 | Codex carrier/executor | Codex Plugin Manager 和 Codex CLI 是唯一正式生产路径；Repository developer tooling 也能投影 Plugin/Skills。 | Plugin readback 不能单独证明完整 Package；最小 Git/local proof 只验证公共合同中性，不形成第二产品。 |
 | App Standard/Full | 当前文档和 contracts 仍可能各自携带 payload/closure 或固定清单语义。 | 同一 Official Profile；Full 只增加 offline seed；卸载后不后台装回。 |
@@ -50,8 +56,8 @@ manager 已删除或 executor-neutral composition 已实现。
 
 ## Migration Order
 
-1. 在已迁移的 Flow contract v3 上增加最小 descriptor/carrier dual-read；新
-   consumer 只依赖 identity、presence、callability 和 generic action。
+1. Framework 对 Flow contract v1-v4 dual-read，新 consumer 只依赖 identity、
+   presence、callability、三平面状态和 generic action。
 2. per-Package GHCR `latest-stable` 成为普通 Flow publication source；Base 只做
    OCI byte acquisition，carrier 执行 lifecycle；shared manifest 降级为
    Full/offline/test/QA snapshot。
@@ -95,7 +101,8 @@ Package payload contract、Profile mutation、executor discovery、支持平台�
 已安装 Skill。0.1.29 承担当前体系首次认证；后续未触发上述边界变化的普通内容版本
 只走 routine release。
 
-0.1.30 源码候选增加三个核心 Skill、来源感知迁移、capability-aware Profile 路由和
+0.1.30 源码候选增加四个核心 Skill（相对 0.1.29 的两个 Skill 基线）、来源感知迁移、
+三状态平面、capability-aware Profile 路由、`opl-fleet` 和
 `$opl-flow start` onboarding contract（包括官方 Linear Connector 的全用户总账覆盖、
 窄字段投影和双向 field authority），属于 Package payload、Profile 和 executor
 discovery 边界变化，因此不能继承 0.1.29 的安装资格。若后续进入正式 publication，

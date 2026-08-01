@@ -16,8 +16,11 @@ source, owner surfaces, and fresh readback.
 
 Users install and understand one product: **OPL Flow**.
 
-OPL Flow keeps Codex model-native:
+OPL Flow is the **Codex experience baseline and work-coordination control
+layer**. It keeps Codex model-native:
 
+- Flow owns the concise user Profile, model/reasoning recommendation,
+  experience-baseline intent, and progressive primary Skill.
 - Codex owns task decomposition, task creation, agent execution, conversation
   coordination, and recovery.
 - **OPL Ledger** uses Beads only as the durable task ledger. It does not replace
@@ -33,7 +36,7 @@ OPL Flow keeps Codex model-native:
 
 | Product term | Target physical owner | Role |
 | --- | --- | --- |
-| **OPL Flow** | `gaofeng21cn/opl-flow` | Single public product, Codex Plugin/Profile, bootstrap, doctor, core workflow Skills, Ledger adapter, Git lifecycle, and Fleet engine |
+| **OPL Flow** | `gaofeng21cn/opl-flow` | Single public product, Codex Plugin/Profile, model and experience-baseline policy, six-action router, core workflow Skills, Ledger adapter, Git lifecycle, and Fleet engine |
 | **OPL Ledger** | OPL Flow module backed by Beads | Dynamic Program, slice, dependency, owner, task, checkpoint, and remaining state |
 | **OPL Fleet** | OPL Flow module | Multi-machine join, capability parity, repository currentness, lease/admission, and optional dispatch |
 | **OPL Skills** | `gaofeng21cn/opl-skills` | Optional, independently installable public enhancements |
@@ -58,6 +61,7 @@ opl-flow/
 |   |-- opl-flow/
 |   |-- coordinate-concurrent-tasks/
 |   |-- develop-and-deliver/
+|   |-- opl-fleet/
 |   |-- task-mode-gate/
 |   `-- recover-codex-tasks/
 |-- scripts/
@@ -71,6 +75,34 @@ opl-flow/
 Keep Ledger and the Fleet engine inside OPL Flow. Do not split them
 into packages or internal module trees until independent consumers prove that
 need.
+
+## Primary Entry And Status Planes
+
+`$opl-flow` is a progressive router, not a monolithic prompt. It exposes six
+stable actions and loads only the references required by the selected action:
+
+| Action | Responsibility |
+| --- | --- |
+| `doctor` | Read-only diagnosis of package, Profile, model, baseline, optional capabilities, Ledger, and Fleet |
+| `setup` | Establish or repair the owner-supported Codex baseline and optional private state |
+| `tune` | Optimize `AGENTS.md`, model/reasoning settings, or capability selection without overriding the user |
+| `update` | Update through component owners, perform source-aware migration, and verify effective discovery |
+| `start` | Idempotently create or reuse the Dashboard, Bead, complete Linear projection, and hourly supervisor |
+| `fleet` | Route node admission, currentness, leases, selection, and dispatch to `$opl-fleet` |
+
+Framework and App report three independent planes:
+
+1. `package_operational`: Flow installed, enabled, and callable;
+2. `experience_baseline`: recommended research, Office, extraction, and UI
+   capabilities, where missing means `degraded` with a repair action;
+3. `specialized_capabilities`: optional capabilities such as
+   `architect-and-simplify`, where absence is normal.
+
+Only the first plane controls Flow callability. App consumes the generic
+Framework projection and never parses Flow policy or keeps a companion list.
+Flow recommends `gpt-5.6-sol + max`; App owns Auto resolution, UI persistence,
+explicit user selection, and fallback. `opl_flow_context` is installed-state
+metadata only, never a hidden prompt, and is omitted when Flow is absent.
 
 The supported interaction path is:
 
@@ -253,9 +285,11 @@ codex plugin marketplace add gaofeng21cn/opl-flow
 codex plugin add opl-flow@opl-flow-local
 ```
 
-The source-implemented first-session action is:
+The primary first-session actions are:
 
 ```text
+Use $opl-flow doctor to inspect my effective Codex baseline.
+Use $opl-flow setup to establish or repair that baseline.
 Use $opl-flow start to create or reuse my OPL ledger Dashboard and supervise it every hour.
 ```
 
@@ -267,22 +301,16 @@ ends with thread, Bead, Automation, Linear full-coverage narrow-field parity,
 and Dolt parity readback. Ambiguous matches fail closed; Automation, Linear,
 and the Dashboard never replace Beads/Dolt as the internal task ledger.
 
-The Profile and tool setup action is:
-
-```text
-Use $opl-flow setup to initialize this development workflow.
-```
-
 The `$opl-flow` Skill coordinates these steps:
 
 1. doctor Codex, Git, GitHub authentication, and Beads;
-2. install missing dependencies only through owner-supported channels;
-3. create or connect one private OPL Instance;
-4. initialize Beads without overwriting `AGENTS.md` or Git hooks;
-5. back up and safely merge the OPL Flow Profile;
-6. optionally connect Linear;
-7. optionally enroll Fleet nodes through outbound authentication;
-8. finish with live readback.
+2. distinguish package failure, degraded baseline, and optional absence;
+3. install or repair missing baseline capabilities only through owner-supported channels;
+4. create or connect one private OPL Instance only when durable state is requested;
+5. initialize Beads without overwriting `AGENTS.md` or Git hooks;
+6. back up and safely merge the OPL Flow Profile;
+7. optionally connect Linear or enroll Fleet nodes through outbound authentication;
+8. finish with live readback of all applicable status planes.
 
 The orchestration stays model-native rather than reimplementing package managers
 or owner APIs. `scripts/opl_workflow.py status` is the machine-readable doctor;
@@ -314,6 +342,9 @@ controller, inbound SSH, Linear, or Fleet.
   uniqueness/supervision contract, and receipt validation for one Dashboard,
   one Bead, one hourly Heartbeat, complete Linear projection parity, and final
   Dolt parity.
+- **Implemented in 0.1.30 source:** the progressive `doctor/setup/tune/update/
+  start/fleet` router, workflow policy v4 with three status planes, the sixth
+  bundled `opl-fleet` Skill, and capability-aware optional architecture routing.
 - **Pilot:** initialize one private Instance ledger and use one Operations
   Program before making Ledger a default onboarding dependency.
 - **Implemented in source:** a two-level qualification planner and receipt

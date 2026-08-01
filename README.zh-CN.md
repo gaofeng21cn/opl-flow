@@ -8,8 +8,8 @@
 
 <h1 align="center">OPL Flow</h1>
 
-<p align="center"><strong>面向 AI 开发舰队的工作流与协作层</strong></p>
-<p align="center">从一台 Codex 到多任务、多仓库、多机器，让工作始终围绕同一份可靠状态继续推进</p>
+<p align="center"><strong>Codex 体验基线与工作协同控制层</strong></p>
+<p align="center">先保证一台 Codex 的使用下限，再让多任务、多仓库、多机器围绕可靠状态持续推进</p>
 
 <p align="center">
   <img src="assets/branding/opl-flow-ai-fleet.png" alt="Linear 与本机 Codex 通过 OPL Flow 协作，所有用户总账任务都可读，同时 Beads 仍是持久任务权威" width="100%" />
@@ -17,14 +17,17 @@
 
 ## OPL Flow 是什么
 
-Codex 已经能够推理、编程、调用工具并协调多个 Agent。真正容易失控的，通常
-不是某一次编码，而是工作跨越多个任务、仓库、对话和机器之后：谁在负责，进展
-写到了哪里，哪个结果已经进入主线，下一步应由谁继续。
+Codex 已经能够推理、编程、调用工具并协调多个 Agent。OPL Flow 解决两个模型
+原生能力之外的产品问题：第一，给单台 Codex 建立稳定的使用下限，包括精简的
+`AGENTS.md`、模型与推理强度建议、明确的上下文边界，以及推荐的检索、Office、
+文档提取和 UI 能力；第二，在工作跨越多个任务、仓库、对话和机器后持续保存责任、
+进度和真实终态。
 
-OPL Flow 解决的是这层连续性问题。它不会替代 Codex 的原生智能，也不会再造
-一套 Agent 调度器，而是把以下能力组织在同一个公开产品中：
+它不会替代 Codex 的原生智能，也不会再造一套 Agent 调度器，而是把以下能力组织
+在同一个公开产品中：
 
-- 一份精简、可安全合并的用户级工作配置；
+- 一份精简、可安全合并的用户级工作配置与模型建议；
+- 一套可诊断、可修复但不阻断 Flow 的推荐体验能力基线；
 - 面向日常开发和并发协作的核心 Skill；
 - 以 Beads 为底层的持久 OPL 总账；
 - 可选的 Linear 人类门户；
@@ -33,8 +36,12 @@ OPL Flow 解决的是这层连续性问题。它不会替代 Codex 的原生智�
 
 一句话概括：
 
-> **Codex 负责执行，OPL Flow 负责让工作持续有序；OPL 总账保存任务真相，
+> **Codex 负责执行，OPL Flow 负责保证使用下限并让工作持续有序；OPL 总账保存任务真相，
 > Linear 方便人查看和录入，OPL Fleet 提供实际干活的机器。**
+
+Flow 自身仍是可选 Package。没有 Flow 不得阻断 OPL App、OPL Base、普通 Codex、
+其他 Package 或领域工作；推荐体验能力缺失只产生 `degraded` 与修复入口，不得把
+Flow 本身判为不可用。
 
 ## 各模块如何协作
 
@@ -56,7 +63,7 @@ flowchart LR
 | 模块 | 负责什么 | 不负责什么 |
 | --- | --- | --- |
 | **Codex** | 推理、工具调用、实现和原生多 Agent 协作 | 持久保存跨对话任务状态 |
-| **OPL Flow** | 用户配置、核心 Skill、总账接入、并发协作和通用 Fleet 引擎 | 代替模型思考或决定领域真相 |
+| **OPL Flow** | 用户配置与模型建议、体验能力意图、核心 Skill、总账接入、并发协作和通用 Fleet 引擎 | 代替模型思考、维护 App UI 状态或决定领域真相 |
 | **OPL 总账** | 以 Beads/Dolt 保存目标、依赖、负责人、检查点和剩余工作 | 唤醒 Codex 或分发 Agent |
 | **GitHub** | 保存分支、PR、CI、合并和发布证据 | 成为任务总账或机器调度器 |
 | **Linear** | 完整展示所有用户总账任务，但仅保留意图、层级、优先级、到期、状态、简短阻断/结果和链接 | 成为第二套总账或执行调度器 |
@@ -66,6 +73,18 @@ flowchart LR
 这些模块可以逐层启用。Linear、Fleet 或私人 Instance 未配置时，OPL Flow 的
 核心工作流仍然可以独立使用。
 
+## 三个独立状态平面
+
+- `package_operational`：Flow 自身是否安装、启用并可调用；只有这里失败才阻断
+  Flow 专属动作。
+- `experience_baseline`：Agent Reach、OfficeCLI、MinerU、UI/UX 等推荐体验能力；
+  缺失时为 `degraded` 并提供 owner-supported repair，但 Flow 仍可用。
+- `specialized_capabilities`：架构等可选增强；缺失是正常状态，不要求 repair。
+
+Flow 推荐 `gpt-5.6-sol + max`。显式用户选择优先；OPL App 继续拥有 Auto 算法、
+模型控件、持久化和 Flow 缺席时的 fallback。Flow 不注入隐藏 prompt，也不会把
+实时 Codex catalog 中不存在的模型说成可用。
+
 ## 核心 Skill 与增强包
 
 OPL Flow 和 OPL Skills 不是两套相互竞争的工作流，而是“核心产品 + 可选增强”
@@ -73,11 +92,12 @@ OPL Flow 和 OPL Skills 不是两套相互竞争的工作流，而是“核心�
 
 ### OPL Flow 内置 Skill
 
-当前 `0.1.30` 随插件安装五个核心 Skill：
+当前 `0.1.30` 随插件安装六个核心 Skill：
 
-- `opl-flow`：创建总账 Dashboard、安装、更新、状态检查，以及 Linear 和 Fleet 入口；
+- `opl-flow`：渐进加载的主入口，固定路由 `doctor/setup/tune/update/start/fleet`；
 - `coordinate-concurrent-tasks`：多任务、多对话和多 worktree 的并发协调；
 - `develop-and-deliver`：系统化开发、验证与交付；
+- `opl-fleet`：私人 Instance 支撑的节点准入、租约、仓库 currentness 和分发；
 - `task-mode-gate`：真实发布、部署、迁移和破坏性写入边界；
 - `recover-codex-tasks`：基于证据恢复中断或缺失的 Codex 任务。
 
@@ -102,11 +122,11 @@ Codex 直接完成同类架构判断，不阻断任务。升级时，Framework �
 
 OPL Flow 不会在运行时复制 OPL Skills 的源码，也不会把整套增强包变成核心依赖。
 
-安装全部公开增强能力：
-
-```bash
-npx skills add gaofeng21cn/opl-skills -g -a codex -s '*' -y --full-depth
-```
+OPL Skills 的浏览分类与安装 preset 分离，Flow 不使用 wildcard 安装。
+`development-complete` 会精确解析为五个开发/架构方法 Skill：
+`architect-and-simplify`、`zoom-out`、`improve-codebase-architecture`、
+`grill-with-docs`、`prototype`，以及六个 `book-*` 架构 lens。安装时由 Flow 将这些
+明确 ID 交给 OPL Skills 的 owner-supported route。
 
 也可以让 Codex 一次完成核心与增强配置：
 
@@ -176,6 +196,13 @@ codex plugin add opl-flow@opl-flow-local
 使用 $opl-flow setup 初始化我的可复用开发工作流。
 ```
 
+只读检查或定向优化时可以说：
+
+```text
+使用 $opl-flow doctor 检查我的实际 Codex 使用基线。
+使用 $opl-flow tune 优化我的 AGENTS.md 和模型设置。
+```
+
 更新现有安装：
 
 ```text
@@ -189,7 +216,7 @@ Skill 会完成能够自动完成的步骤，只在 GitHub、Linear 等外部服
 
 | 方案 | 组成 | 适合场景 |
 | --- | --- | --- |
-| **基础工作流** | Codex + OPL Flow | 一个人、一台机器的日常开发 |
+| **基础工作流** | Codex + OPL Flow Profile、模型策略、基线投影和核心 Skill | 一个人、一台机器的日常开发 |
 | **增强工作流** | 基础工作流 + OPL Skills | 需要架构、交付和专项工作能力 |
 | **持久工作流** | 基础或增强工作流 + 私人 OPL Instance + Beads | 长周期开发和多个活跃任务 |
 | **可视工作流** | 持久工作流 + Linear | 需要面向人的任务入口和进度门户 |
@@ -281,7 +308,7 @@ Skill 的安装和升级仍由各自来源负责。安装或升级后如果需�
 
 | 产品 | 定位 |
 | --- | --- |
-| **OPL Flow** | AI 开发舰队的工作流与协作层 |
+| **OPL Flow** | Codex 体验基线与工作协同控制层 |
 | **OPL Framework** | 运行时、Package 生命周期、合同和 Agent 执行底座 |
 | **One Person Lab App** | 面向用户的工作台，也是可选的 Flow 安装载体 |
 | **OPL Skills** | 可独立安装的公开增强能力 |
