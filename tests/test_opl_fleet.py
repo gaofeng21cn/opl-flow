@@ -2590,6 +2590,44 @@ class CodexFleetTests(unittest.TestCase):
         command.assert_called_once()
         self.assertEqual(command.call_args.args[0][:3], ["npx", "skills", "add"])
 
+    def test_fetch_skill_reference_accepts_current_schema(self) -> None:
+        payload = {
+            "schema": fleet.SKILL_REFERENCE_SCHEMA,
+            "discovery_roots": [".agents/skills"],
+            "packages": {},
+        }
+        completed = fleet.subprocess.CompletedProcess(
+            ["gh", "api"], 0, json.dumps(payload), ""
+        )
+        with mock.patch.object(fleet, "run", return_value=completed):
+            reference = fleet.fetch_skill_reference(
+                {
+                    "repository": "example/instance",
+                    "skill_reference": "contracts/skill-reference.json",
+                },
+                "a" * 40,
+            )
+        self.assertEqual(reference["schema"], "codex_skill_reference.v2")
+
+    def test_fetch_skill_reference_rejects_legacy_schema(self) -> None:
+        completed = fleet.subprocess.CompletedProcess(
+            ["gh", "api"],
+            0,
+            json.dumps({"schema": "codex_skill_reference.v1"}),
+            "",
+        )
+        with (
+            mock.patch.object(fleet, "run", return_value=completed),
+            self.assertRaisesRegex(fleet.FleetError, "owner skill reference"),
+        ):
+            fleet.fetch_skill_reference(
+                {
+                    "repository": "example/instance",
+                    "skill_reference": "contracts/skill-reference.json",
+                },
+                "a" * 40,
+            )
+
     def test_macos_schedule_has_owner_tool_paths(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
             home = Path(temp_dir)

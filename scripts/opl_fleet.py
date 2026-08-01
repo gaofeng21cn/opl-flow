@@ -100,6 +100,7 @@ ADMISSION_OPTIONAL_FIELDS = {
 }
 GPU_APIS = {"any", "cuda", "metal"}
 EXECUTION_REQUIREMENTS_SCHEMA = "opl_execution_requirements.v1"
+SKILL_REFERENCE_SCHEMA = "codex_skill_reference.v2"
 MAX_EXECUTION_REQUIREMENTS_BYTES = 16_384
 MAX_EXECUTION_OUTPUT_BYTES = 64 * 1024
 REMOTE_EXECUTION_TIMEOUT_SECONDS = 3_600
@@ -972,7 +973,7 @@ def fetch_skill_reference(spec: dict[str, Any], revision: str) -> dict[str, Any]
         ]
     )
     payload = json.loads(result.stdout)
-    if not isinstance(payload, dict) or payload.get("schema") != "codex_skill_reference.v1":
+    if not isinstance(payload, dict) or payload.get("schema") != SKILL_REFERENCE_SCHEMA:
         raise FleetError("owner skill reference is invalid")
     return payload
 
