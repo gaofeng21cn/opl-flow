@@ -1,0 +1,132 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.invalid/fleet-telemetry-protocol.schema.json",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "$schema",
+    "schema",
+    "product_terms",
+    "authority",
+    "modes",
+    "compatibility",
+    "telemetry_envelope"
+  ],
+  "properties": {
+    "$schema": { "const": "./fleet-telemetry-protocol.schema.json" },
+    "schema": { "const": "opl_fleet_telemetry_protocol.v1" },
+    "product_terms": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["controller", "node_agent", "telemetry_gateway", "cockpit"],
+      "properties": {
+        "controller": { "$ref": "#/$defs/productTerm" },
+        "node_agent": { "$ref": "#/$defs/productTerm" },
+        "telemetry_gateway": { "$ref": "#/$defs/productTerm" },
+        "cockpit": { "$ref": "#/$defs/productTerm" }
+      }
+    },
+    "authority": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["controller", "node_agent", "telemetry_gateway", "cockpit"],
+      "properties": {
+        "controller": { "$ref": "#/$defs/authorityRole" },
+        "node_agent": { "$ref": "#/$defs/authorityRole" },
+        "telemetry_gateway": { "$ref": "#/$defs/authorityRole" },
+        "cockpit": { "$ref": "#/$defs/authorityRole" }
+      }
+    },
+    "modes": {
+      "type": "array",
+      "minItems": 3,
+      "maxItems": 3,
+      "uniqueItems": true,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "data_path", "authority"],
+        "properties": {
+          "id": { "enum": ["local", "direct", "fleet"] },
+          "data_path": { "type": "string", "minLength": 1 },
+          "authority": { "type": "string", "minLength": 1 }
+        }
+      }
+    },
+    "compatibility": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["display_names", "preserve", "service_identifiers", "rename_gate"],
+      "properties": {
+        "display_names": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["node_agent", "cockpit"],
+          "properties": {
+            "node_agent": { "const": "OPL Fleet Agent · Codex TPS" },
+            "cockpit": { "const": "OPL Fleet Cockpit · Ambient Ops" }
+          }
+        },
+        "preserve": { "$ref": "#/$defs/nonEmptyStringList" },
+        "service_identifiers": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["direct", "gateway"],
+          "properties": {
+            "direct": { "const": "_codex-tps._tcp.local" },
+            "gateway": { "const": "_ambient-ops._tcp.local" }
+          }
+        },
+        "rename_gate": { "type": "string", "minLength": 1 }
+      }
+    },
+    "telemetry_envelope": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema",
+        "identity_fields",
+        "observation_fields",
+        "doctor_receipt_fields",
+        "forbidden_fields",
+        "gateway_behavior",
+        "evolution"
+      ],
+      "properties": {
+        "schema": { "const": "opl_fleet_agent_telemetry.v1" },
+        "identity_fields": { "$ref": "#/$defs/nonEmptyStringList" },
+        "observation_fields": { "$ref": "#/$defs/nonEmptyStringList" },
+        "doctor_receipt_fields": { "$ref": "#/$defs/nonEmptyStringList" },
+        "forbidden_fields": { "$ref": "#/$defs/nonEmptyStringList" },
+        "gateway_behavior": { "$ref": "#/$defs/nonEmptyStringList" },
+        "evolution": { "$ref": "#/$defs/nonEmptyStringList" }
+      }
+    }
+  },
+  "$defs": {
+    "nonEmptyStringList": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": { "type": "string", "minLength": 1 }
+    },
+    "productTerm": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["display_name", "implementation"],
+      "properties": {
+        "display_name": { "type": "string", "minLength": 1 },
+        "implementation": { "type": "string", "minLength": 1 }
+      }
+    },
+    "authorityRole": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["owns", "must_not_own"],
+      "properties": {
+        "owns": { "$ref": "#/$defs/nonEmptyStringList" },
+        "must_not_own": { "$ref": "#/$defs/nonEmptyStringList" }
+      }
+    }
+  }
+}

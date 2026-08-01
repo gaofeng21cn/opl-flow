@@ -16,6 +16,7 @@ owner, purpose, state, and machine boundary.
 | Doc | Role | Boundary |
 | --- | --- | --- |
 | [Reusable development workflow architecture](./reusable-workflow-architecture.md) | OPL Flow、Ledger、Fleet、Skills、私人 Instance 的产品命名、authority、自动化入门与迁移 SSOT | Target/planned；不替代当前 contracts/source/runtime readback |
+| [Fleet Agent and Cockpit architecture](./fleet-agent-cockpit-architecture.md) | Node Agent、Telemetry Gateway、Cockpit、Controller 的产品词汇、authority、兼容模式和 telemetry protocol SSOT | `contracts/fleet-telemetry-protocol.json`、当前 source 与 fresh runtime readback 才证明生效 |
 | [Composition architecture](./capability-governance.md) | Flow 仓唯一组合架构 SSOT：Package/carrier/executor、presence-only、GHCR、Official Profile 与 personalization safety | Target/planned；当前机器行为仍归 contracts/source/platform readback |
 | [Active truth and migration status](./status.md) | 当前兼容实现、目标差距、迁移顺序和 terminal proof | Human-readable status；不证明安装、发布或 target 已落地 |
 | [Compatibility and positioning](./compatibility.md) | Model-native、可选 Flow 与跨 executor 定位 | 不拥有 App/Base/Full/runtime/domain readiness |
@@ -39,7 +40,7 @@ of creating parallel documents with duplicate prose.
 ## Coverage Terminal
 
 The tracked documentation set covered by this index is `README*` plus
-`docs/**/*.md`. The current set is reviewed `13/13`, with `unreviewed=0` and
+`docs/**/*.md`. The current set is reviewed `14/14`, with `unreviewed=0` and
 `remaining_stale_or_retire=0`. This is documentation coverage evidence only; it
 does not prove Package publication, installation, executor discovery, runtime,
 App, domain, or release readiness.

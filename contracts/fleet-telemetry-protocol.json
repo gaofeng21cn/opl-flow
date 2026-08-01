@@ -1,0 +1,166 @@
+{
+  "$schema": "./fleet-telemetry-protocol.schema.json",
+  "schema": "opl_fleet_telemetry_protocol.v1",
+  "product_terms": {
+    "controller": {
+      "display_name": "OPL Fleet Controller",
+      "implementation": "OPL Flow plus one private OPL Instance"
+    },
+    "node_agent": {
+      "display_name": "OPL Fleet Agent · Codex TPS",
+      "implementation": "codex-tps"
+    },
+    "telemetry_gateway": {
+      "display_name": "OPL Fleet Telemetry Gateway",
+      "implementation": "ambient-ops Docker service"
+    },
+    "cockpit": {
+      "display_name": "OPL Fleet Cockpit · Ambient Ops",
+      "implementation": "ambient-ops Web, Android, and iOS clients"
+    }
+  },
+  "authority": {
+    "controller": {
+      "owns": [
+        "approved_node_registry",
+        "private_fleet_policy",
+        "fresh_doctor_and_admission",
+        "lease_compare_and_swap",
+        "dispatch_and_execution_adapter_selection"
+      ],
+      "must_not_own": [
+        "raw_codex_conversation_content",
+        "component_release_or_install_channels"
+      ]
+    },
+    "node_agent": {
+      "owns": [
+        "node_local_observation",
+        "node_local_doctor",
+        "node_local_execution_constraints",
+        "sanitized_execution_receipts",
+        "local_codex_telemetry_and_host_dashboard"
+      ],
+      "must_not_own": [
+        "fleet_node_registry",
+        "fleet_scheduling_policy",
+        "lease_authority",
+        "dispatch_authority"
+      ]
+    },
+    "telemetry_gateway": {
+      "owns": [
+        "authenticated_telemetry_ingest",
+        "fleet_telemetry_aggregation",
+        "telemetry_history",
+        "read_only_status_projection"
+      ],
+      "must_not_own": [
+        "node_admission",
+        "lease_authority",
+        "dispatch_authority",
+        "remote_execution"
+      ]
+    },
+    "cockpit": {
+      "owns": [
+        "fleet_and_host_visualization",
+        "router_network_visualization",
+        "source_selection_and_display_preferences"
+      ],
+      "must_not_own": [
+        "node_admission",
+        "fleet_scheduling_policy",
+        "lease_authority",
+        "dispatch_authority"
+      ]
+    }
+  },
+  "modes": [
+    {
+      "id": "local",
+      "data_path": "Agent reads and renders this host without network telemetry upload",
+      "authority": "node_agent"
+    },
+    {
+      "id": "direct",
+      "data_path": "Cockpit reads one Agent read-only LAN endpoint",
+      "authority": "node_agent"
+    },
+    {
+      "id": "fleet",
+      "data_path": "Agents push allowlisted aggregates to the Telemetry Gateway; Cockpit reads the fleet projection",
+      "authority": "telemetry_gateway"
+    }
+  ],
+  "compatibility": {
+    "display_names": {
+      "node_agent": "OPL Fleet Agent · Codex TPS",
+      "cockpit": "OPL Fleet Cockpit · Ambient Ops"
+    },
+    "preserve": [
+      "repository_urls",
+      "bundle_identifiers",
+      "android_package_names",
+      "release_asset_names",
+      "update_channels",
+      "direct_and_gateway_discovery"
+    ],
+    "service_identifiers": {
+      "direct": "_codex-tps._tcp.local",
+      "gateway": "_ambient-ops._tcp.local"
+    },
+    "rename_gate": "Consider physical repository or binary renames only after the Agent/Fleet protocol is deployed and verified through a real upgrade path."
+  },
+  "telemetry_envelope": {
+    "schema": "opl_fleet_agent_telemetry.v1",
+    "identity_fields": [
+      "schema_version",
+      "stable_node_id",
+      "display_name",
+      "platform",
+      "agent_version",
+      "observed_at"
+    ],
+    "observation_fields": [
+      "collection_status",
+      "aggregate_token_rates",
+      "aggregate_request_rate",
+      "active_conversation_count",
+      "host_cpu_percent",
+      "host_network_throughput",
+      "host_capability_flags"
+    ],
+    "doctor_receipt_fields": [
+      "doctor_state",
+      "admission_constraints",
+      "capability_currentness",
+      "execution_state",
+      "sanitized_result_summary"
+    ],
+    "forbidden_fields": [
+      "prompt",
+      "response",
+      "conversation_content",
+      "session_id",
+      "local_path",
+      "interface_name",
+      "network_address",
+      "credential",
+      "secret",
+      "raw_log"
+    ],
+    "gateway_behavior": [
+      "reject_unknown_top_level_fields",
+      "preserve_unknown_capabilities_only_inside_a_versioned_extension_object",
+      "never_infer_dispatch_or_lease_from_telemetry",
+      "mark_stale_or_unavailable_nodes_without_fabricating_currentness"
+    ],
+    "evolution": [
+      "additive_optional_fields_within_v1",
+      "new_major_schema_for_semantic_or_required_field_changes",
+      "advertise_capabilities_before_consumers_depend_on_them",
+      "keep_existing_direct_and_gateway_protocols_during_v1_migration"
+    ]
+  }
+}
