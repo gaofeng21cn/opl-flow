@@ -147,7 +147,7 @@ The private instance contains related but distinct authorities:
 | --- | --- | --- | --- |
 | OPL Ledger / Beads | frequent | objectives, slices, dependencies, task/thread references, checkpoints, remaining work | repository policy, machine mutation, agent dispatch |
 | Repository Governance | infrequent | active repositories, visibility, CI tier, default branch, review triggers | task progress, Fleet execution |
-| Operations Registry | periodic | services, deploy owners, provider references, domains, renewal dates, health/runbook pointers | deployable configuration, credentials, provider live state, task progress |
+| Operations Registry | periodic | services, deploy owners, provider references, domains, renewal dates, health/runbook pointers, optional review declarations | deployable configuration, credentials, provider live state, task progress |
 | OPL Fleet state | periodic | approved nodes, capability policy, sanitized readback | task truth, source code authority, hosted-service inventory |
 
 OPL Fleet may consume Repository Governance to discover approved repositories.
@@ -156,9 +156,11 @@ Repository policy changes remain explicit owner actions.
 
 ### Scheduled Work
 
-Beads stores `due`/`defer`, dependencies, owner, and completion state. OPL Flow
-may reconcile a periodic source such as `Operations Registry.next_review_on`
-into a uniquely identified Bead. A Codex Automation, cron job, or CI schedule
+Beads stores `due`/`defer`, dependencies, owner, and completion state. An
+Operations Registry asset is registry-only by default. OPL Flow reconciles it
+into a uniquely identified Bead only when that asset explicitly declares
+`maintenance.next_review_on`; a registry with no declarations creates neither
+review tasks nor an Operations parent Program. A Codex Automation, cron job, or CI schedule
 may wake a new Codex task to run reconciliation and inspect `bd ready`; Beads
 itself is not a scheduler or agent dispatcher.
 
@@ -172,7 +174,7 @@ Compared with a recurring single-conversation task:
 | Duplicate wakeup | prompt-dependent | deterministic `external_ref` deduplication |
 | New conversation/machine | manual context reconstruction | `bd bootstrap` / `bd dolt pull` |
 
-The supported recurring pattern is therefore `registry or policy -> Flow
+The supported recurring pattern is therefore `explicit review declaration -> Flow
 reconcile -> Beads due/defer -> external wakeup -> Codex claim/execute`. Closing
 an Operations review includes updating `next_review_on`; the next reconciliation
 then creates the next dated occurrence. Flow does not infer a recurrence that
@@ -194,7 +196,7 @@ Each service repository continues to own Compose files, `netlify.toml`,
 deployment scripts, health checks, and rollback procedures. External platforms
 such as a NAS, Netlify, a registrar, and a DNS provider own their live state.
 The private Operations Registry stores only non-secret owner pointers,
-maintenance metadata, expiry dates, and review schedules. OPL Ledger turns due
+maintenance metadata, expiry dates, and optional review schedules. OPL Ledger turns explicitly due
 reviews, renewals, migrations, and incidents into work; Linear may display that
 work. Neither Ledger nor the registry copies credentials or becomes a second
 deployment control plane.

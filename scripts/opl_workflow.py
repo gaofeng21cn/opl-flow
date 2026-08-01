@@ -386,11 +386,19 @@ def registry_items(registry_path: Path) -> Iterable[dict[str, str]]:
         if not isinstance(entries, list):
             raise WorkflowError(f"Operations Registry {section} must be an array")
         for entry in entries:
-            maintenance = entry.get("maintenance") if isinstance(entry, dict) else None
-            asset_id = entry.get("id") if isinstance(entry, dict) else None
-            review_on = maintenance.get("next_review_on") if isinstance(maintenance, dict) else None
-            if not isinstance(asset_id, str) or not isinstance(review_on, str):
-                raise WorkflowError(f"Operations Registry {section} entry lacks id/next_review_on")
+            if not isinstance(entry, dict) or not isinstance(entry.get("id"), str):
+                raise WorkflowError(f"Operations Registry {section} entry lacks id")
+            maintenance = entry.get("maintenance")
+            if maintenance is None:
+                continue
+            if not isinstance(maintenance, dict):
+                raise WorkflowError(f"Operations Registry {section} entry has invalid maintenance")
+            review_on = maintenance.get("next_review_on")
+            if review_on is None:
+                continue
+            if not isinstance(review_on, str):
+                raise WorkflowError(f"Operations Registry {section} entry has invalid next_review_on")
+            asset_id = entry["id"]
             yield {
                 "asset_id": asset_id,
                 "kind": kind,
@@ -449,6 +457,20 @@ def reconcile_operations(
 ) -> dict[str, Any]:
     registry = (registry_path or root / "operations" / "registry.json").expanduser().resolve()
     items = list(registry_items(registry))
+    if not items:
+        return {
+            "schema": "opl_flow_operations_reconcile.v1",
+            "instance": str(root),
+            "registry": str(registry),
+            "dry_run": dry_run,
+            "created": [],
+            "unchanged": [],
+            "counts": {
+                "scheduled_assets": 0,
+                "created": 0,
+                "unchanged": 0,
+            },
+        }
     listed = run([bd, "list", "--all", "--limit", "0", "--json"], root, json_output=True)
     if not isinstance(listed, list):
         raise WorkflowError("bd list returned an invalid payload")

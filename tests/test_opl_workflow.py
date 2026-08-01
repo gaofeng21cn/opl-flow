@@ -117,6 +117,54 @@ else:
             self.assertFalse(any(call[:1] in (["create"], ["update"]) for call in self.calls(log)))
             self.assertEqual(result["counts"]["created"], 2)
 
+    def test_registry_only_assets_do_not_create_a_program_or_tasks(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            instance, bd, log = self.fixture(root)
+            (instance / "operations" / "registry.json").write_text(
+                json.dumps(
+                    {
+                        "schema": "opl_operations_registry.v1",
+                        "services": [{"id": "service-a", "maintenance": {}}],
+                        "domains": [{"id": "example-org", "maintenance": {"renewal_owner": "registrar"}}],
+                        "platform_accounts": [{"id": "account-a", "maintenance": {}}],
+                    }
+                ),
+                encoding="utf-8",
+            )
+            with self.env(root):
+                result = reconcile_operations(instance, str(bd))
+            self.assertFalse(log.exists())
+            self.assertEqual(result["counts"], {"scheduled_assets": 0, "created": 0, "unchanged": 0})
+
+    def test_reconcile_mixes_registry_only_and_explicit_reviews(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            instance, bd, log = self.fixture(root)
+            registry = json.loads((instance / "operations" / "registry.json").read_text(encoding="utf-8"))
+            registry["services"][0]["maintenance"] = {}
+            (instance / "operations" / "registry.json").write_text(json.dumps(registry), encoding="utf-8")
+            with self.env(root):
+                result = reconcile_operations(instance, str(bd))
+            refs = {
+                call[call.index("--external-ref") + 1]
+                for call in self.calls(log)
+                if call[:1] == ["create"]
+            }
+            self.assertEqual(result["counts"], {"scheduled_assets": 1, "created": 2, "unchanged": 0})
+            self.assertEqual(refs, {PROGRAM_REF, "opl://operations/domain/example-org/review/2026-08-10"})
+
+    def test_reconcile_rejects_non_string_review_dates(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            instance, bd, log = self.fixture(root)
+            registry = json.loads((instance / "operations" / "registry.json").read_text(encoding="utf-8"))
+            registry["services"][0]["maintenance"]["next_review_on"] = 20260901
+            (instance / "operations" / "registry.json").write_text(json.dumps(registry), encoding="utf-8")
+            with self.env(root), self.assertRaisesRegex(WorkflowError, "invalid next_review_on"):
+                reconcile_operations(instance, str(bd))
+            self.assertFalse(log.exists())
+
     def test_init_rejects_linked_checkout(self) -> None:
         with tempfile.TemporaryDirectory() as temp:
             root = Path(temp)
