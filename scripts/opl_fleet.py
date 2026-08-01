@@ -978,10 +978,46 @@ def fetch_skill_reference(spec: dict[str, Any], revision: str) -> dict[str, Any]
     return payload
 
 
-def skill_present(reference: dict[str, Any], skill: str) -> bool:
+def codex_plugin_skill_roots() -> tuple[Path, ...]:
+    result = run(["codex", "plugin", "list", "--json"], check=False)
+    if result.returncode:
+        return ()
+    try:
+        payload = json.loads(result.stdout)
+    except json.JSONDecodeError:
+        return ()
+    if not isinstance(payload, dict) or not isinstance(payload.get("installed"), list):
+        return ()
+    roots: set[Path] = set()
+    for entry in payload["installed"]:
+        if (
+            not isinstance(entry, dict)
+            or entry.get("installed") is not True
+            or entry.get("enabled") is not True
+        ):
+            continue
+        source = entry.get("source")
+        source_path = source.get("path") if isinstance(source, dict) else None
+        if not isinstance(source_path, str):
+            continue
+        plugin_root = Path(source_path).expanduser()
+        skill_root = plugin_root / "skills"
+        if plugin_root.is_absolute() and skill_root.is_dir():
+            roots.add(skill_root)
+    return tuple(sorted(roots))
+
+
+def skill_present(
+    reference: dict[str, Any],
+    skill: str,
+    plugin_skill_roots: tuple[Path, ...] = (),
+) -> bool:
+    discovery_roots = [
+        Path.home() / str(relative) for relative in reference["discovery_roots"]
+    ]
     return any(
-        (Path.home() / str(relative) / skill / "SKILL.md").is_file()
-        for relative in reference["discovery_roots"]
+        (root / skill / "SKILL.md").is_file()
+        for root in [*discovery_roots, *plugin_skill_roots]
     )
 
 
@@ -992,24 +1028,40 @@ def install_missing_owner_skills(
     for package, entry in reference["packages"].items():
         if not entry.get("required"):
             continue
-        missing = [name for name in entry["skills"] if not skill_present(reference, name)]
+        command: list[str] = []
+        owner_native_opl = False
+        plugin_skill_roots: tuple[Path, ...] = ()
+        if entry["ownership"] != "codex":
+            command = shlex.split(str(entry["install"]["command"]))
+            owner_native_opl = command == [
+                "opl",
+                "packages",
+                "install",
+                str(package),
+                "--json",
+            ]
+            if owner_native_opl:
+                plugin_skill_roots = codex_plugin_skill_roots()
+        missing = [
+            name
+            for name in entry["skills"]
+            if not skill_present(reference, name, plugin_skill_roots)
+        ]
         if not missing:
             continue
         if entry["ownership"] == "codex":
             owner_actions.append(str(package))
             continue
-        command = shlex.split(str(entry["install"]["command"]))
-        owner_native_opl = command == [
-            "opl",
-            "packages",
-            "install",
-            str(package),
-            "--json",
-        ]
         if command[:3] != ["npx", "skills", "add"] and not owner_native_opl:
             raise FleetError(f"unsafe owner install route: {package}")
         run(command)
-        remaining = [name for name in missing if not skill_present(reference, name)]
+        if owner_native_opl:
+            plugin_skill_roots = codex_plugin_skill_roots()
+        remaining = [
+            name
+            for name in missing
+            if not skill_present(reference, name, plugin_skill_roots)
+        ]
         if remaining:
             raise FleetError(f"owner install did not provide {package}: {remaining}")
     return sorted(owner_actions)

@@ -2644,9 +2644,81 @@ class CodexFleetTests(unittest.TestCase):
         }
         with (
             mock.patch.object(fleet, "skill_present", side_effect=[False, True]),
+            mock.patch.object(fleet, "codex_plugin_skill_roots", return_value=()),
             mock.patch.object(fleet, "run") as command,
         ):
             actions = fleet.install_missing_owner_skills(reference)
+        self.assertEqual(actions, [])
+        command.assert_called_once_with(
+            ["opl", "packages", "install", "opl-flow", "--json"]
+        )
+
+    def test_codex_plugin_skill_roots_reads_enabled_native_sources(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            plugin_root = Path(temp_dir) / "opl-flow"
+            skill_root = plugin_root / "skills"
+            (skill_root / "opl-flow").mkdir(parents=True)
+            (skill_root / "opl-flow" / "SKILL.md").write_text(
+                "# OPL Flow\n", encoding="utf-8"
+            )
+            completed = fleet.subprocess.CompletedProcess(
+                ["codex", "plugin", "list", "--json"],
+                0,
+                json.dumps(
+                    {
+                        "installed": [
+                            {
+                                "pluginId": "opl-flow@opl-agent-opl-flow-local",
+                                "installed": True,
+                                "enabled": True,
+                                "source": {"path": str(plugin_root)},
+                            },
+                            {
+                                "pluginId": "disabled@example",
+                                "installed": True,
+                                "enabled": False,
+                                "source": {"path": str(plugin_root / "disabled")},
+                            },
+                        ]
+                    }
+                ),
+                "",
+            )
+            with mock.patch.object(fleet, "run", return_value=completed):
+                roots = fleet.codex_plugin_skill_roots()
+        self.assertEqual(roots, (skill_root,))
+
+    def test_owner_native_install_accepts_plugin_managed_skills(self) -> None:
+        reference = {
+            "discovery_roots": [".agents/skills"],
+            "packages": {
+                "opl-flow": {
+                    "required": True,
+                    "ownership": "external",
+                    "install": {
+                        "command": "opl packages install opl-flow --json",
+                    },
+                    "skills": ["opl-flow"],
+                },
+            },
+        }
+        with tempfile.TemporaryDirectory() as temp_dir:
+            home = Path(temp_dir) / "home"
+            plugin_skills = Path(temp_dir) / "plugin" / "skills"
+            (plugin_skills / "opl-flow").mkdir(parents=True)
+            (plugin_skills / "opl-flow" / "SKILL.md").write_text(
+                "# OPL Flow\n", encoding="utf-8"
+            )
+            with (
+                mock.patch.object(fleet.Path, "home", return_value=home),
+                mock.patch.object(
+                    fleet,
+                    "codex_plugin_skill_roots",
+                    side_effect=[(), (plugin_skills,)],
+                ),
+                mock.patch.object(fleet, "run") as command,
+            ):
+                actions = fleet.install_missing_owner_skills(reference)
         self.assertEqual(actions, [])
         command.assert_called_once_with(
             ["opl", "packages", "install", "opl-flow", "--json"]
