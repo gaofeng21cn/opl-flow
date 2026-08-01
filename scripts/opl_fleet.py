@@ -999,7 +999,14 @@ def install_missing_owner_skills(
             owner_actions.append(str(package))
             continue
         command = shlex.split(str(entry["install"]["command"]))
-        if command[:3] != ["npx", "skills", "add"]:
+        owner_native_opl = command == [
+            "opl",
+            "packages",
+            "install",
+            str(package),
+            "--json",
+        ]
+        if command[:3] != ["npx", "skills", "add"] and not owner_native_opl:
             raise FleetError(f"unsafe owner install route: {package}")
         run(command)
         remaining = [name for name in missing if not skill_present(reference, name)]

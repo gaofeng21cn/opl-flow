@@ -2628,6 +2628,30 @@ class CodexFleetTests(unittest.TestCase):
                 "a" * 40,
             )
 
+    def test_install_missing_skills_uses_owner_native_opl_route(self) -> None:
+        reference = {
+            "discovery_roots": [".agents/skills"],
+            "packages": {
+                "opl-flow": {
+                    "required": True,
+                    "ownership": "external",
+                    "install": {
+                        "command": "opl packages install opl-flow --json",
+                    },
+                    "skills": ["opl-flow"],
+                },
+            },
+        }
+        with (
+            mock.patch.object(fleet, "skill_present", side_effect=[False, True]),
+            mock.patch.object(fleet, "run") as command,
+        ):
+            actions = fleet.install_missing_owner_skills(reference)
+        self.assertEqual(actions, [])
+        command.assert_called_once_with(
+            ["opl", "packages", "install", "opl-flow", "--json"]
+        )
+
     def test_macos_schedule_has_owner_tool_paths(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
             home = Path(temp_dir)
