@@ -160,12 +160,13 @@ running.
 Lifecycle and current activity remain separate. Beads keeps the durable
 `open`, `in_progress`, `blocked`, `deferred`, and `closed` lifecycle, while OPL
 Flow records one execution mode: `active`, `waiting_user`, `waiting_external`,
-`monitoring`, or `aggregate`. Linear displays `Todo`, `In Progress`, `Waiting`,
-`Monitoring`, `Backlog`, or `Done` from that combination. `Waiting` and
-`Waiting` preserves the existing Beads lifecycle (`blocked` remains `blocked`;
-otherwise it remains `in_progress`); `Monitoring` normalizes to Beads
-`in_progress`. Only genuinely active work is shown as `In Progress`, and
-started work is never reset to `Todo` merely because it is waiting.
+`monitoring`, or `aggregate`. Linear displays `Todo`, `In Progress`, `Needs
+Action`, `Blocked`, `Monitoring`, `Backlog`, or `Done` from that combination.
+`Needs Action` identifies owner login, decision, or authorization; `Blocked`
+identifies an external dependency or event. Neither means an Agent remains
+allocated. Both preserve an existing Beads `blocked` lifecycle and otherwise
+preserve `in_progress`; `Monitoring` normalizes to `in_progress`. Only
+genuinely active work is shown as `In Progress`.
 
 The Supervisor uses the official `linear_list_comments` route, a per-project
 Linear comment-ID high-watermark, and the comment ID as the idempotency key. It

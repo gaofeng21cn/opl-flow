@@ -130,11 +130,13 @@ Keep lifecycle and visible activity separate. Beads keeps the durable lifecycle
 (`open`, `in_progress`, `blocked`, `deferred`, `closed`). Each unresolved Bead
 also carries one `execution_mode`: `active`, `waiting_user`,
 `waiting_external`, `monitoring`, or `aggregate`. Project that combination to
-Linear as `Todo`, `In Progress`, `Waiting`, `Monitoring`, `Backlog`, or `Done`.
-Normalize `Waiting` back to the existing Beads lifecycle: preserve `blocked`
-when the Bead is already blocked, otherwise preserve `in_progress`; normalize
-`Monitoring` to `in_progress`. They must not make started work look unstarted.
-Unknown modes fail closed without changing the Linear status.
+Linear as `Todo`, `In Progress`, `Needs Action`, `Blocked`, `Monitoring`,
+`Backlog`, or `Done`. `Needs Action` means the next step requires the owner;
+`Blocked` means an external event or dependency prevents progress. Neither
+state implies an Agent remains allocated. Preserve an existing Beads `blocked`
+lifecycle when either is read back; otherwise preserve `in_progress`.
+`Monitoring` normalizes to `in_progress`. Unknown modes fail closed without
+changing the Linear status.
 
 The local Codex manages every registered issue by default. Treat `codex-ready`
 as an optional compatibility hint. `codex-paused` blocks dispatch only: keep

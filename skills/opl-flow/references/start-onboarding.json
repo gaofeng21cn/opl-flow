@@ -133,7 +133,8 @@
         "Backlog",
         "Todo",
         "In Progress",
-        "Waiting",
+        "Needs Action",
+        "Blocked",
         "Monitoring",
         "Done"
       ],
@@ -141,9 +142,10 @@
         "deferred": "Backlog",
         "open": "Todo",
         "in_progress+active": "In Progress",
-        "blocked": "Waiting",
-        "in_progress+waiting_user": "Waiting",
-        "in_progress+waiting_external": "Waiting",
+        "blocked+waiting_user": "Needs Action",
+        "in_progress+waiting_user": "Needs Action",
+        "blocked+waiting_external": "Blocked",
+        "in_progress+waiting_external": "Blocked",
         "in_progress+monitoring": "Monitoring",
         "closed": "Done"
       },
@@ -151,15 +153,18 @@
         "Backlog": "deferred",
         "Todo": "open",
         "In Progress": "in_progress",
-        "Waiting": ["in_progress", "blocked"],
+        "Needs Action": ["in_progress", "blocked"],
+        "Blocked": ["in_progress", "blocked"],
         "Monitoring": "in_progress",
         "Done": "closed"
       },
       "aggregate_rollup": {
         "active_descendant": "In Progress",
-        "only_waiting_descendants": "Waiting",
+        "needs_user_action_descendant": "Needs Action",
+        "only_external_blocked_descendants": "Blocked",
         "only_monitoring_descendants": "Monitoring",
-        "no_unresolved_descendants": "Done"
+        "no_unresolved_descendants": "Done",
+        "mixed_non_active_precedence": ["Needs Action", "Blocked", "Monitoring", "Todo", "Backlog"]
       },
       "unknown_mode_policy": "fail_closed_without_changing_linear_status"
     },

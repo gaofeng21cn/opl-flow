@@ -46,12 +46,13 @@ LINEAR_TO_BEADS_FIELDS = {
 }
 BEADS_TO_LINEAR_FIELDS = {"execution_state", "execution_mode", "display_status", "blocker", "result"}
 EXECUTION_MODES = {"active", "waiting_user", "waiting_external", "monitoring", "aggregate"}
-LINEAR_DISPLAY_STATUSES = {"Backlog", "Todo", "In Progress", "Waiting", "Monitoring", "Done"}
+LINEAR_DISPLAY_STATUSES = {"Backlog", "Todo", "In Progress", "Needs Action", "Blocked", "Monitoring", "Done"}
 LINEAR_STATUS_NORMALIZATION = {
     "Backlog": "deferred",
     "Todo": "open",
     "In Progress": "in_progress",
-    "Waiting": ["in_progress", "blocked"],
+    "Needs Action": ["in_progress", "blocked"],
+    "Blocked": ["in_progress", "blocked"],
     "Monitoring": "in_progress",
     "Done": "closed",
 }

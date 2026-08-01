@@ -118,7 +118,8 @@ def valid_receipt() -> dict[str, object]:
                     "Backlog",
                     "Todo",
                     "In Progress",
-                    "Waiting",
+                    "Needs Action",
+                    "Blocked",
                     "Monitoring",
                     "Done",
                 ],
@@ -126,7 +127,8 @@ def valid_receipt() -> dict[str, object]:
                     "Backlog": "deferred",
                     "Todo": "open",
                     "In Progress": "in_progress",
-                    "Waiting": ["in_progress", "blocked"],
+                    "Needs Action": ["in_progress", "blocked"],
+                    "Blocked": ["in_progress", "blocked"],
                     "Monitoring": "in_progress",
                     "Done": "closed",
                 },
@@ -243,7 +245,11 @@ class OplFlowOnboardingTests(unittest.TestCase):
             },
         )
         self.assertEqual(
-            linear["execution_state_model"]["linear_to_beads_normalization"]["Waiting"],
+            linear["execution_state_model"]["linear_to_beads_normalization"]["Needs Action"],
+            ["in_progress", "blocked"],
+        )
+        self.assertEqual(
+            linear["execution_state_model"]["linear_to_beads_normalization"]["Blocked"],
             ["in_progress", "blocked"],
         )
         self.assertEqual(
