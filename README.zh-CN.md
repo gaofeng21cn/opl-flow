@@ -209,6 +209,54 @@ OPL Flow 提供通用 Fleet 引擎，私人 OPL Instance 保存节点名称、�
 - 分发前使用实时检查判断电源、负载、磁盘、占用和任务所需能力；
 - 仓库只做安全的快进更新，脏分支、分叉分支和任务分支留给原任务处理。
 
+Flow 通过一套统一的分发契约连接任务和机器，不再另建调度系统：
+
+```text
+任务资源需求 -> 分发规划 -> 实时 doctor -> 租约 CAS
+  -> 执行适配器 -> 结果回读 -> 释放租约
+```
+
+对应命令为：
+
+```bash
+python3 scripts/opl_fleet.py --instance <opl-instance> dispatch plan \
+  --adapter lease-only --requires gpu --min-memory-gb 24
+python3 scripts/opl_fleet.py --instance <opl-instance> dispatch acquire \
+  --adapter lease-only --owner-task <task-id> --owner-thread <thread-id> \
+  --owner-run <run-id> --requires gpu --min-memory-gb 24
+python3 scripts/opl_fleet.py --instance <opl-instance> dispatch verify <dispatch-id>
+python3 scripts/opl_fleet.py --instance <opl-instance> dispatch release <dispatch-id> \
+  --owner-task <task-id>
+```
+
+`plan` 只是候选节点回读；只有 `acquire` 才会执行实时 `doctor`、检查能力、电源、
+磁盘、温度和交互占用，并取得控制器租约。机器关机或暂时不可达时会被跳过；没有
+合格节点就返回 `unavailable`，不把正常离线误报为系统故障。
+
+适配器边界保持明确：
+
+- `local-codex`：当前 Codex 会话直接执行，不申请 Fleet 租约；
+- `lease-only`：只预留远端容量，由调用方负责实际执行；
+- `github-runner`：复用现有 Runner 启停事务，但不会代替 GitHub 提交任务；
+- `ssh-session`、`remote-codex`：仍是规划中的适配器，尚未实现时直接失败。
+
+租约、Runner 在线或分发规划都不等于任务已经执行；必须有执行适配器自己的结果
+回读，才能把任务记为实际完成。
+
+### 动态加载，而不是全部预加载
+
+`opl-flow` 是始终稳定存在的主路由 Skill，但不是把所有能力一次性装入当前上下文：
+
+1. 所有 OPL 工作流请求先进入 `opl-flow`；
+2. 根据任务语义调用插件内置的核心 Skill，例如并发协调、开发交付、门禁或恢复；
+3. 只有任务需要时，才调用已经安装的可选专业 Skill；未安装时由 Codex 直接完成同类
+   判断，不因为可选增强缺失而阻断；
+4. 只有任务确实需要远端平台、GPU、虚拟机、图形界面或批量容量时，才启用 Fleet。
+
+Skill 的安装和升级仍由各自来源负责。安装或升级后如果需要刷新发现结果，重新开启
+一个 Codex 会话；不要把主控机的 Skill 文件复制到其他节点。这样同一套 OPL Flow 可以
+服务单机用户，也可以按需扩展为个人 AI 舰队。
+
 ## 公开与私人边界
 
 **公开 OPL Flow 包含：**

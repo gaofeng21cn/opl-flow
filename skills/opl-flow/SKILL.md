@@ -1,6 +1,6 @@
 ---
 name: "opl-flow"
-description: "Use when starting an OPL ledger dashboard and hourly supervisor, installing, syncing, diagnosing, or explaining the OPL Flow workflow profile, or when the user explicitly asks to use OPL Flow. OPL Flow keeps normal development model-native and does not bootstrap a development methodology."
+description: "Use when configuring, diagnosing, updating, explaining, or routing work through the OPL Flow workflow profile; starting its durable ledger supervisor; or when the user explicitly asks to use OPL Flow."
 ---
 
 # OPL Flow
@@ -31,6 +31,31 @@ design and development directly.
   readback for ordinary repository work.
 - Do not make Flow a prerequisite for Base, App, Standard, Full, plain Codex,
   another Package, or domain readiness.
+
+## Progressive Capability Loading
+
+OPL Flow is the stable router, not a request to load every capability into the
+current context. Keep the following order:
+
+1. Route every OPL workflow request through this Skill.
+2. Use the bundled core Skill whose description matches the work: concurrent
+   coordination, development delivery, task-mode gates, or recovery.
+3. Use an installed optional Skill only when the task needs its domain method.
+   The absence of an optional Skill never blocks the equivalent direct Codex
+   reasoning unless the user explicitly requires that Skill.
+4. Use Fleet only when the task declares a remote platform, GPU, VM, GUI,
+   batch, or other capacity requirement that the current machine cannot or
+   should not satisfy.
+
+Skill installation is owner-managed. After installing or updating a Skill,
+start a new Codex session when discovery requires a refresh; do not copy Skill
+bytes from the controller to a Fleet node. A private Instance may record the
+desired enhancement set, but it is not a Skill source.
+
+The default route is local Codex execution. Fleet is selected by an explicit
+resource request, not by the number of open conversations. This keeps Flow
+useful for a single-machine user while allowing the same router to scale to a
+private Instance and multiple nodes.
 
 ## One-Action Dashboard Start
 
@@ -208,6 +233,38 @@ python3 scripts/opl_workflow.py fleet --instance <opl-instance> repos status
 The Instance owns node IDs, scheduling policy, runner bindings, private assets,
 and sanitized receipts. Flow owns the reusable engine. Never infer machine
 availability from static policy; use fresh `doctor` admission before dispatch.
+
+For a task that needs Fleet capacity, use the single dispatch contract:
+
+```bash
+python3 scripts/opl_fleet.py --instance <opl-instance> dispatch plan \
+  --adapter lease-only --requires gpu --min-memory-gb 24
+python3 scripts/opl_fleet.py --instance <opl-instance> dispatch acquire \
+  --adapter lease-only --owner-task <task-id> --owner-thread <thread-id> \
+  --owner-run <run-id> --requires gpu --min-memory-gb 24
+python3 scripts/opl_fleet.py --instance <opl-instance> dispatch verify <dispatch-id>
+python3 scripts/opl_fleet.py --instance <opl-instance> dispatch release <dispatch-id> \
+  --owner-task <task-id>
+```
+
+`plan` is only a candidate readback. `acquire` performs fresh `doctor`, checks
+capabilities, power, storage, thermal and occupancy, then takes a controller
+lease. `verify` and `release` use the controller's private 0600 lease store and
+lease CAS; dispatch does not create a second state database.
+An offline node is skipped; if no eligible node remains, the result is
+`unavailable`, not a machine failure.
+
+Dispatch adapters have explicit boundaries:
+
+- `local-codex`: execute in the current Codex session; no Fleet lease;
+- `lease-only`: reserve capacity for a caller-owned execution adapter;
+- `github-runner`: use the existing `runner start/stop` transaction; this route
+  does not submit a GitHub job;
+- `ssh-session` and `remote-codex`: planned only and fail closed until their
+  execution adapters are implemented.
+
+Never report a planned adapter, a lease, or a runner being online as proof that
+the task itself executed. The execution adapter must return its own result.
 
 Beads stores due/deferred state but never wakes Codex. Codex Automation, cron,
 or CI owns wakeup; OPL Flow owns idempotent reconciliation; Codex owns task

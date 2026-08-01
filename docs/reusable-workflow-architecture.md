@@ -215,6 +215,35 @@ python3 scripts/opl_workflow.py fleet --instance <opl-instance> repos sync
 `opl-fleet` is the stable node-local command installed during enrollment. The
 Flow workflow entry remains the public user-facing surface.
 
+### Task-Capacity Dispatch
+
+The first supported Flow/Fleet dispatch contract is deliberately small:
+
+```text
+resource requirements -> plan -> fresh doctor -> controller lease
+  -> execution adapter -> result readback -> release
+```
+
+`dispatch plan` reads the current sanitized asset catalog and active leases to
+produce candidates. `dispatch acquire` repeats the admission decision against a
+fresh node doctor before taking a controller-authoritative lease. `dispatch
+verify` checks the lease identity, owner, requirements, admission receipt,
+control commit, and remaining TTL. `dispatch release` performs the owner CAS
+against the controller's private 0600 lease store. Dispatch does not create a
+second state database.
+
+The current real adapters are `local-codex` (no Fleet lease) and `lease-only`
+(capacity reservation for an explicit caller-owned executor). The existing
+GitHub Runner start/stop transaction remains the runner adapter boundary but
+does not submit a GitHub job. `ssh-session` and `remote-codex` are declared
+planned adapters and fail closed. A plan, lease, or online runner is never an
+execution result.
+
+This keeps Codex's native task and agent coordination in charge. Flow routes a
+task with declared resource needs; Fleet admits capacity; the selected
+executor reports the actual work result. The hourly supervisor may inspect and
+continue such work, but it is not a hidden general-purpose job scheduler.
+
 ## Public Onboarding
 
 The public entry remains the Codex-native carrier:

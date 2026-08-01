@@ -54,6 +54,33 @@ PREEMPTIBLE_WORKLOAD_CLASSES = {"background", "experiment"}
 PROTECTED_WORKLOAD_CLASSES = {"p0-release", "guest", "job", "vm"}
 LEASE_PHASES = {"interruptible", "non-interruptible"}
 AVAILABILITY_POLICIES = {"always_on", "on_demand", "maintenance"}
+DISPATCH_ADAPTERS = {
+    "local-codex": {
+        "status": "supported",
+        "requires_fleet": False,
+        "execution": "current-codex-session",
+    },
+    "lease-only": {
+        "status": "supported",
+        "requires_fleet": True,
+        "execution": "caller-controlled-after-lease",
+    },
+    "github-runner": {
+        "status": "supported-via-runner-transaction",
+        "requires_fleet": True,
+        "execution": "existing-runner-transaction",
+    },
+    "ssh-session": {
+        "status": "planned",
+        "requires_fleet": True,
+        "execution": "controlled-ssh-session",
+    },
+    "remote-codex": {
+        "status": "planned",
+        "requires_fleet": True,
+        "execution": "remote-codex-adapter-not-implemented",
+    },
+}
 ADMISSION_FIELDS = {
     "checked_at",
     "inventory_age_seconds",
@@ -2327,6 +2354,312 @@ def fleet_select(args: argparse.Namespace) -> int:
     return 0 if selected else 1
 
 
+def dispatch_adapter(adapter: str) -> dict[str, Any]:
+    try:
+        return DISPATCH_ADAPTERS[adapter]
+    except KeyError as exc:
+        raise FleetError(f"unknown dispatch adapter: {adapter}") from exc
+
+
+def dispatch_request(args: argparse.Namespace) -> dict[str, Any]:
+    adapter = str(args.adapter)
+    metadata = dispatch_adapter(adapter)
+    required = parse_requirements(str(args.requires or ""))
+    min_memory_gb = int(args.min_memory_gb)
+    if min_memory_gb < 0:
+        raise FleetError("minimum memory must not be negative")
+    priority = int(args.priority)
+    if not 0 <= priority <= 1000:
+        raise FleetError("dispatch priority must be between 0 and 1000")
+    workload_class = str(args.workload_class)
+    if workload_class not in LEASE_WORKLOAD_CLASSES:
+        raise FleetError("dispatch workload class is invalid")
+    phase = str(args.phase)
+    if phase not in LEASE_PHASES:
+        raise FleetError("dispatch phase is invalid")
+    ttl_seconds = validate_ttl(int(args.ttl_seconds))
+    preemptible = bool(args.preemptible)
+    if preemptible and workload_class not in PREEMPTIBLE_WORKLOAD_CLASSES:
+        raise FleetError("dispatch workload cannot be preemptible")
+    role = validate_role(getattr(args, "role", None))
+    node_id = (
+        normalize_node_id(args.node_id)
+        if getattr(args, "node_id", None)
+        else None
+    )
+    if adapter == "github-runner" and not role:
+        raise FleetError("github-runner dispatch requires --role")
+    if role and adapter == "github-runner":
+        # The runner transaction already owns its role binding.  Dispatch
+        # planning may inspect it, but start/stop remains that transaction's
+        # explicit safety boundary.
+        runner_role_nodes(role)
+    if adapter == "local-codex" and node_id:
+        raise FleetError("local-codex does not accept a Fleet node")
+    return {
+        "adapter": adapter,
+        "adapter_status": metadata["status"],
+        "requires_fleet": metadata["requires_fleet"],
+        "execution": metadata["execution"],
+        "requires": sorted(required),
+        "min_memory_gb": min_memory_gb,
+        "workload_class": workload_class,
+        "priority": priority,
+        "preemptible": preemptible,
+        "phase": phase,
+        "ttl_seconds": ttl_seconds,
+        "role": role,
+        "node_id": node_id,
+    }
+
+
+def dispatch_candidates(request: dict[str, Any]) -> list[dict[str, Any]]:
+    if not request["requires_fleet"]:
+        return []
+    catalog = remote_asset_catalog()
+    max_age = int((manifest().get("inventory") or {}).get("max_age_hours", 36))
+    selected = select_nodes(
+        catalog,
+        required=set(request["requires"]),
+        min_memory_gb=int(request["min_memory_gb"]),
+        max_age_hours=max_age,
+        leases=active_lease_map(),
+    )
+    role = request.get("role")
+    if role:
+        allowed = set(runner_role_nodes(str(role)))
+        selected = [item for item in selected if item["node_id"] in allowed]
+    node_id = request.get("node_id")
+    if node_id:
+        selected = [item for item in selected if item["node_id"] == node_id]
+    return selected
+
+
+def dispatch_plan_payload(request: dict[str, Any]) -> dict[str, Any]:
+    metadata = dispatch_adapter(str(request["adapter"]))
+    if not request["requires_fleet"]:
+        return {
+            "schema": "codex_fleet_dispatch_plan.v1",
+            "status": "local",
+            "request": request,
+            "selection": {
+                "candidate_count": 0,
+                "candidates": [],
+                "fresh_doctor_before_acquire": False,
+            },
+            "next_action": "execute in the current Codex session",
+        }
+    candidates = dispatch_candidates(request)
+    supported = metadata["status"] in {
+        "supported",
+        "supported-via-runner-transaction",
+    }
+    if not supported:
+        status = "unsupported"
+        next_action = (
+            f"adapter {request['adapter']} is planned; execution adapter is not implemented"
+        )
+    elif not candidates:
+        status = "unavailable"
+        next_action = "wait for a candidate node or change explicit requirements"
+    elif request["adapter"] == "github-runner":
+        status = "available-via-runner-transaction"
+        next_action = "use runner start/stop for the bound role; dispatch does not submit a GitHub job"
+    else:
+        status = "ready-to-acquire"
+        next_action = "run dispatch acquire; acquire performs fresh doctor before leasing"
+    return {
+        "schema": "codex_fleet_dispatch_plan.v1",
+        "status": status,
+        "request": request,
+        "selection": {
+            "candidate_count": len(candidates),
+            "candidates": candidates,
+            "fresh_doctor_before_acquire": True,
+        },
+        "next_action": next_action,
+    }
+
+
+def dispatch_lease(dispatch_id: str) -> dict[str, Any]:
+    try:
+        normalized_id = str(uuid.UUID(dispatch_id))
+    except ValueError as exc:
+        raise FleetError("dispatch id is invalid") from exc
+    with lease_lock(exclusive=False):
+        store = read_lease_store()
+    for lease in store["leases"].values():
+        if lease["lease_id"] == normalized_id:
+            return lease
+    raise FleetError(f"dispatch lease is unavailable: {normalized_id}")
+
+
+def fleet_dispatch_plan(args: argparse.Namespace) -> int:
+    request = dispatch_request(args)
+    result = dispatch_plan_payload(request)
+    print(json.dumps(result, indent=2, sort_keys=True))
+    return 0 if result["status"] not in {"unavailable", "unsupported"} else 1
+
+
+def fleet_dispatch_acquire(args: argparse.Namespace) -> int:
+    request = dispatch_request(args)
+    if request["adapter"] == "local-codex":
+        print(
+            json.dumps(
+                {
+                    "schema": "codex_fleet_dispatch_readback.v1",
+                    "action": "acquire",
+                    "status": "local",
+                    "request": request,
+                    "lease": None,
+                    "next_action": "execute in the current Codex session",
+                },
+                indent=2,
+                sort_keys=True,
+            )
+        )
+        return 0
+    controller_guard()
+    if request["adapter"] != "lease-only":
+        if request["adapter"] == "github-runner":
+            raise FleetError(
+                "github-runner uses the existing runner start/stop transaction; "
+                "dispatch does not submit a GitHub job"
+            )
+        raise FleetError(
+            f"adapter {request['adapter']} is planned and has no acquire route"
+        )
+    candidates = dispatch_candidates(request)
+    node_id = request.get("node_id") or (
+        candidates[0]["node_id"] if candidates else None
+    )
+    if not node_id:
+        raise FleetError("no dispatch candidate is available")
+    registry = node_registry()
+    role = request.get("role")
+    if role:
+        role = assert_runner_role_node(str(role), node_id, registry=registry)
+        assert_runner_role_workload(
+            role,
+            str(request["workload_class"]),
+            registry=registry,
+        )
+    doctor = doctor_result(node_id)
+    required = set(request["requires"])
+    assert_lease_admission(
+        doctor,
+        required=required,
+        min_memory_gb=int(request["min_memory_gb"]),
+    )
+    admission = build_admission_receipt(
+        doctor,
+        required=required,
+        min_memory_gb=int(request["min_memory_gb"]),
+    )
+    revision = control_commit()
+    lease = acquire_lease_record(
+        node_id=node_id,
+        owner_task=args.owner_task,
+        owner_thread=args.owner_thread,
+        owner_run=args.owner_run,
+        role=role,
+        workload_class=str(request["workload_class"]),
+        priority=int(request["priority"]),
+        preemptible=bool(request["preemptible"]),
+        phase=str(request["phase"]),
+        ttl_seconds=int(request["ttl_seconds"]),
+        control_revision=revision,
+        admission=admission,
+        preempt_lease_id=args.preempt_lease_id,
+        preempt_generation=args.preempt_generation,
+        preempt_nonce=args.preempt_nonce,
+    )
+    dispatch_id = lease["lease_id"]
+    print(
+        json.dumps(
+            {
+                "schema": "codex_fleet_dispatch_readback.v1",
+                "action": "acquire",
+                "status": "leased",
+                "dispatch_id": dispatch_id,
+                "request": request,
+                "lease": public_lease(lease, now=utc_now()),
+                "execution": "caller-controlled-after-lease",
+            },
+            indent=2,
+            sort_keys=True,
+        )
+    )
+    return 0
+
+
+def fleet_dispatch_verify(args: argparse.Namespace) -> int:
+    controller_guard()
+    lease = dispatch_lease(args.dispatch_id)
+    result = verify_lease_record(
+        lease,
+        node_id=lease["node_id"],
+        role=lease["role"],
+        lease_id=lease["lease_id"],
+        generation=int(lease["generation"]),
+        owner_task=lease["owner_task"],
+        owner_thread=lease["owner_thread"],
+        owner_run=lease["owner_run"],
+        workload_class=lease["workload_class"],
+        phase=lease["phase"],
+        preemptible=bool(lease["preemptible"]),
+        min_ttl_seconds=int(args.min_ttl_seconds),
+        required=set(lease["admission"]["requirements"]),
+        min_memory_gb=int(lease["admission"]["min_memory_gb"]),
+        max_admission_age_seconds=int(args.max_admission_age_seconds),
+        expected_control_commit=lease["control_commit"],
+        current_control_commit=control_commit(),
+        registry=node_registry(),
+        now=utc_now(),
+    )
+    print(
+        json.dumps(
+            {
+                "schema": "codex_fleet_dispatch_readback.v1",
+                "action": "verify",
+                "dispatch_id": lease["lease_id"],
+                "verification": result,
+            },
+            indent=2,
+            sort_keys=True,
+        )
+    )
+    return 0
+
+
+def fleet_dispatch_release(args: argparse.Namespace) -> int:
+    controller_guard()
+    lease = dispatch_lease(args.dispatch_id)
+    if args.owner_task != lease["owner_task"]:
+        raise FleetError("dispatch owner mismatch")
+    released = release_lease_record(
+        node_id=lease["node_id"],
+        lease_id=lease["lease_id"],
+        generation=int(lease["generation"]),
+        nonce=lease["nonce"],
+        owner_task=lease["owner_task"],
+    )
+    print(
+        json.dumps(
+            {
+                "schema": "codex_fleet_dispatch_readback.v1",
+                "action": "release",
+                "status": "released",
+                "dispatch_id": lease["lease_id"],
+                "released": public_lease(released, now=utc_now()),
+            },
+            indent=2,
+            sort_keys=True,
+        )
+    )
+    return 0
+
+
 def validate_work_volume_route(value: Any) -> dict[str, Any]:
     subpath = str(value.get("probe_subpath", "")) if isinstance(value, dict) else ""
     if (
@@ -2851,7 +3184,7 @@ def verify_lease_record(
     lease: dict[str, Any],
     *,
     node_id: str,
-    role: str,
+    role: str | None,
     lease_id: str,
     generation: int,
     owner_task: str,
@@ -2871,7 +3204,13 @@ def verify_lease_record(
 ) -> dict[str, Any]:
     validated = validate_lease(lease)
     normalized_node = normalize_node_id(node_id)
-    normalized_role = assert_runner_role_node(role, normalized_node, registry=registry)
+    normalized_role = validate_role(role)
+    if normalized_role:
+        normalized_role = assert_runner_role_node(
+            normalized_role,
+            normalized_node,
+            registry=registry,
+        )
     expected_owner_task = validate_owner_id(
         owner_task, "owner task", required=True
     )
@@ -3763,6 +4102,65 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     select_parser = subparsers.add_parser("select")
     select_parser.add_argument("--requires", default="")
     select_parser.add_argument("--min-memory-gb", type=int, default=0)
+    dispatch_parser = subparsers.add_parser(
+        "dispatch",
+        help="plan or lease task execution capacity",
+    )
+    dispatch_subparsers = dispatch_parser.add_subparsers(
+        dest="dispatch_action",
+        required=True,
+    )
+
+    def add_dispatch_request_arguments(
+        command: argparse.ArgumentParser,
+        *,
+        owner: bool,
+    ) -> None:
+        command.add_argument(
+            "--adapter",
+            choices=sorted(DISPATCH_ADAPTERS),
+            default="lease-only",
+        )
+        command.add_argument("--node-id")
+        command.add_argument("--role")
+        command.add_argument("--requires", default="")
+        command.add_argument("--min-memory-gb", type=int, default=0)
+        command.add_argument(
+            "--workload-class",
+            choices=sorted(LEASE_WORKLOAD_CLASSES),
+            default="background",
+        )
+        command.add_argument("--priority", type=int, default=300)
+        command.add_argument("--preemptible", action="store_true")
+        command.add_argument(
+            "--phase",
+            choices=sorted(LEASE_PHASES),
+            default="interruptible",
+        )
+        command.add_argument("--ttl-seconds", type=int, default=3600)
+        if owner:
+            command.add_argument("--owner-task", required=True)
+            command.add_argument("--owner-thread")
+            command.add_argument("--owner-run")
+            command.add_argument("--preempt-lease-id")
+            command.add_argument("--preempt-generation", type=int)
+            command.add_argument("--preempt-nonce")
+
+    dispatch_plan_parser = dispatch_subparsers.add_parser("plan")
+    add_dispatch_request_arguments(dispatch_plan_parser, owner=False)
+    dispatch_acquire_parser = dispatch_subparsers.add_parser("acquire")
+    add_dispatch_request_arguments(dispatch_acquire_parser, owner=True)
+    dispatch_verify_parser = dispatch_subparsers.add_parser("verify")
+    dispatch_verify_parser.add_argument("dispatch_id")
+    dispatch_verify_parser.add_argument("--min-ttl-seconds", type=int, default=300)
+    dispatch_verify_parser.add_argument(
+        "--max-admission-age-seconds",
+        type=int,
+        default=300,
+    )
+    dispatch_release_parser = dispatch_subparsers.add_parser("release")
+    dispatch_release_parser.add_argument("dispatch_id")
+    dispatch_release_parser.add_argument("--owner-task", required=True)
     runner_parser = subparsers.add_parser("runner")
     runner_subparsers = runner_parser.add_subparsers(
         dest="runner_action",
@@ -3878,7 +4276,12 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
 
 def main(argv: list[str] | None = None) -> int:
     args = parse_args(argv)
-    instance = configure_instance(args.instance)
+    local_dispatch = (
+        args.action == "dispatch"
+        and args.dispatch_action in {"plan", "acquire"}
+        and args.adapter == "local-codex"
+    )
+    instance = None if local_dispatch else configure_instance(args.instance)
     if args.action in {"join", "reconcile"}:
         write_instance_pointer(instance)
         install_fleet_command()
@@ -3904,6 +4307,14 @@ def main(argv: list[str] | None = None) -> int:
         return fleet_doctor(args.node_id)
     if args.action == "select":
         return fleet_select(args)
+    if args.action == "dispatch":
+        if args.dispatch_action == "plan":
+            return fleet_dispatch_plan(args)
+        if args.dispatch_action == "acquire":
+            return fleet_dispatch_acquire(args)
+        if args.dispatch_action == "verify":
+            return fleet_dispatch_verify(args)
+        return fleet_dispatch_release(args)
     if args.action == "runner":
         if args.runner_action == "start":
             return fleet_runner_start(args)

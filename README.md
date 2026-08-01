@@ -50,7 +50,7 @@ the complete stack without changing the underlying development model.
 | Several active tasks | Ownership, recovery, fresh-SSOT integration, and closeout conventions | Codex native multi-agent and conversation coordination |
 | Long-lived work | OPL Ledger initialization and idempotent reconciliation | Beads owns the database, dependency graph, claims, and Dolt sync |
 | Human visibility | Complete Linear projection of every user-ledger task with a narrow field set | Linear is a portal, not task truth or an agent scheduler |
-| Several machines | A reusable Fleet engine for status, admission, repository currentness, and dispatch policy | Each machine installs from component owners; a private Instance owns topology and policy |
+| Several machines | A reusable Fleet engine for status, admission, repository currentness, and task-capacity dispatch | Each machine installs from component owners; a private Instance owns topology and policy |
 
 This is why OPL Flow is no longer only an OPL App companion module. It remains
 an optional default workflow Profile for the App, while also standing on its
@@ -123,6 +123,19 @@ Instance supplies node IDs, capabilities, scheduling policy, runner bindings,
 and sanitized receipts. Nodes update software from each component's official
 owner channel instead of copying the controller's bytes or version.
 
+Flow uses one dispatch contract rather than a second scheduler:
+
+```text
+task resource requirements -> dispatch plan -> fresh doctor -> lease CAS
+  -> execution adapter -> result readback -> lease release
+```
+
+`local-codex` keeps short or ordinary work in the current session. `lease-only`
+reserves a remote node for an explicit caller-owned adapter. `github-runner`
+reuses the existing runner transaction but does not submit a GitHub job.
+`ssh-session` and `remote-codex` remain planned adapters and fail closed. A
+lease or an online runner is never reported as task completion.
+
 ### Git And Worktree Continuity
 
 Flow includes lifecycle and absorption tools for recoverable parallel Git work.
@@ -135,6 +148,14 @@ or pull request is never mistaken for the final SSOT.
 OPL Packages and capabilities update independently. Normal dependencies use a
 stable identity and callability, not a shared ecosystem version lock. Exact
 commit and digest binding is limited to proving one immutable release candidate.
+
+The `opl-flow` Skill is always the routing entrypoint, but capabilities are
+progressively loaded. Bundled core Skills are discovered and invoked by task
+meaning; optional OPL Skills are installed from their own owner and used only
+when needed; Fleet is read and activated only when a private Instance and an
+explicit remote resource request exist. One installation can therefore serve a
+single-machine user and a multi-machine AI fleet without forcing every user to
+install every backend.
 
 ## Core Skills And Optional Enhancements
 

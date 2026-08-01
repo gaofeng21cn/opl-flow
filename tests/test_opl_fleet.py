@@ -1025,6 +1025,154 @@ class CodexFleetTests(unittest.TestCase):
             ["acquire", "renew", "release"],
         )
 
+    def test_local_dispatch_is_explicitly_local_without_a_fleet_instance(self) -> None:
+        result = fleet.main(
+            [
+                "dispatch",
+                "plan",
+                "--adapter",
+                "local-codex",
+            ]
+        )
+        self.assertEqual(result, 0)
+
+    def test_dispatch_plan_marks_remote_codex_as_unimplemented(self) -> None:
+        request = fleet.argparse.Namespace(
+            adapter="remote-codex",
+            node_id=None,
+            role=None,
+            requires="gpu",
+            min_memory_gb=24,
+            workload_class="job",
+            priority=500,
+            preemptible=False,
+            phase="non-interruptible",
+            ttl_seconds=3600,
+        )
+        catalog = {
+            "nodes": [
+                {
+                    "node_id": "fictional-gpu-a",
+                    "policy": {"approved": True, "display_name": "GPU A"},
+                    "receipt": {"state": "CURRENT"},
+                    "inventory": dispatchable_inventory("fictional-gpu-a"),
+                }
+            ]
+        }
+        with (
+            mock.patch.object(fleet, "remote_asset_catalog", return_value=catalog),
+            mock.patch.object(
+                fleet,
+                "manifest",
+                return_value={"inventory": {"max_age_hours": 36}},
+            ),
+            mock.patch.object(fleet, "active_lease_map", return_value={}),
+        ):
+            normalized = fleet.dispatch_request(request)
+            result = fleet.dispatch_plan_payload(normalized)
+        self.assertEqual(result["status"], "unsupported")
+        self.assertEqual(result["selection"]["candidate_count"], 1)
+        self.assertIn("not implemented", result["next_action"])
+
+    def test_dispatch_lease_only_acquire_verify_release(self) -> None:
+        now = fleet.dt.datetime(2026, 7, 30, tzinfo=fleet.dt.timezone.utc)
+        catalog = {
+            "nodes": [
+                {
+                    "node_id": "fictional-gpu-a",
+                    "policy": {"approved": True, "display_name": "GPU A"},
+                    "receipt": {"state": "CURRENT"},
+                    "inventory": dispatchable_inventory("fictional-gpu-a"),
+                }
+            ]
+        }
+        catalog["nodes"][0]["inventory"]["observed_at"] = now.isoformat()
+        doctor = {
+            "approved": True,
+            "receipt_state": "CURRENT",
+            "inventory_fresh": True,
+            "codex_ready": True,
+            "ssh": {"reachable": True},
+            "tailscale": {"online": True},
+            "scheduling": {
+                "power_ok": True,
+                "storage_ok": True,
+                "thermal_ok": True,
+                "interactive_busy": False,
+                "busy": False,
+            },
+            "work_volume": {"ready": True},
+            "features": ["gpu", "windows", "wsl"],
+            "memory_bytes": 64 * 1024**3,
+            "inventory_age_seconds": 0,
+            "checked_at": now.isoformat(),
+            "admission_ready": True,
+        }
+        args = fleet.argparse.Namespace(
+            adapter="lease-only",
+            node_id=None,
+            role=None,
+            requires="gpu",
+            min_memory_gb=24,
+            workload_class="background",
+            priority=300,
+            preemptible=True,
+            phase="interruptible",
+            ttl_seconds=3600,
+            owner_task="dispatch-task",
+            owner_thread="dispatch-thread",
+            owner_run="dispatch-run",
+            preempt_lease_id=None,
+            preempt_generation=None,
+            preempt_nonce=None,
+        )
+        with tempfile.TemporaryDirectory() as temp_dir:
+            state_root = Path(temp_dir)
+            previous_state_root = fleet.STATE_ROOT
+            try:
+                fleet.STATE_ROOT = state_root
+                with (
+                    mock.patch.object(fleet, "controller_guard", return_value="controller"),
+                    mock.patch.object(fleet, "node_registry", return_value=fictional_registry()),
+                    mock.patch.object(fleet, "remote_asset_catalog", return_value=catalog),
+                    mock.patch.object(
+                        fleet,
+                        "manifest",
+                        return_value={"inventory": {"max_age_hours": 36}},
+                    ),
+                    mock.patch.object(fleet, "doctor_result", return_value=doctor),
+                    mock.patch.object(fleet, "control_commit", return_value=TEST_CONTROL_COMMIT),
+                    mock.patch.object(fleet, "utc_now", return_value=now),
+                ):
+                    with contextlib.redirect_stdout(io.StringIO()) as output:
+                        self.assertEqual(fleet.fleet_dispatch_acquire(args), 0)
+                    acquired = json.loads(output.getvalue())
+                    dispatch_id = acquired["dispatch_id"]
+                    self.assertEqual(acquired["status"], "leased")
+                    self.assertEqual(acquired["lease"]["node_id"], "fictional-gpu-a")
+
+                    verify_args = fleet.argparse.Namespace(
+                        dispatch_id=dispatch_id,
+                        min_ttl_seconds=300,
+                        max_admission_age_seconds=300,
+                    )
+                    with contextlib.redirect_stdout(io.StringIO()) as verify_output:
+                        self.assertEqual(fleet.fleet_dispatch_verify(verify_args), 0)
+                    verified = json.loads(verify_output.getvalue())
+                    self.assertTrue(verified["verification"]["verified"])
+
+                    release_args = fleet.argparse.Namespace(
+                        dispatch_id=dispatch_id,
+                        owner_task="dispatch-task",
+                    )
+                    with contextlib.redirect_stdout(io.StringIO()) as release_output:
+                        self.assertEqual(fleet.fleet_dispatch_release(release_args), 0)
+                    released = json.loads(release_output.getvalue())
+                    self.assertEqual(released["status"], "released")
+                    self.assertEqual(fleet.active_lease_map(), {})
+            finally:
+                fleet.STATE_ROOT = previous_state_root
+
     def test_expired_lease_is_reaped_before_reacquire(self) -> None:
         now = fleet.dt.datetime(2026, 7, 27, tzinfo=fleet.dt.timezone.utc)
         later = now + fleet.dt.timedelta(seconds=61)
