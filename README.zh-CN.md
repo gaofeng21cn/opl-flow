@@ -190,6 +190,14 @@ Connector 维护这份投影。已登记 Project 默认由本机 Codex 管理；
 作为幂等键，把每条新授权用户评论恰好一次送入对应本机 Codex task；它忽略
 Supervisor、Agent 和 Automation 自身评论以防回环，并最迟在下一次 Heartbeat 处理。
 
+任务生命周期与当前执行方式分开管理。Beads 保存 `open`、`in_progress`、
+`blocked`、`deferred`、`closed`；OPL Flow 另记录 `active`、`waiting_user`、
+`waiting_external`、`monitoring` 或 `aggregate`。Linear 据此显示 `Todo`、
+`In Progress`、`Waiting`、`Monitoring`、`Backlog` 或 `Done`。`Waiting` 和
+`Waiting` 保留 Beads 原有生命周期：原本是 `blocked` 的仍为 `blocked`，其余已开始的任务保持
+`in_progress`；`Monitoring` 归一化为 `in_progress`。这样不会把已经产生过成果的任务误写成
+从未开始；只有当前确实在执行的任务才显示 `In Progress`。
+
 Linear 不接收凭据、本机路径、日志、完整 notes、内部 metadata 或 checkpoints；
 Beads/Dolt 仍是执行总账，GitHub 仍是代码和交付证据的权威来源。日常 onboarding
 和对账不使用或要求 `bd linear sync`。

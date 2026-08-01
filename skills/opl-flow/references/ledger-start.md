@@ -58,8 +58,23 @@ Linear to Beads: human intent, priority, due, optional compatibility
 
 Beads to Linear: execution state, blocker, result.
 
+Beads lifecycle and visible execution activity are separate. Keep the durable
+lifecycle in the native Beads status and store exactly one current
+`metadata.execution_mode`: `active`, `waiting_user`, `waiting_external`,
+`monitoring`, or `aggregate`. Linear displays `Waiting` for started work that
+is blocked on a user, dependency, or external event, and `Monitoring` for a
+continuous responsibility with no current execution action. When Linear is
+read back, `Waiting` preserves a Bead already in `blocked`; otherwise it keeps
+`in_progress`. `Monitoring` normalizes to `in_progress`; only genuinely
+unstarted work displays `Todo`.
+
+Aggregate issues roll up descendants: an active descendant displays `In
+Progress`; waiting-only descendants display `Waiting`; monitoring-only
+descendants display `Monitoring`; no unresolved descendants displays `Done`.
+Unknown or ambiguous execution mode fails closed without changing Linear.
+
 Project only identity, title, hierarchy, status, priority, due, readiness,
-cancel intent, short blocker/result, and links. Exclude credentials, local
+execution mode, display status, cancel intent, short blocker/result, and links. Exclude credentials, local
 paths, logs, full notes, metadata, and checkpoints. Do not use `bd linear sync`.
 
 Every issue in a registered project is managed by local Codex by default.

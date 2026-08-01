@@ -157,6 +157,16 @@ default. `codex-ready` is an optional compatibility hint, while `codex-paused`
 blocks dispatch only: reconciliation and authorized user-comment intake keep
 running.
 
+Lifecycle and current activity remain separate. Beads keeps the durable
+`open`, `in_progress`, `blocked`, `deferred`, and `closed` lifecycle, while OPL
+Flow records one execution mode: `active`, `waiting_user`, `waiting_external`,
+`monitoring`, or `aggregate`. Linear displays `Todo`, `In Progress`, `Waiting`,
+`Monitoring`, `Backlog`, or `Done` from that combination. `Waiting` and
+`Waiting` preserves the existing Beads lifecycle (`blocked` remains `blocked`;
+otherwise it remains `in_progress`); `Monitoring` normalizes to Beads
+`in_progress`. Only genuinely active work is shown as `In Progress`, and
+started work is never reset to `Todo` merely because it is waiting.
+
 The Supervisor uses the official `linear_list_comments` route, a per-project
 Linear comment-ID high-watermark, and the comment ID as the idempotency key. It
 delivers each authorized user comment exactly once to the matching local Codex

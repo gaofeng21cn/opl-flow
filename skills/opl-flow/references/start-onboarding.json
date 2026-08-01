@@ -78,6 +78,8 @@
       "title",
       "hierarchy",
       "status",
+      "execution_mode",
+      "display_status",
       "priority",
       "due",
       "codex_ready",
@@ -106,9 +108,60 @@
       ],
       "beads_to_linear": [
         "execution_state",
+        "execution_mode",
+        "display_status",
         "blocker",
         "result"
       ]
+    },
+    "execution_state_model": {
+      "beads_lifecycle_statuses": [
+        "open",
+        "in_progress",
+        "blocked",
+        "deferred",
+        "closed"
+      ],
+      "execution_modes": [
+        "active",
+        "waiting_user",
+        "waiting_external",
+        "monitoring",
+        "aggregate"
+      ],
+      "linear_display_statuses": [
+        "Backlog",
+        "Todo",
+        "In Progress",
+        "Waiting",
+        "Monitoring",
+        "Done"
+      ],
+      "projection": {
+        "deferred": "Backlog",
+        "open": "Todo",
+        "in_progress+active": "In Progress",
+        "blocked": "Waiting",
+        "in_progress+waiting_user": "Waiting",
+        "in_progress+waiting_external": "Waiting",
+        "in_progress+monitoring": "Monitoring",
+        "closed": "Done"
+      },
+      "linear_to_beads_normalization": {
+        "Backlog": "deferred",
+        "Todo": "open",
+        "In Progress": "in_progress",
+        "Waiting": ["in_progress", "blocked"],
+        "Monitoring": "in_progress",
+        "Done": "closed"
+      },
+      "aggregate_rollup": {
+        "active_descendant": "In Progress",
+        "only_waiting_descendants": "Waiting",
+        "only_monitoring_descendants": "Monitoring",
+        "no_unresolved_descendants": "Done"
+      },
+      "unknown_mode_policy": "fail_closed_without_changing_linear_status"
     },
     "execution_admission": {
       "default": "local_codex_manages_every_registered_project_issue",
@@ -183,6 +236,7 @@
     "supervisor_display_name_registered_projects_and_single_heartbeat_parity",
     "dolt_pull_push_parity_or_explicit_no_change",
     "linear_all_user_bead_coverage_field_authority_and_hierarchy_parity",
+    "linear_execution_mode_display_status_and_normalized_lifecycle_parity",
     "linear_comment_cursor_delivery_deduplication_and_loop_prevention_parity",
     "ambient_ops_observability_registration",
     "duplicate_counts_equal_zero"

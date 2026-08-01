@@ -84,6 +84,8 @@ def valid_receipt() -> dict[str, object]:
                 "title",
                 "hierarchy",
                 "status",
+                "execution_mode",
+                "display_status",
                 "priority",
                 "due",
                 "codex_ready",
@@ -102,7 +104,34 @@ def valid_receipt() -> dict[str, object]:
                     "codex_paused",
                     "cancel",
                 ],
-                "beads_to_linear": ["execution_state", "blocker", "result"],
+                "beads_to_linear": ["execution_state", "execution_mode", "display_status", "blocker", "result"],
+            },
+            "execution_status": {
+                "execution_modes": [
+                    "active",
+                    "waiting_user",
+                    "waiting_external",
+                    "monitoring",
+                    "aggregate",
+                ],
+                "linear_display_statuses": [
+                    "Backlog",
+                    "Todo",
+                    "In Progress",
+                    "Waiting",
+                    "Monitoring",
+                    "Done",
+                ],
+                "linear_to_beads_normalization": {
+                    "Backlog": "deferred",
+                    "Todo": "open",
+                    "In Progress": "in_progress",
+                    "Waiting": ["in_progress", "blocked"],
+                    "Monitoring": "in_progress",
+                    "Done": "closed",
+                },
+                "drift_issue_ids": [],
+                "unknown_mode_count": 0,
             },
             "execution_admission": {
                 "default": "local_codex_managed",
@@ -210,8 +239,16 @@ class OplFlowOnboardingTests(unittest.TestCase):
                     "codex_paused",
                     "cancel",
                 ],
-                "beads_to_linear": ["execution_state", "blocker", "result"],
+                "beads_to_linear": ["execution_state", "execution_mode", "display_status", "blocker", "result"],
             },
+        )
+        self.assertEqual(
+            linear["execution_state_model"]["linear_to_beads_normalization"]["Waiting"],
+            ["in_progress", "blocked"],
+        )
+        self.assertEqual(
+            linear["execution_state_model"]["linear_to_beads_normalization"]["Monitoring"],
+            "in_progress",
         )
         self.assertEqual(linear["execution_admission"]["codex_ready"], "compatibility_hint_not_required_on_each_issue")
         self.assertEqual(

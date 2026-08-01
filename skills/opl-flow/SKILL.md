@@ -126,6 +126,16 @@ boundary. One Supervisor and one hourly heartbeat cover one or more registered
 Linear projects; adding a project updates that Supervisor instead of creating a
 second loop. Current onboarding registers `OPL Ledger` by default.
 
+Keep lifecycle and visible activity separate. Beads keeps the durable lifecycle
+(`open`, `in_progress`, `blocked`, `deferred`, `closed`). Each unresolved Bead
+also carries one `execution_mode`: `active`, `waiting_user`,
+`waiting_external`, `monitoring`, or `aggregate`. Project that combination to
+Linear as `Todo`, `In Progress`, `Waiting`, `Monitoring`, `Backlog`, or `Done`.
+Normalize `Waiting` back to the existing Beads lifecycle: preserve `blocked`
+when the Bead is already blocked, otherwise preserve `in_progress`; normalize
+`Monitoring` to `in_progress`. They must not make started work look unstarted.
+Unknown modes fail closed without changing the Linear status.
+
 The local Codex manages every registered issue by default. Treat `codex-ready`
 as an optional compatibility hint. `codex-paused` blocks dispatch only: keep
 the issue reconciled and keep consuming its authorized user comments. On each

@@ -25,6 +25,8 @@ LINEAR_PROJECTED_FIELDS = {
     "title",
     "hierarchy",
     "status",
+    "execution_mode",
+    "display_status",
     "priority",
     "due",
     "codex_ready",
@@ -42,7 +44,17 @@ LINEAR_TO_BEADS_FIELDS = {
     "codex_paused",
     "cancel",
 }
-BEADS_TO_LINEAR_FIELDS = {"execution_state", "blocker", "result"}
+BEADS_TO_LINEAR_FIELDS = {"execution_state", "execution_mode", "display_status", "blocker", "result"}
+EXECUTION_MODES = {"active", "waiting_user", "waiting_external", "monitoring", "aggregate"}
+LINEAR_DISPLAY_STATUSES = {"Backlog", "Todo", "In Progress", "Waiting", "Monitoring", "Done"}
+LINEAR_STATUS_NORMALIZATION = {
+    "Backlog": "deferred",
+    "Todo": "open",
+    "In Progress": "in_progress",
+    "Waiting": ["in_progress", "blocked"],
+    "Monitoring": "in_progress",
+    "Done": "closed",
+}
 
 
 class ReceiptError(ValueError):
@@ -151,6 +163,18 @@ def validate_receipt(receipt: dict[str, Any]) -> dict[str, Any]:
     authority = require_object(linear.get("field_authority"), "linear.field_authority")
     require(set(authority.get("linear_to_beads", [])) == LINEAR_TO_BEADS_FIELDS, "Linear-to-Beads authority is invalid")
     require(set(authority.get("beads_to_linear", [])) == BEADS_TO_LINEAR_FIELDS, "Beads-to-Linear authority is invalid")
+    execution_status = require_object(linear.get("execution_status"), "linear.execution_status")
+    require(set(execution_status.get("execution_modes", [])) == EXECUTION_MODES, "execution mode set is invalid")
+    require(
+        set(execution_status.get("linear_display_statuses", [])) == LINEAR_DISPLAY_STATUSES,
+        "Linear display status set is invalid",
+    )
+    require(
+        execution_status.get("linear_to_beads_normalization") == LINEAR_STATUS_NORMALIZATION,
+        "Linear display status normalization is invalid",
+    )
+    require(execution_status.get("drift_issue_ids") == [], "Linear execution status projection has drift")
+    require(execution_status.get("unknown_mode_count") == 0, "unknown execution mode must fail closed")
     require(linear.get("excluded_fields_absent") is True, "sensitive or internal fields escaped into Linear")
     require(linear.get("terminal_readback") == "passed", "Linear terminal readback must pass")
     require(linear.get("bd_linear_sync_used") is False, "bd linear sync is forbidden for this route")
