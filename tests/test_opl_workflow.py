@@ -16,11 +16,14 @@ from unittest import mock
 from scripts.opl_workflow import (
     PROGRAM_REF,
     WorkflowError,
+    assess_review,
+    configure_review,
     init_ledger,
     linear_probe,
     main,
     profile_action,
     reconcile_operations,
+    review_status,
     workflow_status,
 )
 
@@ -268,6 +271,63 @@ else:
             result = linear_probe(root, str(bd))
             self.assertTrue(result["configured"])
             self.assertNotIn("api_key", result)
+
+    def test_review_defaults_to_off_without_user_config(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            status = review_status(Path(temp) / "missing.json")
+        self.assertFalse(status["configured"])
+        self.assertEqual(status["mode"], "off")
+        self.assertFalse(status["pr_required_by_flow"])
+
+    def test_workflow_status_reports_review_mode(self) -> None:
+        with (
+            mock.patch("scripts.opl_workflow.cli_probe", return_value={"available": True}),
+            mock.patch("scripts.opl_workflow.github_probe", return_value={"available": True, "authenticated": True}),
+            mock.patch("scripts.opl_workflow.profile_action", return_value={"status": "current"}),
+            mock.patch("scripts.opl_workflow.review_status", return_value={"mode": "async-risk"}),
+            mock.patch("scripts.opl_workflow.executable", side_effect=WorkflowError("no bd")),
+        ):
+            result = workflow_status(None, None, None)
+        self.assertEqual(result["code_review"]["mode"], "async-risk")
+
+    def test_review_configure_is_private_and_assesses_risk(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            config = Path(temp) / "private" / "code-review.json"
+            configured = configure_review("async-risk", config)
+            self.assertEqual(configured["mode"], "async-risk")
+            self.assertEqual(stat.S_IMODE(config.stat().st_mode), 0o600)
+            low = assess_review("low", config)
+            medium = assess_review("medium", config)
+            self.assertEqual((low["review_action"], low["delivery_blocked"]), ("skip", False))
+            self.assertEqual((medium["review_action"], medium["delivery_blocked"]), ("async", False))
+            self.assertFalse(medium["pr_required_by_flow"])
+
+    def test_async_review_unavailable_does_not_block_delivery(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            config = Path(temp) / "code-review.json"
+            configure_review("async-risk", config)
+            result = assess_review("high", config, review_state="unavailable")
+        self.assertEqual(result["review_action"], "skip")
+        self.assertFalse(result["delivery_blocked"])
+        self.assertEqual(result["reason"], "review_unavailable_nonblocking")
+
+    def test_required_review_unavailable_still_blocks(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            config = Path(temp) / "code-review.json"
+            configure_review("required", config)
+            result = assess_review("low", config, review_state="unavailable")
+        self.assertEqual(result["review_action"], "blocking")
+        self.assertTrue(result["delivery_blocked"])
+
+    def test_explicit_or_repository_requirement_is_blocking_without_flow_pr(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            config = Path(temp) / "missing.json"
+            explicit = assess_review("low", config, explicit_required=True)
+            repository = assess_review("low", config, repository_required=True)
+        self.assertTrue(explicit["delivery_blocked"])
+        self.assertTrue(repository["delivery_blocked"])
+        self.assertFalse(explicit["pr_required_by_flow"])
+        self.assertFalse(repository["pr_required_by_flow"])
 
     def test_status_separates_binary_and_ledger_failures(self) -> None:
         with (

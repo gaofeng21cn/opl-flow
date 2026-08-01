@@ -24,6 +24,8 @@ REQUIRED_FILES = (
     ".codex-plugin/plugin.json",
     "contracts/workflow-policy.json",
     "contracts/workflow-policy.schema.json",
+    "contracts/code-review-policy.json",
+    "contracts/code-review-policy.schema.json",
     "contracts/worktree-ownership-ledger.schema.json",
     "README.md",
     "docs/compatibility.md",
@@ -61,6 +63,7 @@ REQUIRED_FILES = (
 
 CORE_TEST_MODULES = (
     "tests/test_develop_and_deliver.py",
+    "tests/test_code_review_policy.py",
     "tests/test_install_local_plugin.py",
     "tests/test_opl_flow_onboarding.py",
     "tests/test_profile_compose.py",
@@ -350,6 +353,27 @@ def check_workflow_policy(repo_root: Path) -> list[str]:
     return errors
 
 
+def check_code_review_policy(repo_root: Path) -> list[str]:
+    errors: list[str] = []
+    policy = json.loads((repo_root / "contracts" / "code-review-policy.json").read_text(encoding="utf-8"))
+    schema = json.loads((repo_root / "contracts" / "code-review-policy.schema.json").read_text(encoding="utf-8"))
+    if policy.get("$schema") != "./code-review-policy.schema.json":
+        errors.append("code review policy must point to ./code-review-policy.schema.json")
+    if schema.get("properties", {}).get("schema", {}).get("const") != "opl_flow_code_review_policy.v1":
+        errors.append("code review policy schema identity is invalid")
+    if policy.get("default_mode") != "off":
+        errors.append("code review policy must not add a default delivery gate")
+    if set(policy.get("modes", {})) != {"off", "async-risk", "required"}:
+        errors.append("code review policy must define off, async-risk, and required")
+    delivery = policy.get("delivery", {})
+    if delivery.get("pr_policy") != "repository_owned" or delivery.get("pr_required_by_flow") is not False:
+        errors.append("code review policy must not require pull requests")
+    async_mode = policy.get("modes", {}).get("async-risk", {})
+    if async_mode.get("review_failure_blocks_delivery") is not False:
+        errors.append("async-risk review failure must not block delivery")
+    return errors
+
+
 def check_profile(repo_root: Path) -> list[str]:
     errors: list[str] = []
     agents = (repo_root / "templates" / "AGENTS.md").read_text(encoding="utf-8")
@@ -448,6 +472,7 @@ def main(argv: list[str] | None = None) -> int:
     errors.extend(check_required_files(repo_root))
     errors.extend(check_plugin_json(repo_root))
     errors.extend(check_workflow_policy(repo_root))
+    errors.extend(check_code_review_policy(repo_root))
     errors.extend(check_profile(repo_root))
     errors.extend(check_retired_skill(repo_root))
     errors.extend(check_contract_tests(repo_root, args.lane))

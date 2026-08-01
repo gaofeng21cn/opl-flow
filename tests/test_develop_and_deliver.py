@@ -43,6 +43,23 @@ class DevelopAndDeliverTests(unittest.TestCase):
         for marker in required_markers:
             self.assertIn(marker, skill)
 
+    def test_review_mode_preserves_delivery_speed_and_repository_pr_policy(self) -> None:
+        skill = (
+            REPO_ROOT / "skills" / "develop-and-deliver" / "SKILL.md"
+        ).read_text(encoding="utf-8")
+
+        required_markers = (
+            "## Review Without Slowing Delivery",
+            "continue the original",
+            "without waiting for it",
+            "Never create a pull request only to satisfy OPL Flow",
+            "review queueing, failure, or\nunavailability is non-blocking",
+            "Do not reduce or duplicate",
+            "Linear Cloud Coding Sessions are not the",
+        )
+        for marker in required_markers:
+            self.assertIn(marker, skill)
+
 
 if __name__ == "__main__":
     unittest.main()

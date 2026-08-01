@@ -21,6 +21,7 @@ owner, purpose, state, and machine boundary.
 | [Compatibility and positioning](./compatibility.md) | Model-native、可选 Flow 与跨 executor 定位 | 不拥有 App/Base/Full/runtime/domain readiness |
 | [New machine Codex setup](./new-machine-codex-setup.md) | 当前可执行安装 runbook 与目标边界 | 命令和 fresh platform/executor readback 才是本机事实 |
 | [Browser tool routing](./browser-tool-routing.md) | 浏览器、Chrome、Playwright、agent-browser、Computer Use 与调研工具的场景路由和降级边界 | 操作工具选择；不改变各工具自身的权限与确认规则 |
+| [Code Review 模式](./code-review-modes.md) | `off`、`async-risk`、`required` 三种按需审查模式及效率边界 | 不强制 PR；不替代仓库测试、CI、保护规则或发布门禁 |
 
 ## Canonical Role Coverage
 
@@ -38,7 +39,7 @@ of creating parallel documents with duplicate prose.
 ## Coverage Terminal
 
 The tracked documentation set covered by this index is `README*` plus
-`docs/**/*.md`. The current set is reviewed `12/12`, with `unreviewed=0` and
+`docs/**/*.md`. The current set is reviewed `13/13`, with `unreviewed=0` and
 `remaining_stale_or_retire=0`. This is documentation coverage evidence only; it
 does not prove Package publication, installation, executor discovery, runtime,
 App, domain, or release readiness.
