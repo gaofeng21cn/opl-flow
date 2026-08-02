@@ -89,7 +89,18 @@ Adapter boundaries are explicit:
   submit a GitHub job;
 - `ssh-session` runs one structured argv through the Instance's private SSH
   route after lease verification; Windows routes execute inside WSL;
-- `remote-codex` remains planned and fails closed.
+- `remote-codex` requires fresh sanitized Codex desktop-host and login-startup
+  readback, then uses the native Codex App task connection after lease
+  verification. The Fleet CLI never accepts or stores a pairing code, prompt,
+  session, or task result.
+
+For `remote-codex`, do not call `dispatch execute`. After `acquire` and
+`verify`, select the matching connected Codex host through the native app. Start
+a new task in an existing saved project when the user explicitly requested a
+new task; otherwise continue or hand off an existing task on that exact host.
+Wait for the remote task's terminal result, read it back, and only then call
+`dispatch release`. Device connection, lease acquisition, task creation, and
+message acceptance are intermediate states, not workload completion.
 
 `ssh-session` never accepts a joined shell command. It returns bounded
 stdout/stderr and an exit code without storing them in the repository or lease

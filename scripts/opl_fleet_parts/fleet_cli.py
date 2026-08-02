@@ -332,7 +332,7 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     select_parser.add_argument("--gpu-model")
     dispatch_parser = subparsers.add_parser(
         "dispatch",
-        help="plan or lease task execution capacity",
+        help="plan, lease, verify, execute, or release task capacity",
     )
     dispatch_subparsers = dispatch_parser.add_subparsers(
         dest="dispatch_action",
@@ -394,7 +394,10 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         type=int,
         default=300,
     )
-    dispatch_execute_parser = dispatch_subparsers.add_parser("execute")
+    dispatch_execute_parser = dispatch_subparsers.add_parser(
+        "execute",
+        help="execute only an ssh-session lease; native Codex tasks use the app",
+    )
     dispatch_execute_parser.add_argument("dispatch_id")
     dispatch_execute_parser.add_argument("--owner-task", required=True)
     dispatch_execute_parser.add_argument("--owner-thread")

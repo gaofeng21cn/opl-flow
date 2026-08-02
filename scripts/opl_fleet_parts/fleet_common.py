@@ -83,9 +83,9 @@ DISPATCH_ADAPTERS = {
         "execution": "controlled-ssh-session",
     },
     "remote-codex": {
-        "status": "planned",
+        "status": "supported-via-native-codex",
         "requires_fleet": True,
-        "execution": "remote-codex-adapter-not-implemented",
+        "execution": "native-codex-thread-after-lease",
     },
 }
 

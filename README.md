@@ -212,8 +212,11 @@ reserves a remote node for an explicit caller-owned adapter. `github-runner`
 reuses the existing runner transaction but does not submit a GitHub job.
 `ssh-session` executes one structured argv through a private Instance SSH route
 after lease verification; Windows nodes execute inside WSL. `remote-codex`
-remains planned and fails closed. A lease or an online runner is never reported
-as task completion.
+requires fresh sanitized desktop-host/startup readback, takes the same Fleet
+lease, and then delegates task creation, continuation, and result waiting to
+the native Codex App connection. Flow stores no pairing code, prompt, session,
+or task result. A lease, connected device, created task, or online runner is
+never reported as task completion.
 
 Tasks may store one `metadata.opl_execution_requirements` object in Beads,
 validated by `contracts/execution-requirements.schema.json`. It describes the

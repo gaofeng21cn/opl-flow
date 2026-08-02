@@ -200,6 +200,10 @@ def dispatchable_inventory(node_id: str) -> dict[str, object]:
         "thermal_ok": True,
         "eligible": True,
     }
+    payload["remote_control"] = {
+        "startup_configured": True,
+        "running": True,
+    }
     return payload
 
 
@@ -1204,7 +1208,7 @@ class CodexFleetTests(unittest.TestCase):
         )
         self.assertEqual(result, 0)
 
-    def test_dispatch_plan_marks_remote_codex_as_unimplemented(self) -> None:
+    def test_dispatch_plan_admits_native_remote_codex(self) -> None:
         request = fleet.argparse.Namespace(
             adapter="remote-codex",
             node_id=None,
@@ -1221,7 +1225,11 @@ class CodexFleetTests(unittest.TestCase):
             "nodes": [
                 {
                     "node_id": "fictional-gpu-a",
-                    "policy": {"approved": True, "display_name": "GPU A"},
+                    "policy": {
+                        "approved": True,
+                        "display_name": "GPU A",
+                        "labels": ["windows"],
+                    },
                     "receipt": {"state": "CURRENT"},
                     "inventory": dispatchable_inventory("fictional-gpu-a"),
                 }
@@ -1237,9 +1245,152 @@ class CodexFleetTests(unittest.TestCase):
         ):
             normalized = fleet.dispatch_request(request)
             result = fleet.dispatch_plan_payload(normalized)
-        self.assertEqual(result["status"], "unsupported")
+        self.assertEqual(result["status"], "ready-to-acquire")
         self.assertEqual(result["selection"]["candidate_count"], 1)
-        self.assertIn("not implemented", result["next_action"])
+        self.assertIn("native Codex App", result["next_action"])
+
+    def test_dispatch_plan_rejects_remote_codex_without_daemon(self) -> None:
+        request = fleet.argparse.Namespace(
+            adapter="remote-codex",
+            node_id="fictional-gpu-a",
+            role=None,
+            requires="windows,wsl",
+            min_memory_gb=24,
+            workload_class="background",
+            priority=300,
+            preemptible=True,
+            phase="interruptible",
+            ttl_seconds=3600,
+        )
+        candidate = dispatchable_inventory("fictional-gpu-a")
+        candidate["remote_control"]["running"] = False
+        catalog = {
+            "nodes": [
+                {
+                    "node_id": "fictional-gpu-a",
+                    "policy": {"approved": True, "display_name": "GPU A"},
+                    "receipt": {"state": "CURRENT"},
+                    "inventory": candidate,
+                }
+            ]
+        }
+        with (
+            patch_fleet("remote_asset_catalog", return_value=catalog),
+            patch_fleet("manifest", return_value={"inventory": {"max_age_hours": 36}}),
+            patch_fleet("active_lease_map", return_value={}),
+        ):
+            result = fleet.dispatch_plan_payload(fleet.dispatch_request(request))
+        self.assertEqual(result["status"], "unavailable")
+        self.assertEqual(result["selection"]["candidate_count"], 0)
+
+    def test_remote_codex_acquire_uses_native_transport_and_keeps_fleet_gates(self) -> None:
+        now = fleet.dt.datetime(2026, 8, 2, tzinfo=fleet.dt.timezone.utc)
+        node_id = "fictional-gpu-a"
+        node_inventory = dispatchable_inventory(node_id)
+        node_inventory["observed_at"] = now.isoformat()
+        catalog = {
+            "nodes": [
+                {
+                    "node_id": node_id,
+                    "policy": {
+                        "approved": True,
+                        "display_name": "GPU A",
+                        "labels": ["windows"],
+                    },
+                    "receipt": {"state": "CURRENT"},
+                    "inventory": node_inventory,
+                }
+            ]
+        }
+        doctor = {
+            "approved": True,
+            "receipt_state": "CURRENT",
+            "inventory_fresh": True,
+            "codex_ready": True,
+            "ssh": {"reachable": False},
+            "tailscale": {"online": False},
+            "scheduling": {
+                "power_ok": True,
+                "storage_ok": True,
+                "thermal_ok": True,
+                "interactive_busy": False,
+                "busy": False,
+            },
+            "work_volume": {"ready": True},
+            "features": ["windows", "wsl"],
+            "memory_bytes": 64 * 1024**3,
+            "gpus": [],
+            "inventory_age_seconds": 0,
+            "checked_at": now.isoformat(),
+            "admission_ready": False,
+        }
+        args = fleet.argparse.Namespace(
+            adapter="remote-codex",
+            requirements_json=None,
+            node_id=node_id,
+            role=None,
+            requires="windows,wsl",
+            min_memory_gb=24,
+            gpu_api="any",
+            min_gpu_memory_gb=0,
+            gpu_model=None,
+            workload_class="background",
+            priority=300,
+            preemptible=True,
+            phase="interruptible",
+            ttl_seconds=3600,
+            owner_task="dispatch-task",
+            owner_thread="dispatch-thread",
+            owner_run="dispatch-run",
+            preempt_lease_id=None,
+            preempt_generation=None,
+            preempt_nonce=None,
+        )
+        with tempfile.TemporaryDirectory() as temp_dir:
+            previous_state_root = fleet.STATE_ROOT
+            try:
+                set_fleet("STATE_ROOT", Path(temp_dir))
+                with (
+                    patch_fleet("controller_guard"),
+                    patch_fleet("node_registry", return_value=fictional_registry()),
+                    patch_fleet("remote_asset_catalog", return_value=catalog),
+                    patch_fleet("manifest", return_value={"inventory": {"max_age_hours": 36}}),
+                    patch_fleet("doctor_result", return_value=doctor) as doctor_mock,
+                    patch_fleet("control_commit", return_value=TEST_CONTROL_COMMIT),
+                    patch_fleet("utc_now", return_value=now),
+                    contextlib.redirect_stdout(io.StringIO()) as output,
+                ):
+                    self.assertEqual(fleet.fleet_dispatch_acquire(args), 0)
+                payload = json.loads(output.getvalue())
+            finally:
+                set_fleet("STATE_ROOT", previous_state_root)
+        doctor_mock.assert_called_once_with(node_id, catalog=catalog)
+        self.assertEqual(payload["lease"]["dispatch_adapter"], "remote-codex")
+        self.assertEqual(payload["executor"]["kind"], "native-codex-app")
+        self.assertFalse(payload["executor"]["stores_prompt_or_session"])
+
+    def test_remote_control_inventory_is_strictly_sanitized(self) -> None:
+        payload = dispatchable_inventory("fictional-node")
+        self.assertIs(fleet.validate_inventory(payload), payload)
+        payload["remote_control"]["environment_id"] = "must-not-be-stored"
+        with self.assertRaisesRegex(Exception, "remote control status"):
+            fleet.validate_inventory(payload)
+
+    def test_wsl_remote_control_probe_validates_the_app_login_task(self) -> None:
+        inventory_module = sys.modules["fleet_inventory"]
+        with mock.patch.object(
+            inventory_module,
+            "powershell_json",
+            return_value={"startup_configured": True, "running": True},
+        ) as powershell:
+            status = inventory_module.remote_control_status(True)
+        script = powershell.call_args.args[0]
+        self.assertEqual(status, {"startup_configured": True, "running": True})
+        self.assertIn("MSFT_TaskLogonTrigger", script)
+        self.assertIn("$logon -and", script)
+        self.assertIn("explorer.exe", script)
+        self.assertIn(inventory_module.WINDOWS_CODEX_APP_ID, script)
+        self.assertNotIn("remote-control start", script)
 
     def test_dispatch_lease_only_acquire_verify_release(self) -> None:
         now = fleet.dt.datetime(2026, 7, 30, tzinfo=fleet.dt.timezone.utc)

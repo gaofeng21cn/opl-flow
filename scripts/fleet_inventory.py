@@ -7,6 +7,7 @@ import datetime as dt
 import json
 import os
 import platform
+import plistlib
 import re
 import shutil
 import subprocess
@@ -26,7 +27,7 @@ INVENTORY_REQUIRED_FIELDS = {
     "software",
     "specialized_software",
 }
-INVENTORY_OPTIONAL_FIELDS = {"capabilities", "scheduling"}
+INVENTORY_OPTIONAL_FIELDS = {"capabilities", "scheduling", "remote_control"}
 NODE_ID_PATTERN = re.compile(r"^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$")
 SENSITIVE_TEXT = (
     re.compile(r"/Users/[^/\s]+"),
@@ -46,6 +47,13 @@ VERSION_COMMANDS = {
     "rtk": ["rtk", "--version"],
     "opl": ["opl", "--version"],
 }
+REMOTE_CONTROL_SERVICE_ID = "dev.one-person-lab.codex-remote-control"
+WINDOWS_REMOTE_CONTROL_TASK = "OPL Codex Remote Control"
+WINDOWS_CODEX_APP_ID = "OpenAI.Codex_2p2nqsd0c76g0!App"
+MACOS_CODEX_APP_CANDIDATES = (
+    Path("/Applications/Codex.app/Contents/Resources/codex"),
+    Path("/Applications/ChatGPT.app/Contents/Resources/codex"),
+)
 
 
 class InventoryError(RuntimeError):
@@ -315,9 +323,10 @@ def codex_status(is_wsl: bool) -> dict[str, Any]:
             "kind": "windows_app_wsl",
             "version": clean_text(app.get("version")) if isinstance(app, dict) else None,
         }
-    app = Path("/Applications/ChatGPT.app")
+    owner = next((path for path in MACOS_CODEX_APP_CANDIDATES if path.is_file()), None)
+    app = owner.parents[2] if owner else None
     version = None
-    if app.is_dir():
+    if app and app.is_dir():
         version = first_line(
             run(
                 [
@@ -330,9 +339,64 @@ def codex_status(is_wsl: bool) -> dict[str, Any]:
         )
     cli = first_line(run(["codex", "--version"])) if shutil.which("codex") else None
     return {
-        "ready": bool(app.is_dir() or cli),
-        "kind": "mac_app" if app.is_dir() else "cli",
+        "ready": bool((app and app.is_dir()) or cli),
+        "kind": "mac_app" if app and app.is_dir() else "cli",
         "version": version or cli,
+    }
+
+
+def remote_control_status(is_wsl: bool) -> dict[str, bool]:
+    if is_wsl:
+        status = powershell_json(
+            f'$task=Get-ScheduledTask -TaskName "{WINDOWS_REMOTE_CONTROL_TASK}" '
+            '-ErrorAction SilentlyContinue;'
+            '$action=if($task){@($task.Actions)[0]}else{$null};'
+            '$arguments=if($action){[string]$action.Arguments}else{""};'
+            '$package=Get-AppxPackage -Name OpenAI.Codex|Select-Object -First 1;'
+            '$logon=@($task.Triggers|Where-Object{'
+            '$_.CimClass.CimClassName -eq "MSFT_TaskLogonTrigger"}).Count -gt 0;'
+            '$user=[System.Security.Principal.WindowsIdentity]::GetCurrent().Name;'
+            '$startup=($null -ne $package) -and ($null -ne $task) -and '
+            '($task.State -ne "Disabled") -and '
+            '([IO.Path]::GetFileName([string]$action.Execute) -ieq "explorer.exe") -and '
+            '$logon -and ($task.Principal.UserId -ieq $user) -and '
+            f'($arguments -eq "shell:AppsFolder\\{WINDOWS_CODEX_APP_ID}");'
+            '$process=Get-CimInstance Win32_Process|Where-Object{'
+            '$_.Name -eq "ChatGPT.exe" -and '
+            '$_.ExecutablePath -match "\\\\WindowsApps\\\\OpenAI\\.Codex_[^\\\\]+'
+            '\\\\app\\\\ChatGPT\\.exe$"}|'
+            'Select-Object -First 1;'
+            '[pscustomobject]@{startup_configured=[bool]$startup;'
+            'running=[bool]($null -ne $process)}|ConvertTo-Json -Compress'
+        )
+        return {
+            "startup_configured": bool(
+                isinstance(status, dict) and status.get("startup_configured") is True
+            ),
+            "running": bool(isinstance(status, dict) and status.get("running") is True),
+        }
+    if platform.system() != "Darwin":
+        return {"startup_configured": False, "running": False}
+    owner = next((path for path in MACOS_CODEX_APP_CANDIDATES if path.is_file()), None)
+    app = owner.parents[2] if owner else None
+    launch_agent = (
+        Path.home()
+        / "Library/LaunchAgents"
+        / f"{REMOTE_CONTROL_SERVICE_ID}.plist"
+    )
+    try:
+        installed = plistlib.loads(launch_agent.read_bytes()) if launch_agent.is_file() else {}
+    except (OSError, plistlib.InvalidFileException):
+        installed = {}
+    expected_arguments = ["/usr/bin/open", "-gj", str(app)] if app else None
+    process = run(["pgrep", "-f", re.escape(str(app)) if app else "a^"])
+    return {
+        "startup_configured": bool(
+            installed.get("Label") == REMOTE_CONTROL_SERVICE_ID
+            and installed.get("RunAtLoad") is True
+            and installed.get("ProgramArguments") == expected_arguments
+        ),
+        "running": process.returncode == 0,
     }
 
 
@@ -720,6 +784,7 @@ def collect_inventory(
             "ssh": ssh_status(is_wsl),
             "tailscale": tailscale_status(is_wsl),
         },
+        "remote_control": remote_control_status(is_wsl),
         "software": software_versions(allowlist),
         "specialized_software": specialized_software(
             registry.get("specialized_software", []),
@@ -749,6 +814,13 @@ def validate_inventory(payload: dict[str, Any]) -> dict[str, Any]:
         raise InventoryError("inventory exceeds size limit")
     if any(pattern.search(encoded) for pattern in SENSITIVE_TEXT):
         raise InventoryError("inventory contains a sensitive path or address")
+    remote_control = payload.get("remote_control")
+    if remote_control is not None and (
+        not isinstance(remote_control, dict)
+        or set(remote_control) != {"startup_configured", "running"}
+        or any(not isinstance(value, bool) for value in remote_control.values())
+    ):
+        raise InventoryError("inventory remote control status is invalid")
     forbidden_keys = {"serial", "serial_number", "ip", "ip_address", "mac_address"}
 
     def inspect(value: Any, depth: int = 0) -> None:

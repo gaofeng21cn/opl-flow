@@ -279,8 +279,11 @@ The current real adapters are `local-codex` (no Fleet lease), `lease-only`
 `ssh-session` (one structured argv through a private SSH route after lease
 verification). Windows SSH routes execute inside WSL. The existing GitHub
 Runner start/stop transaction remains the runner adapter boundary but does not
-submit a GitHub job. `remote-codex` is declared but remains planned and fails
-closed. A plan, lease, or online runner is never an execution result.
+submit a GitHub job. `remote-codex` uses Fleet for sanitized node admission and
+lease ownership, then uses the native Codex App connection for task creation or
+continuation and terminal result readback. Pairing, prompts, sessions, and task
+results remain Codex-owned and are not copied into Flow or the private Instance.
+A plan, lease, connected device, or created task is never an execution result.
 
 `ssh-session` does not accept a composed shell string. It returns bounded
 stdout/stderr, exit code, and timing directly to the controller without storing

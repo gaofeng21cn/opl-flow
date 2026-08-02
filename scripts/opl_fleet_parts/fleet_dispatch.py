@@ -217,10 +217,14 @@ def dispatch_request(args: argparse.Namespace) -> dict[str, Any]:
         "node_id": node_id,
     }
 
-def dispatch_candidates(request: dict[str, Any]) -> list[dict[str, Any]]:
+def dispatch_candidates(
+    request: dict[str, Any],
+    *,
+    catalog: dict[str, Any] | None = None,
+) -> list[dict[str, Any]]:
     if not request["requires_fleet"]:
         return []
-    catalog = remote_asset_catalog()
+    catalog = catalog or remote_asset_catalog()
     max_age = int((manifest().get("inventory") or {}).get("max_age_hours", 36))
     selected = select_nodes(
         catalog,
@@ -239,6 +243,26 @@ def dispatch_candidates(request: dict[str, Any]) -> list[dict[str, Any]]:
     node_id = request.get("node_id")
     if node_id:
         selected = [item for item in selected if item["node_id"] == node_id]
+    if request["adapter"] == "remote-codex":
+        remote_status = {
+            str(entry.get("node_id")): (entry.get("inventory") or {}).get(
+                "remote_control"
+            )
+            for entry in catalog["nodes"]
+        }
+        selected = [
+            {
+                **item,
+                "remote_control": {
+                    "startup_configured": True,
+                    "running": True,
+                },
+            }
+            for item in selected
+            if (remote_status.get(str(item["node_id"])) or {}).get("startup_configured")
+            is True
+            and (remote_status.get(str(item["node_id"])) or {}).get("running") is True
+        ]
     return selected
 
 def dispatch_plan_payload(request: dict[str, Any]) -> dict[str, Any]:
@@ -259,6 +283,7 @@ def dispatch_plan_payload(request: dict[str, Any]) -> dict[str, Any]:
     supported = metadata["status"] in {
         "supported",
         "supported-via-runner-transaction",
+        "supported-via-native-codex",
     }
     if not supported:
         status = "unsupported"
@@ -271,6 +296,12 @@ def dispatch_plan_payload(request: dict[str, Any]) -> dict[str, Any]:
     elif request["adapter"] == "github-runner":
         status = "available-via-runner-transaction"
         next_action = "use runner start/stop for the bound role; dispatch does not submit a GitHub job"
+    elif request["adapter"] == "remote-codex":
+        status = "ready-to-acquire"
+        next_action = (
+            "acquire the Fleet lease, verify it, then create or hand off the task "
+            "through the native Codex App connection"
+        )
     else:
         status = "ready-to-acquire"
         next_action = "run dispatch acquire; acquire performs fresh doctor before leasing"
@@ -323,7 +354,7 @@ def fleet_dispatch_acquire(args: argparse.Namespace) -> int:
         )
         return 0
     controller_guard()
-    if request["adapter"] not in {"lease-only", "ssh-session"}:
+    if request["adapter"] not in {"lease-only", "ssh-session", "remote-codex"}:
         if request["adapter"] == "github-runner":
             raise FleetError(
                 "github-runner uses the existing runner start/stop transaction; "
@@ -332,7 +363,8 @@ def fleet_dispatch_acquire(args: argparse.Namespace) -> int:
         raise FleetError(
             f"adapter {request['adapter']} has no dispatch acquire route"
         )
-    candidates = dispatch_candidates(request)
+    catalog = remote_asset_catalog() if request["adapter"] == "remote-codex" else None
+    candidates = dispatch_candidates(request, catalog=catalog)
     if not candidates:
         raise FleetError("no dispatch candidate is available")
     registry = node_registry()
@@ -354,9 +386,29 @@ def fleet_dispatch_acquire(args: argparse.Namespace) -> int:
                     str(request["workload_class"]),
                     registry=registry,
                 )
-            doctor = doctor_result(candidate_id)
+            doctor = (
+                doctor_result(candidate_id, catalog=catalog)
+                if catalog is not None
+                else doctor_result(candidate_id)
+            )
+            admission_view = doctor
+            if request["adapter"] == "remote-codex":
+                remote_control = candidate.get("remote_control") or {}
+                if (
+                    remote_control.get("startup_configured") is not True
+                    or remote_control.get("running") is not True
+                ):
+                    raise FleetError("remote Codex is not ready")
+                # Native Codex owns transport, so SSH and Tailscale are not
+                # admission dependencies for this adapter.
+                admission_view = {
+                    **doctor,
+                    "admission_ready": True,
+                    "ssh": {"reachable": True},
+                    "tailscale": {"online": True},
+                }
             assert_lease_admission(
-                doctor,
+                admission_view,
                 required=required,
                 min_memory_gb=int(request["min_memory_gb"]),
                 gpu_api=str(request["gpu_api"]),
@@ -364,7 +416,7 @@ def fleet_dispatch_acquire(args: argparse.Namespace) -> int:
                 gpu_model=request["gpu_model"],
             )
             admission = build_admission_receipt(
-                doctor,
+                admission_view,
                 required=required,
                 min_memory_gb=int(request["min_memory_gb"]),
                 gpu_api=str(request["gpu_api"]),
@@ -409,6 +461,19 @@ def fleet_dispatch_acquire(args: argparse.Namespace) -> int:
                 "request": request,
                 "lease": public_lease(lease, now=utc_now()),
                 "execution": request["execution"],
+                "executor": (
+                    {
+                        "kind": "native-codex-app",
+                        "stores_prompt_or_session": False,
+                        "next_action": (
+                            "verify this lease, start the task on the matching "
+                            "connected Codex host, wait for its terminal result, "
+                            "then release the lease"
+                        ),
+                    }
+                    if request["adapter"] == "remote-codex"
+                    else None
+                ),
             },
             indent=2,
             sort_keys=True,
