@@ -9,7 +9,6 @@ import os
 import shutil
 import subprocess
 import sys
-import tempfile
 from pathlib import Path
 from typing import Any, Iterable
 
@@ -20,133 +19,10 @@ REGISTRY_SECTIONS = (
     ("domains", "domain"),
     ("platform_accounts", "platform-account"),
 )
-REVIEW_MODES = ("off", "async-risk", "required")
-REVIEW_STATES = ("available", "unavailable", "failed")
 
 
 class WorkflowError(RuntimeError):
     pass
-
-
-def review_policy() -> dict[str, Any]:
-    path = flow_root() / "contracts" / "code-review-policy.json"
-    try:
-        payload = json.loads(path.read_text(encoding="utf-8"))
-    except (OSError, json.JSONDecodeError) as exc:
-        raise WorkflowError(f"cannot read code review policy: {path}") from exc
-    if (
-        not isinstance(payload, dict)
-        or payload.get("schema") != "opl_flow_code_review_policy.v1"
-        or set(payload.get("modes", {})) != set(REVIEW_MODES)
-    ):
-        raise WorkflowError("code review policy is invalid")
-    return payload
-
-
-def review_config_path(value: Path | None = None) -> Path:
-    configured = value or os.environ.get("OPL_FLOW_REVIEW_CONFIG")
-    if configured:
-        return Path(configured).expanduser().resolve()
-    return Path.home() / ".config" / "opl-flow" / "code-review.json"
-
-
-def review_status(config: Path | None = None) -> dict[str, Any]:
-    policy = review_policy()
-    path = review_config_path(config)
-    configured = path.is_file()
-    if configured:
-        try:
-            local = json.loads(path.read_text(encoding="utf-8"))
-        except (OSError, json.JSONDecodeError) as exc:
-            raise WorkflowError(f"cannot read code review config: {path}") from exc
-        if not isinstance(local, dict):
-            raise WorkflowError(f"code review config is invalid: {path}")
-        mode = local.get("mode")
-        if local.get("schema") != "opl_flow_code_review_config.v1" or mode not in REVIEW_MODES:
-            raise WorkflowError(f"code review config is invalid: {path}")
-    else:
-        mode = policy["default_mode"]
-    return {
-        "schema": "opl_flow_code_review_status.v1",
-        "configured": configured,
-        "config": str(path),
-        "mode": mode,
-        "source": "user" if configured else "policy_default",
-        **policy["delivery"],
-    }
-
-
-def configure_review(mode: str, config: Path | None = None) -> dict[str, Any]:
-    policy = review_policy()
-    if mode not in policy["modes"]:
-        raise WorkflowError(f"unsupported code review mode: {mode}")
-    path = review_config_path(config)
-    path.parent.mkdir(parents=True, exist_ok=True)
-    os.chmod(path.parent, 0o700)
-    payload = {
-        "schema": "opl_flow_code_review_config.v1",
-        "mode": mode,
-    }
-    temp_path: Path | None = None
-    try:
-        with tempfile.NamedTemporaryFile(
-            mode="w",
-            encoding="utf-8",
-            dir=path.parent,
-            prefix=f".{path.name}.",
-            delete=False,
-        ) as handle:
-            temp_path = Path(handle.name)
-            os.chmod(temp_path, 0o600)
-            json.dump(payload, handle, ensure_ascii=False, indent=2, sort_keys=True)
-            handle.write("\n")
-            handle.flush()
-            os.fsync(handle.fileno())
-        os.replace(temp_path, path)
-        os.chmod(path, 0o600)
-    except OSError as exc:
-        if temp_path is not None:
-            temp_path.unlink(missing_ok=True)
-        raise WorkflowError(f"cannot write code review config: {path}") from exc
-    return review_status(path)
-
-
-def assess_review(
-    risk: str,
-    config: Path | None = None,
-    *,
-    explicit_required: bool = False,
-    repository_required: bool = False,
-    review_state: str = "available",
-) -> dict[str, Any]:
-    status = review_status(config)
-    mode = status["mode"]
-    if explicit_required:
-        action, blocked, reason = "blocking", True, "explicit_user_requirement"
-    elif repository_required:
-        action, blocked, reason = "blocking", True, "repository_policy"
-    elif mode == "required":
-        action, blocked, reason = "blocking", True, "required_mode"
-    elif mode == "off":
-        action, blocked, reason = "skip", False, "mode_off"
-    elif risk == "low":
-        action, blocked, reason = "skip", False, "low_risk"
-    elif review_state == "available":
-        action, blocked, reason = "async", False, f"{risk}_risk_async"
-    else:
-        action, blocked, reason = "skip", False, f"review_{review_state}_nonblocking"
-    return {
-        "schema": "opl_flow_code_review_assessment.v1",
-        "mode": mode,
-        "risk": risk,
-        "review_state": review_state,
-        "review_action": action,
-        "delivery_blocked": blocked,
-        "pr_required_by_flow": False,
-        "baseline_gates": status["baseline_gates"],
-        "linear_cloud_coding_sessions": False,
-        "reason": reason,
-    }
 
 
 def flow_root() -> Path:
@@ -646,10 +522,6 @@ def workflow_status(
     except WorkflowError as exc:
         payload["profile"] = {"status": "error", "error": str(exc)}
     try:
-        payload["code_review"] = review_status()
-    except WorkflowError as exc:
-        payload["code_review"] = {"status": "error", "error": str(exc)}
-    try:
         bd = executable("bd", bd_arg)
         version = run([bd, "version"], cwd)
         assert isinstance(version, subprocess.CompletedProcess)
@@ -700,19 +572,6 @@ def parser() -> argparse.ArgumentParser:
     apply_profile = profile_commands.add_parser("apply")
     apply_profile.add_argument("--codex-home", type=Path, default=Path.home() / ".codex")
     apply_profile.add_argument("--packet", required=True, type=Path)
-    review = commands.add_parser("review")
-    review_commands = review.add_subparsers(dest="review_command", required=True)
-    review_status_command = review_commands.add_parser("status")
-    review_status_command.add_argument("--config", type=Path)
-    configure = review_commands.add_parser("configure")
-    configure.add_argument("--mode", choices=REVIEW_MODES, required=True)
-    configure.add_argument("--config", type=Path)
-    assess = review_commands.add_parser("assess")
-    assess.add_argument("--risk", choices=("low", "medium", "high"), required=True)
-    assess.add_argument("--config", type=Path)
-    assess.add_argument("--explicit-required", action="store_true")
-    assess.add_argument("--repository-required", action="store_true")
-    assess.add_argument("--review-state", choices=REVIEW_STATES, default="available")
     ledger = commands.add_parser("ledger")
     ledger_commands = ledger.add_subparsers(dest="ledger_command", required=True)
     init = ledger_commands.add_parser("init")
@@ -760,21 +619,6 @@ def main(argv: list[str] | None = None) -> int:
             )
             print(json.dumps(result, ensure_ascii=False, indent=2, sort_keys=True))
             return 2 if result.get("status") == "requires_codex_semantic_merge" else 0
-        if args.command == "review":
-            if args.review_command == "configure":
-                result = configure_review(args.mode, args.config)
-            elif args.review_command == "assess":
-                result = assess_review(
-                    args.risk,
-                    args.config,
-                    explicit_required=args.explicit_required,
-                    repository_required=args.repository_required,
-                    review_state=args.review_state,
-                )
-            else:
-                result = review_status(args.config)
-            print(json.dumps(result, ensure_ascii=False, indent=2, sort_keys=True))
-            return 0
         if args.command == "fleet":
             instance = instance_root(args.instance, required=False)
             fleet, _ = fleet_command(instance, args.fleet_bin)
