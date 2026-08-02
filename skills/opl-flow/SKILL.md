@@ -10,7 +10,7 @@ It is an optional `OPL Package(kind=workflow_profile)`: its absence must not
 block OPL Base, OPL App, plain Codex, another Package, or domain work.
 
 Flow owns the reusable Profile, recommended model policy, experience-baseline
-intent, core workflow Skills, Ledger onboarding contract, and generic Fleet
+intent, core workflow Skills, Ledger onboarding route, and generic Fleet
 engine. Framework owns install/update/repair and installed projections. App
 owns product UI, user choices, and fallback behavior. A private OPL Instance
 owns personal Ledger and Fleet state.
@@ -32,7 +32,7 @@ Ledger, Fleet, package, and App contract into an ordinary baseline task.
 | `setup` (`$opl-flow setup`) | Establish or repair the owner-supported baseline on this machine; optionally initialize an Instance. | `references/setup-update.md`, `references/package-lifecycle.md` |
 | `tune` (`$opl-flow tune`) | Improve `AGENTS.md`, model/reasoning defaults, capability selection, or optional enhancements while preserving user ownership. | `references/codex-baseline.md`, `references/app-integration.md` |
 | `update` (`$opl-flow update`) | Update Flow and configured components from their owners, migrate known legacy surfaces, and verify effective discovery. | `references/setup-update.md`, `references/package-lifecycle.md` |
-| `start` (`$opl-flow start`) | Formally onboard the owner's complete human Ledger: reuse or create its Dashboard and Bead, complete Linear projection, and the hourly `OPL Flow Supervisor`. | `references/start-onboarding.json`, `references/ledger-start.md` |
+| `start` (`$opl-flow start`) | Idempotently bind the owner's Ledger Dashboard, Bead, Linear projection, and hourly `OPL Flow Supervisor`. | `references/ledger-start.md` |
 | `fleet` (`$opl-flow fleet`) | Configure, inspect, admit, select, or dispatch across Instance-backed machines. | Use `$opl-fleet`; load its Skill instead of expanding Fleet here. |
 
 Natural-language examples:
@@ -121,46 +121,14 @@ run onboarding or create a second supervision loop.
 
 ### `start`
 
-Execute the machine contract end to end. `OPL Ledger` means the owner Instance's
-complete human Ledger, not the Supervisor and not only OPL source-development
-work. The Supervisor display name is exactly `OPL Flow Supervisor`.
+Load `references/ledger-start.md` and execute its owner-API route. Only an
+explicit `start` may create onboarding state. Reuse an exact identity match,
+create only when none exists, and fail closed on ambiguity. One active hourly
+`OPL Flow Supervisor` covers all registered Linear projects.
 
-Preserve uniqueness, native task and Automation routes, complete narrow-field
-Linear coverage, supervisor decision set, Dolt parity, and the no-auto-archive
-boundary. One Supervisor and one hourly heartbeat cover one or more registered
-Linear projects; adding a project updates that Supervisor instead of creating a
-second loop. Current onboarding registers `OPL Ledger` by default.
-
-Keep lifecycle and visible activity separate. Beads keeps the durable lifecycle
-(`open`, `in_progress`, `blocked`, `deferred`, `closed`). Each unresolved Bead
-also carries one `execution_mode`: `active`, `waiting_user`,
-`waiting_external`, `monitoring`, or `aggregate`. Project that combination to
-Linear as `Todo`, `In Progress`, `Needs Action`, `Blocked`, `Monitoring`,
-`Backlog`, or `Done`. `Needs Action` means the next step requires the owner;
-`Blocked` means an external event or dependency prevents progress. Neither
-state implies an Agent remains allocated. Preserve an existing Beads `blocked`
-lifecycle when either is read back; otherwise preserve `in_progress`.
-`Monitoring` normalizes to `in_progress`. Unknown modes fail closed without
-changing the Linear status.
-
-The local Codex manages every registered issue by default. Treat `codex-ready`
-as an optional compatibility hint. `codex-paused` blocks dispatch only: keep
-the issue reconciled and keep consuming its authorized user comments. On each
-heartbeat, use `mcp__codex_apps__linear_list_comments` and the saved
-per-project Linear comment-ID high-watermark. Deliver each new authorized user
-comment exactly once to the matching local Codex task using the comment ID as
-the idempotency key. Advance the cursor only after successful delivery or a
-documented non-user ignore. Ignore Supervisor, Agent, Automation, and other
-non-user comments to prevent feedback loops. Process comments no later than the
-next heartbeat. A Codex Cloud delegate conflicts with this route and fails
-closed.
-
-Register Ambient Ops in the Ledger as an OPL Fleet observability extension;
-it does not create another Supervisor. Validate the final receipt:
-
-```bash
-python3 skills/opl-flow/scripts/validate_start_onboarding.py --receipt <path>
-```
+Do not synthesize an onboarding receipt or accept local config, a prompt, or a
+test as proof. Finish by reading the Dashboard, Bead, heartbeat, Linear comment
+cursor, and Dolt parity back from their current owners.
 
 ### `fleet`
 
