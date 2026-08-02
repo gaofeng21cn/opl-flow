@@ -181,56 +181,23 @@ opl packages status --package-id opl-flow --json
 codex plugin list --json
 ```
 
-For repository development only:
+For repository source verification:
 
 ```bash
-python3 scripts/install_local_plugin.py --verify-only
+scripts/verify.sh
 ```
 
-The developer command validates a local Plugin/cache payload. It does not prove
-per-Package GHCR publication, complete Package currentness, Standard/Full,
-another executor, or the target migration.
-
-The public machine-readable Profile route is independent of that developer
-installer:
-
-```bash
-python3 scripts/opl_workflow.py profile status
-python3 scripts/opl_workflow.py profile prepare
-python3 scripts/opl_workflow.py profile apply --packet <reviewed-packet>
-```
-
-`prepare` leaves an unknown existing `AGENTS.md` untouched and returns a review
-packet. Only reviewed output can be applied, with stale-target and backup
-guards.
+This validates source contracts only. Framework owns Package installation,
+Profile materialization and installed currentness; Codex owns Plugin discovery
+and callability. Existing user Profile changes remain review-gated through the
+Framework Package action, not a repository-local lifecycle script.
 
 ## Release Qualification Boundary
 
 Normal OPL composition is dynamic and does not lock every Package to one release
-cohort. Exact version, owner commit, and GHCR digest are bound only inside the
-evidence packet for the candidate currently being qualified.
-
-Qualification has two levels. Run `python3 scripts/qualify_install.py --plan`
-before each release. With no system trigger it selects `routine-release`: use
-one reference platform and validate both fresh install and upgrade. The upgrade
-predecessor is the real public `latest-stable` observed before candidate
-promotion, not a guessed adjacent SemVer version. Routine releases still bind
-the exact owner commit and GHCR digest, preserve an existing Profile or leave an
-unreviewed merge packet unapplied, and read back the configured carrier.
-
-`system-certification` is not a per-version gate. It is selected only for the
-first supported release, a carrier or Package payload contract change, Profile
-mutation change, executor discovery change, supported-platform change, security
-boundary change, an install incident, or an explicit scheduled recertification.
-It validates six sanitized live receipts: macOS, Linux, and Windows/WSL, each
-in `fresh` and `upgrade` mode. Core must pass with Linear and Fleet absent, and
-at least one receipt must come from a newly started Codex session that actually
-invokes an installed OPL Flow Skill.
-
-Validate the receipts with the same `--trigger` arguments used for planning.
-The script selects the level; callers do not declare a second, potentially
-conflicting mode. Supplying any system trigger with only routine receipts fails
-closed. `codex plugin list`, an existing conversation, and repository-local
-discovery are not substitutes for the new-session evidence required by system
-certification. Windows Codex App mapped-home integration remains a separate
-consumer qualification.
+cohort. Release qualification belongs to the publisher and Framework carrier:
+bind the candidate source commit and immutable digest, exercise fresh and
+upgrade paths required by the affected platform contract, then read back the
+installed Package and a newly started Codex executor. Repository verification,
+an existing task and Plugin discovery alone do not prove publication or
+installed currentness.
