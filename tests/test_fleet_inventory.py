@@ -295,6 +295,23 @@ class FleetInventoryTests(unittest.TestCase):
         self.assertEqual(result["codegraph"], {"present": True, "version": "1.5.0"})
         command.assert_called_once_with([str(executable), "--version"])
 
+    def test_wsl_remote_control_accepts_normalized_task_principal(self) -> None:
+        captured: list[str] = []
+
+        def read_status(script: str) -> dict[str, bool]:
+            captured.append(script)
+            return {"startup_configured": True, "running": True}
+
+        with mock.patch.object(inventory, "powershell_json", side_effect=read_status):
+            result = inventory.remote_control_status(True)
+
+        self.assertEqual(result, {"startup_configured": True, "running": True})
+        script = captured[0]
+        self.assertIn('$leaf=@($user -split "\\\\")[-1]', script)
+        self.assertIn('$taskUser -notmatch "[\\\\@]"', script)
+        self.assertIn("$logon -and $principal -and", script)
+        self.assertNotIn("$task.Principal.UserId -ieq $user", script)
+
     def test_specialized_software_reports_only_approved_matches(self) -> None:
         installed = [
             {"name": "Fan Control", "version": "V230"},
