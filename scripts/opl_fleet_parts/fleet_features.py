@@ -100,7 +100,6 @@ def node_features(
     policy = entry.get("policy") or {}
     inventory = entry.get("inventory") or {}
     execution = inventory.get("execution") or {}
-    hardware = inventory.get("hardware") or {}
     baseline = inventory.get("baseline") or {}
     features = {
         str(item)

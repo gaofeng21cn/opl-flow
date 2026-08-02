@@ -1,46 +1,30 @@
 #!/usr/bin/env python3
 """OPL Fleet engine backed by one private OPL Instance.
 
-Facade that preserves the original module surface and CLI entry point while
-the implementation lives in medium-grained domain modules under
-scripts/opl_fleet_parts/.
+Facade that re-exports the supported OPL Fleet callable/constant surface and
+keeps the CLI entry point, while the implementation lives in medium-grained
+domain modules under scripts/opl_fleet_parts/.  The retained stdlib imports
+are part of the test patch seam (fleet.<module>), not a public API contract.
 """
 
 from __future__ import annotations
 
 import argparse
-import base64
-import contextlib
 import datetime as dt
-import fcntl
-import hashlib
 import json
 import os
 import platform
-import plistlib
-import re
-import secrets
-import shlex
 import shutil
 import socket
 import subprocess
 import sys
-import tempfile
-import time
-import uuid
 from pathlib import Path
-from typing import Any, Iterator
+from typing import Any
 
 from fleet_inventory import collect_inventory, validate_inventory
 
 from opl_fleet_parts import (
-    fleet_cli,
     fleet_common,
-    fleet_dispatch,
-    fleet_features,
-    fleet_lease,
-    fleet_reconcile,
-    fleet_runner,
 )
 
 FLOW_ROOT = fleet_common.FLOW_ROOT
