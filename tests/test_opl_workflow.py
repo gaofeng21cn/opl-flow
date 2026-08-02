@@ -2,28 +2,21 @@ from __future__ import annotations
 
 import json
 import os
-import shutil
 import stat
 import subprocess
 import sys
 import tempfile
 import unittest
-from contextlib import redirect_stdout
-from io import StringIO
 from pathlib import Path
 from unittest import mock
 
 from scripts.opl_workflow import (
     PROGRAM_REF,
     WorkflowError,
-    assess_review,
-    configure_review,
     init_ledger,
     linear_probe,
     main,
-    profile_action,
     reconcile_operations,
-    review_status,
     workflow_status,
 )
 
@@ -241,74 +234,6 @@ else:
                 "1",
             )
 
-    def test_profile_prepare_installs_an_empty_codex_home(self) -> None:
-        with tempfile.TemporaryDirectory() as temp:
-            codex_home = Path(temp) / ".codex"
-            result = profile_action("prepare", codex_home)
-            self.assertEqual(result["status"], "installed")
-            self.assertTrue((codex_home / "AGENTS.md").is_file())
-            self.assertTrue((codex_home / "TASTE.md").is_file())
-            self.assertEqual(profile_action("status", codex_home)["status"], "current")
-
-    def test_profile_prepare_preserves_an_existing_custom_profile(self) -> None:
-        with tempfile.TemporaryDirectory() as temp:
-            codex_home = Path(temp) / ".codex"
-            codex_home.mkdir()
-            target = codex_home / "AGENTS.md"
-            target.write_text("user-owned rule\n", encoding="utf-8")
-            result = profile_action("prepare", codex_home)
-            self.assertEqual(result["status"], "requires_codex_semantic_merge")
-            self.assertEqual(target.read_text(encoding="utf-8"), "user-owned rule\n")
-            packet = Path(result["merge_packet"])
-            self.assertTrue((packet / "prompt.md").is_file())
-            self.assertTrue((packet / "merge-plan.json").is_file())
-
-    def test_profile_apply_requires_a_packet(self) -> None:
-        with tempfile.TemporaryDirectory() as temp:
-            with self.assertRaisesRegex(WorkflowError, "requires --packet"):
-                profile_action("apply", Path(temp))
-
-    def test_profile_prepare_uses_exit_two_for_review(self) -> None:
-        with (
-            tempfile.TemporaryDirectory() as temp,
-            mock.patch(
-                "scripts.opl_workflow.profile_action",
-                return_value={"status": "requires_codex_semantic_merge"},
-            ),
-            redirect_stdout(StringIO()),
-        ):
-            self.assertEqual(
-                main(["profile", "prepare", "--codex-home", temp]),
-                2,
-            )
-
-    def test_installed_profile_status_does_not_write_bytecode(self) -> None:
-        with tempfile.TemporaryDirectory() as temp:
-            root = Path(temp) / "plugin"
-            scripts = root / "scripts"
-            scripts.mkdir(parents=True)
-            source_root = Path(__file__).resolve().parents[1]
-            for name in ("opl_workflow.py", "install_local_plugin.py"):
-                shutil.copy2(source_root / "scripts" / name, scripts / name)
-            shutil.copytree(source_root / "templates", root / "templates")
-            result = subprocess.run(
-                [
-                    sys.executable,
-                    str(scripts / "opl_workflow.py"),
-                    "profile",
-                    "status",
-                    "--codex-home",
-                    str(Path(temp) / ".codex"),
-                ],
-                cwd=root,
-                check=False,
-                stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE,
-                text=True,
-            )
-            self.assertEqual(result.returncode, 0, result.stderr)
-            self.assertFalse((scripts / "__pycache__").exists())
-
     def test_linear_status_drops_unknown_fields(self) -> None:
         with tempfile.TemporaryDirectory() as temp:
             root = Path(temp)
@@ -395,68 +320,10 @@ elif sys.argv[1:2] == ["list"]:
             self.assertFalse(result["configured"])
             self.assertEqual(result["projection"]["state"], "error")
 
-    def test_review_defaults_to_off_without_user_config(self) -> None:
-        with tempfile.TemporaryDirectory() as temp:
-            status = review_status(Path(temp) / "missing.json")
-        self.assertFalse(status["configured"])
-        self.assertEqual(status["mode"], "off")
-        self.assertFalse(status["pr_required_by_flow"])
-
-    def test_workflow_status_reports_review_mode(self) -> None:
-        with (
-            mock.patch("scripts.opl_workflow.cli_probe", return_value={"available": True}),
-            mock.patch("scripts.opl_workflow.github_probe", return_value={"available": True, "authenticated": True}),
-            mock.patch("scripts.opl_workflow.profile_action", return_value={"status": "current"}),
-            mock.patch("scripts.opl_workflow.review_status", return_value={"mode": "async-risk"}),
-            mock.patch("scripts.opl_workflow.executable", side_effect=WorkflowError("no bd")),
-        ):
-            result = workflow_status(None, None, None)
-        self.assertEqual(result["code_review"]["mode"], "async-risk")
-
-    def test_review_configure_is_private_and_assesses_risk(self) -> None:
-        with tempfile.TemporaryDirectory() as temp:
-            config = Path(temp) / "private" / "code-review.json"
-            configured = configure_review("async-risk", config)
-            self.assertEqual(configured["mode"], "async-risk")
-            self.assertEqual(stat.S_IMODE(config.stat().st_mode), 0o600)
-            low = assess_review("low", config)
-            medium = assess_review("medium", config)
-            self.assertEqual((low["review_action"], low["delivery_blocked"]), ("skip", False))
-            self.assertEqual((medium["review_action"], medium["delivery_blocked"]), ("async", False))
-            self.assertFalse(medium["pr_required_by_flow"])
-
-    def test_async_review_unavailable_does_not_block_delivery(self) -> None:
-        with tempfile.TemporaryDirectory() as temp:
-            config = Path(temp) / "code-review.json"
-            configure_review("async-risk", config)
-            result = assess_review("high", config, review_state="unavailable")
-        self.assertEqual(result["review_action"], "skip")
-        self.assertFalse(result["delivery_blocked"])
-        self.assertEqual(result["reason"], "review_unavailable_nonblocking")
-
-    def test_required_review_unavailable_still_blocks(self) -> None:
-        with tempfile.TemporaryDirectory() as temp:
-            config = Path(temp) / "code-review.json"
-            configure_review("required", config)
-            result = assess_review("low", config, review_state="unavailable")
-        self.assertEqual(result["review_action"], "blocking")
-        self.assertTrue(result["delivery_blocked"])
-
-    def test_explicit_or_repository_requirement_is_blocking_without_flow_pr(self) -> None:
-        with tempfile.TemporaryDirectory() as temp:
-            config = Path(temp) / "missing.json"
-            explicit = assess_review("low", config, explicit_required=True)
-            repository = assess_review("low", config, repository_required=True)
-        self.assertTrue(explicit["delivery_blocked"])
-        self.assertTrue(repository["delivery_blocked"])
-        self.assertFalse(explicit["pr_required_by_flow"])
-        self.assertFalse(repository["pr_required_by_flow"])
-
     def test_status_separates_binary_and_ledger_failures(self) -> None:
         with (
             mock.patch("scripts.opl_workflow.cli_probe", return_value={"available": True}),
             mock.patch("scripts.opl_workflow.github_probe", return_value={"available": True, "authenticated": True}),
-            mock.patch("scripts.opl_workflow.profile_action", return_value={"status": "current"}),
             mock.patch("scripts.opl_workflow.executable", side_effect=["/usr/bin/true", WorkflowError("no fleet")]),
             mock.patch("scripts.opl_workflow.run", return_value=subprocess.CompletedProcess([], 0, "bd version 1", "")),
             mock.patch("scripts.opl_workflow.ledger_probe", side_effect=WorkflowError("database unreadable")),

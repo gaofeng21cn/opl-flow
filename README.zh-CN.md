@@ -163,7 +163,7 @@ OPL Skills 的浏览分类与安装 preset 分离。`development` 方法和六�
 `codex://thread/<thread_id>` 关联的 Bead，以及唯一原生每小时
 `OPL Flow Supervisor` Heartbeat；默认登记 `OPL Ledger`，同时通过官方 Linear
 Connector 把每个用户总账 Bead 投影为唯一 Linear issue，保留层级并限制字段集合，
-最后以任务、Bead、Automation、Linear 和 Dolt 的 fresh receipt 收尾。同一 Supervisor
+最后从 owner API fresh 回读任务、Bead、Automation、Linear 和 Dolt。同一 Supervisor
 以后可以增加更多已登记 Project；重复执行不会创建第二套循环、Dashboard Bead 或 issue。
 
 私人 Skill 放在各自的 OPL Instance 中，不进入公开增强包。
@@ -379,10 +379,6 @@ OPL Flow 在技术上仍是 `OPL Package(kind=workflow_profile)`，但它已经�
 # 综合状态
 python3 scripts/opl_workflow.py status --instance <opl-instance>
 
-# 用户配置
-python3 scripts/opl_workflow.py profile status
-python3 scripts/opl_workflow.py profile prepare
-
 # 总账
 python3 scripts/opl_workflow.py ledger init --instance <opl-instance>
 python3 scripts/opl_workflow.py ledger reconcile-operations --instance <opl-instance>
@@ -413,7 +409,6 @@ scripts/verify.sh full
 - [可复用开发工作流架构](docs/reusable-workflow-architecture.md)
 - [能力组合与维护边界](docs/capability-governance.md)
 - [新机器安装](docs/new-machine-codex-setup.md)
-- [当前实现状态](docs/status.md)
 - [文档索引](docs/README.md)
 
 ## 许可证

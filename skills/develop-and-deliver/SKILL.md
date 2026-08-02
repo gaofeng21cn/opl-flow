@@ -131,29 +131,11 @@ A bridge must not be an unrecorded local change, mutable host assumption, force,
 skipped qualification, fabricated receipt, stale artifact, or unknown external
 result.
 
-## Review Without Slowing Delivery
+## Review Boundary
 
-Code review is an optional risk check, not a default delivery ceremony. When
-OPL Flow exposes a configured review mode, assess it after the implementation
-risk is known. A missing configuration keeps the public `off` default and must
-not block work.
-
-- `off`: do not start a separate review unless the user or repository requires it.
-- `async-risk`: skip low-risk work; for medium- or high-risk work, start an
-  independent local Codex review when available and continue the original
-  implementation, validation, and delivery path without waiting for it.
-- `required`: treat review as a delivery gate.
-
-The independent review may inspect a diff, commit, or existing pull request.
-Never create a pull request only to satisfy OPL Flow: PR policy remains owned by
-the repository and current task. In `async-risk`, review queueing, failure, or
-unavailability is non-blocking. Only an explicit user requirement, repository
-policy, or selected `required` mode can make review blocking.
-
-Do not reduce or duplicate the task's existing implementation, tests, CI,
-signing, release, deployment, or readback. Linear Code & Reviews may show an
-existing PR for human decisions, but Linear Cloud Coding Sessions are not the
-default execution route.
+Do not add a separate review or pull request by default. Run one only when the
+user or repository explicitly requires it, without replacing implementation,
+tests, CI, signing, release, deployment, or readback.
 
 ## Verify And Close
 

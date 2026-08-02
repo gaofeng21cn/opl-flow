@@ -74,9 +74,9 @@ experience baseline 可以使用 owner/version/readiness metadata 做 repair 和
 诊断，但不得升级为 Flow operational 门禁。精确 build lock 只绑定一次 Full payload
 assembly，不定义 ordinary installed truth。
 
-Script merge policy保留一条独立不变量：target SHA stale-write check、backup、candidate
-validation 和 atomic apply。当前实现可能记录 rollback receipt；该 receipt 只说明
-Profile mutation 的 compatibility recovery，不是通用 Package dependency。
+Framework Profile materialization 保留 target SHA stale-write check、backup、candidate
+validation 和 atomic apply。其 rollback receipt 只说明 Profile mutation 的
+compatibility recovery，不是通用 Package dependency。
 
 ## Standard And Full
 
@@ -99,13 +99,13 @@ Bead、Linear registration 或 Automation。
 
 ## Verification Boundary
 
-Repository developer check：
+Repository source check：
 
 ```bash
-python3 scripts/install_local_plugin.py --verify-only
+scripts/verify.sh
 ```
 
-它验证本地 Codex Plugin/cache payload，不证明 per-Package GHCR、完整 Package、
+它验证仓库 source contracts，不执行安装，也不证明 per-Package GHCR、完整 Package、
 Standard/Full、另一 executor 或本机 ordinary currentness。
 
 Target currentness 分为 owner publication、carrier installed truth、executor

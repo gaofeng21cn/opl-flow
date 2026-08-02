@@ -342,7 +342,7 @@ The `$opl-flow` Skill coordinates these steps:
 
 The orchestration stays model-native rather than reimplementing package managers
 or owner APIs. `scripts/opl_workflow.py status` is the machine-readable doctor;
-`profile status/prepare/apply` owns Profile safety; ordinary Dolt operations
+Framework owns Profile materialization and safety; ordinary Dolt operations
 remain direct `bd` calls, while Linear projection uses the official Linear
 Connector and never requires `bd linear sync`; Fleet remains optional. Only external private
 repository creation, OAuth, or another owner-required authorization remains
@@ -438,9 +438,9 @@ controller, inbound SSH, Linear, or Fleet.
 - For later routine releases, run fresh and upgrade on one reference platform;
   reuse the system certification unless a declared boundary change or incident
   invalidates it.
-- Select the level with `scripts/qualify_install.py --plan`; carrier, payload
-  contract, Profile mutation, executor discovery, platform, and security
-  changes fail closed to system certification.
+- The publisher and Framework carrier select the required qualification level;
+  carrier, payload contract, Profile mutation, executor discovery, platform,
+  and security changes fail closed to system certification.
 - Resolve the upgrade predecessor from the public `latest-stable` observed
   before candidate promotion, never from SemVer adjacency.
 - Verify Core without Linear or Fleet during system certification, then the

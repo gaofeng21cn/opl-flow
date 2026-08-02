@@ -9,7 +9,7 @@
   "interface": {
     "displayName": "OPL Flow",
     "shortDescription": "Configure and coordinate Codex work",
-    "longDescription": "OPL Flow configures the Codex experience baseline and coordinates durable work. Installation deploys capability only; explicit $opl-flow start onboards the owner's complete Ledger, one hourly Supervisor, registered Linear projects, and fresh receipt.",
+    "longDescription": "OPL Flow configures the Codex experience baseline and coordinates durable work. Framework and Codex own installation and Profile materialization; explicit $opl-flow start idempotently binds the Ledger through native owner APIs and fresh readback.",
     "developerName": "Gaofeng",
     "category": "Developer Tools",
     "capabilities": [
@@ -26,7 +26,7 @@
       "multi-machine-fleet",
       "codegraph-bootstrap"
     ],
-    "defaultPrompt": "Use $opl-flow doctor to check my Codex baseline, or $opl-flow start to onboard and supervise my complete Ledger."
+    "defaultPrompt": "Use $opl-flow doctor to check my Codex baseline, or $opl-flow start for idempotent Ledger onboarding."
   },
   "homepage": "https://github.com/gaofeng21cn/opl-flow",
   "repository": "https://github.com/gaofeng21cn/opl-flow",

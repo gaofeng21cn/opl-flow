@@ -1,55 +1,72 @@
 # Ledger Start
 
-Use this reference only after reading `start-onboarding.json`.
-
-`OPL Ledger` is the owner Instance's complete human work ledger. It is not the
-Supervisor itself and is not limited to OPL repository development. Installing
-Flow, running `setup`, or running `update` only deploys or maintains capability;
-formal onboarding happens only after explicit `$opl-flow start`.
+Use this reference only for explicit `$opl-flow start`. `OPL Ledger` is the
+owner Instance's complete human work ledger, not the Supervisor or an OPL-source
+project list. Setup, update, and install never run this route.
 
 ## Idempotent Onboarding
 
-1. Resolve the current saved project, local environment, unique private
-   Instance, and objective fingerprint. Ask only on material ambiguity.
-2. Use native Codex project/task tools to reuse one matching Dashboard and pin
-   it. Create only when none exists; multiple matches fail closed.
-3. Pull the Instance Ledger. Reuse the Bead whose `external_ref` is exactly
-   `codex://thread/<thread_id>`, or create one when absent. Never initialize a
-   second Ledger.
-4. Parse `$CODEX_HOME/automations/*/automation.toml` to discover the one hourly
-   heartbeat bound to the Dashboard and objective. Unreadable or ambiguous
-   discovery fails closed. Use native Automation view/update; never create a
-   cron workaround or second loop.
-5. Configure the fixed display name `OPL Flow Supervisor`, not a passive
-   poller. One heartbeat supervises one or more registered Linear projects;
-   adding a project updates the existing Supervisor rather than creating a
-   second heartbeat. Register `OPL Ledger` by default.
-6. Each run reads ready,
-   in-progress, overdue, and live execution tasks; chooses one allowed decision
-   per lane; performs continuation, correction, split, merge, idle-event, or
-   terminal review; and writes claim/checkpoint/blocker/remaining to Beads.
-   Before remote dispatch, read the Bead's single
+1. Resolve the saved Codex project, local environment, unique private Instance,
+   and objective fingerprint. Ask only on material ambiguity.
+2. Use `list_threads` to match `(project_id, objective_fingerprint)`. Reuse one
+   Dashboard, use `create_thread` only for zero matches, and fail closed on
+   multiple matches. Pin it with `set_thread_pinned`, then `read_thread` the
+   exact project, thread ID, title, and pinned state.
+3. Run `bd dolt pull`, then use the owner `bd` CLI to reuse the one Bead whose
+   `external_ref` is exactly `codex://thread/<thread_id>` or create it when
+   absent. Multiple matches fail closed; never initialize a second Ledger.
+4. Use `automation_update` view to match
+   `(kind=heartbeat, target_thread_id, objective_fingerprint)`. Create only for
+   zero matches, update one match, and fail closed on unreadable or multiple
+   matches. Read back one active hourly heartbeat named exactly
+   `OPL Flow Supervisor`; all registered Linear projects share it.
+5. Each Supervisor run reads ready, in-progress, overdue, and live local tasks,
+   acts on current user intent, and records claim/checkpoint/blocker/remaining
+   in Beads. Before remote dispatch, read the Bead's single
    `metadata.opl_execution_requirements` object. If absent, keep execution in
    the current Codex session. If present, validate it against
    `contracts/execution-requirements.schema.json`, then use `$opl-fleet` for
    plan, fresh admission, lease, adapter execution, result readback, and
    release. Record only the dispatch ID and short outcome in the Bead; never
    store lease nonces, private routes, command output, or credentials.
-7. Reconcile every user-ledger Bead to exactly one Linear issue through the
-   official Connector, preserving hierarchy and the narrow field contract.
-8. For each registered project, call
-   `mcp__codex_apps__linear_list_comments`, consume authorized user comments
-   after its saved Linear comment-ID high-watermark, and send each new comment
-   exactly once to the corresponding local Codex task using the comment ID as
-   the idempotency key. Advance the cursor only after successful delivery or a
-   documented non-user ignore. Ignore Supervisor, Agent, Automation, and other
-   non-user comments. Process comments no later than the next heartbeat. A
-   Cloud delegate is a conflict and fails closed.
-9. Register Ambient Ops as an OPL Fleet observability extension inside the
-   current Ledger; do not create another heartbeat.
-10. Push and read back Dolt only after coherent mutation. Finish with exact
-    Dashboard, Bead, heartbeat, registered-project, comment-cursor/delivery,
-    Ambient Ops, Linear coverage, and Dolt parity.
+6. Reconcile every user-ledger Bead to exactly one Linear issue through
+   `mcp__codex_apps__linear_list_issues`, `mcp__codex_apps__linear_get_issue`,
+   and `mcp__codex_apps__linear_save_issue`. Read before write and read back
+   after write; preserve hierarchy and the narrow field contract. Do not use
+   `bd linear sync`.
+7. For every projected issue, use `mcp__codex_apps__linear_list_comments` and
+   the registered project's saved comment-ID cursor. Use
+   `send_message_to_thread` to send each later authorized user comment exactly
+   once to its local Codex task with the comment ID as the idempotency key.
+   Advance the cursor only after delivery or a recorded non-user ignore. Ignore
+   Supervisor, Agent, Automation, and other non-user comments. `codex-paused`
+   stops dispatch only; reconciliation and comment intake continue. A Cloud
+   delegate is a conflict and fails closed.
+8. Keep Ambient Ops inside this Ledger as an OPL Fleet observability extension;
+   it never creates another Supervisor or heartbeat.
+9. After one coherent mutation, run `bd dolt push`, then pull and read the
+   affected Beads again. A real no-change result is valid; unknown parity is
+   not.
+
+## Fresh Acceptance
+
+Do not build a parallel receipt. Complete `start` only when the same run reads:
+
+- `read_thread`: the one pinned Dashboard and exact project/thread identity;
+- `bd show --json`: one Bead with the exact `codex://thread/<thread_id>` link
+  and its saved per-project comment cursor;
+- `automation_update` view: one active hourly `OPL Flow Supervisor`, targeting
+  that thread, bound to the objective fingerprint, and containing the complete
+  registered-project set;
+- Linear `list_issues`/`get_issue`: one current issue per Bead after write;
+- Linear `list_comments` plus the destination task's `read_thread`: every
+  authorized comment after the saved cursor is delivered once, every skipped
+  comment is non-user, and the Beads cursor matches the last handled comment;
+- `bd dolt pull` after push or explicit no-change: no remaining remote drift.
+
+Repeating `start` must return the same Dashboard, Bead, and heartbeat IDs and
+must create zero duplicates. Any missing, stale, unreadable, or ambiguous
+readback leaves the action incomplete.
 
 ## Linear Field Authority
 
@@ -75,8 +92,8 @@ which takes precedence over monitoring. No unresolved descendants displays
 Linear.
 
 Project only identity, title, hierarchy, status, priority, due, readiness,
-execution mode, display status, cancel intent, short blocker/result, and links. Exclude credentials, local
-paths, logs, full notes, metadata, and checkpoints. Do not use `bd linear sync`.
+execution mode, display status, cancel intent, short blocker/result, and links.
+Exclude credentials, local paths, logs, full notes, metadata, and checkpoints.
 
 Every issue in a registered project is managed by local Codex by default.
 `codex-ready` may remain for compatibility but is not required on every issue.
