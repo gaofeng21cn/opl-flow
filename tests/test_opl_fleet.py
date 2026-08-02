@@ -2979,9 +2979,206 @@ class CodexFleetTests(unittest.TestCase):
                 ),
                 "",
             )
-            with patch_fleet("run", return_value=completed):
+            with (
+                mock.patch.object(fleet.shutil, "which", return_value="/usr/bin/codex"),
+                patch_fleet("run", return_value=completed),
+            ):
                 roots = fleet.codex_plugin_skill_roots()
         self.assertEqual(roots, (skill_root,))
+
+    def test_codex_plugin_skill_roots_reads_safe_local_sources_without_codex(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            codex_home = root / "codex"
+            marketplace = root / "marketplace"
+            plugin_root = marketplace / "plugins/opl-flow"
+            skill_root = plugin_root / "skills"
+            (marketplace / ".agents/plugins").mkdir(parents=True)
+            (plugin_root / ".codex-plugin").mkdir(parents=True)
+            (skill_root / "opl-flow").mkdir(parents=True)
+            (plugin_root / ".codex-plugin/plugin.json").write_text(
+                json.dumps({"name": "opl-flow", "version": "0.1.31"}),
+                encoding="utf-8",
+            )
+            (skill_root / "opl-flow/SKILL.md").write_text(
+                "# OPL Flow\n",
+                encoding="utf-8",
+            )
+            (marketplace / ".agents/plugins/marketplace.json").write_text(
+                json.dumps({
+                    "name": "fixture",
+                    "plugins": [{
+                        "name": "opl-flow",
+                        "source": {"source": "local", "path": "./plugins/opl-flow"},
+                    }],
+                }),
+                encoding="utf-8",
+            )
+            codex_home.mkdir()
+            (codex_home / "config.toml").write_text(
+                "\n".join([
+                    "[marketplaces.fixture]",
+                    'source_type = "local"',
+                    f"source = {json.dumps(str(marketplace))}",
+                    "",
+                    '[plugins."opl-flow@fixture"]',
+                    "enabled = true",
+                    "",
+                ]),
+                encoding="utf-8",
+            )
+            with (
+                mock.patch.object(fleet.shutil, "which", return_value=None),
+                patch_fleet("effective_codex_home", return_value=codex_home),
+                patch_fleet("run") as command,
+            ):
+                roots = fleet.codex_plugin_skill_roots()
+        self.assertEqual(roots, (skill_root.resolve(),))
+        command.assert_not_called()
+
+    def test_codex_plugin_skill_roots_accepts_marketplace_root_plugin(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            codex_home = root / "codex"
+            marketplace = root / "opl-flow"
+            skill_root = marketplace / "skills"
+            (marketplace / ".agents/plugins").mkdir(parents=True)
+            (marketplace / ".codex-plugin").mkdir()
+            (skill_root / "opl-flow").mkdir(parents=True)
+            (marketplace / ".codex-plugin/plugin.json").write_text(
+                json.dumps({"name": "opl-flow", "version": "0.1.31"}),
+                encoding="utf-8",
+            )
+            (skill_root / "opl-flow/SKILL.md").write_text(
+                "# OPL Flow\n",
+                encoding="utf-8",
+            )
+            (marketplace / ".agents/plugins/marketplace.json").write_text(
+                json.dumps({
+                    "name": "opl-flow-local",
+                    "plugins": [{
+                        "name": "opl-flow",
+                        "source": {"source": "local", "path": "./"},
+                    }],
+                }),
+                encoding="utf-8",
+            )
+            codex_home.mkdir()
+            (codex_home / "config.toml").write_text(
+                "\n".join([
+                    "[marketplaces.opl-flow-local]",
+                    'source_type = "local"',
+                    f"source = {json.dumps(str(marketplace))}",
+                    "",
+                    '[plugins."opl-flow@opl-flow-local"]',
+                    "enabled = true",
+                    "",
+                ]),
+                encoding="utf-8",
+            )
+            with (
+                mock.patch.object(fleet.shutil, "which", return_value=None),
+                patch_fleet("effective_codex_home", return_value=codex_home),
+            ):
+                roots = fleet.codex_plugin_skill_roots()
+        self.assertEqual(roots, (skill_root.resolve(),))
+
+    def test_codex_plugin_skill_roots_rejects_local_source_escape(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            codex_home = root / "codex"
+            marketplace = root / "marketplace"
+            outside = root / "outside"
+            (marketplace / ".agents/plugins").mkdir(parents=True)
+            (outside / ".codex-plugin").mkdir(parents=True)
+            (outside / "skills/opl-flow").mkdir(parents=True)
+            (outside / ".codex-plugin/plugin.json").write_text(
+                json.dumps({"name": "opl-flow", "version": "0.1.31"}),
+                encoding="utf-8",
+            )
+            (outside / "skills/opl-flow/SKILL.md").write_text(
+                "# OPL Flow\n",
+                encoding="utf-8",
+            )
+            (marketplace / ".agents/plugins/marketplace.json").write_text(
+                json.dumps({
+                    "name": "fixture",
+                    "plugins": [{
+                        "name": "opl-flow",
+                        "source": {"source": "local", "path": "../outside"},
+                    }],
+                }),
+                encoding="utf-8",
+            )
+            codex_home.mkdir()
+            (codex_home / "config.toml").write_text(
+                "\n".join([
+                    "[marketplaces.fixture]",
+                    'source_type = "local"',
+                    f"source = {json.dumps(str(marketplace))}",
+                    "",
+                    '[plugins."opl-flow@fixture"]',
+                    "enabled = true",
+                    "",
+                ]),
+                encoding="utf-8",
+            )
+            with (
+                mock.patch.object(fleet.shutil, "which", return_value=None),
+                patch_fleet("effective_codex_home", return_value=codex_home),
+            ):
+                roots = fleet.codex_plugin_skill_roots()
+        self.assertEqual(roots, ())
+
+    @unittest.skipIf(sys.platform == "win32", "fixture requires unprivileged symlinks")
+    def test_codex_plugin_skill_roots_rejects_local_source_symlink(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            codex_home = root / "codex"
+            marketplace = root / "marketplace"
+            outside = root / "outside"
+            (marketplace / ".agents/plugins").mkdir(parents=True)
+            (marketplace / "plugins").mkdir()
+            (outside / ".codex-plugin").mkdir(parents=True)
+            (outside / "skills/opl-flow").mkdir(parents=True)
+            (outside / ".codex-plugin/plugin.json").write_text(
+                json.dumps({"name": "opl-flow", "version": "0.1.31"}),
+                encoding="utf-8",
+            )
+            (outside / "skills/opl-flow/SKILL.md").write_text(
+                "# OPL Flow\n",
+                encoding="utf-8",
+            )
+            (marketplace / "plugins/opl-flow").symlink_to(outside, target_is_directory=True)
+            (marketplace / ".agents/plugins/marketplace.json").write_text(
+                json.dumps({
+                    "name": "fixture",
+                    "plugins": [{
+                        "name": "opl-flow",
+                        "source": {"source": "local", "path": "./plugins/opl-flow"},
+                    }],
+                }),
+                encoding="utf-8",
+            )
+            codex_home.mkdir()
+            (codex_home / "config.toml").write_text(
+                "\n".join([
+                    "[marketplaces.fixture]",
+                    'source_type = "local"',
+                    f"source = {json.dumps(str(marketplace))}",
+                    "",
+                    '[plugins."opl-flow@fixture"]',
+                    "enabled = true",
+                    "",
+                ]),
+                encoding="utf-8",
+            )
+            with (
+                mock.patch.object(fleet.shutil, "which", return_value=None),
+                patch_fleet("effective_codex_home", return_value=codex_home),
+            ):
+                roots = fleet.codex_plugin_skill_roots()
+        self.assertEqual(roots, ())
 
     def test_owner_native_install_accepts_plugin_managed_skills(self) -> None:
         reference = {

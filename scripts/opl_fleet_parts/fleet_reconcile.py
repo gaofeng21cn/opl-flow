@@ -17,6 +17,10 @@ import socket
 import subprocess
 import sys
 import tempfile
+try:
+    import tomllib
+except ModuleNotFoundError:  # pragma: no cover - Python < 3.11 degrades safely.
+    tomllib = None
 from fleet_inventory import collect_inventory, validate_inventory
 from . import fleet_common
 from .fleet_common import AVAILABILITY_POLICIES, CONFIG_PATH, FLOW_ROOT, FleetError, LEASE_WORKLOAD_CLASSES, NODE_ID_PATTERN, PET_FILES, RECEIPT_FIELDS, REPORT_FIELDS, REPOSITORY_FETCH_TIMEOUT_SECONDS, ROLE_PATTERN, RUNNER_PATH, SKILL_REFERENCE_SCHEMA, STATE_ROOT, _INSTANCE_OWNER, atomic_json, effective_codex_home, node_identity, normalize_node_id, read_json, run, sha256_file, utc_now
@@ -635,18 +639,15 @@ def fetch_skill_reference(spec: dict[str, Any], revision: str) -> dict[str, Any]
         raise FleetError("owner skill reference is invalid")
     return payload
 
-def codex_plugin_skill_roots() -> tuple[Path, ...]:
-    result = run(["codex", "plugin", "list", "--json"], check=False)
-    if result.returncode:
-        return ()
-    try:
-        payload = json.loads(result.stdout)
-    except json.JSONDecodeError:
-        return ()
+def _plugin_skill_roots_from_payload(payload: object) -> tuple[Path, ...]:
     if not isinstance(payload, dict) or not isinstance(payload.get("installed"), list):
         return ()
+    try:
+        entries = payload["installed"]
+    except KeyError:
+        return ()
     roots: set[Path] = set()
-    for entry in payload["installed"]:
+    for entry in entries:
         if (
             not isinstance(entry, dict)
             or entry.get("installed") is not True
@@ -662,6 +663,140 @@ def codex_plugin_skill_roots() -> tuple[Path, ...]:
         if plugin_root.is_absolute() and skill_root.is_dir():
             roots.add(skill_root)
     return tuple(sorted(roots))
+
+def _real_directory(
+    path: Path,
+    *,
+    owner_root: Path | None = None,
+    allow_owner_root: bool = False,
+) -> Path | None:
+    try:
+        if path.is_symlink() or not path.is_dir():
+            return None
+        resolved = path.resolve(strict=True)
+        if owner_root is not None:
+            owner = owner_root.resolve(strict=True)
+            if (
+                (resolved == owner and not allow_owner_root)
+                or (resolved != owner and owner not in resolved.parents)
+            ):
+                return None
+        return resolved
+    except OSError:
+        return None
+
+def _safe_json_record(path: Path, owner_root: Path) -> dict[str, Any] | None:
+    try:
+        owner = owner_root.resolve(strict=True)
+        if path.is_symlink() or not path.is_file():
+            return None
+        resolved = path.resolve(strict=True)
+        if owner not in resolved.parents:
+            return None
+        payload = json.loads(resolved.read_text(encoding="utf-8"))
+        return payload if isinstance(payload, dict) else None
+    except (OSError, UnicodeError, json.JSONDecodeError):
+        return None
+
+def _safe_local_plugin_root(marketplace_root: Path, relative_source: str) -> Path | None:
+    relative = Path(relative_source)
+    if relative.is_absolute():
+        return None
+    plugin_root = _real_directory(
+        marketplace_root / relative,
+        owner_root=marketplace_root,
+        allow_owner_root=True,
+    )
+    if plugin_root is None:
+        return None
+    try:
+        if any(
+            entry.is_symlink() or not (entry.is_dir() or entry.is_file())
+            for entry in plugin_root.rglob("*")
+        ):
+            return None
+    except OSError:
+        return None
+    return plugin_root
+
+def _configured_local_plugin_skill_roots() -> tuple[Path, ...]:
+    if tomllib is None:
+        return ()
+    config_path = effective_codex_home() / "config.toml"
+    try:
+        if config_path.is_symlink() or not config_path.is_file():
+            return ()
+        config = tomllib.loads(config_path.read_text(encoding="utf-8"))
+    except (OSError, UnicodeError, tomllib.TOMLDecodeError):
+        return ()
+    marketplaces = config.get("marketplaces")
+    plugins = config.get("plugins")
+    if not isinstance(marketplaces, dict) or not isinstance(plugins, dict):
+        return ()
+    roots: set[Path] = set()
+    for plugin_id, plugin_config in plugins.items():
+        if (
+            not isinstance(plugin_id, str)
+            or "@" not in plugin_id
+            or not isinstance(plugin_config, dict)
+            or plugin_config.get("enabled") is not True
+        ):
+            continue
+        plugin_name, marketplace_id = plugin_id.rsplit("@", 1)
+        marketplace = marketplaces.get(marketplace_id)
+        if (
+            not plugin_name
+            or not marketplace_id
+            or not isinstance(marketplace, dict)
+            or marketplace.get("source_type") != "local"
+            or not isinstance(marketplace.get("source"), str)
+        ):
+            continue
+        marketplace_root = Path(marketplace["source"]).expanduser()
+        if not marketplace_root.is_absolute():
+            continue
+        marketplace_root = _real_directory(marketplace_root)
+        if marketplace_root is None:
+            continue
+        manifest = _safe_json_record(
+            marketplace_root / ".agents/plugins/marketplace.json",
+            marketplace_root,
+        )
+        entries = manifest.get("plugins") if manifest else None
+        if not isinstance(entries, list):
+            continue
+        matches = [
+            entry for entry in entries
+            if isinstance(entry, dict) and entry.get("name") == plugin_name
+        ]
+        if len(matches) != 1 or not isinstance(matches[0].get("source"), dict):
+            continue
+        source = matches[0]["source"]
+        relative_source = source.get("path")
+        if source.get("source") != "local" or not isinstance(relative_source, str):
+            continue
+        plugin_root = _safe_local_plugin_root(marketplace_root, relative_source)
+        if plugin_root is None:
+            continue
+        plugin_manifest = _safe_json_record(
+            plugin_root / ".codex-plugin/plugin.json",
+            plugin_root,
+        )
+        skill_root = _real_directory(plugin_root / "skills", owner_root=plugin_root)
+        if plugin_manifest and plugin_manifest.get("name") == plugin_name and skill_root:
+            roots.add(skill_root)
+    return tuple(sorted(roots))
+
+def codex_plugin_skill_roots() -> tuple[Path, ...]:
+    if shutil.which("codex"):
+        result = run(["codex", "plugin", "list", "--json"], check=False)
+        if result.returncode:
+            return ()
+        try:
+            return _plugin_skill_roots_from_payload(json.loads(result.stdout))
+        except json.JSONDecodeError:
+            return ()
+    return _configured_local_plugin_skill_roots()
 
 def skill_present(
     reference: dict[str, Any],
