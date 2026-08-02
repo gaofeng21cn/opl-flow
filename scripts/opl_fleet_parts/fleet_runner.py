@@ -242,23 +242,32 @@ def doctor_result(
     route = route_map.get(node_id) or {}
     local = bool(route.get("local"))
     ssh_alias = route.get("ssh")
+    tailnet_online = tailscale_online(route.get("tailscale_host"))
     ssh_reachable: bool | None = True if local else None
+    ssh_probe_attempts = 0
+    ssh_transient_failure = False
     if ssh_alias:
         if not re.fullmatch(r"[A-Za-z0-9._-]{1,120}", str(ssh_alias)):
             raise FleetError("SSH route alias is invalid")
-        probe = run(
-            [
-                "ssh",
-                "-o",
-                "BatchMode=yes",
-                "-o",
-                "ConnectTimeout=6",
-                str(ssh_alias),
-                "true",
-            ],
-            check=False,
-        )
-        ssh_reachable = probe.returncode == 0
+        probe_timeouts = (6, 15) if tailnet_online is True else (6,)
+        for timeout_seconds in probe_timeouts:
+            ssh_probe_attempts += 1
+            probe = run(
+                [
+                    "ssh",
+                    "-o",
+                    "BatchMode=yes",
+                    "-o",
+                    f"ConnectTimeout={timeout_seconds}",
+                    str(ssh_alias),
+                    "true",
+                ],
+                check=False,
+            )
+            ssh_reachable = probe.returncode == 0
+            if ssh_reachable:
+                ssh_transient_failure = ssh_probe_attempts > 1
+                break
     inventory = entry.get("inventory")
     live_inventory = None
     if local:
@@ -301,7 +310,6 @@ def doctor_result(
         and inventory_age is not None
         and 0 <= inventory_age <= max_age * 3600
     )
-    tailnet_online = tailscale_online(route.get("tailscale_host"))
     codex_ready = bool(
         isinstance(inventory, dict)
         and (inventory.get("baseline") or {}).get("codex", {}).get("ready")
@@ -337,7 +345,9 @@ def doctor_result(
         availability = "online"
     elif ssh_reachable is False:
         availability = (
-            "offline_expected"
+            "transport_degraded"
+            if tailnet_online is True
+            else "offline_expected"
             if availability_policy == "on_demand"
             else "maintenance"
             if availability_policy == "maintenance"
@@ -389,6 +399,8 @@ def doctor_result(
         "ssh": {
             "configured": bool(local or ssh_alias),
             "reachable": ssh_reachable,
+            "probe_attempts": ssh_probe_attempts,
+            "transient_failure": ssh_transient_failure,
         },
         "tailscale": {
             "configured": bool(route.get("tailscale_host")),

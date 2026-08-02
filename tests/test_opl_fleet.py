@@ -2525,7 +2525,117 @@ class CodexFleetTests(unittest.TestCase):
                 )
         self.assertEqual(result["availability_policy"], "on_demand")
         self.assertEqual(result["availability"], "offline_expected")
+        self.assertEqual(result["ssh"]["probe_attempts"], 1)
+        self.assertFalse(result["ssh"]["transient_failure"])
         self.assertFalse(result["ready_for_dispatch"])
+
+    def test_doctor_reprobes_ssh_when_tailnet_is_online(self) -> None:
+        node_id = "fictional-node"
+        catalog = {
+            "schema": "codex_fleet_assets.v1",
+            "nodes": [
+                {
+                    "node_id": node_id,
+                    "policy": {
+                        "approved": True,
+                        "display_name": "Fictional",
+                        "availability_policy": "on_demand",
+                        "labels": ["development"],
+                        "notes": [],
+                    },
+                    "receipt": receipt(node_id),
+                    "inventory": inventory(node_id),
+                }
+            ],
+        }
+        timeout = fleet.subprocess.CompletedProcess(
+            ["ssh"], 255, "", "connection timed out"
+        )
+        success = fleet.subprocess.CompletedProcess(["ssh"], 0, "", "")
+        live = fleet.subprocess.CompletedProcess(
+            ["ssh"], 0, json.dumps(inventory(node_id)), ""
+        )
+        with tempfile.TemporaryDirectory() as temp_dir:
+            with (
+                patch_fleet("run", side_effect=[timeout, success, live]) as run_mock,
+                patch_fleet("tailscale_online", return_value=True),
+                patch_fleet(
+                    "work_volume_status",
+                    return_value={"required": False, "configured": False, "ready": True},
+                ),
+                patch_fleet(
+                    "manifest",
+                    return_value={"inventory": {"max_age_hours": 36}},
+                ),
+            ):
+                result = fleet.doctor_result(
+                    node_id,
+                    catalog=catalog,
+                    routes={
+                        node_id: {
+                            "ssh": "fictional-node",
+                            "tailscale_host": "fictional-node",
+                        }
+                    },
+                    state_root=Path(temp_dir),
+                )
+        self.assertEqual(result["availability"], "online")
+        self.assertTrue(result["ssh"]["reachable"])
+        self.assertEqual(result["ssh"]["probe_attempts"], 2)
+        self.assertTrue(result["ssh"]["transient_failure"])
+        self.assertIn("ConnectTimeout=6", run_mock.call_args_list[0].args[0])
+        self.assertIn("ConnectTimeout=15", run_mock.call_args_list[1].args[0])
+
+    def test_doctor_reports_tailnet_ssh_failure_as_transport_degraded(self) -> None:
+        node_id = "fictional-node"
+        catalog = {
+            "schema": "codex_fleet_assets.v1",
+            "nodes": [
+                {
+                    "node_id": node_id,
+                    "policy": {
+                        "approved": True,
+                        "display_name": "Fictional",
+                        "availability_policy": "on_demand",
+                        "labels": ["development"],
+                        "notes": [],
+                    },
+                    "receipt": receipt(node_id),
+                    "inventory": inventory(node_id),
+                }
+            ],
+        }
+        timeout = fleet.subprocess.CompletedProcess(
+            ["ssh"], 255, "", "connection timed out"
+        )
+        with tempfile.TemporaryDirectory() as temp_dir:
+            with (
+                patch_fleet("run", side_effect=[timeout, timeout]),
+                patch_fleet("tailscale_online", return_value=True),
+                patch_fleet(
+                    "work_volume_status",
+                    return_value={"required": False, "configured": False, "ready": True},
+                ),
+                patch_fleet(
+                    "manifest",
+                    return_value={"inventory": {"max_age_hours": 36}},
+                ),
+            ):
+                result = fleet.doctor_result(
+                    node_id,
+                    catalog=catalog,
+                    routes={
+                        node_id: {
+                            "ssh": "fictional-node",
+                            "tailscale_host": "fictional-node",
+                        }
+                    },
+                    state_root=Path(temp_dir),
+                )
+        self.assertEqual(result["availability"], "transport_degraded")
+        self.assertFalse(result["ssh"]["reachable"])
+        self.assertEqual(result["ssh"]["probe_attempts"], 2)
+        self.assertFalse(result["ssh"]["transient_failure"])
 
     def test_doctor_keeps_always_on_unreachable_as_unreachable(self) -> None:
         node_id = "fictional-node"
