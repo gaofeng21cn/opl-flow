@@ -56,14 +56,10 @@ REQUIRED_FILES = (
     "skills/task-mode-gate/agents/openai.yaml",
     "templates/AGENTS.md",
     "templates/TASTE.md",
-    "scripts/install_local_plugin.py",
-    "scripts/repo_profile.py",
-    "scripts/profile_compose.py",
     "scripts/worktree_absorption_audit.py",
     "scripts/worktree_fleet_audit.py",
     "scripts/worktree_lifecycle.py",
     "scripts/opl_workflow.py",
-    "scripts/qualify_install.py",
     "scripts/opl_fleet.py",
     "scripts/opl_fleet_parts/__init__.py",
     "scripts/opl_fleet_parts/fleet_cli.py",
@@ -81,10 +77,7 @@ REQUIRED_FILES = (
 CORE_TEST_MODULES = (
     "tests/test_develop_and_deliver.py",
     "tests/test_code_review_policy.py",
-    "tests/test_install_local_plugin.py",
     "tests/test_opl_flow_onboarding.py",
-    "tests/test_profile_compose.py",
-    "tests/test_repo_profile.py",
     "tests/test_verify_lanes.py",
     "tests/test_worktree_absorption_audit.py",
     "tests/test_worktree_fleet_audit.py",
@@ -93,7 +86,6 @@ CORE_TEST_MODULES = (
     "tests/test_opl_fleet.py",
     "tests/test_fleet_inventory.py",
     "tests/test_package_descriptor.py",
-    "tests/test_qualify_install.py",
     "tests/test_task_mode_gate.py",
     "skills/recover-codex-tasks/tests/test_inspect_codex_recovery.py",
 )
@@ -531,16 +523,11 @@ def check_profile(repo_root: Path) -> list[str]:
             file=sys.stderr,
         )
 
-    result = subprocess.run(
-        [sys.executable, str(repo_root / "scripts" / "profile_compose.py"), "check", "--repo-root", str(repo_root)],
-        cwd=repo_root,
-        check=False,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,
-        text=True,
+    profile_source = (repo_root / "profile" / "modules" / "01-user-preferences.md").read_text(
+        encoding="utf-8"
     )
-    if result.returncode != 0:
-        errors.append("templates/AGENTS.md must match profile modules: " + (result.stdout or result.stderr).strip())
+    if agents != profile_source:
+        errors.append("templates/AGENTS.md must match profile/modules/01-user-preferences.md")
     return errors
 
 

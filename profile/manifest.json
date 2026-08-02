@@ -1,6 +1,5 @@
 {
   "schema": "opl_flow_profile_manifest.v2",
-  "rendered": "templates/AGENTS.md",
   "runtime_profile": {
     "path": "templates/AGENTS.md",
     "required": true
@@ -8,13 +7,5 @@
   "authoring_source": {
     "path": "templates/TASTE.md",
     "runtime_required": false
-  },
-  "modules": [
-    {
-      "id": "minimal_profile",
-      "path": "profile/modules/01-user-preferences.md",
-      "category": "user_preference",
-      "default": true
-    }
-  ]
+  }
 }

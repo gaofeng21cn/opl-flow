@@ -9,7 +9,7 @@
   "interface": {
     "displayName": "OPL Flow",
     "shortDescription": "Configure and coordinate Codex work",
-    "longDescription": "OPL Flow configures the Codex experience baseline and coordinates durable work. Installation deploys capability only; explicit $opl-flow start onboards the owner's complete Ledger, one hourly Supervisor, registered Linear projects, and fresh receipt.",
+    "longDescription": "OPL Flow configures the Codex experience baseline and coordinates durable work. Framework and Codex own installation and Profile materialization; explicit $opl-flow start onboards the owner's complete Ledger, one hourly Supervisor, registered Linear projects, and fresh receipt.",
     "developerName": "Gaofeng",
     "category": "Developer Tools",
     "capabilities": [
