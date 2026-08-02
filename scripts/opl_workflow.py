@@ -308,7 +308,7 @@ def ledger_probe(root: Path, bd: str) -> dict[str, Any] | None:
     return payload
 
 
-def linear_probe(root: Path, bd: str) -> dict[str, Any]:
+def linear_adapter_probe(root: Path, bd: str) -> dict[str, Any]:
     result = run([bd, "linear", "status", "--json"], root, check=False)
     assert isinstance(result, subprocess.CompletedProcess)
     if result.returncode:
@@ -332,6 +332,84 @@ def linear_probe(root: Path, bd: str) -> dict[str, Any]:
         "with_linear_ref",
     )
     return {"state": "current", **{key: payload.get(key) for key in allowed}}
+
+
+def linear_projection_probe(root: Path, bd: str) -> dict[str, Any]:
+    result = run(
+        [bd, "list", "--all", "--limit", "0", "--skip-labels", "--json"],
+        root,
+        check=False,
+    )
+    assert isinstance(result, subprocess.CompletedProcess)
+    if result.returncode:
+        return {"state": "error", "error": (result.stderr or result.stdout).strip()}
+    try:
+        payload = json.loads(result.stdout)
+    except json.JSONDecodeError:
+        return {"state": "error", "error": "bd list returned invalid JSON"}
+    if isinstance(payload, dict):
+        issues = payload.get("issues")
+    else:
+        issues = payload
+    if not isinstance(issues, list) or any(not isinstance(item, dict) for item in issues):
+        return {"state": "error", "error": "bd list returned an invalid payload"}
+
+    managed = 0
+    identifiers = 0
+    urls = 0
+    for item in issues:
+        metadata = item.get("metadata")
+        if not isinstance(metadata, dict):
+            continue
+        managed += metadata.get("linear_projection") == "managed"
+        identifiers += isinstance(metadata.get("linear_issue_identifier"), str)
+        urls += isinstance(metadata.get("linear_issue_url"), str)
+    total = len(issues)
+    return {
+        "state": "current",
+        "total_issue_count": total,
+        "managed_issue_count": managed,
+        "identifier_count": identifiers,
+        "url_count": urls,
+        "coverage_complete": total > 0 and managed == identifiers == urls == total,
+    }
+
+
+def linear_probe(root: Path, bd: str) -> dict[str, Any]:
+    adapter = linear_adapter_probe(root, bd)
+    projection = linear_projection_probe(root, bd)
+    sources: list[str] = []
+    if adapter.get("state") == "current" and adapter.get("configured") is True:
+        sources.append("legacy_adapter")
+    if projection.get("state") == "current" and int(projection.get("managed_issue_count", 0)) > 0:
+        sources.append("managed_projection")
+
+    current_planes = sum(item.get("state") == "current" for item in (adapter, projection))
+    state = "current" if current_planes == 2 else "degraded" if current_planes == 1 else "error"
+    compatibility = {
+        key: adapter.get(key)
+        for key in (
+            "auth_mode",
+            "has_api_key",
+            "has_oauth",
+            "last_sync",
+            "pending_push",
+            "team_id",
+            "team_ids",
+            "total_issues",
+            "with_linear_ref",
+        )
+    }
+    return {
+        "state": state,
+        "configured": bool(sources),
+        "configuration_sources": sources,
+        "legacy_adapter_configured": adapter.get("configured") is True,
+        "legacy_external_ref_count": adapter.get("with_linear_ref"),
+        "legacy_adapter": adapter,
+        "projection": projection,
+        **compatibility,
+    }
 
 
 def secure_ledger_dir(root: Path) -> None:

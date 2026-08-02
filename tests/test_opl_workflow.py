@@ -314,11 +314,86 @@ else:
             root = Path(temp)
             bd = self.executable(
                 root / "bd",
-                "#!/bin/sh\nprintf '%s\\n' '{\"configured\":true,\"auth_mode\":\"oauth\",\"api_key\":\"secret\"}'\n",
+                """#!/usr/bin/env python3
+import json, sys
+if sys.argv[1:3] == ["linear", "status"]:
+    print(json.dumps({"configured": True, "auth_mode": "oauth", "api_key": "secret"}))
+elif sys.argv[1:2] == ["list"]:
+    print("[]")
+""",
             )
             result = linear_probe(root, str(bd))
             self.assertTrue(result["configured"])
+            self.assertEqual(result["configuration_sources"], ["legacy_adapter"])
+            self.assertTrue(result["legacy_adapter_configured"])
             self.assertNotIn("api_key", result)
+            self.assertNotIn("api_key", result["legacy_adapter"])
+
+    def test_linear_status_reports_managed_projection_without_legacy_adapter(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            bd = self.executable(
+                root / "bd",
+                """#!/usr/bin/env python3
+import json, sys
+if sys.argv[1:3] == ["linear", "status"]:
+    print(json.dumps({
+        "configured": False,
+        "auth_mode": "none",
+        "total_issues": 2,
+        "with_linear_ref": 1,
+    }))
+elif sys.argv[1:2] == ["list"]:
+    print(json.dumps({"schema_version": 1, "issues": [
+        {"metadata": {
+            "linear_projection": "managed",
+            "linear_issue_identifier": "FG-1",
+            "linear_issue_url": "https://linear.app/example/FG-1",
+        }},
+        {"metadata": {
+            "linear_projection": "managed",
+            "linear_issue_identifier": "FG-2",
+            "linear_issue_url": "https://linear.app/example/FG-2",
+        }},
+    ]}))
+""",
+            )
+            result = linear_probe(root, str(bd))
+            self.assertEqual(result["state"], "current")
+            self.assertTrue(result["configured"])
+            self.assertEqual(result["configuration_sources"], ["managed_projection"])
+            self.assertFalse(result["legacy_adapter_configured"])
+            self.assertEqual(result["legacy_external_ref_count"], 1)
+            self.assertEqual(
+                result["projection"],
+                {
+                    "state": "current",
+                    "total_issue_count": 2,
+                    "managed_issue_count": 2,
+                    "identifier_count": 2,
+                    "url_count": 2,
+                    "coverage_complete": True,
+                },
+            )
+
+    def test_linear_status_degrades_when_projection_readback_fails(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            bd = self.executable(
+                root / "bd",
+                """#!/usr/bin/env python3
+import json, sys
+if sys.argv[1:3] == ["linear", "status"]:
+    print(json.dumps({"configured": False, "auth_mode": "none"}))
+elif sys.argv[1:2] == ["list"]:
+    print("projection unavailable", file=sys.stderr)
+    raise SystemExit(1)
+""",
+            )
+            result = linear_probe(root, str(bd))
+            self.assertEqual(result["state"], "degraded")
+            self.assertFalse(result["configured"])
+            self.assertEqual(result["projection"]["state"], "error")
 
     def test_review_defaults_to_off_without_user_config(self) -> None:
         with tempfile.TemporaryDirectory() as temp:
