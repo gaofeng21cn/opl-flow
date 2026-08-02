@@ -43,9 +43,7 @@ REQUIRED_FILES = (
     "skills/opl-flow/references/ledger-start.md",
     "skills/opl-flow/references/package-lifecycle.md",
     "skills/opl-flow/references/setup-update.md",
-    "skills/opl-flow/references/start-onboarding.json",
     "skills/opl-flow/references/terminal-readback.md",
-    "skills/opl-flow/scripts/validate_start_onboarding.py",
     "skills/recover-codex-tasks/SKILL.md",
     "skills/recover-codex-tasks/agents/openai.yaml",
     "skills/task-mode-gate/SKILL.md",
@@ -72,7 +70,6 @@ REQUIRED_FILES = (
 
 CORE_TEST_MODULES = (
     "tests/test_develop_and_deliver.py",
-    "tests/test_opl_flow_onboarding.py",
     "tests/test_verify_lanes.py",
     "tests/test_worktree_absorption_audit.py",
     "tests/test_worktree_fleet_audit.py",

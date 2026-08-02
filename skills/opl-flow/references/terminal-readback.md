@@ -12,14 +12,15 @@ After any Flow mutation, read the owner-authoritative surfaces that apply:
 5. Requested Skill IDs from fresh executor discovery; each core Skill must have
    one source owner.
 6. For Ledger: Beads/Dolt pull/push or explicit no-change parity.
-7. For `start`: explicit action identity and install-side-effect count zero;
-   Dashboard; exact `codex://thread/` Bead link; one active hourly
-   `OPL Flow Supervisor`; one-or-more registered Linear projects sharing that
-   heartbeat; complete narrow-field mapping; local-managed/default,
-   `codex-ready` compatibility, and dispatch-only `codex-paused` parity;
-   per-project Linear comment-ID high-watermarks, exact-once delivery and
-   non-user loop prevention; duplicate counts zero; Ambient Ops registration;
-   and a validated onboarding receipt.
+7. For `start`: `read_thread` proves the one pinned Dashboard;
+   `bd show --json` proves the exact `codex://thread/` Bead link;
+   `automation_update` view proves one active hourly `OPL Flow Supervisor` for
+   the objective fingerprint and complete registered-project set; Linear
+   `list_issues`/`get_issue` proves one narrow-field issue per Bead; Linear
+   `list_comments`, destination `read_thread`, and the Beads cursor together
+   prove handled comments without duplicate delivery; and a post-push
+   `bd dolt pull` proves parity or explicit no-change. Repeat `start` must read
+   back the same Dashboard, Bead, and heartbeat IDs.
 8. For Fleet: explicit Instance root, fresh node admission, repository
    currentness, lease/runner receipt, and sanitized private-state boundary.
 

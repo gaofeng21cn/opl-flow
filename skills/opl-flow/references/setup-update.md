@@ -2,9 +2,8 @@
 
 Use this reference for `setup` and `update`.
 
-These actions install, repair, and update capabilities only. They must not
-create a Ledger Dashboard, Bead, Linear project, or Automation. Formal Ledger
-onboarding is a separate explicit `$opl-flow start` action.
+These actions install, repair, and update capabilities only. They never run the
+explicit `$opl-flow start` owner-API route or create its state.
 
 ## Inspect First
 
