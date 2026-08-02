@@ -9,6 +9,7 @@ import unittest
 from scripts.verify import (
     CORE_SKILL_IDS,
     CORE_TEST_MODULES,
+    check_required_files,
     check_plugin_json,
     check_workflow_policy,
     contract_test_modules,
@@ -19,6 +20,29 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 
 
 class VerifyLaneTests(unittest.TestCase):
+    def test_required_files_cover_every_fleet_runtime_module(self) -> None:
+        self.assertEqual(check_required_files(REPO_ROOT), [])
+
+        runtime_modules = (
+            "scripts/opl_fleet_parts/__init__.py",
+            "scripts/opl_fleet_parts/fleet_cli.py",
+            "scripts/opl_fleet_parts/fleet_common.py",
+            "scripts/opl_fleet_parts/fleet_dispatch.py",
+            "scripts/opl_fleet_parts/fleet_features.py",
+            "scripts/opl_fleet_parts/fleet_lease.py",
+            "scripts/opl_fleet_parts/fleet_reconcile.py",
+            "scripts/opl_fleet_parts/fleet_runner.py",
+        )
+        with tempfile.TemporaryDirectory() as temp_dir:
+            errors = check_required_files(Path(temp_dir))
+        missing = {error.removeprefix("missing ") for error in errors}
+        for relative_path in runtime_modules:
+            self.assertIn(
+                relative_path,
+                missing,
+                f"check_required_files must flag missing {relative_path}",
+            )
+
     def test_plugin_exposes_the_six_bounded_flow_skills(self) -> None:
         self.assertEqual(check_plugin_json(REPO_ROOT), [])
 

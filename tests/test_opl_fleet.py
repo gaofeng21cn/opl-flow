@@ -26,212 +26,45 @@ SPEC.loader.exec_module(fleet)
 
 
 # --- patch seam helpers ------------------------------------------------
-# The implementation now lives in opl_fleet_parts.* modules.  Each public
-# symbol is bound (defined or imported) by several modules plus the facade.
-# patch_fleet/set_fleet explicitly patch every real binding so the original
-# `fleet.*` patch/assignment semantics stay on the true globals.
+# The implementation lives in opl_fleet_parts.* domain modules.  A public
+# symbol may be bound (defined or imported) by several modules plus the
+# facade.  patch_fleet/set_fleet discover every current binding by object
+# identity at patch time, so the original `fleet.*` patch/assignment
+# semantics stay on the true globals without maintaining a second map.
 
-FLEET_BINDINGS = {
-    'ADMISSION_FIELDS': ['fleet_common', 'fleet_lease', 'opl_fleet'],
-    'ADMISSION_OPTIONAL_FIELDS': ['fleet_common', 'fleet_lease', 'opl_fleet'],
-    'AVAILABILITY_POLICIES': ['fleet_common', 'fleet_reconcile', 'opl_fleet'],
-    'COMMIT_PATTERN': ['fleet_common', 'fleet_lease', 'fleet_runner', 'opl_fleet'],
-    'CONFIG_PATH': ['fleet_common', 'fleet_reconcile', 'opl_fleet'],
-    'CONTROL_ROOT': ['fleet_common', 'opl_fleet'],
-    'DISPATCH_ADAPTERS': ['fleet_cli', 'fleet_common', 'opl_fleet'],
-    'EXECUTION_REQUIREMENTS_SCHEMA': ['fleet_common', 'fleet_dispatch', 'opl_fleet'],
-    'FLOW_ROOT': ['fleet_common', 'fleet_reconcile', 'opl_fleet'],
-    'FleetError': ['fleet_cli', 'fleet_common', 'fleet_dispatch', 'fleet_features', 'fleet_lease', 'fleet_reconcile', 'fleet_runner', 'opl_fleet'],
-    'GPU_APIS': ['fleet_cli', 'fleet_common', 'fleet_dispatch', 'fleet_features', 'fleet_lease', 'fleet_runner', 'opl_fleet'],
-    'INSTANCE_POINTER_PATH': ['fleet_common', 'opl_fleet'],
-    'LEASE_FIELDS': ['fleet_common', 'opl_fleet'],
-    'LEASE_OPTIONAL_FIELDS': ['fleet_common', 'fleet_lease', 'opl_fleet'],
-    'LEASE_PHASES': ['fleet_cli', 'fleet_common', 'fleet_dispatch', 'fleet_lease', 'fleet_runner', 'opl_fleet'],
-    'LEASE_REQUIRED_FIELDS': ['fleet_common', 'fleet_lease', 'opl_fleet'],
-    'LEASE_WORKLOAD_CLASSES': ['fleet_cli', 'fleet_common', 'fleet_dispatch', 'fleet_lease', 'fleet_reconcile', 'fleet_runner', 'opl_fleet'],
-    'LIVE_ONLY_POLICY_FEATURES': ['fleet_common', 'fleet_features', 'opl_fleet'],
-    'MAX_EXECUTION_OUTPUT_BYTES': ['fleet_common', 'fleet_dispatch', 'opl_fleet'],
-    'MAX_EXECUTION_REQUIREMENTS_BYTES': ['fleet_common', 'fleet_dispatch', 'opl_fleet'],
-    'NODE_ID_PATTERN': ['fleet_common', 'fleet_reconcile', 'opl_fleet'],
-    'OWNER_ID_PATTERN': ['fleet_common', 'fleet_lease', 'opl_fleet'],
-    'PET_FILES': ['fleet_common', 'fleet_reconcile', 'opl_fleet'],
-    'PREEMPTIBLE_WORKLOAD_CLASSES': ['fleet_common', 'fleet_dispatch', 'fleet_lease', 'fleet_runner', 'opl_fleet'],
-    'PROTECTED_WORKLOAD_CLASSES': ['fleet_common', 'fleet_lease', 'opl_fleet'],
-    'RECEIPT_FIELDS': ['fleet_common', 'fleet_reconcile', 'opl_fleet'],
-    'REMOTE_EXECUTION_TIMEOUT_SECONDS': ['fleet_common', 'fleet_dispatch', 'opl_fleet'],
-    'REMOTE_EXECUTOR': ['fleet_common', 'fleet_dispatch', 'opl_fleet'],
-    'REPORT_FIELDS': ['fleet_common', 'fleet_reconcile', 'opl_fleet'],
-    'REPOSITORY_FETCH_TIMEOUT_SECONDS': ['fleet_common', 'fleet_reconcile', 'opl_fleet'],
-    'ROLE_PATTERN': ['fleet_common', 'fleet_lease', 'fleet_reconcile', 'opl_fleet'],
-    'ROUTES_PATH': ['fleet_common', 'fleet_runner', 'opl_fleet'],
-    'RUNNER_PATH': ['fleet_common', 'fleet_reconcile', 'opl_fleet'],
-    'SKILL_REFERENCE_SCHEMA': ['fleet_common', 'fleet_reconcile', 'opl_fleet'],
-    'STATE_ROOT': ['fleet_common', 'fleet_lease', 'fleet_reconcile', 'fleet_runner', 'opl_fleet'],
-    '_INSTANCE_OWNER': ['fleet_common', 'fleet_reconcile', 'opl_fleet'],
-    'acquire_lease_record': ['fleet_cli', 'fleet_dispatch', 'fleet_lease', 'fleet_runner', 'opl_fleet'],
-    'active_lease_map': ['fleet_cli', 'fleet_dispatch', 'fleet_lease', 'fleet_runner', 'opl_fleet'],
-    'assert_lease_admission': ['fleet_cli', 'fleet_dispatch', 'fleet_runner', 'opl_fleet'],
-    'assert_lease_cas': ['fleet_lease', 'opl_fleet'],
-    'assert_runner_role_node': ['fleet_cli', 'fleet_dispatch', 'fleet_runner', 'opl_fleet'],
-    'assert_runner_role_workload': ['fleet_cli', 'fleet_dispatch', 'fleet_runner', 'opl_fleet'],
-    'atomic_json': ['fleet_common', 'fleet_lease', 'fleet_reconcile', 'fleet_runner', 'opl_fleet'],
-    'audit_lease': ['fleet_lease', 'opl_fleet'],
-    'build_admission_receipt': ['fleet_cli', 'fleet_dispatch', 'fleet_runner', 'opl_fleet'],
-    'build_asset_catalog': ['fleet_reconcile', 'opl_fleet'],
-    'build_lease': ['fleet_lease', 'opl_fleet'],
-    'build_receipt': ['fleet_reconcile', 'opl_fleet'],
-    'checkout_commit': ['fleet_reconcile', 'opl_fleet'],
-    'codex_plugin_skill_roots': ['fleet_reconcile', 'opl_fleet'],
-    'collect_inventory': ['fleet_cli', 'fleet_reconcile', 'fleet_runner', 'opl_fleet'],
-    'configure_instance': ['fleet_cli', 'fleet_common', 'opl_fleet'],
-    'confirm_runner_shutdown': ['fleet_runner', 'opl_fleet'],
-    'control_commit': ['fleet_cli', 'fleet_dispatch', 'fleet_reconcile', 'fleet_runner', 'opl_fleet'],
-    'controller_guard': ['fleet_cli', 'fleet_dispatch', 'fleet_runner', 'opl_fleet'],
-    'dispatch_adapter': ['fleet_common', 'fleet_dispatch', 'fleet_lease', 'fleet_runner', 'opl_fleet'],
-    'dispatch_adapter_from_args': ['fleet_cli', 'fleet_dispatch', 'opl_fleet'],
-    'dispatch_candidates': ['fleet_dispatch', 'opl_fleet'],
-    'dispatch_lease': ['fleet_dispatch', 'opl_fleet'],
-    'dispatch_plan_payload': ['fleet_dispatch', 'opl_fleet'],
-    'dispatch_request': ['fleet_dispatch', 'opl_fleet'],
-    'doctor_result': ['fleet_cli', 'fleet_dispatch', 'fleet_runner', 'opl_fleet'],
-    'effective_codex_home': ['fleet_common', 'fleet_reconcile', 'opl_fleet'],
-    'empty_lease_store': ['fleet_lease', 'opl_fleet'],
-    'execute_ssh_session': ['fleet_dispatch', 'opl_fleet'],
-    'fetch_skill_reference': ['fleet_reconcile', 'opl_fleet'],
-    'fetch_state_file': ['fleet_cli', 'fleet_reconcile', 'opl_fleet'],
-    'fleet_assets': ['fleet_cli', 'opl_fleet'],
-    'fleet_dispatch_acquire': ['fleet_cli', 'fleet_dispatch', 'opl_fleet'],
-    'fleet_dispatch_execute': ['fleet_cli', 'fleet_dispatch', 'opl_fleet'],
-    'fleet_dispatch_plan': ['fleet_cli', 'fleet_dispatch', 'opl_fleet'],
-    'fleet_dispatch_release': ['fleet_cli', 'fleet_dispatch', 'opl_fleet'],
-    'fleet_dispatch_verify': ['fleet_cli', 'fleet_dispatch', 'opl_fleet'],
-    'fleet_doctor': ['fleet_cli', 'opl_fleet'],
-    'fleet_lease_acquire': ['fleet_cli', 'opl_fleet'],
-    'fleet_lease_reap': ['fleet_cli', 'opl_fleet'],
-    'fleet_lease_release': ['fleet_cli', 'opl_fleet'],
-    'fleet_lease_renew': ['fleet_cli', 'opl_fleet'],
-    'fleet_lease_show': ['fleet_cli', 'opl_fleet'],
-    'fleet_lease_verify': ['fleet_cli', 'opl_fleet'],
-    'fleet_nodes': ['fleet_cli', 'opl_fleet'],
-    'fleet_repositories': ['fleet_cli', 'fleet_reconcile', 'opl_fleet'],
-    'fleet_runner_renew': ['fleet_cli', 'fleet_runner', 'opl_fleet'],
-    'fleet_runner_start': ['fleet_cli', 'fleet_runner', 'opl_fleet'],
-    'fleet_runner_status': ['fleet_cli', 'fleet_runner', 'opl_fleet'],
-    'fleet_runner_stop': ['fleet_cli', 'fleet_runner', 'opl_fleet'],
-    'fleet_select': ['fleet_cli', 'opl_fleet'],
-    'fleet_status': ['fleet_cli', 'opl_fleet'],
-    'format_bytes': ['fleet_reconcile', 'opl_fleet'],
-    'git_value': ['fleet_reconcile', 'opl_fleet'],
-    'github_head': ['fleet_reconcile', 'opl_fleet'],
-    'github_repository_from_remote': ['fleet_reconcile', 'opl_fleet'],
-    'github_runner_state': ['fleet_runner', 'opl_fleet'],
-    'gpu_profiles': ['fleet_features', 'fleet_lease', 'fleet_runner', 'opl_fleet'],
-    'install_fleet_command': ['fleet_cli', 'fleet_common', 'opl_fleet'],
-    'install_linux_schedule': ['fleet_reconcile', 'opl_fleet'],
-    'install_macos_schedule': ['fleet_reconcile', 'opl_fleet'],
-    'install_missing_owner_skills': ['fleet_reconcile', 'opl_fleet'],
-    'install_runner': ['fleet_reconcile', 'opl_fleet'],
-    'install_schedule': ['fleet_reconcile', 'opl_fleet'],
-    'install_wsl_schedule': ['fleet_reconcile', 'opl_fleet'],
-    'inventory_age_seconds': ['fleet_features', 'fleet_runner', 'opl_fleet'],
-    'inventory_is_fresh': ['fleet_features', 'fleet_lease', 'opl_fleet'],
-    'join': ['fleet_cli', 'fleet_reconcile', 'opl_fleet'],
-    'lease_is_expired': ['fleet_lease', 'opl_fleet'],
-    'lease_lock': ['fleet_cli', 'fleet_dispatch', 'fleet_lease', 'opl_fleet'],
-    'lease_paths': ['fleet_lease', 'opl_fleet'],
-    'main': ['fleet_cli', 'opl_fleet'],
-    'managed_repository_owner': ['fleet_reconcile', 'opl_fleet'],
-    'manifest': ['fleet_cli', 'fleet_dispatch', 'fleet_reconcile', 'fleet_runner', 'opl_fleet'],
-    'markdown_text': ['fleet_reconcile', 'opl_fleet'],
-    'matching_gpus': ['fleet_features', 'fleet_lease', 'opl_fleet'],
-    'node_features': ['fleet_features', 'fleet_lease', 'fleet_runner', 'opl_fleet'],
-    'node_identity': ['fleet_cli', 'fleet_common', 'fleet_reconcile', 'fleet_runner', 'opl_fleet'],
-    'node_registry': ['fleet_cli', 'fleet_dispatch', 'fleet_reconcile', 'fleet_runner', 'opl_fleet'],
-    'normalize_node_id': ['fleet_cli', 'fleet_common', 'fleet_dispatch', 'fleet_lease', 'fleet_reconcile', 'fleet_runner', 'opl_fleet'],
-    'parse_args': ['fleet_cli', 'opl_fleet'],
-    'parse_memory_bytes': ['fleet_features', 'opl_fleet'],
-    'parse_requirements': ['fleet_cli', 'fleet_common', 'fleet_dispatch', 'opl_fleet'],
-    'parse_utc': ['fleet_common', 'fleet_dispatch', 'fleet_features', 'fleet_lease', 'fleet_runner', 'opl_fleet'],
-    'pet_files_match': ['fleet_reconcile', 'opl_fleet'],
-    'pet_manifest': ['fleet_reconcile', 'opl_fleet'],
-    'public_lease': ['fleet_cli', 'fleet_dispatch', 'fleet_lease', 'fleet_runner', 'opl_fleet'],
-    'read_execution_requirements': ['fleet_dispatch', 'opl_fleet'],
-    'read_json': ['fleet_common', 'fleet_lease', 'fleet_reconcile', 'fleet_runner', 'opl_fleet'],
-    'read_lease_store': ['fleet_cli', 'fleet_dispatch', 'fleet_lease', 'opl_fleet'],
-    'read_routes': ['fleet_dispatch', 'fleet_runner', 'opl_fleet'],
-    'read_runner_transaction': ['fleet_runner', 'opl_fleet'],
-    'reap_expired_leases': ['fleet_cli', 'fleet_lease', 'opl_fleet'],
-    'reconcile': ['fleet_cli', 'fleet_reconcile', 'opl_fleet'],
-    'reconcile_pets': ['fleet_reconcile', 'opl_fleet'],
-    'reconcile_repository': ['fleet_reconcile', 'opl_fleet'],
-    'reconcile_workspace_repositories': ['fleet_reconcile', 'opl_fleet'],
-    'record_receipt': ['fleet_cli', 'fleet_reconcile', 'opl_fleet'],
-    'release_lease_record': ['fleet_cli', 'fleet_dispatch', 'fleet_lease', 'fleet_runner', 'opl_fleet'],
-    'remote_asset_catalog': ['fleet_cli', 'fleet_dispatch', 'fleet_reconcile', 'fleet_runner', 'opl_fleet'],
-    'render_assets': ['fleet_reconcile', 'opl_fleet'],
-    'render_status': ['fleet_reconcile', 'opl_fleet'],
-    'renew_lease_record': ['fleet_cli', 'fleet_lease', 'fleet_runner', 'opl_fleet'],
-    'report_receipt': ['fleet_reconcile', 'opl_fleet'],
-    'request_value': ['fleet_dispatch', 'opl_fleet'],
-    'restart_after_flow_update': ['fleet_reconcile', 'opl_fleet'],
-    'run': ['fleet_cli', 'fleet_common', 'fleet_dispatch', 'fleet_reconcile', 'fleet_runner', 'opl_fleet'],
-    'runner_binding': ['fleet_runner', 'opl_fleet'],
-    'runner_call': ['fleet_reconcile', 'opl_fleet'],
-    'runner_control_call': ['fleet_runner', 'opl_fleet'],
-    'runner_control_route': ['fleet_runner', 'opl_fleet'],
-    'runner_role_nodes': ['fleet_dispatch', 'fleet_runner', 'opl_fleet'],
-    'runner_transaction_from_lease': ['fleet_runner', 'opl_fleet'],
-    'runner_transaction_path': ['fleet_runner', 'opl_fleet'],
-    'select_nodes': ['fleet_cli', 'fleet_dispatch', 'fleet_lease', 'opl_fleet'],
-    'sha256_file': ['fleet_common', 'fleet_reconcile', 'opl_fleet'],
-    'skill_present': ['fleet_reconcile', 'opl_fleet'],
-    'tailscale_online': ['fleet_runner', 'opl_fleet'],
-    'update_checkout': ['fleet_reconcile', 'opl_fleet'],
-    'update_control': ['fleet_reconcile', 'opl_fleet'],
-    'update_flow': ['fleet_reconcile', 'opl_fleet'],
-    'utc_now': ['fleet_cli', 'fleet_common', 'fleet_dispatch', 'fleet_features', 'fleet_lease', 'fleet_reconcile', 'fleet_runner', 'opl_fleet'],
-    'validate_admission': ['fleet_lease', 'fleet_runner', 'opl_fleet'],
-    'validate_execution_argv': ['fleet_dispatch', 'opl_fleet'],
-    'validate_execution_requirements': ['fleet_dispatch', 'opl_fleet'],
-    'validate_execution_result': ['fleet_dispatch', 'opl_fleet'],
-    'validate_inventory': ['fleet_reconcile', 'fleet_runner', 'opl_fleet'],
-    'validate_lease': ['fleet_lease', 'fleet_runner', 'opl_fleet'],
-    'validate_lease_store': ['fleet_lease', 'opl_fleet'],
-    'validate_owner_id': ['fleet_dispatch', 'fleet_lease', 'fleet_runner', 'opl_fleet'],
-    'validate_receipt': ['fleet_reconcile', 'opl_fleet'],
-    'validate_role': ['fleet_dispatch', 'fleet_lease', 'fleet_runner', 'opl_fleet'],
-    'validate_runner_control': ['fleet_runner', 'opl_fleet'],
-    'validate_ttl': ['fleet_dispatch', 'fleet_lease', 'fleet_runner', 'opl_fleet'],
-    'validate_work_volume_route': ['fleet_runner', 'opl_fleet'],
-    'verify_lease_record': ['fleet_cli', 'fleet_dispatch', 'fleet_runner', 'opl_fleet'],
-    'wait_runner_processes': ['fleet_runner', 'opl_fleet'],
-    'wait_runner_state': ['fleet_runner', 'opl_fleet'],
-    'work_volume_status': ['fleet_runner', 'opl_fleet'],
-    'workspace_root': ['fleet_reconcile', 'opl_fleet'],
-    'write_asset_catalog': ['fleet_reconcile', 'opl_fleet'],
-    'write_instance_pointer': ['fleet_cli', 'fleet_common', 'opl_fleet'],
-    'write_lease_store': ['fleet_cli', 'fleet_lease', 'opl_fleet'],
-}
+FLEET_PART_MODULES = (
+    "fleet_common",
+    "fleet_features",
+    "fleet_lease",
+    "fleet_reconcile",
+    "fleet_runner",
+    "fleet_dispatch",
+    "fleet_cli",
+)
+
+
+def _fleet_modules():
+    parts = sys.modules["opl_fleet_parts"]
+    return [fleet, *(getattr(parts, mod_name) for mod_name in FLEET_PART_MODULES)]
 
 
 def _binding_modules(name):
-    parts = sys.modules["opl_fleet_parts"]
-    modules = []
-    for mod_name in FLEET_BINDINGS[name]:
-        if mod_name == "opl_fleet":
-            if name == "CONTROL_ROOT":
-                # The facade proxies CONTROL_ROOT dynamically through
-                # __getattr__; it must not hold a stale static copy.
-                continue
-            modules.append(fleet)
-        else:
-            modules.append(getattr(parts, mod_name))
-    return modules
+    if name == "CONTROL_ROOT":
+        # The facade proxies CONTROL_ROOT dynamically through __getattr__;
+        # fleet_common is the single mutable owner and must not get a stale
+        # static copy on the facade.
+        return [sys.modules["opl_fleet_parts"].fleet_common]
+    value = getattr(fleet, name)
+    return [
+        mod
+        for mod in _fleet_modules()
+        if hasattr(mod, name) and getattr(mod, name) is value
+    ]
 
 
 @contextlib.contextmanager
 def patch_fleet(name, *args, **kwargs):
-    """Patch every real binding of a fleet symbol with one shared mock."""
+    """Patch every current binding of a fleet symbol with one shared mock."""
     modules = _binding_modules(name)
     patcher = mock.patch.object(modules[0], name, *args, **kwargs)
     patched = patcher.start()
@@ -247,9 +80,12 @@ def patch_fleet(name, *args, **kwargs):
 
 
 def set_fleet(name, value):
-    """Assign a fleet symbol on every real binding (mirrors old fleet.X = v)."""
+    """Assign a fleet symbol on every current binding (mirrors old fleet.X = v)."""
     for mod in _binding_modules(name):
         setattr(mod, name, value)
+
+
+
 
 
 TEST_CONTROL_COMMIT = "c" * 40
@@ -3012,20 +2848,50 @@ class CodexFleetTests(unittest.TestCase):
 class OplFleetFacadeTests(unittest.TestCase):
     """Characterization of the facade: re-export surface, CLI contract, entry."""
 
-    def test_facade_surface_matches_real_bindings(self) -> None:
+    def test_facade_reexports_key_external_surface(self) -> None:
         parts = sys.modules["opl_fleet_parts"]
-        for name, mod_names in FLEET_BINDINGS.items():
+        for name in (
+            "FleetError",
+            "main",
+            "parse_args",
+            "run",
+            "manifest",
+            "acquire_lease_record",
+            "doctor_result",
+            "fleet_dispatch_execute",
+            "execute_ssh_session",
+            "STATE_ROOT",
+            "REMOTE_EXECUTOR",
+        ):
             self.assertTrue(hasattr(fleet, name), f"facade missing {name}")
-            for mod_name in mod_names:
-                if mod_name == "opl_fleet":
-                    continue
-                module = getattr(parts, mod_name)
-                self.assertTrue(hasattr(module, name), f"{mod_name} missing {name}")
-                self.assertIs(
-                    getattr(fleet, name),
-                    getattr(module, name),
-                    f"{name} binding drifted from {mod_name}",
-                )
+        self.assertIs(fleet.run, parts.fleet_common.run)
+        self.assertIs(fleet.manifest, parts.fleet_reconcile.manifest)
+        self.assertIs(fleet.acquire_lease_record, parts.fleet_lease.acquire_lease_record)
+        self.assertIs(fleet.doctor_result, parts.fleet_runner.doctor_result)
+        self.assertIs(fleet.fleet_dispatch_execute, parts.fleet_dispatch.fleet_dispatch_execute)
+        self.assertIs(fleet.parse_args, parts.fleet_cli.parse_args)
+        self.assertIs(fleet.STATE_ROOT, parts.fleet_common.STATE_ROOT)
+
+    def test_patch_fleet_hits_every_current_binding_and_restores(self) -> None:
+        parts = sys.modules["opl_fleet_parts"]
+        bound_modules = {
+            "facade": fleet,
+            "owner": parts.fleet_reconcile,
+            "consumers": parts.fleet_cli,
+            "dispatch": parts.fleet_dispatch,
+            "runner": parts.fleet_runner,
+        }
+        originals = {
+            label: getattr(module, "manifest")
+            for label, module in bound_modules.items()
+        }
+        with patch_fleet("manifest", return_value={"schema": "test"}) as patched:
+            for label, module in bound_modules.items():
+                self.assertIs(getattr(module, "manifest"), patched, label)
+            parts.fleet_reconcile.manifest()
+            self.assertEqual(patched.call_count, 1)
+        for label, module in bound_modules.items():
+            self.assertIs(getattr(module, "manifest"), originals[label], label)
 
     def test_facade_cli_help_keeps_original_description(self) -> None:
         completed = subprocess.run(
