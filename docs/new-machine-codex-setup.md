@@ -27,6 +27,17 @@ Codex, Beads, Profile, and optional Fleet/Linear; resolves one private
 the Profile; and finishes with live readback. External repository creation and
 OAuth remain explicit user-authorized actions.
 
+Installation and `setup` deploy or repair capabilities. They do not create the
+Ledger Dashboard, unique Dashboard Bead, Linear registration, or hourly
+Supervisor. Formal onboarding is a separate explicit action:
+
+```text
+Use $opl-flow start to onboard my complete OPL Ledger and supervise it every hour.
+```
+
+Repeated `start` reuses the same Dashboard/Bead and the one hourly
+`OPL Flow Supervisor`; installation never implies that this action ran.
+
 For an existing OPL Framework installation, these remain supported
 compatibility carrier commands:
 
@@ -57,12 +68,14 @@ Flow dependency intent uses stable identity and three independent status planes:
 - `specialized_capabilities` observes optional enhancements; absence is normal
   and does not require repair.
 
-None of these requires SemVer/ABI resolution, lock, payload, receipt, digest,
-provenance match, App, Full, or a shared cohort.
+Ordinary composition does not require an App catalog, Full build lock, or
+shared release cohort. Framework may still use owner/version/readiness metadata
+to materialize and diagnose a baseline capability.
 
-`contracts/workflow-policy.json` still contains the current fixed companion
-graph and source metadata. Framework may consume it during transition. OPL App
-must not parse it or maintain a second companion list.
+`contracts/workflow-policy.json` is the default capability strategy SSOT.
+Framework compiles it into online materialization, installed status,
+`system_initialize.recommended_skills`, and Full build-lock projections. OPL
+App must not parse it or maintain a second companion list.
 
 A missing required capability affects only Flow's operational plane. A missing
 baseline capability remains a visible repair action; a missing specialized
@@ -92,12 +105,15 @@ Restart the selected executor so native Plugin/Skill discovery refreshes.
 Flow may be a default root in the one App Official Profile:
 
 - Standard installs from the online owner source.
-- Full may use offline seed bytes for the same root.
+- Full adds only policy members marked `offline_bundle=full` and binds their
+  resolved source/version/SHA-256 in a Framework-generated build lock.
 - Profile application happens only at first install or explicit Restore.
 - User removal persists across restart, App update, and maintenance.
 - Background maintenance updates only carrier-reported installed Packages.
 - App does not derive install state from its metadata or from a Codex Plugin
   list alone.
+- App first-run gets recommended Skills from the installed Framework projection;
+  no Flow projection means no App-invented fallback capability list.
 
 Switching from Codex CLI to another executor must preserve the installed Flow
 Package, `AGENTS.md`, `TASTE.md`, user preferences, and existing tasks. Only the

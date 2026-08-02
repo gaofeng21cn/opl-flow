@@ -207,10 +207,6 @@ class VerifyLaneTests(unittest.TestCase):
                 if item["kind"] == "codex_skill" and item["id"] == "agent-reach"
             ).update(
                 version_requirement=">=0.0.0",
-                install_source="github",
-                offline_bundle="none",
-                lifecycle_owner="opl-framework",
-                credential_policy="user_or_provider_owned_not_bundled",
             )
         )
 
@@ -243,6 +239,34 @@ class VerifyLaneTests(unittest.TestCase):
 
         self.assertIn(
             "architect-and-simplify must remain an observed optional OPL Skills capability",
+            errors,
+        )
+
+    def test_capability_bundles_cover_each_member_once(self) -> None:
+        errors = self.workflow_policy_errors_after(
+            lambda policy: next(
+                bundle
+                for bundle in policy["capability_bundles"]
+                if bundle["id"] == "office-authoring"
+            )["member_refs"].remove("cli:officecli")
+        )
+
+        self.assertIn(
+            "workflow policy capability bundles must cover every baseline and optional capability exactly once",
+            errors,
+        )
+
+    def test_full_offline_selection_is_owned_by_flow(self) -> None:
+        errors = self.workflow_policy_errors_after(
+            lambda policy: next(
+                item
+                for item in policy["experience_baseline"]
+                if item["kind"] == "codex_skill" and item["id"] == "agent-reach"
+            ).update(offline_bundle="full")
+        )
+
+        self.assertIn(
+            "workflow policy Full offline seeds must be selected only by Flow policy",
             errors,
         )
 

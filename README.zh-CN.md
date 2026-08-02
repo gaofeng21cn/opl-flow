@@ -87,6 +87,17 @@ flowchart LR
   缺失时为 `degraded` 并提供 owner-supported repair，但 Flow 仍可用。
 - `specialized_capabilities`：架构等可选增强；缺失是正常状态，不要求 repair。
 
+默认能力的权威链只有一条：
+
+```text
+Flow policy -> Framework compiler -> materialization/status/build lock -> App
+```
+
+因此 App 首次运行的 `recommended_skills` 来自已安装 Flow strategy 的 Framework
+投影，不再维护静态清单。Agent Reach 由 Flow baseline 进入推荐安装和健康检查；缺失
+时只让 internet-research bundle 与 `experience_baseline` 降级，不会禁用 Flow、总账或
+核心 Skill。
+
 Flow 推荐 `gpt-5.6-sol + max`。显式用户选择优先；OPL App 继续拥有 Auto 算法、
 模型控件、持久化和 Flow 缺席时的 fallback。Flow 不注入隐藏 prompt，也不会把
 实时 Codex catalog 中不存在的模型说成可用。
@@ -128,8 +139,10 @@ Codex 直接完成同类架构判断，不阻断任务。升级时，Framework �
 
 OPL Flow 不会在运行时复制 OPL Skills 的源码，也不会把整套增强包变成核心依赖。
 
-OPL Skills 的浏览分类与安装 preset 分离，Flow 不使用 wildcard 安装。
-`development-complete` 会精确解析为五个开发/架构方法 Skill：
+OPL Skills 的浏览分类与安装 preset 分离。`development` 方法和六个
+`architecture-lenses` 本质上都属于开发增强，因此 Flow 不会把任一单独分类当成
+默认增强集合，也不使用 wildcard 安装。具名 `development-complete` preset 会精确
+解析为五个开发/架构方法 Skill：
 `architect-and-simplify`、`zoom-out`、`improve-codebase-architecture`、
 `grill-with-docs`、`prototype`，以及六个 `book-*` 架构 lens。安装时由 Flow 将这些
 明确 ID 交给 OPL Skills 的 owner-supported route。
@@ -349,7 +362,7 @@ Skill 的安装和升级仍由各自来源负责。安装或升级后如果需�
 | 产品 | 定位 |
 | --- | --- |
 | **OPL Flow** | Codex 体验基线与工作协同控制层 |
-| **OPL Framework** | 运行时、Package 生命周期、合同和 Agent 执行底座 |
+| **OPL Framework** | 运行时、通用 Flow 能力编译/物化、Package 生命周期、合同和 Agent 执行底座 |
 | **One Person Lab App** | 面向用户的工作台，也是可选的 Flow 安装载体 |
 | **OPL Skills** | 可独立安装的公开增强能力 |
 | **OPL Instance** | 某个个人或组织的私人运行配置与状态 |

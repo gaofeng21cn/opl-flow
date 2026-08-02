@@ -1,201 +1,223 @@
-# OPL Flow Composition Architecture
+# OPL Flow Capability Governance
 
-Owner: `opl-flow`
-Purpose: `flow_package_composition_ssot`
-State: `active_contract_partially_migrated_runtime_transitional`
-Machine boundary: 本文是 OPL Flow 仓的组合架构 SSOT。Flow machine contract
-已经开始迁移，但 Framework/runtime、carrier 安装与 fresh readback 仍处于兼容期。
-本文不把部分合同迁移提升为安装或发布终态；当前行为仍以 contracts、source、
-tests、平台 inventory 和 fresh readback 为准。
+State: source architecture SSOT for OPL Flow capability ownership and projection
+scope. Installed state, publication, and release qualification still require their
+own fresh readback.
 
-## Top-Level Model
+## Decision
 
-```text
-OPL Base        ~= R
-OPL App         ~= RStudio / replaceable GUI and deployment carrier
-OPL Package     ~= R Package
-OPL Flow        = OPL Package(kind=workflow_profile)
+OPL Flow is the sole strategy owner for the default Codex working experience.
+The policy covers:
+
+- the user Profile and core workflow Skills;
+- recommended model and reasoning intent;
+- default Skills and Tools, their source owners, installation intent, and
+  degradation behavior;
+- optional enhancement discovery;
+- online repair and Full/offline selection intent;
+- readiness adapters and capability bundles.
+
+Framework is the generic compiler and runtime owner for that strategy. It
+validates the Flow policy, compiles materialization/status/build-lock
+projections, invokes owner-supported adapters, installs or repairs selected
+capabilities, and reads back effective state.
+
+OPL App is a consumer. It renders Framework status, starts generic Framework
+actions, and materializes a pinned Full build lock. It does not parse
+`workflow-policy.json`, choose the default capability set, or maintain a second
+recommended-Skill catalog.
+
+This is the lowest-cognition architecture because a default capability change
+has one authoring location and only generated consumers:
+
+```mermaid
+flowchart LR
+    F["OPL Flow workflow-policy.v4\nstrategy SSOT"] --> C["OPL Framework\ncompiler + validation"]
+    C --> O["Online materialization plan"]
+    C --> S["Installed status projection"]
+    C --> B["Full capability build lock"]
+    O --> R["Framework/carrier repair"]
+    S --> A["OPL App UI + first-run"]
+    B --> P["OPL App Full payload assembly"]
 ```
 
-OPL Flow 是可选 Package，也是 App Official Profile 的默认 root 之一。默认安装是
-产品便利性，不是生态依赖：缺少 Flow 不得阻断 Base、App、Standard、Full、普通
-Codex、其他 Package 或 domain readiness。
-
-产品定位是“Codex 体验基线 + 工作协同控制层”。Flow 不只拥有总账和并发语义，
-也拥有精简 Profile、模型建议、推荐能力意图、渐进主入口和通用 Fleet Skill；但
-安装生效、App Auto、UI 持久化和平台 readback 仍由各自 owner 负责。
-
-Package 是唯一安装单元。Skill、Tool、Plugin、MCP、profile 和 model recommendation
-是 Package 暴露的 capability，不获得第二套 App 清单或独立 OPL lifecycle。
-
-## Three Layers And One Publication Axis
-
-```text
-Package     = executor-neutral identity, capabilities and dependency intent
-Publication = owner source/tag and official GHCR bytes/current alias
-Carrier     = local install/list/update/remove and fresh installed readback
-Executor    = discovery and execution route for installed capabilities
-```
-
-`opl-flow` 是稳定 Package identity。GHCR 是 publication store/source，不是
-carrier。Codex Plugin Manager 是当前 carrier adapter，不是 Package identity 或生态
-authority；Codex CLI 是当前唯一正式生产 executor，不是 descriptor 格式。
-
-当前只维护一条 Codex production path。Git/local 中性 adapter 仅用于证明 OPL 公共
-Package、status 和 action 合同不依赖 Codex plugin id、marketplace、home/path 或
-manifest shape；它不是第二条正式 carrier，也不建设 Claude/Hermes 产品。
-
-未来增加或切换 executor 时只重新检查该 route 的 callability，不得重装 Flow，也
-不得丢失 `~/.codex/AGENTS.md`、`~/.codex/TASTE.md`、用户偏好、已存在任务或
-其他 Package/capability 状态。若某 carrier 持有唯一物理 bytes 且被移除，fresh
-platform readback 必须报告 physical unavailable，不能由 App metadata 伪造 installed。
+No reverse edge may make App or Framework policy the semantic owner.
 
 ## Authority Map
 
-| Owner | Owns | Must not own |
+| Surface | Owner | Consumer boundary |
 | --- | --- | --- |
-| OPL Flow | Package identity、最小 Profile source、model recommendation、experience-baseline 与 specialized intent、六动作主路由、冲突/迁移意图。 | App Auto/UI/persistence、平台 installed truth、其他 Package、中央版本求解。 |
-| Package owner / publication | 独立 source/tag、per-Package GHCR official bytes 和自己的 `latest-stable`。 | 本机 install/update/remove、installed truth、shared family currentness。 |
-| Carrier platform | 自己承载的 install/list/update/remove、physical bytes、platform currentness 和恢复。 | OPL identity、业务状态、其他 carrier truth。 |
-| Executor adapter | 把已安装 capability 暴露给一个 executor，并 fresh 检查 callability。 | Package 安装、用户 Profile ownership、其他 executor route。 |
-| OPL Base / Framework | 薄 OCI 下载/校验/bytes handoff、动态 installed discovery、presence/callability、generic status/actions 和 executor-route 聚合。 | 本机 lifecycle owner、第二套 resolver、installed lock、payload、receipt、LKG、materializer、固定 Flow companion 清单。 |
-| OPL App | 一个 Official Profile、首次安装/显式 Restore、统一 Settings 状态和用户偏好。 | 解析 Flow companion Skill/Tool/Plugin/MCP 清单、Package 版本选择或 lifecycle 镜像。 |
-| Full / release tooling | 某次 Full/offline/integration-test/QA 构建实际选择 bytes 的精确快照。 | 普通安装、更新、composition 或 `latest-stable`。 |
+| Default capability identity, grouping, source, criticality, install intent, distribution intent, and degradation semantics | OPL Flow | Framework compiles; App never duplicates |
+| Core Flow Plugin/Profile/Skills payload | OPL Flow | Framework/carrier installs and reads back |
+| Generic policy parser, compiler, materializer, repair, status, and build lock | OPL Framework | Must remain data-driven and reject unknown policy fields |
+| Owner-specific repair adapter | Capability owner, invoked by Framework | Example: `agent-reach skill --install` |
+| App Auto model resolution, UI, persistence, explicit user choice, and fallback | OPL App | Installed Flow recommendation is an input, not App-owned policy |
+| Standard/Full product assembly and release evidence | OPL App | Full consumes a Framework-generated lock; it does not select capabilities |
+| Effective `AGENTS.md` and explicit settings | User | Flow proposes safe merge; user overrides win |
+| Optional architecture/reliability/domain methods | OPL Skills or domain package | Absence must not block Flow |
+| Private Ledger/Fleet topology and state | OPL Instance | Public Flow supplies reusable engines only |
 
-## Three Status Planes And Presence-Only Composition
+## Policy Model
 
-Capability identity 使用 `(kind, id)`；Package dependency 使用稳定 Package 或
-capability identity。Policy v4 将结果分成三个平面：
+`contracts/workflow-policy.json` uses `opl_flow_workflow_policy.v4` and separates
+five concerns:
 
-- `package_operational` 只由 Flow 本体和 `requires` 的 presence/callability 决定；
-- `experience_baseline` 是默认体验下限，缺失时输出 `degraded`、failure IDs 和
-  owner-supported repair command，但 `package_operational` 仍为 true；
-- `specialized_capabilities` 只观察 `compatible_optional` discovery，缺失是正常状态，
-  不触发 managed install 或 repair。
+1. `provides`: the Plugin/Profile and six Flow-owned core Skills.
+2. `requires`: dependencies whose absence can make Flow itself non-operational.
+3. `experience_baseline`: default/recommended capabilities. Absence degrades
+   the experience but never disables Flow, Ledger, or core Skills.
+4. `compatible_optional`: discoverable enhancements with no default install or
+   repair obligation.
+5. `capability_bundles`: user-meaningful groups whose members still retain
+   independent source, lifecycle, readiness, and distribution metadata.
 
-普通解析不比较 SemVer、ABI、exact digest、lock、payload、receipt、provenance 或
-family cohort。
+The three status planes are intentionally independent:
 
-解析顺序保持最小：
+- `package_operational`: Flow is installed and callable, including `requires`.
+- `experience_baseline`: default capabilities are current or `degraded`.
+- `specialized_capabilities`: optional enhancements are present or absent.
 
-1. 从实际 carrier/platform fresh inventory 发现 identity。
-2. 检查 required identity 是否 present，并对选定 route 检查 callability。
-3. required 缺失时调用该 identity 的 carrier ensure；仍失败只使直接 dependent unavailable。
-4. baseline 缺失时提供 repair，optional 缺失时只报告 absent。
-5. unrelated Package、App、Base 和其他 executor route 继续工作。
+`experience_baseline=degraded` must not be translated into
+`package_operational=unavailable`.
 
-稳定 identity 只做向后兼容扩展。Breaking interface 发布新 identity，或由 owner
-保留兼容 adapter；不为此建立中央 version/ABI solver。
+## Current Bundles
 
-A lock records a resolution for a concrete artifact in the transitional
-implementation. It is never an input to target Flow composition.同理，payload、
-receipt 和 provenance 可以作为某次发布、诊断或历史证据存在，但不能成为
-dependency、installation 或 readiness 门禁。
+| Bundle | Relationship | Members | Online default | Full seed |
+| --- | --- | --- | --- | --- |
+| Internet research | experience baseline | Agent Reach Skill + CLI | owner-supported install/repair | none |
+| Office authoring | experience baseline | OfficeCLI Skill family + CLI | Framework materialization | OfficeCLI CLI only |
+| Document extraction | experience baseline | MinerU extractor Skill + CLI | Framework materialization | `mineru-open-api` CLI only |
+| Visual design | experience baseline | `ui-ux-pro-max` | Framework materialization | none |
+| Architecture enhancement | compatible optional | `architect-and-simplify` | observe only | none |
+| Official Codex Office runtime | compatible optional | OpenAI Office/PDF runtime capability | observe only | none |
 
-## Publication And Distribution
+`offline_bundle=full` is the only Flow-owned Full selection signal. The current
+Full plan therefore contains exactly `cli:officecli` and
+`cli:mineru-open-api`. App source manifests may provide version or repository
+hints for a selected adapter, but they cannot add an item to this plan.
 
-First-party Flow 的完整官方 Package bytes 继续由 owner 独立发布：
+## Agent Reach
 
-```text
-Flow owner source/tag
-  -> ghcr.io/<owner>/one-person-lab-packages/opl-flow:<immutable-tag>
-  -> ghcr.io/<owner>/one-person-lab-packages/opl-flow:latest-stable
-```
+Agent Reach is part of the Codex experience baseline, not a Flow runtime
+dependency.
 
-GHCR 是官方 publication store/source，不是 carrier，也不定义本机 installed truth。
-Base 只在 Codex Plugin Manager 无法直接消费 OCI 时保留薄 OCI 下载、校验与 bytes
-handoff；配置的 carrier 负责 install/update/remove 和 fresh installed readback。
-Plugin/config/cache 交给 Codex，Flow Package runtime adapter 声明非 Plugin
-Profile surfaces 的应用方式，carrier 仍须把完整 Package 一并安装和 readback。
+- Flow declares both its Skill entrypoint and CLI/doctor readiness.
+- Framework uses the owner CLI for managed setup and repair.
+- Readiness checks cover the Skill payload, CLI version, `doctor --json`, and
+  the core channels defined by the owner adapter.
+- Missing or unhealthy Agent Reach sets the internet-research bundle and
+  `experience_baseline` to `degraded`, while Flow remains operational.
+- `opl system initialize --json` derives `recommended_skills` from the
+  installed Flow strategy projection, so App first-run sees Agent Reach without
+  an App-owned catalog.
 
-`one-person-lab-manifest:latest-stable` 退出普通 Flow 更新权威。shared manifest/
-Release Set 只用于 Full、offline、integration test 和 release QA 的精确输入快照，
-不得阻断 Flow owner 独立推进 `latest-stable`。
+Credentials and authenticated optional channels remain user/provider owned and
+are never bundled.
 
-App Standard 和 Full 使用同一个 App Official Profile。Flow 可以是其默认 root，但：
+## Core Skills And OPL Skills
 
-- Profile 只在 first install 或用户显式 Restore official combination 时应用；
-- Full 只增加 offline seed；
-- 用户卸载 Flow 后，startup、daily maintenance 和 App update 不得静默装回；
-- App 不读取 `contracts/workflow-policy.json` 来维护 companion list。
+Skills that define the default Codex work style or Flow's multi-task,
+multi-repository, multi-machine control path belong in OPL Flow. The current
+core set is:
 
-OPL Flow never bundles API keys, OAuth state, credentials, account data, or
-unknown third-party MCP configuration.
+- `opl-flow`;
+- `coordinate-concurrent-tasks`;
+- `develop-and-deliver`;
+- `recover-codex-tasks`;
+- `task-mode-gate`;
+- `opl-fleet`.
 
-## Codex-First Delivery
+OPL Skills remains an independently installable enhancement pack. Its catalog
+categories are for browsing, not implicit installation defaults. In
+particular, both the `development` methods and the six `architecture-lenses`
+are development-related. Flow therefore does not resolve "development
+enhancements" to only one category.
 
-当前正式生产链保持一条：
+The named `development-complete` preset is an explicit union of:
 
-```text
-owner publication in GHCR
-  -> Base thin OCI byte acquisition
-  -> Codex carrier adapter
-  -> Codex CLI executor
-```
+- `architect-and-simplify`, `zoom-out`,
+  `improve-codebase-architecture`, `grill-with-docs`, and `prototype`;
+- all six `book-*` architecture lenses.
 
-这条主路径优先复用 Codex 的 Plugin/config/cache 能力，降低当下开发和维护成本。
-OPL 只拥有未来迁移必须稳定的 Package/capability identity、Profile、用户偏好、
-task references 及 generic status/actions。Git/local 中性 proof 只验证这些公共字段
-可脱离 Codex 私有形状工作；不并行实现第二套 GUI、carrier 产品或 executor。
+Flow passes the resolved exact IDs to the OPL Skills owner-supported installer.
+It never uses wildcard installation. `architect-and-simplify` is
+capability-aware: use it when installed; otherwise perform the same judgment
+model-natively and do not block the task.
 
-## User Profile Safety
+## Model And Profile
 
-用户 Profile 是这套简化中唯一保留的窄自定义写入安全协议：
-
-1. 读取目标 `~/.codex/AGENTS.md` 并记录 original SHA。
-2. 修改前备份原文件。
-3. 只删除已知 marker block；未标记偏好交给语义合并或用户 review。
-4. Apply 前再次比较 target SHA；变化即 stale-write fail closed。
-5. 校验候选后用同目录原子替换，失败保持原文件。
-
-当前实现可能生成 merge packet 和 rollback receipt，但 Framework 已不再暴露
-Profile apply 命令；reviewed bytes 只由 owner-controlled Profile workflow 写回。
-目标只保护上述用户文件结果，不把 packet、receipt 或 transaction state 扩张成所有
-Package 的组合依赖。
-
-## App And Workflow Boundaries
-
-App 只消费 Framework 的 generic installed/callable projection，可以分组、展示和调用
-owner-projected actions。App 不解析 Flow 的 `requires`、`experience_baseline` 或
-`compatible_optional`，不保存第二份 Skill/Plugin/Tool/MCP/model inventory，也不从
-Codex plugin list 推断完整 Package installed state。
-
-`opl_flow_context` 只是已安装 Flow 的状态元数据，不是 base prompt。只有 Framework
-fresh projection 证明 `opl-flow` 已安装时才能注入；Flow 缺席时字段必须完全省略。
-
-Model precedence remains:
+Flow recommends `gpt-5.6-sol` with `max` reasoning. The precedence is:
 
 ```text
 explicit user selection
 > installed Flow recommendation
-> fresh executor default
+> fresh Codex model catalog/default
 > App fallback when Flow is unavailable
 ```
 
-OPL Flow 可以定义 `ACTIVE`、`SAFE_TO_ARCHIVE` 等协作语义；实际 archive 仍需
-fresh user acceptance。Flow 不拥有 project、release、runtime、domain 或 task truth。
+App owns Auto resolution, visible controls, persistence, and fallback. Flow
+owns the recommendation only; it cannot claim an unavailable model is usable.
 
-## Current Transitional Gap
+Profile mutation preserves user ownership through backup, semantic merge,
+target-hash stale-write protection, validation, atomic replace, and readback.
+Flow never injects a hidden base prompt.
 
-截至 2026-08-01，`contracts/workflow-policy.json` v4 已删除普通 capability 的
-exact version、install-source、lifecycle-owner、fixed Standard/Full convergence
-等组合要求，并将旧 `recommends` 明确拆为 `experience_baseline`，同时通过
-`compatible_optional` 表达 specialized capabilities。它仍固定声明 source/source_path、
-Codex model policy 和 migration policy。
-Framework Package lifecycle/runtime 仍包含 resolver、lock/payload、receipt、
-rollback 和 provenance compatibility fields。
+## Install, Setup, And Start
 
-因此当前命令仍走 compatibility lifecycle，不能从 contract v4 或本文推断 target
-已落地。删除旧 reader/writer 前至少需要 fresh terminal proof：
+Package installation, update, and repair deploy capabilities only. They may
+install the Flow Plugin/Profile/core Skills and materialize the current
+experience baseline. They must not create a Dashboard, Bead, Linear Project,
+or Automation.
 
-- per-Package GHCR `latest-stable` 独立提供 bytes，shared manifest 不参与普通选择；
-- configured carrier 独立执行 install/update/remove，并从本机 fresh read back；
-- required identity 仅凭 presence/callability 成功，缺失只局部影响 dependent；
-- Standard/Full 使用同一 Official Profile，Flow 卸载后不会被后台装回；
-- App 不解析 Flow companion 清单且仍能完整展示状态；
-- 正式 Codex carrier/executor 路径完成安装、发现和调用；
-- 最小 Git/local 中性 adapter proof 证明公共合同没有 Codex 私有必填字段，且不形成
-  第二 executor 产品；
-- Profile stale-write、backup、atomic apply 在并发修改和失败场景均有 fresh readback。
+- `$opl-flow setup` establishes or repairs the Codex experience baseline and
+  optional enhancement selection.
+- `$opl-flow start` is the explicit formal onboarding action. It idempotently
+  creates or reuses the Dashboard task, unique Ledger Bead, registered Linear
+  project projection, and one hourly `OPL Flow Supervisor`.
 
-Docs、schema、unit tests、dry-run 或候选分支都不是这些终态证明。
+Installing Flow never implies that `start` has run.
+
+## Framework Projection Contract
+
+Framework emits generic, machine-readable surfaces:
+
+- `opl_flow_capability_strategy_projection.v1`: policy identity, bundle state,
+  online materialization plan, Full distribution plan, and health adapters;
+- package status at
+  `app_state.agent_packages.status_index.packages.opl-flow.capability_strategy`;
+- `system_initialize.recommended_skills`, derived from the installed strategy;
+- `opl_flow_capability_build_lock.v1`, binding one Full strategy digest to the
+  resolved source ref, version, and SHA-256 of every selected payload.
+
+Managed mode may invoke owner-supported install/repair adapters. Observe mode
+must not write. If no installed Flow-derived plan exists, companion
+materialization is a true `0/0` no-op rather than a fallback static catalog.
+
+App Full assembly accepts only adapters it implements, materializes exactly the
+build-lock items, and fails closed on unknown, missing, duplicate, drifted, or
+unselected payloads. The runtime receipt records the pre-materialization source
+hash and the packaged payload hash after native trust processing.
+
+## Change Process
+
+To add, remove, or change a default capability:
+
+1. edit the Flow policy and schema/tests;
+2. compile it with Framework and inspect online, status, and Full projections;
+3. add a generic Framework adapter only when the capability kind or owner
+   protocol is genuinely new;
+4. update an App adapter only when a newly selected Full payload needs product
+   assembly support;
+5. verify Flow-only, degraded baseline, online repair, Full build-lock, and App
+   consumer paths;
+6. read back canonical source and, when authorized separately, installed or
+   published state.
+
+Do not patch an App `recommended_skills` list or restore a Framework static
+catalog. Those are symptoms of authority duplication.
+
+## Terminal Boundary
+
+Source, tests, task branches, build locks, and dry runs prove implementation
+only. They do not prove publication, installation, App release, or effective
+machine state. Each terminal claim requires the corresponding owner readback.

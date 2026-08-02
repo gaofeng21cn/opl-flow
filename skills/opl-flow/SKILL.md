@@ -23,6 +23,9 @@ stack or a second development methodology.
 Infer the action from natural language. Ask only when two actions would produce
 materially different mutations.
 
+Load only the references named by the selected action. Do not preload every
+Ledger, Fleet, package, and App contract into an ordinary baseline task.
+
 | Action | Use when | Load |
 | --- | --- | --- |
 | `doctor` (`$opl-flow doctor`) | Inspect the effective Codex baseline, Profile, package, model, capabilities, Ledger, or Fleet without repairing by default. | `references/codex-baseline.md`, then `references/terminal-readback.md` |
@@ -58,8 +61,10 @@ Natural-language examples:
    choices. Flow never generates a hidden base prompt.
 6. Use the Package manifest as the bundled-core Skill authority. Do not keep a
    second handwritten core list in setup logic or an App contract.
-7. Use Framework/package actions for normal install, update, repair, rollback,
-   and currentness. Repository-local install helpers are development tools.
+7. Use the Framework-compiled Flow strategy for normal install, update, repair,
+   status, and Full selection. `system_initialize.recommended_skills` is a
+   projection of that strategy, not an App catalog. Repository-local install
+   helpers are development tools.
 8. Read terminal state from the actual owner surface. A plan, test, task
    branch, merge packet, Automation, or UI label is not completion.
 9. Installation deploys capabilities only. Installation never runs `start` or

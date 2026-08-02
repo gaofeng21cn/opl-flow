@@ -12,6 +12,7 @@
     "requires",
     "experience_baseline",
     "compatible_optional",
+    "capability_bundles",
     "conflicts",
     "retires",
     "codex_model_policy",
@@ -37,6 +38,7 @@
     "requires": { "$ref": "#/$defs/dependencies" },
     "experience_baseline": { "$ref": "#/$defs/dependencies" },
     "compatible_optional": { "$ref": "#/$defs/dependencies" },
+    "capability_bundles": { "$ref": "#/$defs/capabilityBundles" },
     "conflicts": { "$ref": "#/$defs/migrations" },
     "retires": { "$ref": "#/$defs/migrations" },
     "codex_model_policy": {
@@ -80,6 +82,7 @@
         "id": { "type": "string", "minLength": 1 },
         "kind": { "enum": ["base", "codex_skill", "codex_plugin", "mcp_server", "cli", "runtime_capability"] },
         "owner": { "type": "string", "minLength": 1 },
+        "bundle_id": { "type": "string", "minLength": 1 },
         "version_requirement": { "type": "string", "minLength": 1 },
         "source": { "type": "string", "minLength": 1 },
         "source_path": { "type": "string", "minLength": 1 },
@@ -88,6 +91,14 @@
         "online_install_default": { "type": "boolean" },
         "offline_bundle": { "enum": ["none", "full"] },
         "activation": { "enum": ["always", "task_routed", "explicit"] },
+        "readiness_adapter": {
+          "enum": [
+            "codex_skill_payload",
+            "binary_version",
+            "agent_reach_doctor",
+            "runtime_observation"
+          ]
+        },
         "conflict_policy": { "enum": ["managed_reconcile", "preserve_user_surface", "fail_closed_on_collision"] },
         "credential_policy": { "enum": ["none", "user_or_provider_owned_not_bundled"] }
       },
@@ -134,6 +145,50 @@
       "type": "array",
       "uniqueItems": true,
       "items": { "$ref": "#/$defs/capability" }
+    },
+    "capabilityBundles": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "$ref": "#/$defs/capabilityBundle" }
+    },
+    "capabilityBundle": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "label",
+        "relationship",
+        "member_refs",
+        "online_materialization",
+        "full_distribution",
+        "readiness"
+      ],
+      "properties": {
+        "id": { "type": "string", "minLength": 1 },
+        "label": { "type": "string", "minLength": 1 },
+        "relationship": { "enum": ["experience_baseline", "compatible_optional"] },
+        "member_refs": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "pattern": "^(base|codex_skill|codex_plugin|mcp_server|cli|runtime_capability):[^:]+$"
+          }
+        },
+        "online_materialization": { "enum": ["members_marked_default", "observe_only"] },
+        "full_distribution": { "enum": ["members_marked_full", "none"] },
+        "readiness": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["aggregation", "absence_effect", "repair_policy"],
+          "properties": {
+            "aggregation": { "enum": ["all_members", "observe_members"] },
+            "absence_effect": { "enum": ["degraded_non_blocking", "optional_absent"] },
+            "repair_policy": { "enum": ["framework_or_owner_adapter", "none"] }
+          }
+        }
+      }
     },
     "migrations": {
       "type": "array",

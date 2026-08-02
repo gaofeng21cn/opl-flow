@@ -2,7 +2,7 @@
 
 Owner: `gaofeng`
 Purpose: `flow_positioning`
-State: `active_target_with_transitional_route`
+State: `active_source_contract`
 Machine boundary: 本文是人类可读定位。组合架构由
 [capability-governance.md](./capability-governance.md) 统一定义；实际安装和可调用性
 由当前 machine contracts、平台 inventory 与 fresh readback 定义。
@@ -28,10 +28,10 @@ executor-neutral 的 Package identity、Profile、偏好和公共 status/actions
 | `skills/develop-and-deliver` | 多步骤软件实现、验证、fresh-main 吸收与真实交付。 | 领域 truth、发布授权或独立 Package lifecycle。 |
 | `skills/task-mode-gate` | 约束真实发布、部署、迁移、公共或破坏性 mutation。 | 普通开发方法论或只读任务门禁。 |
 | `skills/recover-codex-tasks` | 基于本机任务数据库和证据恢复中断工作。 | 伪造任务状态、外部 authority 或自动归档。 |
-| Specialist skills | 由自己的 explicit/narrow trigger 按需加载。 | Flow-managed 固定 companion readiness 清单。 |
+| Specialist skills | 由自己的 explicit/narrow trigger 按需加载。 | 每个任务预加载全部方法或把可选增强变成 Flow 依赖。 |
 | Ponytail | Retired conflict: hooks 和 broad main persona 不属于最小 Flow Profile。 | 独立显式安装的 audit/review capability。 |
 | OPL App | 可选 GUI；一个 Official Profile 和统一状态展示。 | Flow policy parser、companion list、Package lifecycle 或 installed mirror。 |
-| OPL Base / Framework | 动态 discovery、presence/callability、thin adapters 和 generic projection。 | Flow-specific catalog 或 OPL-owned version/lock/payload/receipt manager。 |
+| OPL Base / Framework | 编译 Flow policy，生成 generic materialization/status/build-lock projection，调用 owner adapter，并完成 fresh readback。 | 决定默认能力语义、维护第二份静态 catalog 或让 App profile 反向定义 Flow。 |
 
 ## Installed Surfaces
 
@@ -44,12 +44,13 @@ Flow Package 可以暴露：
 - `skills/develop-and-deliver`；
 - `skills/task-mode-gate`；
 - `skills/recover-codex-tasks`；
+- `skills/opl-fleet`；
 - model recommendation 和其他 stable capability identities。
 
 这些 capability 不是独立 OPL install objects。App 不解析
-`contracts/workflow-policy.json` 来安装 companion Skills；Framework 从 carrier
-platform 发现实际 installed identities，并对 required edge 只检查
-presence/callability。
+`contracts/workflow-policy.json`。Framework 编译 Flow 的默认/可选意图，carrier
+执行物理安装，Framework 再从 owner adapter 与 carrier platform 回读实际 identity、
+readiness 和 callability。App 只消费这个 projection。
 
 ## Install And Update Boundary
 
@@ -68,9 +69,10 @@ Base 可以下载、校验并 hand off OCI bytes；配置的 carrier 执行
 install/update/remove，并以 fresh local readback 定义 installed truth。Codex
 Plugin Manager 是当前正式 carrier，Codex CLI 是当前正式 executor。
 
-Required/recommended identity 不要求 SemVer/ABI、lock、payload、receipt、digest 或
-provenance match。精确 metadata 可以服务一个具体 build/release artifact 或迁移诊断，
-但不参与 composition/readiness。
+Required composition 不要求 shared SemVer/ABI cohort、App catalog 或 Full lock。
+experience baseline 可以使用 owner/version/readiness metadata 做 repair 和 degraded
+诊断，但不得升级为 Flow operational 门禁。精确 build lock 只绑定一次 Full payload
+assembly，不定义 ordinary installed truth。
 
 Script merge policy保留一条独立不变量：target SHA stale-write check、backup、candidate
 validation 和 atomic apply。当前实现可能记录 rollback receipt；该 receipt 只说明
@@ -81,15 +83,19 @@ Profile mutation 的 compatibility recovery，不是通用 Package dependency。
 OPL App Standard 和 Full 使用同一 Official Profile。Flow 是可替换的默认 root：
 
 - Standard 可在线安装；
-- Full 可携带 offline seed；
+- Full 只携带 Flow policy 中 `offline_bundle=full` 的 seed；
 - 缺失只影响 Flow；
 - 用户卸载后 maintenance 不得装回；
 - explicit Restore 才重新 ensure；
 - credentials 和 unknown third-party MCP state 永不打包或覆盖。
 
-App carrier 更新后，当前实现可能调用 generic Framework reconciliation；目标只更新
-platform 仍报告 installed 的 Packages，不把 Official Profile 变成持续 desired-state
-loop。
+Standard 的 recommended Skills 来自 Framework 编译的 installed Flow strategy。
+Full 由同一 strategy 生成 `opl_flow_capability_build_lock.v1`，App 只按 lock 物化并
+拒绝 unknown/missing/duplicate/drifted/unselected payload。App source manifest 只提供
+选中 adapter 的 resolution hint。
+
+安装、更新或 repair 只部署能力，不执行 `$opl-flow start`，也不创建 Dashboard、
+Bead、Linear registration 或 Automation。
 
 ## Verification Boundary
 
@@ -103,8 +109,8 @@ python3 scripts/install_local_plugin.py --verify-only
 Standard/Full、另一 executor 或本机 ordinary currentness。
 
 Target currentness 分为 owner publication、carrier installed truth、executor
-callability 和 Full/QA snapshot。任一层都不能替代其他层。Framework transitional
-lock/payload fields 可读取用于兼容诊断，但不能提升为 target composition gate。
+callability、experience readiness 和 Full/QA snapshot。任一层都不能替代其他层。
+Framework build lock 是 Full artifact evidence，不能提升为 ordinary composition gate。
 Git/local 中性 proof 只验证公共边界可替换，不替代 Codex production readback。
 
 OPL Flow 可以将 task 标为 `SAFE_TO_ARCHIVE`，但实际 archive 仍需要 fresh user

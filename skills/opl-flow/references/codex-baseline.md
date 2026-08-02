@@ -5,7 +5,9 @@ Use this reference for `doctor` and `tune`.
 ## Authority
 
 - Flow owns the recommended profile, model policy, and capability intent.
-- Framework/carriers own installation, repair, and fresh installed readback.
+- Framework compiles Flow intent into generic installation, repair, status,
+  and Full build-lock projections; carriers own physical mutation and fresh
+  installed readback.
 - App owns Auto resolution, UI, persistence, explicit user selection, and the
   fallback used when an installed Flow recommendation is unavailable.
 - The user owns the effective `AGENTS.md` and any explicit override.
@@ -24,6 +26,19 @@ Read and report these independently:
 
 Do not infer any plane from another. A present Plugin does not prove companion
 currentness; a missing companion does not prove the Plugin is unusable.
+
+The baseline is grouped as:
+
+| Bundle | Default behavior | Absence |
+| --- | --- | --- |
+| Internet research | Agent Reach Skill + CLI/doctor | degraded, owner repair offered |
+| Office authoring | OfficeCLI Skill family + CLI | degraded, Framework repair offered |
+| Document extraction | MinerU extractor Skill + CLI | degraded, Framework repair offered |
+| Visual design | `ui-ux-pro-max` | degraded, Framework repair offered |
+
+App first-run does not own this table. Read `system_initialize.recommended_skills`
+from the installed Framework projection. When Flow is absent, that Flow-derived
+list is absent rather than replaced by an App static catalog.
 
 ## Model Policy
 
@@ -72,3 +87,8 @@ Specialized development and architecture capabilities remain in OPL Skills.
 When `architect-and-simplify` is discovered, use it for architecture mapping or
 simplification. When absent, perform the same work model-natively and report
 the capability as optional, not degraded.
+
+For Full distribution, read the Framework-generated
+`opl_flow_capability_build_lock.v1`. Do not derive Full payload selection from
+an App source manifest; it provides resolution hints only after Flow has
+selected a capability.

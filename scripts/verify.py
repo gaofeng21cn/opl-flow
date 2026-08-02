@@ -146,6 +146,7 @@ def check_workflow_policy(repo_root: Path) -> list[str]:
         errors.append("workflow policy package id must be opl-flow")
     required_sections = (
         "provides", "requires", "experience_baseline", "compatible_optional",
+        "capability_bundles",
         "conflicts", "retires", "codex_model_policy", "migration_policy",
         "historical_fingerprints",
     )
@@ -273,6 +274,70 @@ def check_workflow_policy(repo_root: Path) -> list[str]:
         errors.append("workflow policy experience baseline skills must use their canonical GitHub source and path")
     if any(not item.get("online_install_default") for item in policy.get("experience_baseline", [])):
         errors.append("workflow policy experience baseline must be repaired by default")
+    baseline = policy.get("experience_baseline", [])
+    baseline_lifecycle_metadata = {
+        "bundle_id", "install_source", "lifecycle_owner", "offline_bundle",
+        "readiness_adapter", "conflict_policy", "credential_policy",
+    }
+    if any(not baseline_lifecycle_metadata.issubset(item) for item in baseline):
+        errors.append(
+            "workflow policy experience baseline must declare bundle, lifecycle, distribution, and readiness metadata"
+        )
+    full_offline_keys = {
+        (item.get("kind"), item.get("id"))
+        for item in baseline
+        if item.get("offline_bundle") == "full"
+    }
+    if full_offline_keys != {("cli", "officecli"), ("cli", "mineru-open-api")}:
+        errors.append("workflow policy Full offline seeds must be selected only by Flow policy")
+    bundle_members = {
+        f"{item.get('kind')}:{item.get('id')}": item.get("bundle_id")
+        for item in [*baseline, *policy.get("compatible_optional", [])]
+    }
+    bundles = policy.get("capability_bundles", [])
+    bundle_ids = [item.get("id") for item in bundles]
+    if len(bundle_ids) != len(set(bundle_ids)):
+        errors.append("workflow policy capability bundle ids must be unique")
+    declared_member_refs = [
+        member_ref
+        for bundle in bundles
+        for member_ref in bundle.get("member_refs", [])
+    ]
+    if len(declared_member_refs) != len(set(declared_member_refs)):
+        errors.append("workflow policy capability bundle members must have one source bundle")
+    if set(declared_member_refs) != set(bundle_members):
+        errors.append("workflow policy capability bundles must cover every baseline and optional capability exactly once")
+    for bundle in bundles:
+        for member_ref in bundle.get("member_refs", []):
+            if bundle_members.get(member_ref) != bundle.get("id"):
+                errors.append(f"workflow capability {member_ref} must point back to bundle {bundle.get('id')}")
+    expected_bundle_relationships = {
+        "internet-research": "experience_baseline",
+        "office-authoring": "experience_baseline",
+        "document-extraction": "experience_baseline",
+        "visual-design": "experience_baseline",
+        "architecture-enhancement": "compatible_optional",
+        "official-codex-office-runtime": "compatible_optional",
+    }
+    if {item.get("id"): item.get("relationship") for item in bundles} != expected_bundle_relationships:
+        errors.append("workflow policy capability bundle relationships are incomplete")
+    for bundle in bundles:
+        relationship = bundle.get("relationship")
+        readiness = bundle.get("readiness", {})
+        if relationship == "experience_baseline" and (
+            bundle.get("online_materialization") != "members_marked_default"
+            or bundle.get("full_distribution") != "members_marked_full"
+            or readiness.get("absence_effect") != "degraded_non_blocking"
+            or readiness.get("repair_policy") != "framework_or_owner_adapter"
+        ):
+            errors.append(f"experience bundle {bundle.get('id')} must be repairable and non-blocking")
+        if relationship == "compatible_optional" and (
+            bundle.get("online_materialization") != "observe_only"
+            or bundle.get("full_distribution") != "none"
+            or readiness.get("absence_effect") != "optional_absent"
+            or readiness.get("repair_policy") != "none"
+        ):
+            errors.append(f"optional bundle {bundle.get('id')} must remain observe-only")
     agent_reach = next(
         (
             item for item in policy.get("experience_baseline", [])
@@ -284,8 +349,13 @@ def check_workflow_policy(repo_root: Path) -> list[str]:
         "id": "agent-reach",
         "kind": "codex_skill",
         "owner": "agent-reach",
+        "bundle_id": "internet-research",
+        "install_source": "owner_cli",
+        "lifecycle_owner": "agent-reach",
         "online_install_default": True,
+        "offline_bundle": "none",
         "activation": "task_routed",
+        "readiness_adapter": "codex_skill_payload",
         "source": "https://github.com/Panniantong/Agent-Reach",
         "source_path": "agent_reach/skill",
     }
@@ -294,6 +364,20 @@ def check_workflow_policy(repo_root: Path) -> list[str]:
         for key, value in expected_agent_reach.items()
     ):
         errors.append("workflow policy experience baseline must include agent-reach from its canonical GitHub source")
+    agent_reach_cli = next(
+        (
+            item for item in policy.get("experience_baseline", [])
+            if item.get("kind") == "cli" and item.get("id") == "agent-reach"
+        ),
+        None,
+    )
+    if not agent_reach_cli or (
+        agent_reach_cli.get("bundle_id") != "internet-research"
+        or agent_reach_cli.get("install_source") != "owner_cli"
+        or agent_reach_cli.get("readiness_adapter") != "agent_reach_doctor"
+        or agent_reach_cli.get("offline_bundle") != "none"
+    ):
+        errors.append("agent-reach baseline must include its owner CLI and doctor readiness")
     if any(item.get("id") == "agent-reach" for item in policy.get("requires", [])):
         errors.append("agent-reach must not make the OPL Flow package operational dependency set")
     architect = next(

@@ -139,6 +139,18 @@ claim that a model missing from the live Codex catalog is usable.
 Framework projects these planes generically. App consumes that projection and
 does not parse `workflow-policy.json` or maintain a second companion list.
 
+The ownership path is one-way:
+
+```text
+Flow policy -> Framework compiler -> materialization/status/build lock -> App
+```
+
+App first-run `recommended_skills` is therefore derived from the installed
+Flow strategy. Agent Reach appears through the Flow baseline rather than an
+App catalog. If Agent Reach is missing, Framework reports a degraded
+internet-research bundle and an owner-supported repair action; it does not
+disable Flow, Ledger, or the core Skills.
+
 ### Durable OPL Ledger
 
 OPL Flow provides safe initialization, status, and Operations Registry
@@ -260,9 +272,12 @@ three moved core Skill IDs only when the Skills CLI lock proves the exact former
 `gaofeng21cn/opl-skills` source and path. A same-name directory with missing or
 different provenance is preserved as a collision and never removed by name.
 
-OPL Skills separates catalog categories from installation presets. Flow never
-uses wildcard installation. The `development-complete` preset resolves to the
-explicit architecture/development methods `architect-and-simplify`, `zoom-out`,
+OPL Skills separates catalog categories from installation presets. Both its
+`development` methods and `architecture-lenses` are development-related, so
+Flow does not treat either category alone as the default enhancement set. Flow
+never uses wildcard installation. The named `development-complete` preset
+resolves to the explicit architecture/development methods
+`architect-and-simplify`, `zoom-out`,
 `improve-codebase-architecture`, `grill-with-docs`, and `prototype`, plus the
 six `book-*` architecture lenses. Setup passes those exact IDs to the
 OPL Skills owner-supported installer.
@@ -365,7 +380,7 @@ paths, and Fleet lease secrets are never published or copied between nodes.
 | Product | Role |
 | --- | --- |
 | **OPL Flow** | Codex experience baseline and work-coordination control layer |
-| **OPL Framework** | Runtime, Package lifecycle, contracts, and Agent execution substrate |
+| **OPL Framework** | Runtime, generic Flow capability compiler/materializer, Package lifecycle, contracts, and Agent execution substrate |
 | **One Person Lab App** | User-facing workbench and optional Flow carrier/profile entry |
 | **OPL Skills** | Optional reusable capability enhancements |
 | **OPL Instance** | One owner or organization's private operating configuration and state |
