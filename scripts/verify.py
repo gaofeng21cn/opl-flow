@@ -48,8 +48,6 @@ REQUIRED_FILES = (
     "skills/opl-flow/scripts/validate_start_onboarding.py",
     "skills/recover-codex-tasks/SKILL.md",
     "skills/recover-codex-tasks/agents/openai.yaml",
-    "skills/recover-codex-tasks/references/evidence-and-prompts.md",
-    "skills/recover-codex-tasks/scripts/inspect_codex_recovery.py",
     "skills/task-mode-gate/SKILL.md",
     "skills/task-mode-gate/agents/openai.yaml",
     "templates/AGENTS.md",
@@ -91,7 +89,6 @@ CORE_TEST_MODULES = (
     "tests/test_fleet_inventory.py",
     "tests/test_package_descriptor.py",
     "tests/test_qualify_install.py",
-    "skills/recover-codex-tasks/tests/test_inspect_codex_recovery.py",
 )
 VERIFY_LANES = ("core", "full")
 
