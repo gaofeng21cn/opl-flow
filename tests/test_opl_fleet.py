@@ -7,6 +7,7 @@ import importlib.util
 import io
 import json
 import plistlib
+import subprocess
 import sys
 import tempfile
 import unittest
@@ -22,6 +23,234 @@ assert SPEC and SPEC.loader
 fleet = importlib.util.module_from_spec(SPEC)
 sys.modules[SPEC.name] = fleet
 SPEC.loader.exec_module(fleet)
+
+
+# --- patch seam helpers ------------------------------------------------
+# The implementation now lives in opl_fleet_parts.* modules.  Each public
+# symbol is bound (defined or imported) by several modules plus the facade.
+# patch_fleet/set_fleet explicitly patch every real binding so the original
+# `fleet.*` patch/assignment semantics stay on the true globals.
+
+FLEET_BINDINGS = {
+    'ADMISSION_FIELDS': ['fleet_common', 'fleet_lease', 'opl_fleet'],
+    'ADMISSION_OPTIONAL_FIELDS': ['fleet_common', 'fleet_lease', 'opl_fleet'],
+    'AVAILABILITY_POLICIES': ['fleet_common', 'fleet_reconcile', 'opl_fleet'],
+    'COMMIT_PATTERN': ['fleet_common', 'fleet_lease', 'fleet_runner', 'opl_fleet'],
+    'CONFIG_PATH': ['fleet_common', 'fleet_reconcile', 'opl_fleet'],
+    'CONTROL_ROOT': ['fleet_common', 'opl_fleet'],
+    'DISPATCH_ADAPTERS': ['fleet_cli', 'fleet_common', 'opl_fleet'],
+    'EXECUTION_REQUIREMENTS_SCHEMA': ['fleet_common', 'fleet_dispatch', 'opl_fleet'],
+    'FLOW_ROOT': ['fleet_common', 'fleet_reconcile', 'opl_fleet'],
+    'FleetError': ['fleet_cli', 'fleet_common', 'fleet_dispatch', 'fleet_features', 'fleet_lease', 'fleet_reconcile', 'fleet_runner', 'opl_fleet'],
+    'GPU_APIS': ['fleet_cli', 'fleet_common', 'fleet_dispatch', 'fleet_features', 'fleet_lease', 'fleet_runner', 'opl_fleet'],
+    'INSTANCE_POINTER_PATH': ['fleet_common', 'opl_fleet'],
+    'LEASE_FIELDS': ['fleet_common', 'opl_fleet'],
+    'LEASE_OPTIONAL_FIELDS': ['fleet_common', 'fleet_lease', 'opl_fleet'],
+    'LEASE_PHASES': ['fleet_cli', 'fleet_common', 'fleet_dispatch', 'fleet_lease', 'fleet_runner', 'opl_fleet'],
+    'LEASE_REQUIRED_FIELDS': ['fleet_common', 'fleet_lease', 'opl_fleet'],
+    'LEASE_WORKLOAD_CLASSES': ['fleet_cli', 'fleet_common', 'fleet_dispatch', 'fleet_lease', 'fleet_reconcile', 'fleet_runner', 'opl_fleet'],
+    'LIVE_ONLY_POLICY_FEATURES': ['fleet_common', 'fleet_features', 'opl_fleet'],
+    'MAX_EXECUTION_OUTPUT_BYTES': ['fleet_common', 'fleet_dispatch', 'opl_fleet'],
+    'MAX_EXECUTION_REQUIREMENTS_BYTES': ['fleet_common', 'fleet_dispatch', 'opl_fleet'],
+    'NODE_ID_PATTERN': ['fleet_common', 'fleet_reconcile', 'opl_fleet'],
+    'OWNER_ID_PATTERN': ['fleet_common', 'fleet_lease', 'opl_fleet'],
+    'PET_FILES': ['fleet_common', 'fleet_reconcile', 'opl_fleet'],
+    'PREEMPTIBLE_WORKLOAD_CLASSES': ['fleet_common', 'fleet_dispatch', 'fleet_lease', 'fleet_runner', 'opl_fleet'],
+    'PROTECTED_WORKLOAD_CLASSES': ['fleet_common', 'fleet_lease', 'opl_fleet'],
+    'RECEIPT_FIELDS': ['fleet_common', 'fleet_reconcile', 'opl_fleet'],
+    'REMOTE_EXECUTION_TIMEOUT_SECONDS': ['fleet_common', 'fleet_dispatch', 'opl_fleet'],
+    'REMOTE_EXECUTOR': ['fleet_common', 'fleet_dispatch', 'opl_fleet'],
+    'REPORT_FIELDS': ['fleet_common', 'fleet_reconcile', 'opl_fleet'],
+    'REPOSITORY_FETCH_TIMEOUT_SECONDS': ['fleet_common', 'fleet_reconcile', 'opl_fleet'],
+    'ROLE_PATTERN': ['fleet_common', 'fleet_lease', 'fleet_reconcile', 'opl_fleet'],
+    'ROUTES_PATH': ['fleet_common', 'fleet_runner', 'opl_fleet'],
+    'RUNNER_PATH': ['fleet_common', 'fleet_reconcile', 'opl_fleet'],
+    'SKILL_REFERENCE_SCHEMA': ['fleet_common', 'fleet_reconcile', 'opl_fleet'],
+    'STATE_ROOT': ['fleet_common', 'fleet_lease', 'fleet_reconcile', 'fleet_runner', 'opl_fleet'],
+    '_INSTANCE_OWNER': ['fleet_common', 'fleet_reconcile', 'opl_fleet'],
+    'acquire_lease_record': ['fleet_cli', 'fleet_dispatch', 'fleet_lease', 'fleet_runner', 'opl_fleet'],
+    'active_lease_map': ['fleet_cli', 'fleet_dispatch', 'fleet_lease', 'fleet_runner', 'opl_fleet'],
+    'assert_lease_admission': ['fleet_cli', 'fleet_dispatch', 'fleet_runner', 'opl_fleet'],
+    'assert_lease_cas': ['fleet_lease', 'opl_fleet'],
+    'assert_runner_role_node': ['fleet_cli', 'fleet_dispatch', 'fleet_runner', 'opl_fleet'],
+    'assert_runner_role_workload': ['fleet_cli', 'fleet_dispatch', 'fleet_runner', 'opl_fleet'],
+    'atomic_json': ['fleet_common', 'fleet_lease', 'fleet_reconcile', 'fleet_runner', 'opl_fleet'],
+    'audit_lease': ['fleet_lease', 'opl_fleet'],
+    'build_admission_receipt': ['fleet_cli', 'fleet_dispatch', 'fleet_runner', 'opl_fleet'],
+    'build_asset_catalog': ['fleet_reconcile', 'opl_fleet'],
+    'build_lease': ['fleet_lease', 'opl_fleet'],
+    'build_receipt': ['fleet_reconcile', 'opl_fleet'],
+    'checkout_commit': ['fleet_reconcile', 'opl_fleet'],
+    'codex_plugin_skill_roots': ['fleet_reconcile', 'opl_fleet'],
+    'collect_inventory': ['fleet_cli', 'fleet_reconcile', 'fleet_runner', 'opl_fleet'],
+    'configure_instance': ['fleet_cli', 'fleet_common', 'opl_fleet'],
+    'confirm_runner_shutdown': ['fleet_runner', 'opl_fleet'],
+    'control_commit': ['fleet_cli', 'fleet_dispatch', 'fleet_reconcile', 'fleet_runner', 'opl_fleet'],
+    'controller_guard': ['fleet_cli', 'fleet_dispatch', 'fleet_runner', 'opl_fleet'],
+    'dispatch_adapter': ['fleet_common', 'fleet_dispatch', 'fleet_lease', 'fleet_runner', 'opl_fleet'],
+    'dispatch_adapter_from_args': ['fleet_cli', 'fleet_dispatch', 'opl_fleet'],
+    'dispatch_candidates': ['fleet_dispatch', 'opl_fleet'],
+    'dispatch_lease': ['fleet_dispatch', 'opl_fleet'],
+    'dispatch_plan_payload': ['fleet_dispatch', 'opl_fleet'],
+    'dispatch_request': ['fleet_dispatch', 'opl_fleet'],
+    'doctor_result': ['fleet_cli', 'fleet_dispatch', 'fleet_runner', 'opl_fleet'],
+    'effective_codex_home': ['fleet_common', 'fleet_reconcile', 'opl_fleet'],
+    'empty_lease_store': ['fleet_lease', 'opl_fleet'],
+    'execute_ssh_session': ['fleet_dispatch', 'opl_fleet'],
+    'fetch_skill_reference': ['fleet_reconcile', 'opl_fleet'],
+    'fetch_state_file': ['fleet_cli', 'fleet_reconcile', 'opl_fleet'],
+    'fleet_assets': ['fleet_cli', 'opl_fleet'],
+    'fleet_dispatch_acquire': ['fleet_cli', 'fleet_dispatch', 'opl_fleet'],
+    'fleet_dispatch_execute': ['fleet_cli', 'fleet_dispatch', 'opl_fleet'],
+    'fleet_dispatch_plan': ['fleet_cli', 'fleet_dispatch', 'opl_fleet'],
+    'fleet_dispatch_release': ['fleet_cli', 'fleet_dispatch', 'opl_fleet'],
+    'fleet_dispatch_verify': ['fleet_cli', 'fleet_dispatch', 'opl_fleet'],
+    'fleet_doctor': ['fleet_cli', 'opl_fleet'],
+    'fleet_lease_acquire': ['fleet_cli', 'opl_fleet'],
+    'fleet_lease_reap': ['fleet_cli', 'opl_fleet'],
+    'fleet_lease_release': ['fleet_cli', 'opl_fleet'],
+    'fleet_lease_renew': ['fleet_cli', 'opl_fleet'],
+    'fleet_lease_show': ['fleet_cli', 'opl_fleet'],
+    'fleet_lease_verify': ['fleet_cli', 'opl_fleet'],
+    'fleet_nodes': ['fleet_cli', 'opl_fleet'],
+    'fleet_repositories': ['fleet_cli', 'fleet_reconcile', 'opl_fleet'],
+    'fleet_runner_renew': ['fleet_cli', 'fleet_runner', 'opl_fleet'],
+    'fleet_runner_start': ['fleet_cli', 'fleet_runner', 'opl_fleet'],
+    'fleet_runner_status': ['fleet_cli', 'fleet_runner', 'opl_fleet'],
+    'fleet_runner_stop': ['fleet_cli', 'fleet_runner', 'opl_fleet'],
+    'fleet_select': ['fleet_cli', 'opl_fleet'],
+    'fleet_status': ['fleet_cli', 'opl_fleet'],
+    'format_bytes': ['fleet_reconcile', 'opl_fleet'],
+    'git_value': ['fleet_reconcile', 'opl_fleet'],
+    'github_head': ['fleet_reconcile', 'opl_fleet'],
+    'github_repository_from_remote': ['fleet_reconcile', 'opl_fleet'],
+    'github_runner_state': ['fleet_runner', 'opl_fleet'],
+    'gpu_profiles': ['fleet_features', 'fleet_lease', 'fleet_runner', 'opl_fleet'],
+    'install_fleet_command': ['fleet_cli', 'fleet_common', 'opl_fleet'],
+    'install_linux_schedule': ['fleet_reconcile', 'opl_fleet'],
+    'install_macos_schedule': ['fleet_reconcile', 'opl_fleet'],
+    'install_missing_owner_skills': ['fleet_reconcile', 'opl_fleet'],
+    'install_runner': ['fleet_reconcile', 'opl_fleet'],
+    'install_schedule': ['fleet_reconcile', 'opl_fleet'],
+    'install_wsl_schedule': ['fleet_reconcile', 'opl_fleet'],
+    'inventory_age_seconds': ['fleet_features', 'fleet_runner', 'opl_fleet'],
+    'inventory_is_fresh': ['fleet_features', 'fleet_lease', 'opl_fleet'],
+    'join': ['fleet_cli', 'fleet_reconcile', 'opl_fleet'],
+    'lease_is_expired': ['fleet_lease', 'opl_fleet'],
+    'lease_lock': ['fleet_cli', 'fleet_dispatch', 'fleet_lease', 'opl_fleet'],
+    'lease_paths': ['fleet_lease', 'opl_fleet'],
+    'main': ['fleet_cli', 'opl_fleet'],
+    'managed_repository_owner': ['fleet_reconcile', 'opl_fleet'],
+    'manifest': ['fleet_cli', 'fleet_dispatch', 'fleet_reconcile', 'fleet_runner', 'opl_fleet'],
+    'markdown_text': ['fleet_reconcile', 'opl_fleet'],
+    'matching_gpus': ['fleet_features', 'fleet_lease', 'opl_fleet'],
+    'node_features': ['fleet_features', 'fleet_lease', 'fleet_runner', 'opl_fleet'],
+    'node_identity': ['fleet_cli', 'fleet_common', 'fleet_reconcile', 'fleet_runner', 'opl_fleet'],
+    'node_registry': ['fleet_cli', 'fleet_dispatch', 'fleet_reconcile', 'fleet_runner', 'opl_fleet'],
+    'normalize_node_id': ['fleet_cli', 'fleet_common', 'fleet_dispatch', 'fleet_lease', 'fleet_reconcile', 'fleet_runner', 'opl_fleet'],
+    'parse_args': ['fleet_cli', 'opl_fleet'],
+    'parse_memory_bytes': ['fleet_features', 'opl_fleet'],
+    'parse_requirements': ['fleet_cli', 'fleet_common', 'fleet_dispatch', 'opl_fleet'],
+    'parse_utc': ['fleet_common', 'fleet_dispatch', 'fleet_features', 'fleet_lease', 'fleet_runner', 'opl_fleet'],
+    'pet_files_match': ['fleet_reconcile', 'opl_fleet'],
+    'pet_manifest': ['fleet_reconcile', 'opl_fleet'],
+    'public_lease': ['fleet_cli', 'fleet_dispatch', 'fleet_lease', 'fleet_runner', 'opl_fleet'],
+    'read_execution_requirements': ['fleet_dispatch', 'opl_fleet'],
+    'read_json': ['fleet_common', 'fleet_lease', 'fleet_reconcile', 'fleet_runner', 'opl_fleet'],
+    'read_lease_store': ['fleet_cli', 'fleet_dispatch', 'fleet_lease', 'opl_fleet'],
+    'read_routes': ['fleet_dispatch', 'fleet_runner', 'opl_fleet'],
+    'read_runner_transaction': ['fleet_runner', 'opl_fleet'],
+    'reap_expired_leases': ['fleet_cli', 'fleet_lease', 'opl_fleet'],
+    'reconcile': ['fleet_cli', 'fleet_reconcile', 'opl_fleet'],
+    'reconcile_pets': ['fleet_reconcile', 'opl_fleet'],
+    'reconcile_repository': ['fleet_reconcile', 'opl_fleet'],
+    'reconcile_workspace_repositories': ['fleet_reconcile', 'opl_fleet'],
+    'record_receipt': ['fleet_cli', 'fleet_reconcile', 'opl_fleet'],
+    'release_lease_record': ['fleet_cli', 'fleet_dispatch', 'fleet_lease', 'fleet_runner', 'opl_fleet'],
+    'remote_asset_catalog': ['fleet_cli', 'fleet_dispatch', 'fleet_reconcile', 'fleet_runner', 'opl_fleet'],
+    'render_assets': ['fleet_reconcile', 'opl_fleet'],
+    'render_status': ['fleet_reconcile', 'opl_fleet'],
+    'renew_lease_record': ['fleet_cli', 'fleet_lease', 'fleet_runner', 'opl_fleet'],
+    'report_receipt': ['fleet_reconcile', 'opl_fleet'],
+    'request_value': ['fleet_dispatch', 'opl_fleet'],
+    'restart_after_flow_update': ['fleet_reconcile', 'opl_fleet'],
+    'run': ['fleet_cli', 'fleet_common', 'fleet_dispatch', 'fleet_reconcile', 'fleet_runner', 'opl_fleet'],
+    'runner_binding': ['fleet_runner', 'opl_fleet'],
+    'runner_call': ['fleet_reconcile', 'opl_fleet'],
+    'runner_control_call': ['fleet_runner', 'opl_fleet'],
+    'runner_control_route': ['fleet_runner', 'opl_fleet'],
+    'runner_role_nodes': ['fleet_dispatch', 'fleet_runner', 'opl_fleet'],
+    'runner_transaction_from_lease': ['fleet_runner', 'opl_fleet'],
+    'runner_transaction_path': ['fleet_runner', 'opl_fleet'],
+    'select_nodes': ['fleet_cli', 'fleet_dispatch', 'fleet_lease', 'opl_fleet'],
+    'sha256_file': ['fleet_common', 'fleet_reconcile', 'opl_fleet'],
+    'skill_present': ['fleet_reconcile', 'opl_fleet'],
+    'tailscale_online': ['fleet_runner', 'opl_fleet'],
+    'update_checkout': ['fleet_reconcile', 'opl_fleet'],
+    'update_control': ['fleet_reconcile', 'opl_fleet'],
+    'update_flow': ['fleet_reconcile', 'opl_fleet'],
+    'utc_now': ['fleet_cli', 'fleet_common', 'fleet_dispatch', 'fleet_features', 'fleet_lease', 'fleet_reconcile', 'fleet_runner', 'opl_fleet'],
+    'validate_admission': ['fleet_lease', 'fleet_runner', 'opl_fleet'],
+    'validate_execution_argv': ['fleet_dispatch', 'opl_fleet'],
+    'validate_execution_requirements': ['fleet_dispatch', 'opl_fleet'],
+    'validate_execution_result': ['fleet_dispatch', 'opl_fleet'],
+    'validate_inventory': ['fleet_reconcile', 'fleet_runner', 'opl_fleet'],
+    'validate_lease': ['fleet_lease', 'fleet_runner', 'opl_fleet'],
+    'validate_lease_store': ['fleet_lease', 'opl_fleet'],
+    'validate_owner_id': ['fleet_dispatch', 'fleet_lease', 'fleet_runner', 'opl_fleet'],
+    'validate_receipt': ['fleet_reconcile', 'opl_fleet'],
+    'validate_role': ['fleet_dispatch', 'fleet_lease', 'fleet_runner', 'opl_fleet'],
+    'validate_runner_control': ['fleet_runner', 'opl_fleet'],
+    'validate_ttl': ['fleet_dispatch', 'fleet_lease', 'fleet_runner', 'opl_fleet'],
+    'validate_work_volume_route': ['fleet_runner', 'opl_fleet'],
+    'verify_lease_record': ['fleet_cli', 'fleet_dispatch', 'fleet_runner', 'opl_fleet'],
+    'wait_runner_processes': ['fleet_runner', 'opl_fleet'],
+    'wait_runner_state': ['fleet_runner', 'opl_fleet'],
+    'work_volume_status': ['fleet_runner', 'opl_fleet'],
+    'workspace_root': ['fleet_reconcile', 'opl_fleet'],
+    'write_asset_catalog': ['fleet_reconcile', 'opl_fleet'],
+    'write_instance_pointer': ['fleet_cli', 'fleet_common', 'opl_fleet'],
+    'write_lease_store': ['fleet_cli', 'fleet_lease', 'opl_fleet'],
+}
+
+
+def _binding_modules(name):
+    parts = sys.modules["opl_fleet_parts"]
+    modules = []
+    for mod_name in FLEET_BINDINGS[name]:
+        if mod_name == "opl_fleet":
+            if name == "CONTROL_ROOT":
+                # The facade proxies CONTROL_ROOT dynamically through
+                # __getattr__; it must not hold a stale static copy.
+                continue
+            modules.append(fleet)
+        else:
+            modules.append(getattr(parts, mod_name))
+    return modules
+
+
+@contextlib.contextmanager
+def patch_fleet(name, *args, **kwargs):
+    """Patch every real binding of a fleet symbol with one shared mock."""
+    modules = _binding_modules(name)
+    patcher = mock.patch.object(modules[0], name, *args, **kwargs)
+    patched = patcher.start()
+    restored = [(mod, getattr(mod, name)) for mod in modules[1:]]
+    for mod in modules[1:]:
+        setattr(mod, name, patched)
+    try:
+        yield patched
+    finally:
+        for mod, previous in reversed(restored):
+            setattr(mod, name, previous)
+        patcher.stop()
+
+
+def set_fleet(name, value):
+    """Assign a fleet symbol on every real binding (mirrors old fleet.X = v)."""
+    for mod in _binding_modules(name):
+        setattr(mod, name, value)
+
 
 TEST_CONTROL_COMMIT = "c" * 40
 
@@ -320,7 +549,7 @@ class CodexFleetTests(unittest.TestCase):
             seed, workspace, checkout = repository_fixture(root)
             expected = commit_file(seed, "two\n", "second")
             git(seed, "push", "origin", "main")
-            with mock.patch.object(fleet, "STATE_ROOT", root / "state"):
+            with patch_fleet("STATE_ROOT", root / "state"):
                 report = fleet.reconcile_workspace_repositories(
                     root=workspace,
                     fetch=True,
@@ -337,7 +566,7 @@ class CodexFleetTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as temp_dir:
             root = Path(temp_dir)
             _, workspace, checkout = repository_fixture(root, default_branch="master")
-            with mock.patch.object(fleet, "STATE_ROOT", root / "state"):
+            with patch_fleet("STATE_ROOT", root / "state"):
                 report = fleet.reconcile_workspace_repositories(
                     root=workspace,
                     fetch=True,
@@ -355,7 +584,7 @@ class CodexFleetTests(unittest.TestCase):
             root = Path(temp_dir)
             _, workspace, checkout = repository_fixture(root)
             git(checkout, "remote", "rename", "origin", "gh-https")
-            with mock.patch.object(fleet, "STATE_ROOT", root / "state"):
+            with patch_fleet("STATE_ROOT", root / "state"):
                 report = fleet.reconcile_workspace_repositories(
                     root=workspace,
                     fetch=False,
@@ -374,7 +603,7 @@ class CodexFleetTests(unittest.TestCase):
             commit_file(seed, "two\n", "second")
             git(seed, "push", "origin", "main")
             (checkout / "tracked.txt").write_text("local edit\n", encoding="utf-8")
-            with mock.patch.object(fleet, "STATE_ROOT", root / "state"):
+            with patch_fleet("STATE_ROOT", root / "state"):
                 report = fleet.reconcile_workspace_repositories(
                     root=workspace,
                     fetch=True,
@@ -396,7 +625,7 @@ class CodexFleetTests(unittest.TestCase):
             git(checkout, "remote", "rename", "origin", "gh-https")
             git(checkout, "checkout", "-b", "task/example")
             task_head = commit_file(checkout, "task\n", "task")
-            with mock.patch.object(fleet, "STATE_ROOT", root / "state"):
+            with patch_fleet("STATE_ROOT", root / "state"):
                 report = fleet.reconcile_workspace_repositories(
                     root=workspace,
                     fetch=True,
@@ -417,7 +646,7 @@ class CodexFleetTests(unittest.TestCase):
             local_head = commit_file(checkout, "local\n", "local")
             commit_file(seed, "remote\n", "remote")
             git(seed, "push", "origin", "main")
-            with mock.patch.object(fleet, "STATE_ROOT", root / "state"):
+            with patch_fleet("STATE_ROOT", root / "state"):
                 report = fleet.reconcile_workspace_repositories(
                     root=workspace,
                     fetch=True,
@@ -447,7 +676,7 @@ class CodexFleetTests(unittest.TestCase):
                     raise fleet.subprocess.TimeoutExpired(arguments, 1)
                 return original(repository, arguments, **kwargs)
 
-            with mock.patch.object(fleet, "git_value", side_effect=timeout_fetch):
+            with patch_fleet("git_value", side_effect=timeout_fetch):
                 report = fleet.reconcile_workspace_repositories(
                     root=workspace,
                     fetch=True,
@@ -466,40 +695,37 @@ class CodexFleetTests(unittest.TestCase):
     def test_reconcile_marks_repository_attention_without_leaking_names(self) -> None:
         expected = receipt()
         with (
-            mock.patch.object(fleet, "run"),
-            mock.patch.object(fleet, "control_commit", return_value="a" * 40),
-            mock.patch.object(fleet, "checkout_commit", return_value="c" * 40),
-            mock.patch.object(fleet, "update_flow", return_value="c" * 40),
-            mock.patch.object(fleet, "update_control", return_value="a" * 40),
-            mock.patch.object(fleet, "restart_after_flow_update"),
-            mock.patch.object(
-                fleet,
-                "manifest",
+            patch_fleet("run"),
+            patch_fleet("control_commit", return_value="a" * 40),
+            patch_fleet("checkout_commit", return_value="c" * 40),
+            patch_fleet("update_flow", return_value="c" * 40),
+            patch_fleet("update_control", return_value="a" * 40),
+            patch_fleet("restart_after_flow_update"),
+            patch_fleet(
+    "manifest",
                 return_value={
                     "repository": "example/fleet",
                     "runner": {},
                     "receipt_workflow": "receipt.yml",
                 },
             ),
-            mock.patch.object(fleet, "reconcile_pets"),
-            mock.patch.object(fleet, "install_runner", return_value="b" * 40),
-            mock.patch.object(
-                fleet,
-                "runner_call",
+            patch_fleet("reconcile_pets"),
+            patch_fleet("install_runner", return_value="b" * 40),
+            patch_fleet(
+    "runner_call",
                 return_value={"ok": True, "result": {"ok": True, "drift": []}},
             ),
-            mock.patch.object(fleet, "build_receipt", return_value=expected),
-            mock.patch.object(
-                fleet,
-                "reconcile_workspace_repositories",
+            patch_fleet("build_receipt", return_value=expected),
+            patch_fleet(
+    "reconcile_workspace_repositories",
                 return_value={
                     "state": "ATTENTION",
                     "repositories": [{"repository": "private/name"}],
                 },
             ),
-            mock.patch.object(fleet, "collect_inventory", return_value={}),
-            mock.patch.object(fleet, "node_registry", return_value={}),
-            mock.patch.object(fleet, "atomic_json"),
+            patch_fleet("collect_inventory", return_value={}),
+            patch_fleet("node_registry", return_value={}),
+            patch_fleet("atomic_json"),
         ):
             result = fleet.reconcile(report=False, install_required=False)
         self.assertEqual(result["state"], "UPDATE_REQUIRED")
@@ -524,7 +750,7 @@ class CodexFleetTests(unittest.TestCase):
             mock.patch.object(fleet.platform, "release", return_value="WSL2-microsoft"),
             mock.patch.object(fleet.Path, "is_file", return_value=True),
             mock.patch.object(fleet.shutil, "which", return_value="/usr/bin/wslpath"),
-            mock.patch.object(fleet, "run", side_effect=fake_run),
+            patch_fleet("run", side_effect=fake_run),
         ):
             result = fleet.effective_codex_home()
         self.assertEqual(result, Path("/mnt/c/Users/owner/.codex"))
@@ -583,7 +809,7 @@ class CodexFleetTests(unittest.TestCase):
                     return False
                 return real_match(path, expected)
 
-            with mock.patch.object(fleet, "pet_files_match", side_effect=fail_installed):
+            with patch_fleet("pet_files_match", side_effect=fail_installed):
                 with self.assertRaisesRegex(fleet.FleetError, "installed pet"):
                     fleet.reconcile_pets(
                         spec,
@@ -643,8 +869,8 @@ class CodexFleetTests(unittest.TestCase):
         ).decode("ascii")
         with tempfile.TemporaryDirectory() as temp_dir:
             root = Path(temp_dir)
-            with mock.patch.object(
-                fleet, "node_registry", return_value=fictional_registry()
+            with patch_fleet(
+                "node_registry", return_value=fictional_registry()
             ):
                 destination = fleet.record_receipt(root, encoded)
             status = (root / "STATUS.md").read_text(encoding="utf-8")
@@ -674,7 +900,7 @@ class CodexFleetTests(unittest.TestCase):
         registry["nodes"]["fictional-render-node"] = render_policy
         with tempfile.TemporaryDirectory() as temp_dir:
             root = Path(temp_dir)
-            with mock.patch.object(fleet, "node_registry", return_value=registry):
+            with patch_fleet("node_registry", return_value=registry):
                 destination = fleet.record_receipt(root, encoded)
             stored = json.loads(
                 destination.with_name("inventory.json").read_text(encoding="utf-8")
@@ -945,15 +1171,15 @@ class CodexFleetTests(unittest.TestCase):
                 registry = fleet.node_registry()
                 self.assertEqual(fleet.CONTROL_ROOT, control.resolve())
             finally:
-                fleet.CONTROL_ROOT = previous
+                set_fleet("CONTROL_ROOT", previous)
         self.assertEqual(registry["schema"], "codex_fleet_nodes.v1")
 
     def test_instance_configuration_is_required(self) -> None:
         with (
             tempfile.TemporaryDirectory() as temp_dir,
             mock.patch.dict(fleet.os.environ, {}, clear=True),
-            mock.patch.object(
-                fleet, "INSTANCE_POINTER_PATH", Path(temp_dir) / "missing.json"
+            patch_fleet(
+                "INSTANCE_POINTER_PATH", Path(temp_dir) / "missing.json"
             ),
         ):
             with self.assertRaisesRegex(fleet.FleetError, "pass --instance"):
@@ -981,11 +1207,11 @@ class CodexFleetTests(unittest.TestCase):
             try:
                 with (
                     mock.patch.dict(fleet.os.environ, {}, clear=True),
-                    mock.patch.object(fleet, "INSTANCE_POINTER_PATH", pointer),
+                    patch_fleet("INSTANCE_POINTER_PATH", pointer),
                 ):
                     self.assertEqual(fleet.configure_instance(None), instance.resolve())
             finally:
-                fleet.CONTROL_ROOT = previous
+                set_fleet("CONTROL_ROOT", previous)
 
     def test_install_fleet_command_creates_stable_owner_entry(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
@@ -1010,15 +1236,14 @@ class CodexFleetTests(unittest.TestCase):
             raise fleet.FleetError("stop after update ordering proof")
 
         with (
-            mock.patch.object(fleet, "run"),
-            mock.patch.object(fleet, "checkout_commit", return_value="a" * 40),
-            mock.patch.object(fleet, "update_flow", side_effect=update_flow),
-            mock.patch.object(
-                fleet,
-                "restart_after_flow_update",
+            patch_fleet("run"),
+            patch_fleet("checkout_commit", return_value="a" * 40),
+            patch_fleet("update_flow", side_effect=update_flow),
+            patch_fleet(
+    "restart_after_flow_update",
                 side_effect=restart,
             ),
-            mock.patch.object(fleet, "update_control", side_effect=update_control),
+            patch_fleet("update_control", side_effect=update_control),
             self.assertRaisesRegex(fleet.FleetError, "ordering proof"),
         ):
             fleet.reconcile(report=False, install_required=False)
@@ -1167,13 +1392,12 @@ class CodexFleetTests(unittest.TestCase):
             ]
         }
         with (
-            mock.patch.object(fleet, "remote_asset_catalog", return_value=catalog),
-            mock.patch.object(
-                fleet,
-                "manifest",
+            patch_fleet("remote_asset_catalog", return_value=catalog),
+            patch_fleet(
+    "manifest",
                 return_value={"inventory": {"max_age_hours": 36}},
             ),
-            mock.patch.object(fleet, "active_lease_map", return_value={}),
+            patch_fleet("active_lease_map", return_value={}),
         ):
             normalized = fleet.dispatch_request(request)
             result = fleet.dispatch_plan_payload(normalized)
@@ -1237,19 +1461,18 @@ class CodexFleetTests(unittest.TestCase):
             state_root = Path(temp_dir)
             previous_state_root = fleet.STATE_ROOT
             try:
-                fleet.STATE_ROOT = state_root
+                set_fleet("STATE_ROOT", state_root)
                 with (
-                    mock.patch.object(fleet, "controller_guard", return_value="controller"),
-                    mock.patch.object(fleet, "node_registry", return_value=fictional_registry()),
-                    mock.patch.object(fleet, "remote_asset_catalog", return_value=catalog),
-                    mock.patch.object(
-                        fleet,
-                        "manifest",
+                    patch_fleet("controller_guard", return_value="controller"),
+                    patch_fleet("node_registry", return_value=fictional_registry()),
+                    patch_fleet("remote_asset_catalog", return_value=catalog),
+                    patch_fleet(
+    "manifest",
                         return_value={"inventory": {"max_age_hours": 36}},
                     ),
-                    mock.patch.object(fleet, "doctor_result", return_value=doctor),
-                    mock.patch.object(fleet, "control_commit", return_value=TEST_CONTROL_COMMIT),
-                    mock.patch.object(fleet, "utc_now", return_value=now),
+                    patch_fleet("doctor_result", return_value=doctor),
+                    patch_fleet("control_commit", return_value=TEST_CONTROL_COMMIT),
+                    patch_fleet("utc_now", return_value=now),
                 ):
                     with contextlib.redirect_stdout(io.StringIO()) as output:
                         self.assertEqual(fleet.fleet_dispatch_acquire(args), 0)
@@ -1278,7 +1501,7 @@ class CodexFleetTests(unittest.TestCase):
                     self.assertEqual(released["status"], "released")
                     self.assertEqual(fleet.active_lease_map(), {})
             finally:
-                fleet.STATE_ROOT = previous_state_root
+                set_fleet("STATE_ROOT", previous_state_root)
 
     def test_dispatch_acquire_skips_offline_candidate_after_fresh_doctor(self) -> None:
         now = fleet.dt.datetime(2026, 8, 1, tzinfo=fleet.dt.timezone.utc)
@@ -1344,20 +1567,20 @@ class CodexFleetTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as temp_dir:
             previous_state_root = fleet.STATE_ROOT
             try:
-                fleet.STATE_ROOT = Path(temp_dir)
+                set_fleet("STATE_ROOT", Path(temp_dir))
                 with (
-                    mock.patch.object(fleet, "controller_guard"),
-                    mock.patch.object(fleet, "dispatch_candidates", return_value=candidates),
-                    mock.patch.object(fleet, "node_registry", return_value=fictional_registry()),
-                    mock.patch.object(fleet, "doctor_result", side_effect=[offline, healthy]),
-                    mock.patch.object(fleet, "control_commit", return_value=TEST_CONTROL_COMMIT),
-                    mock.patch.object(fleet, "utc_now", return_value=now),
+                    patch_fleet("controller_guard"),
+                    patch_fleet("dispatch_candidates", return_value=candidates),
+                    patch_fleet("node_registry", return_value=fictional_registry()),
+                    patch_fleet("doctor_result", side_effect=[offline, healthy]),
+                    patch_fleet("control_commit", return_value=TEST_CONTROL_COMMIT),
+                    patch_fleet("utc_now", return_value=now),
                     contextlib.redirect_stdout(io.StringIO()) as output,
                 ):
                     self.assertEqual(fleet.fleet_dispatch_acquire(args), 0)
                 payload = json.loads(output.getvalue())
             finally:
-                fleet.STATE_ROOT = previous_state_root
+                set_fleet("STATE_ROOT", previous_state_root)
         self.assertEqual(payload["lease"]["node_id"], "fictional-gpu-b")
         self.assertEqual(payload["lease"]["dispatch_adapter"], "ssh-session")
 
@@ -1375,17 +1598,15 @@ class CodexFleetTests(unittest.TestCase):
         }
         argument = "value; touch /tmp/must-not-run"
         with (
-            mock.patch.object(
-                fleet,
-                "read_routes",
+            patch_fleet(
+    "read_routes",
                 return_value={
                     "schema": "codex_fleet_routes.v1",
                     "routes": {"fictional-gpu-a": {"ssh": "fictional-gpu-a"}},
                 },
             ),
-            mock.patch.object(
-                fleet,
-                "run",
+            patch_fleet(
+    "run",
                 return_value=mock.Mock(
                     returncode=0,
                     stdout=json.dumps(remote_result),
@@ -1436,22 +1657,21 @@ class CodexFleetTests(unittest.TestCase):
             max_admission_age_seconds=300,
         )
         with (
-            mock.patch.object(fleet, "controller_guard"),
-            mock.patch.object(fleet, "dispatch_lease", return_value=lease),
-            mock.patch.object(fleet, "verify_lease_record", return_value={"verified": True}),
-            mock.patch.object(
-                fleet,
-                "execute_ssh_session",
+            patch_fleet("controller_guard"),
+            patch_fleet("dispatch_lease", return_value=lease),
+            patch_fleet("verify_lease_record", return_value={"verified": True}),
+            patch_fleet(
+    "execute_ssh_session",
                 return_value={
                     "known": False,
                     "reason": "ssh-transport-failed",
                     "transport_returncode": 255,
                 },
             ),
-            mock.patch.object(fleet, "control_commit", return_value=TEST_CONTROL_COMMIT),
-            mock.patch.object(fleet, "node_registry", return_value=fictional_registry()),
-            mock.patch.object(fleet, "utc_now", return_value=now),
-            mock.patch.object(fleet, "release_lease_record") as release_mock,
+            patch_fleet("control_commit", return_value=TEST_CONTROL_COMMIT),
+            patch_fleet("node_registry", return_value=fictional_registry()),
+            patch_fleet("utc_now", return_value=now),
+            patch_fleet("release_lease_record") as release_mock,
             contextlib.redirect_stdout(io.StringIO()) as output,
         ):
             self.assertEqual(fleet.fleet_dispatch_execute(args), 1)
@@ -1503,18 +1723,17 @@ class CodexFleetTests(unittest.TestCase):
             max_admission_age_seconds=300,
         )
         with (
-            mock.patch.object(fleet, "controller_guard"),
-            mock.patch.object(fleet, "dispatch_lease", return_value=lease),
-            mock.patch.object(fleet, "verify_lease_record", return_value={"verified": True}),
-            mock.patch.object(
-                fleet,
-                "execute_ssh_session",
+            patch_fleet("controller_guard"),
+            patch_fleet("dispatch_lease", return_value=lease),
+            patch_fleet("verify_lease_record", return_value={"verified": True}),
+            patch_fleet(
+    "execute_ssh_session",
                 return_value={"known": True, "result": result},
             ),
-            mock.patch.object(fleet, "control_commit", return_value=TEST_CONTROL_COMMIT),
-            mock.patch.object(fleet, "node_registry", return_value=fictional_registry()),
-            mock.patch.object(fleet, "utc_now", return_value=now),
-            mock.patch.object(fleet, "release_lease_record") as release_mock,
+            patch_fleet("control_commit", return_value=TEST_CONTROL_COMMIT),
+            patch_fleet("node_registry", return_value=fictional_registry()),
+            patch_fleet("utc_now", return_value=now),
+            patch_fleet("release_lease_record") as release_mock,
             contextlib.redirect_stdout(io.StringIO()) as output,
         ):
             self.assertEqual(fleet.fleet_dispatch_execute(args), 0)
@@ -1775,7 +1994,7 @@ class CodexFleetTests(unittest.TestCase):
             ),
             "",
         )
-        with mock.patch.object(fleet, "run", side_effect=[volume, usage]):
+        with patch_fleet("run", side_effect=[volume, usage]):
             result = fleet.work_volume_status(
                 node_id="fictional-macos-node",
                 route={
@@ -1825,12 +2044,11 @@ class CodexFleetTests(unittest.TestCase):
             "",
         )
         with (
-            mock.patch.object(
-                fleet,
-                "read_routes",
+            patch_fleet(
+    "read_routes",
                 return_value={"schema": "codex_fleet_routes.v1", "routes": route},
             ),
-            mock.patch.object(fleet, "run", return_value=completed) as command,
+            patch_fleet("run", return_value=completed) as command,
         ):
             result = fleet.runner_control_call("fictional-workstation", "status")
         self.assertEqual(result["processes"], 0)
@@ -1912,15 +2130,14 @@ class CodexFleetTests(unittest.TestCase):
             return {"ok": True, "action": action}
         with tempfile.TemporaryDirectory() as temp_dir:
             with (
-                mock.patch.object(fleet, "STATE_ROOT", Path(temp_dir)),
-                mock.patch.object(fleet, "controller_guard", return_value="controller"),
-                mock.patch.object(fleet, "node_registry", return_value=registry),
-                mock.patch.object(fleet, "runner_binding", return_value=binding),
-                mock.patch.object(fleet, "doctor_result", return_value=doctor),
-                mock.patch.object(fleet, "assert_lease_admission"),
-                mock.patch.object(
-                    fleet,
-                    "build_admission_receipt",
+                patch_fleet("STATE_ROOT", Path(temp_dir)),
+                patch_fleet("controller_guard", return_value="controller"),
+                patch_fleet("node_registry", return_value=registry),
+                patch_fleet("runner_binding", return_value=binding),
+                patch_fleet("doctor_result", return_value=doctor),
+                patch_fleet("assert_lease_admission"),
+                patch_fleet(
+    "build_admission_receipt",
                     return_value={
                         "checked_at": checked_at,
                         "inventory_age_seconds": 0,
@@ -1934,23 +2151,20 @@ class CodexFleetTests(unittest.TestCase):
                         "work_volume_ready": True,
                     },
                 ),
-                mock.patch.object(fleet, "control_commit", return_value=TEST_CONTROL_COMMIT),
-                mock.patch.object(fleet, "utc_now", return_value=test_now),
-                mock.patch.object(
-                    fleet,
-                    "runner_control_call",
+                patch_fleet("control_commit", return_value=TEST_CONTROL_COMMIT),
+                patch_fleet("utc_now", return_value=test_now),
+                patch_fleet(
+    "runner_control_call",
                     side_effect=runner_control,
                 ),
-                mock.patch.object(
-                    fleet,
-                    "github_runner_state",
+                patch_fleet(
+    "github_runner_state",
                     side_effect=[
                         {"registered": True, "online": False, "busy": False},
                     ],
                 ),
-                mock.patch.object(
-                    fleet,
-                    "wait_runner_state",
+                patch_fleet(
+    "wait_runner_state",
                     side_effect=[
                         {"registered": True, "online": True, "busy": False},
                         {"registered": True, "online": False, "busy": False},
@@ -1994,19 +2208,17 @@ class CodexFleetTests(unittest.TestCase):
                 ttl_seconds=600,
             )
             with (
-                mock.patch.object(fleet, "STATE_ROOT", state_root),
-                mock.patch.object(fleet, "controller_guard", return_value="controller"),
-                mock.patch.object(
-                    fleet,
-                    "runner_control_call",
+                patch_fleet("STATE_ROOT", state_root),
+                patch_fleet("controller_guard", return_value="controller"),
+                patch_fleet(
+    "runner_control_call",
                     return_value={"enabled": True, "online": True, "processes": 1},
                 ),
-                mock.patch.object(
-                    fleet,
-                    "github_runner_state",
+                patch_fleet(
+    "github_runner_state",
                     return_value={"registered": True, "online": True, "busy": False},
                 ),
-                mock.patch.object(fleet, "utc_now", return_value=test_now),
+                patch_fleet("utc_now", return_value=test_now),
                 contextlib.redirect_stdout(io.StringIO()),
             ):
                 fleet.atomic_json(
@@ -2074,29 +2286,26 @@ class CodexFleetTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as temp_dir:
             state_root = Path(temp_dir)
             with (
-                mock.patch.object(fleet, "STATE_ROOT", state_root),
-                mock.patch.object(fleet, "controller_guard", return_value="controller"),
-                mock.patch.object(fleet, "node_registry", return_value=registry),
-                mock.patch.object(fleet, "runner_binding", return_value=binding),
-                mock.patch.object(
-                    fleet,
-                    "runner_control_call",
+                patch_fleet("STATE_ROOT", state_root),
+                patch_fleet("controller_guard", return_value="controller"),
+                patch_fleet("node_registry", return_value=registry),
+                patch_fleet("runner_binding", return_value=binding),
+                patch_fleet(
+    "runner_control_call",
                     side_effect=lambda _node, action, **_kwargs: (
                         {"enabled": False, "online": False, "processes": 0}
                         if action == "status"
                         else {"ok": True, "action": action}
                     ),
                 ),
-                mock.patch.object(
-                    fleet,
-                    "github_runner_state",
+                patch_fleet(
+    "github_runner_state",
                     return_value={"registered": True, "online": False, "busy": False},
                 ),
-                mock.patch.object(fleet, "doctor_result", return_value={}),
-                mock.patch.object(fleet, "assert_lease_admission"),
-                mock.patch.object(
-                    fleet,
-                    "build_admission_receipt",
+                patch_fleet("doctor_result", return_value={}),
+                patch_fleet("assert_lease_admission"),
+                patch_fleet(
+    "build_admission_receipt",
                     return_value={
                         "checked_at": checked_at,
                         "inventory_age_seconds": 0,
@@ -2110,20 +2319,18 @@ class CodexFleetTests(unittest.TestCase):
                         "work_volume_ready": True,
                     },
                 ),
-                mock.patch.object(fleet, "verify_lease_record"),
-                mock.patch.object(fleet, "control_commit", return_value=TEST_CONTROL_COMMIT),
-                mock.patch.object(fleet, "utc_now", return_value=test_now),
-                mock.patch.object(
-                    fleet,
-                    "wait_runner_processes",
+                patch_fleet("verify_lease_record"),
+                patch_fleet("control_commit", return_value=TEST_CONTROL_COMMIT),
+                patch_fleet("utc_now", return_value=test_now),
+                patch_fleet(
+    "wait_runner_processes",
                     side_effect=[
                         {"enabled": True, "online": False, "processes": 0},
                         {"enabled": True, "online": True, "processes": 1},
                     ],
                 ) as wait_processes,
-                mock.patch.object(
-                    fleet,
-                    "wait_runner_state",
+                patch_fleet(
+    "wait_runner_state",
                     return_value={"registered": True, "online": True, "busy": False},
                 ),
             ):
@@ -2174,22 +2381,19 @@ class CodexFleetTests(unittest.TestCase):
                 ttl_seconds=600,
             )
             with (
-                mock.patch.object(fleet, "STATE_ROOT", state_root),
-                mock.patch.object(fleet, "controller_guard", return_value="controller"),
-                mock.patch.object(fleet, "utc_now", return_value=test_now),
-                mock.patch.object(
-                    fleet,
-                    "runner_control_call",
+                patch_fleet("STATE_ROOT", state_root),
+                patch_fleet("controller_guard", return_value="controller"),
+                patch_fleet("utc_now", return_value=test_now),
+                patch_fleet(
+    "runner_control_call",
                     return_value={"ok": True, "action": "stop"},
                 ) as control,
-                mock.patch.object(
-                    fleet,
-                    "wait_runner_processes",
+                patch_fleet(
+    "wait_runner_processes",
                     return_value={"enabled": False, "online": False, "processes": 0},
                 ),
-                mock.patch.object(
-                    fleet,
-                    "wait_runner_state",
+                patch_fleet(
+    "wait_runner_state",
                     return_value={"registered": True, "online": False, "busy": False},
                 ) as wait_state,
                 contextlib.redirect_stdout(io.StringIO()),
@@ -2267,18 +2471,16 @@ class CodexFleetTests(unittest.TestCase):
         }
         with tempfile.TemporaryDirectory() as temp_dir:
             with (
-                mock.patch.object(fleet, "collect_inventory", side_effect=collect_live),
-                mock.patch.object(fleet, "utc_now", side_effect=clock),
-                mock.patch.object(
-                    fleet,
-                    "manifest",
+                patch_fleet("collect_inventory", side_effect=collect_live),
+                patch_fleet("utc_now", side_effect=clock),
+                patch_fleet(
+    "manifest",
                     return_value={"inventory": {"max_age_hours": 36}},
                 ),
-                mock.patch.object(fleet, "node_registry", return_value={"nodes": {}}),
-                mock.patch.object(fleet, "tailscale_online", return_value=True),
-                mock.patch.object(
-                    fleet,
-                    "work_volume_status",
+                patch_fleet("node_registry", return_value={"nodes": {}}),
+                patch_fleet("tailscale_online", return_value=True),
+                patch_fleet(
+    "work_volume_status",
                     return_value={"required": False, "configured": False, "ready": True},
                 ),
             ):
@@ -2317,16 +2519,14 @@ class CodexFleetTests(unittest.TestCase):
         )
         with tempfile.TemporaryDirectory() as temp_dir:
             with (
-                mock.patch.object(fleet, "run", return_value=timeout),
-                mock.patch.object(fleet, "tailscale_online", return_value=False),
-                mock.patch.object(
-                    fleet,
-                    "work_volume_status",
+                patch_fleet("run", return_value=timeout),
+                patch_fleet("tailscale_online", return_value=False),
+                patch_fleet(
+    "work_volume_status",
                     return_value={"required": False, "configured": False, "ready": True},
                 ),
-                mock.patch.object(
-                    fleet,
-                    "manifest",
+                patch_fleet(
+    "manifest",
                     return_value={"inventory": {"max_age_hours": 36}},
                 ),
             ):
@@ -2364,16 +2564,14 @@ class CodexFleetTests(unittest.TestCase):
         )
         with tempfile.TemporaryDirectory() as temp_dir:
             with (
-                mock.patch.object(fleet, "run", return_value=timeout),
-                mock.patch.object(fleet, "tailscale_online", return_value=False),
-                mock.patch.object(
-                    fleet,
-                    "work_volume_status",
+                patch_fleet("run", return_value=timeout),
+                patch_fleet("tailscale_online", return_value=False),
+                patch_fleet(
+    "work_volume_status",
                     return_value={"required": False, "configured": False, "ready": True},
                 ),
-                mock.patch.object(
-                    fleet,
-                    "manifest",
+                patch_fleet(
+    "manifest",
                     return_value={"inventory": {"max_age_hours": 36}},
                 ),
             ):
@@ -2405,10 +2603,10 @@ class CodexFleetTests(unittest.TestCase):
             )
             output = io.StringIO()
             with (
-                mock.patch.object(fleet, "STATE_ROOT", state_root),
-                mock.patch.object(fleet, "controller_guard", return_value="controller"),
-                mock.patch.object(fleet, "node_identity", return_value="controller"),
-                mock.patch.object(fleet, "utc_now", return_value=now),
+                patch_fleet("STATE_ROOT", state_root),
+                patch_fleet("controller_guard", return_value="controller"),
+                patch_fleet("node_identity", return_value="controller"),
+                patch_fleet("utc_now", return_value=now),
                 contextlib.redirect_stdout(output),
             ):
                 fleet.fleet_lease_show(mock.Mock(node_id=None))
@@ -2582,8 +2780,8 @@ class CodexFleetTests(unittest.TestCase):
             },
         }
         with (
-            mock.patch.object(fleet, "skill_present", side_effect=[False, False, True]),
-            mock.patch.object(fleet, "run") as command,
+            patch_fleet("skill_present", side_effect=[False, False, True]),
+            patch_fleet("run") as command,
         ):
             actions = fleet.install_missing_owner_skills(reference)
         self.assertEqual(actions, ["codex-bundled"])
@@ -2599,7 +2797,7 @@ class CodexFleetTests(unittest.TestCase):
         completed = fleet.subprocess.CompletedProcess(
             ["gh", "api"], 0, json.dumps(payload), ""
         )
-        with mock.patch.object(fleet, "run", return_value=completed):
+        with patch_fleet("run", return_value=completed):
             reference = fleet.fetch_skill_reference(
                 {
                     "repository": "example/instance",
@@ -2617,7 +2815,7 @@ class CodexFleetTests(unittest.TestCase):
             "",
         )
         with (
-            mock.patch.object(fleet, "run", return_value=completed),
+            patch_fleet("run", return_value=completed),
             self.assertRaisesRegex(fleet.FleetError, "owner skill reference"),
         ):
             fleet.fetch_skill_reference(
@@ -2643,9 +2841,9 @@ class CodexFleetTests(unittest.TestCase):
             },
         }
         with (
-            mock.patch.object(fleet, "skill_present", side_effect=[False, True]),
-            mock.patch.object(fleet, "codex_plugin_skill_roots", return_value=()),
-            mock.patch.object(fleet, "run") as command,
+            patch_fleet("skill_present", side_effect=[False, True]),
+            patch_fleet("codex_plugin_skill_roots", return_value=()),
+            patch_fleet("run") as command,
         ):
             actions = fleet.install_missing_owner_skills(reference)
         self.assertEqual(actions, [])
@@ -2684,7 +2882,7 @@ class CodexFleetTests(unittest.TestCase):
                 ),
                 "",
             )
-            with mock.patch.object(fleet, "run", return_value=completed):
+            with patch_fleet("run", return_value=completed):
                 roots = fleet.codex_plugin_skill_roots()
         self.assertEqual(roots, (skill_root,))
 
@@ -2711,12 +2909,11 @@ class CodexFleetTests(unittest.TestCase):
             )
             with (
                 mock.patch.object(fleet.Path, "home", return_value=home),
-                mock.patch.object(
-                    fleet,
-                    "codex_plugin_skill_roots",
+                patch_fleet(
+    "codex_plugin_skill_roots",
                     side_effect=[(), (plugin_skills,)],
                 ),
-                mock.patch.object(fleet, "run") as command,
+                patch_fleet("run") as command,
             ):
                 actions = fleet.install_missing_owner_skills(reference)
         self.assertEqual(actions, [])
@@ -2729,11 +2926,11 @@ class CodexFleetTests(unittest.TestCase):
             home = Path(temp_dir)
             with (
                 mock.patch.object(fleet.Path, "home", return_value=home),
-                mock.patch.object(
-                    fleet, "STATE_ROOT", home / ".local/state/codex-fleet"
+                patch_fleet(
+                    "STATE_ROOT", home / ".local/state/codex-fleet"
                 ),
                 mock.patch.object(fleet.os, "getuid", return_value=501),
-                mock.patch.object(fleet, "run") as command,
+                patch_fleet("run") as command,
             ):
                 fleet.install_macos_schedule(3, 15)
             plist_path = home / "Library/LaunchAgents/dev.one-person-lab.opl-fleet.plist"
@@ -2766,7 +2963,7 @@ class CodexFleetTests(unittest.TestCase):
         with (
             mock.patch.dict(fleet.os.environ, {"WSL_DISTRO_NAME": "Ubuntu"}),
             mock.patch.object(fleet.Path, "is_file", return_value=True),
-            mock.patch.object(fleet, "run", side_effect=fake_run) as command,
+            patch_fleet("run", side_effect=fake_run) as command,
         ):
             fleet.install_wsl_schedule(3, 15)
         task_command = command.call_args_list[-1].args[0]
@@ -2810,6 +3007,44 @@ class CodexFleetTests(unittest.TestCase):
         self.assertNotIn("private_path", result)
         self.assertNotIn("should-not-leak", json.dumps(result))
         self.assertEqual(result["state"], "CURRENT")
+
+
+class OplFleetFacadeTests(unittest.TestCase):
+    """Characterization of the facade: re-export surface, CLI contract, entry."""
+
+    def test_facade_surface_matches_real_bindings(self) -> None:
+        parts = sys.modules["opl_fleet_parts"]
+        for name, mod_names in FLEET_BINDINGS.items():
+            self.assertTrue(hasattr(fleet, name), f"facade missing {name}")
+            for mod_name in mod_names:
+                if mod_name == "opl_fleet":
+                    continue
+                module = getattr(parts, mod_name)
+                self.assertTrue(hasattr(module, name), f"{mod_name} missing {name}")
+                self.assertIs(
+                    getattr(fleet, name),
+                    getattr(module, name),
+                    f"{name} binding drifted from {mod_name}",
+                )
+
+    def test_facade_cli_help_keeps_original_description(self) -> None:
+        completed = subprocess.run(
+            [sys.executable, str(SCRIPT), "--help"],
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        self.assertEqual(completed.returncode, 0)
+        self.assertIn(
+            "OPL Fleet engine backed by one private OPL Instance.",
+            completed.stdout,
+        )
+
+    def test_facade_main_help_exits_zero_without_side_effects(self) -> None:
+        with contextlib.redirect_stdout(io.StringIO()):
+            with self.assertRaises(SystemExit) as raised:
+                fleet.main(["--help"])
+        self.assertEqual(raised.exception.code, 0)
 
 
 if __name__ == "__main__":
