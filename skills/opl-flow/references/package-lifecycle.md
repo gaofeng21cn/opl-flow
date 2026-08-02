@@ -18,8 +18,7 @@ opl packages repair --package-id opl-flow --json
 opl packages status --package-id opl-flow --json
 ```
 
-Repository `scripts/install_local_plugin.py` is a developer/local-source helper,
-not package currentness authority.
+Repository source verification does not install the Package or prove currentness.
 
 Flow dependencies use stable identity and callability. Do not introduce a
 second App list, central ABI/SemVer solver, shared release cohort, or lifecycle

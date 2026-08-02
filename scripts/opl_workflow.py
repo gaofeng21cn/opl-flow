@@ -29,20 +29,6 @@ def flow_root() -> Path:
     return Path(__file__).resolve().parents[1]
 
 
-def profile_owner():
-    previous = sys.dont_write_bytecode
-    sys.dont_write_bytecode = True
-    try:
-        if __package__:
-            from scripts import install_local_plugin
-        else:
-            import install_local_plugin
-    finally:
-        sys.dont_write_bytecode = previous
-
-    return install_local_plugin
-
-
 def executable(name: str, explicit: str | None = None, env: str | None = None) -> str:
     candidate = explicit or (os.environ.get(env) if env else None) or shutil.which(name)
     if not candidate:
@@ -87,34 +73,6 @@ def github_probe(cwd: Path, explicit: str | None = None) -> dict[str, Any]:
     assert isinstance(auth, subprocess.CompletedProcess)
     tool["authenticated"] = auth.returncode == 0
     return tool
-
-
-def profile_action(
-    action: str,
-    codex_home: Path,
-    *,
-    packet: Path | None = None,
-) -> dict[str, Any]:
-    owner = profile_owner()
-    try:
-        if action == "status":
-            result = owner.verify_profile(flow_root(), codex_home, True)
-        elif action == "prepare":
-            result = owner.install_profile(flow_root(), codex_home)
-        elif action == "apply":
-            if packet is None:
-                raise WorkflowError("profile apply requires --packet")
-            result = owner.apply_merge_packet(flow_root(), codex_home, packet)
-        else:
-            raise WorkflowError(f"unsupported profile action: {action}")
-    except (OSError, ValueError) as exc:
-        raise WorkflowError(str(exc)) from exc
-    return {
-        "schema": "opl_flow_profile_action.v1",
-        "action": action,
-        "codex_home": str(codex_home),
-        **result,
-    }
 
 
 def run(
@@ -507,20 +465,12 @@ def workflow_status(
     git_arg: str | None = None,
     gh_arg: str | None = None,
     codex_arg: str | None = None,
-    codex_home: Path | None = None,
 ) -> dict[str, Any]:
     payload: dict[str, Any] = {"schema": "opl_flow_workflow_status.v1", "instance": str(instance) if instance else None}
     cwd = instance or Path.cwd()
     payload["git"] = cli_probe("git", cwd, git_arg)
     payload["github"] = github_probe(cwd, gh_arg)
     payload["codex"] = cli_probe("codex", cwd, codex_arg)
-    try:
-        payload["profile"] = profile_action(
-            "status",
-            (codex_home or Path.home() / ".codex").expanduser().resolve(),
-        )
-    except WorkflowError as exc:
-        payload["profile"] = {"status": "error", "error": str(exc)}
     try:
         bd = executable("bd", bd_arg)
         version = run([bd, "version"], cwd)
@@ -563,15 +513,6 @@ def parser() -> argparse.ArgumentParser:
     status.add_argument("--git-bin")
     status.add_argument("--gh-bin")
     status.add_argument("--codex-bin")
-    status.add_argument("--codex-home", type=Path)
-    profile = commands.add_parser("profile")
-    profile_commands = profile.add_subparsers(dest="profile_command", required=True)
-    for name in ("status", "prepare"):
-        command = profile_commands.add_parser(name)
-        command.add_argument("--codex-home", type=Path, default=Path.home() / ".codex")
-    apply_profile = profile_commands.add_parser("apply")
-    apply_profile.add_argument("--codex-home", type=Path, default=Path.home() / ".codex")
-    apply_profile.add_argument("--packet", required=True, type=Path)
     ledger = commands.add_parser("ledger")
     ledger_commands = ledger.add_subparsers(dest="ledger_command", required=True)
     init = ledger_commands.add_parser("init")
@@ -603,7 +544,6 @@ def main(argv: list[str] | None = None) -> int:
                         git_arg=args.git_bin,
                         gh_arg=args.gh_bin,
                         codex_arg=args.codex_bin,
-                        codex_home=args.codex_home,
                     ),
                     ensure_ascii=False,
                     indent=2,
@@ -611,14 +551,6 @@ def main(argv: list[str] | None = None) -> int:
                 )
             )
             return 0
-        if args.command == "profile":
-            result = profile_action(
-                args.profile_command,
-                args.codex_home.expanduser().resolve(),
-                packet=getattr(args, "packet", None),
-            )
-            print(json.dumps(result, ensure_ascii=False, indent=2, sort_keys=True))
-            return 2 if result.get("status") == "requires_codex_semantic_merge" else 0
         if args.command == "fleet":
             instance = instance_root(args.instance, required=False)
             fleet, _ = fleet_command(instance, args.fleet_bin)

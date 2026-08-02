@@ -307,8 +307,8 @@ This one action reuses or creates one local Dashboard task, binds one Bead by
 `codex://thread/<thread_id>`, and reuses or configures one native hourly
 heartbeat named `OPL Flow Supervisor`. It registers `OPL Ledger` by default,
 projects every user-ledger Bead to one Linear issue with hierarchy and
-narrow-field parity, enables exact-once authorized comment intake, and records
-the fresh Dashboard/Bead/Automation/Linear/Dolt receipt. The same Supervisor can
+narrow-field parity, enables exact-once authorized comment intake, and reads
+the Dashboard/Bead/Automation/Linear/Dolt owners back. The same Supervisor can
 later add more registered Linear projects. Repeated runs do not create a second
 supervision loop, Dashboard Bead, or issue.
 
@@ -398,10 +398,6 @@ Profile while preserving native Codex behavior and independent owners.
 # Combined readback
 python3 scripts/opl_workflow.py status --instance <opl-instance>
 
-# Profile
-python3 scripts/opl_workflow.py profile status
-python3 scripts/opl_workflow.py profile prepare
-
 # Ledger
 python3 scripts/opl_workflow.py ledger init --instance <opl-instance>
 python3 scripts/opl_workflow.py ledger reconcile-operations --instance <opl-instance>
@@ -432,11 +428,10 @@ installations. New reusable Fleet capability is source-owned by OPL Flow.
 - [Reusable workflow architecture](docs/reusable-workflow-architecture.md)
 - [Capability composition and ownership](docs/capability-governance.md)
 - [New machine setup](docs/new-machine-codex-setup.md)
-- [Current implementation status](docs/status.md)
 - [Documentation index](docs/README.md)
 
-These documents contain exact ownership, carrier, Profile-safety, release
-qualification, and migration details. A passing test, tag, candidate, or
+These documents contain ownership, carrier, setup, and migration boundaries.
+A passing test, tag, candidate, or
 published image is not a substitute for fresh installed readback.
 
 ## License

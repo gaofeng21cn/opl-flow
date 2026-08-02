@@ -67,15 +67,16 @@ For `~/.codex/AGENTS.md`:
 6. compare the target hash immediately before apply;
 7. validate and atomically replace, or leave the original untouched.
 
-Use:
+Framework owns these guarded Profile mutations:
 
 ```bash
-python3 scripts/opl_workflow.py profile status
-python3 scripts/opl_workflow.py profile prepare
-python3 scripts/opl_workflow.py profile apply --packet <reviewed-packet>
+opl packages install opl-flow --json
+opl packages update opl-flow --json
+opl packages repair --package-id opl-flow --json
+opl packages status --package-id opl-flow --json
 ```
 
-`prepare` must not overwrite an unknown existing Profile.
+The carrier must not overwrite an unknown existing Profile.
 
 ## Capability Routing
 
