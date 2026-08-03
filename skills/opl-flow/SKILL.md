@@ -126,6 +126,11 @@ explicit `start` may create onboarding state. Reuse an exact identity match,
 create only when none exists, and fail closed on ambiguity. One active hourly
 `OPL Flow Supervisor` covers all registered Linear projects.
 
+Honor `contracts/workflow-policy.json#ledger_supervisor_policy`: preflight the
+native owner tools with `list_threads.limit <= 50`, reconcile an unknown dispatch
+timeout from the destination task before any bounded retry, and do not advance a
+comment cursor until the automated Linear reply has been posted and read back.
+
 Do not synthesize an onboarding receipt or accept local config, a prompt, or a
 test as proof. Finish by reading the Dashboard, Bead, heartbeat, Linear comment
 cursor, and Dolt parity back from their current owners.

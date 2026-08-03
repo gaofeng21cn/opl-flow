@@ -129,7 +129,7 @@ def check_workflow_policy(repo_root: Path) -> list[str]:
     required_sections = (
         "provides", "requires", "experience_baseline", "compatible_optional",
         "capability_bundles",
-        "conflicts", "retires", "codex_model_policy", "migration_policy",
+        "conflicts", "retires", "ledger_supervisor_policy", "codex_model_policy", "migration_policy",
         "historical_fingerprints",
     )
     for section in required_sections:
@@ -265,6 +265,53 @@ def check_workflow_policy(repo_root: Path) -> list[str]:
         errors.append(
             "workflow policy experience baseline must declare bundle, lifecycle, distribution, and readiness metadata"
         )
+    supervisor = policy.get("ledger_supervisor_policy", {})
+    owner_tools = supervisor.get("native_owner_tools", {})
+    expected_failure_classes = {
+        "invalid_arguments": "caller_schema_error",
+        "permission_denied": "authorization_required",
+        "timeout_unknown": "destination_reconciliation_required",
+        "unavailable": "owner_tool_absent_or_unreachable",
+    }
+    if (
+        owner_tools.get("preflight_required") is not True
+        or owner_tools.get("list_threads_max_limit") != 50
+        or owner_tools.get("failure_classes") != expected_failure_classes
+    ):
+        errors.append("Ledger Supervisor native owner tools must keep the bounded failure taxonomy")
+    delivery = supervisor.get("comment_delivery", {})
+    expected_states = [
+        "comment_observed",
+        "destination_delivery_confirmed",
+        "owner_answer_read",
+        "linear_reply_posted",
+        "linear_reply_read_back",
+        "cursor_advanced",
+    ]
+    expected_timeout = {
+        "status": "timeout_unknown",
+        "readback": "destination_read_thread",
+        "bounded_retry_limit": 1,
+        "retry_condition": "confirmed_absent_after_destination_readback",
+    }
+    if (
+        delivery.get("idempotency_key") != "linear_comment_id"
+        or delivery.get("state_sequence") != expected_states
+        or delivery.get("delivery_confirmation_sources") != [
+            "send_message_to_thread_success",
+            "destination_read_thread_reconciliation",
+        ]
+        or delivery.get("timeout_reconciliation") != expected_timeout
+        or delivery.get("cursor_advance_gate") != "linear_reply_read_back"
+    ):
+        errors.append("Ledger Supervisor comment delivery must reconcile timeout and close reply readback before cursor advance")
+    expected_reply = {
+        "first_line": "🤖 Automated Codex reply | OPL Flow Supervisor",
+        "required_provenance": ["source_codex_task", "answer_provenance"],
+        "non_user_detection": "marker_not_linear_author_identity",
+    }
+    if delivery.get("automated_reply") != expected_reply:
+        errors.append("Ledger Supervisor automated replies must carry marker and answer provenance")
     full_offline_keys = {
         (item.get("kind"), item.get("id"))
         for item in baseline

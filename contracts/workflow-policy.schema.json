@@ -15,6 +15,7 @@
     "capability_bundles",
     "conflicts",
     "retires",
+    "ledger_supervisor_policy",
     "codex_model_policy",
     "migration_policy",
     "historical_fingerprints"
@@ -41,6 +42,7 @@
     "capability_bundles": { "$ref": "#/$defs/capabilityBundles" },
     "conflicts": { "$ref": "#/$defs/migrations" },
     "retires": { "$ref": "#/$defs/migrations" },
+    "ledger_supervisor_policy": { "$ref": "#/$defs/ledgerSupervisorPolicy" },
     "codex_model_policy": {
       "type": "object",
       "additionalProperties": false,
@@ -69,6 +71,86 @@
     "historical_fingerprints": { "type": "object" }
   },
   "$defs": {
+    "ledgerSupervisorPolicy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["native_owner_tools", "comment_delivery"],
+      "properties": {
+        "native_owner_tools": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["preflight_required", "list_threads_max_limit", "failure_classes"],
+          "properties": {
+            "preflight_required": { "const": true },
+            "list_threads_max_limit": { "type": "integer", "minimum": 1, "maximum": 50 },
+            "failure_classes": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["invalid_arguments", "permission_denied", "timeout_unknown", "unavailable"],
+              "properties": {
+                "invalid_arguments": { "const": "caller_schema_error" },
+                "permission_denied": { "const": "authorization_required" },
+                "timeout_unknown": { "const": "destination_reconciliation_required" },
+                "unavailable": { "const": "owner_tool_absent_or_unreachable" }
+              }
+            }
+          }
+        },
+        "comment_delivery": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "idempotency_key",
+            "state_sequence",
+            "delivery_confirmation_sources",
+            "timeout_reconciliation",
+            "cursor_advance_gate",
+            "automated_reply"
+          ],
+          "properties": {
+            "idempotency_key": { "const": "linear_comment_id" },
+            "state_sequence": {
+              "const": [
+                "comment_observed",
+                "destination_delivery_confirmed",
+                "owner_answer_read",
+                "linear_reply_posted",
+                "linear_reply_read_back",
+                "cursor_advanced"
+              ]
+            },
+            "delivery_confirmation_sources": {
+              "const": [
+                "send_message_to_thread_success",
+                "destination_read_thread_reconciliation"
+              ]
+            },
+            "timeout_reconciliation": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["status", "readback", "bounded_retry_limit", "retry_condition"],
+              "properties": {
+                "status": { "const": "timeout_unknown" },
+                "readback": { "const": "destination_read_thread" },
+                "bounded_retry_limit": { "const": 1 },
+                "retry_condition": { "const": "confirmed_absent_after_destination_readback" }
+              }
+            },
+            "cursor_advance_gate": { "const": "linear_reply_read_back" },
+            "automated_reply": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["first_line", "required_provenance", "non_user_detection"],
+              "properties": {
+                "first_line": { "const": "🤖 Automated Codex reply | OPL Flow Supervisor" },
+                "required_provenance": { "const": ["source_codex_task", "answer_provenance"] },
+                "non_user_detection": { "const": "marker_not_linear_author_identity" }
+              }
+            }
+          }
+        }
+      }
+    },
     "capability": {
       "type": "object",
       "additionalProperties": false,

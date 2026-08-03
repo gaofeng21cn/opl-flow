@@ -188,15 +188,19 @@ provenance, and binds a new bounded executor only when its due date or trigger
 fires. The Bead and Linear issue remain the stable identity throughout.
 
 The Supervisor uses the official `linear_list_comments` route, a per-project
-Linear comment-ID high-watermark, and the comment ID as the idempotency key. It
-delivers each authorized user comment exactly once to the matching local Codex
-task, ignores Supervisor/Agent/Automation comments to prevent feedback loops,
-and processes new comments no later than the next heartbeat. Linear owns human
-intent, priority, due date, pause/cancel input, and optional readiness hints;
-Beads owns execution state, blocker, and result. The projection excludes
-credentials, local paths, logs, full notes, internal metadata, and checkpoints.
-It does not use `bd linear sync` as the onboarding or routine reconciliation
-path.
+Linear comment-ID high-watermark, and the comment ID as the idempotency key.
+Native owner-tool preflight keeps `list_threads.limit <= 50` and distinguishes
+invalid arguments, permission denial, unknown timeout, and genuine tool
+unavailability. A timed-out dispatch is reconciled from the destination task
+before at most one retry. Each authorized comment closes delivery, owner-answer
+readback, Linear reply, and reply readback before its cursor advances. Every
+automated reply begins with `🤖 Automated Codex reply | OPL Flow Supervisor`
+and names the source Codex task and answer provenance; that marker, not the
+Linear account identity, prevents feedback loops. Linear owns human intent,
+priority, due date, pause/cancel input, and optional readiness hints; Beads owns
+execution state, blocker, and result. The projection excludes credentials,
+local paths, logs, full notes, internal metadata, and checkpoints. It does not
+use `bd linear sync` as the onboarding or routine reconciliation path.
 
 ### Optional OPL Fleet
 

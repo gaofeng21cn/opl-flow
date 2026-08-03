@@ -491,6 +491,48 @@
       "reason": "These core workflow Skills moved from the optional OPL Skills pack into the OPL Flow package; retire only Skills CLI projections whose lock still proves the former owner."
     }
   ],
+  "ledger_supervisor_policy": {
+    "native_owner_tools": {
+      "preflight_required": true,
+      "list_threads_max_limit": 50,
+      "failure_classes": {
+        "invalid_arguments": "caller_schema_error",
+        "permission_denied": "authorization_required",
+        "timeout_unknown": "destination_reconciliation_required",
+        "unavailable": "owner_tool_absent_or_unreachable"
+      }
+    },
+    "comment_delivery": {
+      "idempotency_key": "linear_comment_id",
+      "state_sequence": [
+        "comment_observed",
+        "destination_delivery_confirmed",
+        "owner_answer_read",
+        "linear_reply_posted",
+        "linear_reply_read_back",
+        "cursor_advanced"
+      ],
+      "delivery_confirmation_sources": [
+        "send_message_to_thread_success",
+        "destination_read_thread_reconciliation"
+      ],
+      "timeout_reconciliation": {
+        "status": "timeout_unknown",
+        "readback": "destination_read_thread",
+        "bounded_retry_limit": 1,
+        "retry_condition": "confirmed_absent_after_destination_readback"
+      },
+      "cursor_advance_gate": "linear_reply_read_back",
+      "automated_reply": {
+        "first_line": "🤖 Automated Codex reply | OPL Flow Supervisor",
+        "required_provenance": [
+          "source_codex_task",
+          "answer_provenance"
+        ],
+        "non_user_detection": "marker_not_linear_author_identity"
+      }
+    }
+  },
   "codex_model_policy": {
     "authority": "opl-flow",
     "mode_default": "auto",

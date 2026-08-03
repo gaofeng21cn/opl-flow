@@ -183,6 +183,37 @@ class VerifyLaneTests(unittest.TestCase):
             errors,
         )
 
+    def test_ledger_supervisor_contract_rejects_delivery_and_provenance_regressions(self) -> None:
+        taxonomy_errors = self.workflow_policy_errors_after(
+            lambda policy: policy["ledger_supervisor_policy"]["native_owner_tools"].update(
+                list_threads_max_limit=100,
+            )
+        )
+        self.assertIn(
+            "Ledger Supervisor native owner tools must keep the bounded failure taxonomy",
+            taxonomy_errors,
+        )
+
+        timeout_errors = self.workflow_policy_errors_after(
+            lambda policy: policy["ledger_supervisor_policy"]["comment_delivery"].update(
+                cursor_advance_gate="destination_delivery_confirmed",
+            )
+        )
+        self.assertIn(
+            "Ledger Supervisor comment delivery must reconcile timeout and close reply readback before cursor advance",
+            timeout_errors,
+        )
+
+        marker_errors = self.workflow_policy_errors_after(
+            lambda policy: policy["ledger_supervisor_policy"]["comment_delivery"]["automated_reply"].update(
+                first_line="Codex owner",
+            )
+        )
+        self.assertIn(
+            "Ledger Supervisor automated replies must carry marker and answer provenance",
+            marker_errors,
+        )
+
     def test_every_skill_requires_safe_repository_relative_source_path(self) -> None:
         for invalid_path in ("../skills/opl-flow", "/skills/opl-flow", r"skills\opl-flow"):
             with self.subTest(source_path=invalid_path):

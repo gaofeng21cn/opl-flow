@@ -8,8 +8,11 @@ project list. Setup, update, and install never run this route.
 
 1. Resolve the saved Codex project, local environment, unique private Instance,
    and objective fingerprint. Ask only on material ambiguity.
-2. Use `list_threads` to match `(project_id, objective_fingerprint)`. Reuse one
-   Dashboard, use `create_thread` only for zero matches, and fail closed on
+2. Preflight the native owner tools and use `list_threads` with `limit <= 50` to
+   match `(project_id, objective_fingerprint)`. Keep `invalid_arguments`,
+   `permission_denied`, `timeout_unknown`, and genuine `unavailable` distinct;
+   never relabel one caller-schema failure as owner-tool unavailability. Reuse
+   one Dashboard, use `create_thread` only for zero matches, and fail closed on
    multiple matches. Pin it with `set_thread_pinned`, then `read_thread` the
    exact project, thread ID, title, and pinned state.
 3. Run `bd dolt pull`, then use the owner `bd` CLI to reuse the one Bead whose
@@ -53,11 +56,19 @@ project list. Setup, update, and install never run this route.
 9. For every projected issue, use `mcp__codex_apps__linear_list_comments` and
    the registered project's saved comment-ID cursor. Use
    `send_message_to_thread` to send each later authorized user comment exactly
-   once to its local Codex task with the comment ID as the idempotency key.
-   Advance the cursor only after delivery or a recorded non-user ignore. Ignore
-   Supervisor, Agent, Automation, and other non-user comments. `codex-paused`
-   stops dispatch only; reconciliation and comment intake continue. A Cloud
-   delegate is a conflict and fails closed.
+   once to its local Codex task with the comment ID as the idempotency key. If
+   dispatch times out, record `timeout_unknown`, inspect the destination with
+   `read_thread`, and allow one bounded retry only when that readback proves the
+   comment absent. Track `comment_observed -> destination_delivery_confirmed ->
+   owner_answer_read -> linear_reply_posted -> linear_reply_read_back ->
+   cursor_advanced`; do not advance earlier. Begin every connector-posted answer
+   with `🤖 Automated Codex reply | OPL Flow Supervisor`, then name the source
+   Codex task and whether answer provenance is owner readback, newly executed
+   work, or another explicit authority. Treat this marker as non-user provenance
+   even when Linear uses the same account as the human. Ignore Supervisor,
+   Agent, Automation, and other non-user comments. `codex-paused` stops dispatch
+   only; reconciliation and comment intake continue. A Cloud delegate is a
+   conflict and fails closed.
 10. Keep Ambient Ops inside this Ledger as an OPL Fleet observability extension;
    it never creates another Supervisor or heartbeat.
 11. After one coherent mutation, run `bd dolt push`, then pull and read the
@@ -82,8 +93,10 @@ Do not build a parallel receipt. Complete `start` only when the same run reads:
   archived automatically;
 - Linear `list_issues`/`get_issue`: one current issue per Bead after write;
 - Linear `list_comments` plus the destination task's `read_thread`: every
-  authorized comment after the saved cursor is delivered once, every skipped
-  comment is non-user, and the Beads cursor matches the last handled comment;
+  authorized comment after the saved cursor has one confirmed delivery, one
+  owner-answer readback, one marked Linear reply and reply readback; every
+  skipped comment is marker-proven non-user, and the Beads cursor matches the
+  last fully closed comment;
 - `bd dolt pull` after push or explicit no-change: no remaining remote drift.
 
 Repeating `start` must return the same Dashboard, Bead, and heartbeat IDs and

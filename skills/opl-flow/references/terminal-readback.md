@@ -17,8 +17,9 @@ After any Flow mutation, read the owner-authoritative surfaces that apply:
    `automation_update` view proves one active hourly `OPL Flow Supervisor` for
    the objective fingerprint and complete registered-project set; Linear
    `list_issues`/`get_issue` proves one narrow-field issue per Bead; Linear
-   `list_comments`, destination `read_thread`, and the Beads cursor together
-   prove handled comments without duplicate delivery; and a post-push
+   `list_comments`, destination `read_thread`, the marked automated reply and
+   its Linear readback, and the Beads cursor together prove handled comments
+   without duplicate delivery or premature cursor advancement; and a post-push
    `bd dolt pull` proves parity or explicit no-change. Repeat `start` must read
    back the same Dashboard, Bead, and heartbeat IDs.
 8. For Fleet: explicit Instance root, fresh node admission, repository
