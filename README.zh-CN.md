@@ -212,6 +212,11 @@ Supervisor、Agent 和 Automation 自身评论以防回环，并最迟在下一�
 否则保持 `in_progress`；`Monitoring` 归一化为 `in_progress`。只有当前确实在执行或存在活跃
 后代的任务才显示 `In Progress`。
 
+`Monitoring` 是总账中的长期责任，不要求保留一个空闲 Codex 对话。只有真正的工作台或
+Supervisor 才保持长期可用；周期或事件驱动任务在每轮有限执行完成后清空 live
+`execution_thread`，把已完成对话仅作为 provenance 保存，并只在到期或触发事件发生时绑定
+新的有限 executor。整个过程中 Bead 与 Linear issue 始终是稳定身份。
+
 Linear 不接收凭据、本机路径、日志、完整 notes、内部 metadata 或 checkpoints；
 Beads/Dolt 仍是执行总账，GitHub 仍是代码和交付证据的权威来源。日常 onboarding
 和对账不使用或要求 `bd linear sync`。

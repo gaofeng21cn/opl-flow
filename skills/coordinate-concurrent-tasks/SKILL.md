@@ -35,7 +35,7 @@ description: Coordinate multiple Codex conversations, agents, repositories, or w
 - `ACTIVE`：当前确有 Agent/owner 推进可立即执行的工作；
 - `NEEDS_ACTION`：下一步必须由用户登录、决策或授权，当前不占用 Agent；
 - `BLOCKED`：下一步被外部事件或依赖阻止，当前不占用 Agent；
-- `MONITORING`：长期工作台、主控或监督责任，没有有限完成点；
+- `MONITORING`：长期工作台、主控或总账中的持续监督责任；只有真正的工作台/主控保留常驻对话，单纯的长期责任不需要空闲 thread；
 - `SAFE_TO_ARCHIVE`：全部成果已进入真实 authority 并实际生效，证据闭合且 `remaining=[]`。
 
 依赖、冲突、currentness drift、候选提交或普通失败不能自动把任务降为等待；先完成仍可执行的切片。只有存在不可替代的用户动作或外部事件时才使用 `NEEDS_ACTION`/`BLOCKED`，并写明谁需要做什么。不要使用含义不明的 `WAIT`、`HOLD`、`HANDOFF`、`CANDIDATE_ONLY` 或 `ARCHIVE_CANDIDATE`。
@@ -81,6 +81,7 @@ description: Coordinate multiple Codex conversations, agents, repositories, or w
 - write-set overlap 是集成风险，不是长期锁。允许各自 worktree 继续准备；共享路径在吸收时只有一个最终 mutation owner，其他成果按 fresh SSOT 语义重放。
 - 不用驻留轮询、等待 ACK 或重复监测冒充 `next_action`。若一个对话没有真实可执行工作，立即重分配一个独立剩余切片；没有诚实切片时，报告分工错误并重组 scope，不制造忙碌证据。
 - 如果对话没有真实可执行工作，不得继续标记为 `ACTIVE`：需要用户动作则转为 `NEEDS_ACTION`，需要外部事件则转为 `BLOCKED`，长期工作台或监督入口转为 `MONITORING`，成果已被 canonical authority 完整覆盖则转为 `SAFE_TO_ARCHIVE`。若仍有可执行缺口则登记最小切片和第一动作；若只是重复 writer 则改为只读审计或 superseded，不新建第二 writer。
+- 有限执行轮次完成后，长期责任保留在 Bead/Linear 的 `MONITORING`，而不是保留一个空闲执行对话。清空 live `execution_thread`，保存 `last_execution_thread`、下次复核日期和事件触发条件；完成的对话按证据转为 `SAFE_TO_ARCHIVE`，得到用户 fresh 验收后归档。到期或事件发生时再绑定一个有限 executor，完成回读后再次解除绑定。
 - currentness 前进后由原对话、原 owner 继续 replay/rebase。不要仅因主线漂移创建等待 successor 或丢弃已有责任。
 
 ### 本地优先、远端最后

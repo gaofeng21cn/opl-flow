@@ -180,6 +180,13 @@ allocated. Both preserve an existing Beads `blocked` lifecycle and otherwise
 preserve `in_progress`; `Monitoring` normalizes to `in_progress`. Only
 genuinely active work is shown as `In Progress`.
 
+`Monitoring` is a durable Ledger responsibility, not a requirement to keep an
+idle Codex task open. Only a genuine workbench or Supervisor remains available
+as a long-lived task. A periodic or event-driven objective clears its live
+`execution_thread` after each bounded episode, retains the completed thread as
+provenance, and binds a new bounded executor only when its due date or trigger
+fires. The Bead and Linear issue remain the stable identity throughout.
+
 The Supervisor uses the official `linear_list_comments` route, a per-project
 Linear comment-ID high-watermark, and the comment ID as the idempotency key. It
 delivers each authorized user comment exactly once to the matching local Codex

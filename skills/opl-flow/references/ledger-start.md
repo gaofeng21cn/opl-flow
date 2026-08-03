@@ -107,6 +107,18 @@ conversation:
   a finite objective or include it in open-issue counts. Keep it available as
   `MONITORING`; enroll concrete child objectives separately.
 
+A durable responsibility is not by itself a `persistent_workbench`. When a
+bounded execution episode finishes and only a future due date or event trigger
+remains, keep the durable Bead and Linear issue in `monitoring`, clear the live
+`metadata.execution_thread`, and retain the completed thread only as
+`metadata.last_execution_thread` provenance. Store a machine-readable due date
+and short trigger set on the Bead. Mark the completed executor
+`SAFE_TO_ARCHIVE`, and archive it only after fresh user approval. When a due
+date or trigger fires, create or resume one bounded executor, bind it as the
+current `execution_thread`, and clear that binding again after authoritative
+result readback. Do not keep an idle task open merely to represent the durable
+responsibility, and do not create a second Supervisor or heartbeat.
+
 Use task titles as a human-readable projection only: `ACTIVE` for live work,
 `NEEDS_ACTION` for a required user login/decision/authorization, `BLOCKED` for
 an external dependency, `MONITORING` for a persistent workbench or supervisor,
@@ -126,9 +138,10 @@ lifecycle in the native Beads status and store exactly one current
 `monitoring`, or `aggregate`. Linear displays `Needs Action` when the owner's
 login, decision, or authorization is the next step; it displays `Blocked` when
 an external event or dependency prevents progress. Neither state keeps an Agent
-allocated. When Linear is read back, both preserve a Bead already in `blocked`;
-otherwise they keep `in_progress`. `Monitoring` normalizes to `in_progress`;
-only genuinely unstarted work displays `Todo`.
+allocated. `Monitoring` also allocates no Agent unless a bounded execution
+episode is currently bound. When Linear is read back, both preserve a Bead
+already in `blocked`; otherwise they keep `in_progress`. `Monitoring`
+normalizes to `in_progress`; only genuinely unstarted work displays `Todo`.
 
 Aggregate issues roll up descendants: an active descendant displays `In
 Progress`; otherwise owner action takes precedence over external blocking,
