@@ -1333,6 +1333,7 @@ def install_macos_schedule(
 <plist version="1.0"><dict>
 <key>Label</key><string>{label}</string>
 <key>EnvironmentVariables</key><dict>
+<key>HOME</key><string>{Path.home()}</string>
 <key>PATH</key><string>{launchd_path}</string>
 </dict>
 <key>ProgramArguments</key><array>
@@ -1432,7 +1433,8 @@ def install_schedule(spec: dict[str, Any]) -> None:
         install_linux_schedule(hour, minute)
 
 def reconcile(*, report: bool, install_required: bool) -> dict[str, Any]:
-    run(["gh", "auth", "status"])
+    if report:
+        run(["gh", "auth", "status"])
     previous_flow_revision = checkout_commit(FLOW_ROOT)
     flow_revision = update_flow()
     restart_after_flow_update(previous_flow_revision, flow_revision)

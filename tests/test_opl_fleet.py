@@ -1076,7 +1076,7 @@ class CodexFleetTests(unittest.TestCase):
             raise fleet.FleetError("stop after update ordering proof")
 
         with (
-            patch_fleet("run"),
+            patch_fleet("run") as command,
             patch_fleet("checkout_commit", return_value="a" * 40),
             patch_fleet("update_flow", side_effect=update_flow),
             patch_fleet(
@@ -1092,6 +1092,7 @@ class CodexFleetTests(unittest.TestCase):
             order,
             ["flow", f"restart:{'a' * 40}:{'b' * 40}", "instance"],
         )
+        self.assertNotIn(mock.call(["gh", "auth", "status"]), command.mock_calls)
 
     def test_lease_lifecycle_enforces_owner_and_compare_and_swap(self) -> None:
         now = fleet.dt.datetime(2026, 7, 27, tzinfo=fleet.dt.timezone.utc)
@@ -3245,6 +3246,7 @@ class CodexFleetTests(unittest.TestCase):
                 "/sbin",
             ],
         )
+        self.assertEqual(payload["EnvironmentVariables"]["HOME"], str(home))
         self.assertEqual(command.call_count, 2)
 
     def test_wsl_schedule_uses_absolute_windows_launcher(self) -> None:
