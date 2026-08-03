@@ -35,6 +35,7 @@ SENSITIVE_TEXT = (
     re.compile(r"[A-Za-z]:\\Users\\[^\\\s]+", re.IGNORECASE),
 )
 VERSION_COMMANDS = {
+    "brew": ["brew", "--version"],
     "git": ["git", "--version"],
     "gh": ["gh", "--version"],
     "python": ["python3", "--version"],

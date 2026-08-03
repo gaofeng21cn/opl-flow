@@ -277,6 +277,18 @@ class FleetInventoryTests(unittest.TestCase):
         with self.assertRaisesRegex(inventory.InventoryError, "unsupported"):
             inventory.software_versions(["everything-installed"])
 
+    def test_versions_support_homebrew_as_the_package_manager_owner(self) -> None:
+        completed = inventory.subprocess.CompletedProcess(
+            ["brew", "--version"], 0, "Homebrew 4.6.0\n", ""
+        )
+        with (
+            mock.patch.object(inventory.shutil, "which", return_value="/opt/homebrew/bin/brew"),
+            mock.patch.object(inventory, "run", return_value=completed) as command,
+        ):
+            result = inventory.software_versions(["brew"])
+        self.assertEqual(result["brew"], {"present": True, "version": "Homebrew 4.6.0"})
+        command.assert_called_once_with(["/opt/homebrew/bin/brew", "--version"])
+
     def test_versions_include_owner_installed_user_bin(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
             executable = Path(temporary) / ".local/bin/codegraph"
