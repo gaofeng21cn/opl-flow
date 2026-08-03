@@ -200,8 +200,12 @@ Connector 维护这份投影。已登记 Project 默认由本机 Codex 管理；
 `codex-ready` 只是兼容提示，不再是逐 issue 准入门槛；`codex-paused` 只阻止 dispatch，
 该 issue 的 Linear 对账和授权用户评论摄入仍继续。监督器通过官方
 `linear_list_comments`，按每个 Project 保存 Linear comment-ID 水位，以 comment ID
-作为幂等键，把每条新授权用户评论恰好一次送入对应本机 Codex task；它忽略
-Supervisor、Agent 和 Automation 自身评论以防回环，并最迟在下一次 Heartbeat 处理。
+作为幂等键。调用前先按当前 schema 校验 owner 工具及参数上限，并严格区分参数错误、
+权限失败、超时但结果未知和能力确实不可用；投递超时后必须先回读目标 task 对账，不能
+盲目重发。Supervisor 等待原 Codex owner 给出实际回答，再回复 Linear 原评论并回读，
+只有闭环后才推进 cursor。由于 Connector 可能使用与用户相同的 Linear 账号发布，所有
+自动回复必须在首行显著标明“Codex 自动回复 / OPL Flow Supervisor”并附来源 task 与
+证据 provenance；同一标识也用于防止把自动回复再次摄入为用户意图。
 
 任务生命周期与当前执行方式分开管理。Beads 保存 `open`、`in_progress`、
 `blocked`、`deferred`、`closed`；OPL Flow 另记录 `active`、`waiting_user`、

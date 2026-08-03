@@ -8,10 +8,20 @@ project list. Setup, update, and install never run this route.
 
 1. Resolve the saved Codex project, local environment, unique private Instance,
    and objective fingerprint. Ask only on material ambiguity.
-2. Use `list_threads` to match `(project_id, objective_fingerprint)`. Reuse one
+2. Discover the native thread-owner tools and inspect their current schemas
+   before enumeration. Use `list_threads` with a schema-valid bound; until the
+   owner schema advertises a different maximum, never pass a `limit` greater
+   than `50`. If the known Ledger set exceeds the returned window, read the
+   exact saved thread IDs and report intake coverage as incomplete instead of
+   inferring absence. Match `(project_id, objective_fingerprint)`, reuse one
    Dashboard, use `create_thread` only for zero matches, and fail closed on
    multiple matches. Pin it with `set_thread_pinned`, then `read_thread` the
-   exact project, thread ID, title, and pinned state.
+   exact project, thread ID, title, and pinned state. Classify native failures
+   precisely: `invalid_arguments` is a caller defect to correct,
+   `permission_denied` requires owner authorization, `timeout_unknown` requires
+   read-only reconciliation, and `unavailable` is reserved for a missing
+   capability or an owner response that explicitly says unsupported or
+   unavailable. Never collapse these states into a generic tool blocker.
 3. Run `bd dolt pull`, then use the owner `bd` CLI to reuse the one Bead whose
    `external_ref` is exactly `codex://thread/<thread_id>` or create it when
    absent. Multiple matches fail closed; never initialize a second Ledger.
@@ -51,13 +61,37 @@ project list. Setup, update, and install never run this route.
    after write; preserve hierarchy and the narrow field contract. Do not use
    `bd linear sync`.
 9. For every projected issue, use `mcp__codex_apps__linear_list_comments` and
-   the registered project's saved comment-ID cursor. Use
-   `send_message_to_thread` to send each later authorized user comment exactly
-   once to its local Codex task with the comment ID as the idempotency key.
-   Advance the cursor only after delivery or a recorded non-user ignore. Ignore
-   Supervisor, Agent, Automation, and other non-user comments. `codex-paused`
-   stops dispatch only; reconciliation and comment intake continue. A Cloud
-   delegate is a conflict and fails closed.
+   the registered project's saved comment-ID cursor. Track each later comment
+   through `observed -> delivery_pending -> delivered -> owner_answered ->
+   reply_pending -> replied -> cursor_advanced`, with `delivery_unknown` as a
+   reconcilable branch rather than a synonym for unavailable. Before sending,
+   use `read_thread` to look for the exact marker
+   `linear_comment_id=<comment_id>`. If absent, call `send_message_to_thread`
+   once with that marker and the comment ID as the idempotency key, then use
+   `wait_threads` or `read_thread` to confirm receipt and obtain the local task
+   owner's actual answer. If dispatch times out or returns an unknown result,
+   do not retry until a fresh destination read proves the marker absent; allow
+   at most one bounded retry and preserve `delivery_unknown` if reconciliation
+   remains inconclusive.
+
+   Reply to the original Linear comment through
+   `mcp__codex_apps__linear_save_comment`, then read the reply back before
+   advancing the cursor. Because the connector may publish through the same
+   authenticated Linear user identity as the human, every automated reply must
+   start with a prominent locale-appropriate marker equivalent to
+   `🤖 **Automated Codex reply | OPL Flow Supervisor**`, followed by the source
+   `codex://thread/<thread_id>` and a short provenance statement that says
+   whether the answer came from owner readback, newly executed work, or another
+   named authority. A footer-only attribution is insufficient. Treat this
+   marker as non-user provenance even when the author account is the same, so
+   the Supervisor cannot ingest its own reply as new human intent.
+
+   Advance the cursor only after destination receipt, owner answer, marked
+   Linear reply, and reply readback, or after a recorded non-user ignore. A
+   title/status update is not comment completion. Ignore Supervisor, Agent,
+   Automation, and other non-user comments. `codex-paused` stops dispatch only;
+   reconciliation and comment intake continue. A Cloud delegate is a conflict
+   and fails closed.
 10. Keep Ambient Ops inside this Ledger as an OPL Fleet observability extension;
    it never creates another Supervisor or heartbeat.
 11. After one coherent mutation, run `bd dolt push`, then pull and read the
@@ -74,16 +108,20 @@ Do not build a parallel receipt. Complete `start` only when the same run reads:
 - `automation_update` view: one active hourly `OPL Flow Supervisor`, targeting
   that thread, bound to the objective fingerprint, and containing the complete
   registered-project set;
-- `list_threads` plus Dashboard metadata: every newly observed task has one
-  stable intake classification; excluded operations/workbenches created no
-  Bead or Linear issue, while managed objectives have one of each;
+- native tool preflight plus `list_threads` with a schema-valid bound and
+  Dashboard metadata: every newly observed task has one stable intake
+  classification; excluded operations/workbenches created no Bead or Linear
+  issue, while managed objectives have one of each; incomplete enumeration or
+  `timeout_unknown` is reported precisely rather than as unavailable;
 - `read_thread` plus owner authority readback: managed task facts, aggregate
   counts, and titles match actual execution and canonical state; no task was
   archived automatically;
 - Linear `list_issues`/`get_issue`: one current issue per Bead after write;
 - Linear `list_comments` plus the destination task's `read_thread`: every
-  authorized comment after the saved cursor is delivered once, every skipped
-  comment is non-user, and the Beads cursor matches the last handled comment;
+  authorized comment after the saved cursor is delivered once, answered by the
+  task owner, replied to in the original Linear thread with the prominent
+  automated-Codex provenance marker, and read back; every skipped comment is
+  non-user, and the Beads cursor matches the last fully handled comment;
 - `bd dolt pull` after push or explicit no-change: no remaining remote drift.
 
 Repeating `start` must return the same Dashboard, Bead, and heartbeat IDs and

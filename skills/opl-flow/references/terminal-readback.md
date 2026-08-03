@@ -17,10 +17,14 @@ After any Flow mutation, read the owner-authoritative surfaces that apply:
    `automation_update` view proves one active hourly `OPL Flow Supervisor` for
    the objective fingerprint and complete registered-project set; Linear
    `list_issues`/`get_issue` proves one narrow-field issue per Bead; Linear
-   `list_comments`, destination `read_thread`, and the Beads cursor together
-   prove handled comments without duplicate delivery; and a post-push
-   `bd dolt pull` proves parity or explicit no-change. Repeat `start` must read
-   back the same Dashboard, Bead, and heartbeat IDs.
+   native tool preflight proves schema-valid owner calls and preserves the
+   distinction between `invalid_arguments`, `permission_denied`,
+   `timeout_unknown`, and `unavailable`; `list_comments`, destination
+   `read_thread`, marked Linear reply readback, and the Beads cursor together
+   prove handled comments without duplicate delivery or ambiguous automated
+   authorship; and a post-push `bd dolt pull` proves parity or explicit
+   no-change. Repeat `start` must read back the same Dashboard, Bead, and
+   heartbeat IDs.
 8. For Fleet: explicit Instance root, fresh node admission, repository
    currentness, lease/runner receipt, and sanitized private-state boundary.
 

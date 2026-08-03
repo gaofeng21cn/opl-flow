@@ -77,6 +77,7 @@ CORE_TEST_MODULES = (
     "tests/test_opl_workflow.py",
     "tests/test_opl_fleet.py",
     "tests/test_fleet_inventory.py",
+    "tests/test_ledger_supervisor_contract.py",
     "tests/test_package_descriptor.py",
 )
 VERIFY_LANES = ("core", "full")
