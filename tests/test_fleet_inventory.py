@@ -289,6 +289,18 @@ class FleetInventoryTests(unittest.TestCase):
         self.assertEqual(result["brew"], {"present": True, "version": "Homebrew 4.6.0"})
         command.assert_called_once_with(["/opt/homebrew/bin/brew", "--version"])
 
+    def test_versions_support_otty_as_the_terminal_owner(self) -> None:
+        completed = inventory.subprocess.CompletedProcess(
+            ["otty", "--version"], 0, "otty 1.3.1\n", ""
+        )
+        with (
+            mock.patch.object(inventory.shutil, "which", return_value="/opt/homebrew/bin/otty"),
+            mock.patch.object(inventory, "run", return_value=completed) as command,
+        ):
+            result = inventory.software_versions(["otty"])
+        self.assertEqual(result["otty"], {"present": True, "version": "otty 1.3.1"})
+        command.assert_called_once_with(["/opt/homebrew/bin/otty", "--version"])
+
     def test_versions_include_owner_installed_user_bin(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
             executable = Path(temporary) / ".local/bin/codegraph"

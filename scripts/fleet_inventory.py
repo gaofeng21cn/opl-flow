@@ -41,6 +41,7 @@ VERSION_COMMANDS = {
     "python": ["python3", "--version"],
     "node": ["node", "--version"],
     "npm": ["npm", "--version"],
+    "otty": ["otty", "--version"],
     "pnpm": ["pnpm", "--version"],
     "uv": ["uv", "--version"],
     "docker": ["docker", "--version"],
