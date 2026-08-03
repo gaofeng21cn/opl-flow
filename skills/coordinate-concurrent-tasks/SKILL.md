@@ -30,12 +30,15 @@ description: Coordinate multiple Codex conversations, agents, repositories, or w
 回旧方案。只有 provenance 仍不明确、且不同解释会实质改变终态时，才在 mutation 前向
 用户澄清。
 
-只使用两种用户可见状态：
+把任务生命周期、执行占用和用户可见标题分开。标题可使用五种状态：
 
-- `ACTIVE`：仍有任何实现、验证、吸收、安装生效、发布、回读或清理未完成。
+- `ACTIVE`：当前确有 Agent/owner 推进可立即执行的工作；
+- `NEEDS_ACTION`：下一步必须由用户登录、决策或授权，当前不占用 Agent；
+- `BLOCKED`：下一步被外部事件或依赖阻止，当前不占用 Agent；
+- `MONITORING`：长期工作台、主控或监督责任，没有有限完成点；
 - `SAFE_TO_ARCHIVE`：全部成果已进入真实 authority 并实际生效，证据闭合且 `remaining=[]`。
 
-把依赖、冲突、currentness drift、外部门禁失败和候选提交记录为事实，不要把它们变成 `WAIT`、`BLOCKED`、`HOLD`、`HANDOFF`、`CANDIDATE_ONLY` 或 `ARCHIVE_CANDIDATE` 状态。未完成对话必须持续承接一个真实、可立即执行的 `ACTIVE` 任务。
+依赖、冲突、currentness drift、候选提交或普通失败不能自动把任务降为等待；先完成仍可执行的切片。只有存在不可替代的用户动作或外部事件时才使用 `NEEDS_ACTION`/`BLOCKED`，并写明谁需要做什么。不要使用含义不明的 `WAIT`、`HOLD`、`HANDOFF`、`CANDIDATE_ONLY` 或 `ARCHIVE_CANDIDATE`。
 
 ### 并行规模不是固定上限
 
@@ -69,7 +72,7 @@ description: Coordinate multiple Codex conversations, agents, repositories, or w
 2. 为每个对话记录 `thread_id`、`objective_id`、该切片的 owner、execution owner、精确 write set、当前 authority、具体 `next_action`、integration plan 和 completion gaps。
 3. 保证每个切片只有一个 owner；同一 objective 可拆成多个独立切片并行。子智能体只承担边界清楚的只读审计、测试、研究或独立实现，父对话仍负责最终验收和吸收。
 4. 同时检查两类缺口：没有 objective 的活跃对话，以及没有 owner 的未完成 objective。立即分工，不留空档。
-5. 使用 `ACTIVE｜<owner/surface>｜<concrete objective>` 或 `SAFE_TO_ARCHIVE｜<surface>｜<completed objective>` 作为标题语义。`SAFE_TO_ARCHIVE` 标题仍保持线程未归档，直到用户 fresh 验收。没有实际线程操作能力时，只给出应更新的标题，不要声称已修改。
+5. 按 fresh execution state 使用 `ACTIVE`、`NEEDS_ACTION`、`BLOCKED`、`MONITORING` 或 `SAFE_TO_ARCHIVE` 前缀，后接 `<surface>｜<concrete state>`。标题只是人读投影，不能反向证明执行状态；`SAFE_TO_ARCHIVE` 标题仍保持线程未归档，直到用户 fresh 验收。没有实际线程操作能力时，只给出应更新的标题，不要声称已修改。
 
 ## 并行推进
 
@@ -77,7 +80,7 @@ description: Coordinate multiple Codex conversations, agents, repositories, or w
 - 依赖边只决定吸收顺序，不决定执行状态。先完成不依赖上游最终字节的实现、兼容桥、测试、生成、QA、审计和集成准备。
 - write-set overlap 是集成风险，不是长期锁。允许各自 worktree 继续准备；共享路径在吸收时只有一个最终 mutation owner，其他成果按 fresh SSOT 语义重放。
 - 不用驻留轮询、等待 ACK 或重复监测冒充 `next_action`。若一个对话没有真实可执行工作，立即重分配一个独立剩余切片；没有诚实切片时，报告分工错误并重组 scope，不制造忙碌证据。
-- 如果对话没有真实可执行工作，不得继续标记为 `ACTIVE`：若成果已被 canonical authority 完整覆盖则转为 `SAFE_TO_ARCHIVE`；若仍有独立缺口则登记最小切片和第一动作；若只是重复 writer 则改为只读审计或 superseded，不新建第二 writer。
+- 如果对话没有真实可执行工作，不得继续标记为 `ACTIVE`：需要用户动作则转为 `NEEDS_ACTION`，需要外部事件则转为 `BLOCKED`，长期工作台或监督入口转为 `MONITORING`，成果已被 canonical authority 完整覆盖则转为 `SAFE_TO_ARCHIVE`。若仍有可执行缺口则登记最小切片和第一动作；若只是重复 writer 则改为只读审计或 superseded，不新建第二 writer。
 - currentness 前进后由原对话、原 owner 继续 replay/rebase。不要仅因主线漂移创建等待 successor 或丢弃已有责任。
 
 ### 本地优先、远端最后

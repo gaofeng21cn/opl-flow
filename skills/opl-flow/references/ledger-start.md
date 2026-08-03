@@ -20,21 +20,37 @@ project list. Setup, update, and install never run this route.
    zero matches, update one match, and fail closed on unreadable or multiple
    matches. Read back one active hourly heartbeat named exactly
    `OPL Flow Supervisor`; all registered Linear projects share it.
-5. Each Supervisor run reads ready, in-progress, overdue, and live local tasks,
-   acts on current user intent, and records claim/checkpoint/blocker/remaining
-   in Beads. Before remote dispatch, read the Bead's single
+5. Each Supervisor run uses `list_threads` and a saved intake cursor to classify
+   unseen or changed local tasks as `managed_objective`, `ephemeral_operation`,
+   or `persistent_workbench`. Development and delivery objectives are managed
+   by default. A short manual operation is excluded unless the user explicitly
+   promotes it or it leaves a durable cross-session obligation. A persistent
+   workbench or controller is excluded from task completion and Linear issue
+   counts; keep its root task in `MONITORING` and manage only its concrete child
+   objectives. Save the stable classification and short reason in Dashboard
+   internal metadata so later runs do not repeatedly reclassify it.
+6. For every managed objective and registered persistent workbench, use
+   `read_thread` and the current owner surface to reconcile real execution,
+   canonical Git/public/runtime state, blockers, remaining work, and the task
+   title. Update Beads and Linear from those facts; never use a stale title,
+   spinner, callback, checkpoint, PR, or local branch as proof of canonical
+   completion. The Supervisor may report or route product-SSOT drift, but it
+   never merges, publishes, deploys, or overwrites another owner's authority.
+7. Each Supervisor run reads ready, in-progress, overdue, and live managed
+   tasks, acts on current user intent, and records
+   claim/checkpoint/blocker/remaining in Beads. Before remote dispatch, read the Bead's single
    `metadata.opl_execution_requirements` object. If absent, keep execution in
    the current Codex session. If present, validate it against
    `contracts/execution-requirements.schema.json`, then use `$opl-fleet` for
    plan, fresh admission, lease, adapter execution, result readback, and
    release. Record only the dispatch ID and short outcome in the Bead; never
    store lease nonces, private routes, command output, or credentials.
-6. Reconcile every user-ledger Bead to exactly one Linear issue through
+8. Reconcile every user-ledger Bead to exactly one Linear issue through
    `mcp__codex_apps__linear_list_issues`, `mcp__codex_apps__linear_get_issue`,
    and `mcp__codex_apps__linear_save_issue`. Read before write and read back
    after write; preserve hierarchy and the narrow field contract. Do not use
    `bd linear sync`.
-7. For every projected issue, use `mcp__codex_apps__linear_list_comments` and
+9. For every projected issue, use `mcp__codex_apps__linear_list_comments` and
    the registered project's saved comment-ID cursor. Use
    `send_message_to_thread` to send each later authorized user comment exactly
    once to its local Codex task with the comment ID as the idempotency key.
@@ -42,9 +58,9 @@ project list. Setup, update, and install never run this route.
    Supervisor, Agent, Automation, and other non-user comments. `codex-paused`
    stops dispatch only; reconciliation and comment intake continue. A Cloud
    delegate is a conflict and fails closed.
-8. Keep Ambient Ops inside this Ledger as an OPL Fleet observability extension;
+10. Keep Ambient Ops inside this Ledger as an OPL Fleet observability extension;
    it never creates another Supervisor or heartbeat.
-9. After one coherent mutation, run `bd dolt push`, then pull and read the
+11. After one coherent mutation, run `bd dolt push`, then pull and read the
    affected Beads again. A real no-change result is valid; unknown parity is
    not.
 
@@ -58,6 +74,12 @@ Do not build a parallel receipt. Complete `start` only when the same run reads:
 - `automation_update` view: one active hourly `OPL Flow Supervisor`, targeting
   that thread, bound to the objective fingerprint, and containing the complete
   registered-project set;
+- `list_threads` plus Dashboard metadata: every newly observed task has one
+  stable intake classification; excluded operations/workbenches created no
+  Bead or Linear issue, while managed objectives have one of each;
+- `read_thread` plus owner authority readback: managed task facts, aggregate
+  counts, and titles match actual execution and canonical state; no task was
+  archived automatically;
 - Linear `list_issues`/`get_issue`: one current issue per Bead after write;
 - Linear `list_comments` plus the destination task's `read_thread`: every
   authorized comment after the saved cursor is delivered once, every skipped
@@ -67,6 +89,29 @@ Do not build a parallel receipt. Complete `start` only when the same run reads:
 Repeating `start` must return the same Dashboard, Bead, and heartbeat IDs and
 must create zero duplicates. Any missing, stale, unreadable, or ambiguous
 readback leaves the action incomplete.
+
+## Thread Intake And Titles
+
+Automatic Ledger enrollment is purpose-based, not a blanket rule for every
+conversation:
+
+- `managed_objective`: finite development, delivery, release, research, or
+  other project work with an owner and verifiable outcome. Software development
+  belongs here by default and receives one Bead plus one Linear issue.
+- `ephemeral_operation`: short manual maintenance or interactive troubleshooting
+  that should finish in its current task. Do not enroll it automatically. If it
+  later creates an explicit deadline, recurring duty, external dependency, or
+  user-requested follow-up, enroll only that durable follow-up objective.
+- `persistent_workbench`: a mail workbench, digital-persona controller, or other
+  long-lived intake surface used intermittently. Do not treat the root task as
+  a finite objective or include it in open-issue counts. Keep it available as
+  `MONITORING`; enroll concrete child objectives separately.
+
+Use task titles as a human-readable projection only: `ACTIVE` for live work,
+`NEEDS_ACTION` for a required user login/decision/authorization, `BLOCKED` for
+an external dependency, `MONITORING` for a persistent workbench or supervisor,
+and `SAFE_TO_ARCHIVE` only after authoritative terminal readback. Updating a
+title never archives the task and never changes product SSOT.
 
 ## Linear Field Authority
 
