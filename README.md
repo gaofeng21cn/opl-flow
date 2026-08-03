@@ -257,7 +257,7 @@ and a multi-machine AI fleet without loading or configuring every backend.
 
 ## Core Skills And Optional Enhancements
 
-OPL Flow `0.1.31` bundles six core Skills with the Plugin:
+OPL Flow `0.1.32` bundles six core Skills with the Plugin:
 
 - `opl-flow` as the progressive primary router for `doctor`, `setup`, `tune`,
   `update`, `start`, and `fleet`;
