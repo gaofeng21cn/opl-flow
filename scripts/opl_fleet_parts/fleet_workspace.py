@@ -378,12 +378,14 @@ def sync_ledger(profile: dict[str, Any], *, root: Path) -> None:
     bd = shutil.which("bd")
     if not bd:
         raise FleetError("workspace ledger requires bd")
-    bootstrapped = run(
-        [bd, "-C", str(repository), "bootstrap", "--yes"],
-        check=False,
-    )
-    if bootstrapped.returncode:
-        raise FleetError("workspace ledger bootstrap failed")
+    existing = ledger_readback(profile, root=root, fresh_pull=False)
+    if existing["state"] != "CURRENT":
+        bootstrapped = run(
+            [bd, "-C", str(repository), "bootstrap", "--yes"],
+            check=False,
+        )
+        if bootstrapped.returncode:
+            raise FleetError("workspace ledger bootstrap failed")
     pulled = run([bd, "-C", str(repository), "dolt", "pull"], check=False)
     if pulled.returncode:
         raise FleetError("workspace ledger pull failed")

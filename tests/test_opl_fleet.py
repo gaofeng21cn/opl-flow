@@ -3591,6 +3591,70 @@ class WorkspaceProfileTests(unittest.TestCase):
         self.assertTrue(result["fresh_pull"])
         self.assertTrue(result["readable"])
 
+    def test_workspace_sync_reuses_an_initialized_ledger(self) -> None:
+        profile = self.profile_catalog()["profiles"]["test-profile"]
+        workspace_module = sys.modules["opl_fleet_parts"].fleet_workspace
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            repository = root / "project"
+            (repository / ".beads").mkdir(parents=True)
+            fleet.run(["git", "init", str(repository)])
+            pull = subprocess.CompletedProcess(["bd", "dolt", "pull"], 0, "", "")
+            with (
+                mock.patch.object(workspace_module.shutil, "which", return_value="/usr/bin/bd"),
+                mock.patch.object(
+                    workspace_module,
+                    "ledger_readback",
+                    return_value={"state": "CURRENT"},
+                ) as readback,
+                mock.patch.object(workspace_module, "run", return_value=pull) as run,
+            ):
+                fleet.sync_ledger(profile, root=root)
+
+        readback.assert_called_once_with(profile, root=root, fresh_pull=False)
+        run.assert_called_once_with(
+            ["/usr/bin/bd", "-C", str(repository), "dolt", "pull"],
+            check=False,
+        )
+
+    def test_workspace_sync_bootstraps_an_uninitialized_ledger(self) -> None:
+        profile = self.profile_catalog()["profiles"]["test-profile"]
+        workspace_module = sys.modules["opl_fleet_parts"].fleet_workspace
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            repository = root / "project"
+            (repository / ".beads").mkdir(parents=True)
+            fleet.run(["git", "init", str(repository)])
+            success = subprocess.CompletedProcess(["bd"], 0, "", "")
+            with (
+                mock.patch.object(workspace_module.shutil, "which", return_value="/usr/bin/bd"),
+                mock.patch.object(
+                    workspace_module,
+                    "ledger_readback",
+                    return_value={"state": "UNREADABLE"},
+                ),
+                mock.patch.object(
+                    workspace_module,
+                    "run",
+                    side_effect=[success, success],
+                ) as run,
+            ):
+                fleet.sync_ledger(profile, root=root)
+
+        self.assertEqual(
+            run.call_args_list,
+            [
+                mock.call(
+                    ["/usr/bin/bd", "-C", str(repository), "bootstrap", "--yes"],
+                    check=False,
+                ),
+                mock.call(
+                    ["/usr/bin/bd", "-C", str(repository), "dolt", "pull"],
+                    check=False,
+                ),
+            ],
+        )
+
     def test_workspace_sync_is_all_or_nothing_on_preflight_blocker(self) -> None:
         profile = self.profile_catalog()["profiles"]["test-profile"]
         before = {
