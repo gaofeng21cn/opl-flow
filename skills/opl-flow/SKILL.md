@@ -75,6 +75,9 @@ Natural-language examples:
 
 - Use `$develop-and-deliver` for multi-step software implementation and
   delivery.
+- Use `$github-ssot-patrol` for scheduled or interactive GitHub CI, open PR,
+  and open issue patrols that require SSOT-first intake and deterministic
+  closeout.
 - Use `$coordinate-concurrent-tasks` for multiple Codex tasks, repositories,
   worktrees, machines, or canonical integration.
 - Use `$recover-codex-tasks` for interrupted, missing, or ambiguous execution

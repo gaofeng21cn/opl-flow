@@ -54,6 +54,7 @@ class PackageDescriptorTests(unittest.TestCase):
             [
                 "coordinate-concurrent-tasks",
                 "develop-and-deliver",
+                "github-ssot-patrol",
                 "opl-fleet",
                 "opl-flow",
                 "recover-codex-tasks",

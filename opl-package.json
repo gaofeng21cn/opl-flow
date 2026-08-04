@@ -3,7 +3,7 @@
   "package_id": "opl-flow",
   "display_name": "OPL Flow",
   "publisher": "one-person-lab",
-  "version": "0.1.32",
+  "version": "0.1.33",
   "source": "first_party",
   "source_repo": "https://github.com/gaofeng21cn/opl-flow.git",
   "package_role": "workflow_profile",
@@ -14,6 +14,7 @@
     "required_skill_ids": [
       "coordinate-concurrent-tasks",
       "develop-and-deliver",
+      "github-ssot-patrol",
       "opl-fleet",
       "opl-flow",
       "recover-codex-tasks",

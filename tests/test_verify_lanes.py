@@ -43,7 +43,7 @@ class VerifyLaneTests(unittest.TestCase):
                 f"check_required_files must flag missing {relative_path}",
             )
 
-    def test_plugin_exposes_the_six_bounded_flow_skills(self) -> None:
+    def test_plugin_exposes_the_seven_bounded_flow_skills(self) -> None:
         self.assertEqual(check_plugin_json(REPO_ROOT), [])
 
         discoverable = {

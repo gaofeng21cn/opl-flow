@@ -14,6 +14,7 @@ from pathlib import Path, PurePosixPath
 CORE_SKILL_IDS = (
     "coordinate-concurrent-tasks",
     "develop-and-deliver",
+    "github-ssot-patrol",
     "opl-fleet",
     "opl-flow",
     "recover-codex-tasks",
@@ -34,6 +35,10 @@ REQUIRED_FILES = (
     "skills/coordinate-concurrent-tasks/agents/openai.yaml",
     "skills/develop-and-deliver/SKILL.md",
     "skills/develop-and-deliver/agents/openai.yaml",
+    "skills/github-ssot-patrol/SKILL.md",
+    "skills/github-ssot-patrol/agents/openai.yaml",
+    "skills/github-ssot-patrol/references/decision-contract.md",
+    "skills/github-ssot-patrol/scripts/github_patrol.py",
     "skills/opl-fleet/SKILL.md",
     "skills/opl-fleet/agents/openai.yaml",
     "skills/opl-flow/SKILL.md",
@@ -77,6 +82,7 @@ CORE_TEST_MODULES = (
     "tests/test_opl_workflow.py",
     "tests/test_opl_fleet.py",
     "tests/test_fleet_inventory.py",
+    "tests/test_github_ssot_patrol.py",
     "tests/test_package_descriptor.py",
 )
 VERIFY_LANES = ("core", "full")
@@ -97,7 +103,7 @@ def check_plugin_json(repo_root: Path) -> list[str]:
         if path.is_dir() and (path / "SKILL.md").exists()
     }
     if discoverable_skills != set(CORE_SKILL_IDS):
-        errors.append("default plugin must expose exactly the six OPL Flow core skills")
+        errors.append("default plugin must expose exactly the seven OPL Flow core skills")
     policy = json.loads((repo_root / "contracts" / "workflow-policy.json").read_text(encoding="utf-8"))
     if manifest.get("version") != policy.get("package", {}).get("version"):
         errors.append("plugin version must match contracts/workflow-policy.json package.version")
@@ -187,6 +193,10 @@ def check_workflow_policy(repo_root: Path) -> list[str]:
         "develop-and-deliver": (
             "https://github.com/gaofeng21cn/opl-flow",
             "skills/develop-and-deliver",
+        ),
+        "github-ssot-patrol": (
+            "https://github.com/gaofeng21cn/opl-flow",
+            "skills/github-ssot-patrol",
         ),
         "opl-fleet": (
             "https://github.com/gaofeng21cn/opl-flow",

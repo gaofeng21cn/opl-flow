@@ -3,7 +3,7 @@
   "schema": "opl_flow_workflow_policy.v4",
   "package": {
     "id": "opl-flow",
-    "version": "0.1.32",
+    "version": "0.1.33",
     "owner": "opl-flow",
     "kind": "workflow_profile"
   },
@@ -41,6 +41,15 @@
       "owner": "opl-flow",
       "source": "https://github.com/gaofeng21cn/opl-flow",
       "source_path": "skills/develop-and-deliver",
+      "online_install_default": true,
+      "activation": "task_routed"
+    },
+    {
+      "id": "github-ssot-patrol",
+      "kind": "codex_skill",
+      "owner": "opl-flow",
+      "source": "https://github.com/gaofeng21cn/opl-flow",
+      "source_path": "skills/github-ssot-patrol",
       "online_install_default": true,
       "activation": "task_routed"
     },
