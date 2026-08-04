@@ -74,8 +74,48 @@
     "ledgerSupervisorPolicy": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["native_owner_tools", "comment_delivery"],
+      "required": ["task_lifecycle_classes", "native_owner_tools", "comment_delivery"],
       "properties": {
+        "task_lifecycle_classes": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["managed_objective", "interactive_longline", "ephemeral_operation"],
+          "properties": {
+            "managed_objective": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["enrollment", "lifecycle_authority", "terminal_inference", "title_projection"],
+              "properties": {
+                "enrollment": { "const": "default_for_finite_development_and_delivery" },
+                "lifecycle_authority": { "const": "beads_and_owner_readback" },
+                "terminal_inference": { "const": "authoritative_outcome_and_remaining_empty" },
+                "title_projection": { "const": "execution_state" }
+              }
+            },
+            "interactive_longline": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["enrollment", "lifecycle_authority", "terminal_inference", "title_projection"],
+              "properties": {
+                "enrollment": { "const": "explicit_or_existing_registered_long_lived_interactive_task" },
+                "lifecycle_authority": { "const": "user_codex_task_archive" },
+                "terminal_inference": { "const": "forbidden" },
+                "title_projection": { "const": "fresh_thread_activity" }
+              }
+            },
+            "ephemeral_operation": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["enrollment", "lifecycle_authority", "terminal_inference", "title_projection"],
+              "properties": {
+                "enrollment": { "const": "excluded_by_default_or_explicit_record_only" },
+                "lifecycle_authority": { "const": "user_codex_task_archive" },
+                "terminal_inference": { "const": "forbidden" },
+                "title_projection": { "const": "fresh_thread_activity" }
+              }
+            }
+          }
+        },
         "native_owner_tools": {
           "type": "object",
           "additionalProperties": false,

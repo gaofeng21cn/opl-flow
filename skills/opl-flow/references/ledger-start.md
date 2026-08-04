@@ -24,15 +24,15 @@ project list. Setup, update, and install never run this route.
    matches. Read back one active hourly heartbeat named exactly
    `OPL Flow Supervisor`; all registered Linear projects share it.
 5. Each Supervisor run uses `list_threads` and a saved intake cursor to classify
-   unseen or changed local tasks as `managed_objective`, `ephemeral_operation`,
-   or `persistent_workbench`. Development and delivery objectives are managed
-   by default. A short manual operation is excluded unless the user explicitly
-   promotes it or it leaves a durable cross-session obligation. A persistent
-   workbench or controller is excluded from task completion and Linear issue
-   counts; keep its root task in `MONITORING` and manage only its concrete child
-   objectives. Save the stable classification and short reason in Dashboard
-   internal metadata so later runs do not repeatedly reclassify it.
-6. For every managed objective and registered persistent workbench, use
+   unseen or changed local tasks as `managed_objective`, `interactive_longline`,
+   or `ephemeral_operation`. Development and delivery objectives are managed by
+   default. A long-lived interactive operations or workbench task may be
+   registered for visibility, but its root lifecycle remains user-owned. A
+   short manual operation remains excluded unless the user explicitly asks to
+   record it or it leaves a separate durable follow-up. Save the stable
+   classification, lifecycle authority, and short reason in Dashboard internal
+   metadata so later runs do not repeatedly reclassify it.
+6. For every managed objective and registered interactive longline, use
    `read_thread` and the current owner surface to reconcile real execution,
    canonical Git/public/runtime state, blockers, remaining work, and the task
    title. Update Beads and Linear from those facts; never use a stale title,
@@ -110,17 +110,28 @@ conversation:
 
 - `managed_objective`: finite development, delivery, release, research, or
   other project work with an owner and verifiable outcome. Software development
-  belongs here by default and receives one Bead plus one Linear issue.
+  belongs here by default and receives one Bead plus one Linear issue. Beads and
+  authoritative owner readback manage its lifecycle; only an authoritative
+  outcome with `remaining=[]` permits `SAFE_TO_ARCHIVE`.
+- `interactive_longline`: a long-lived mail, persona, network, operations, or
+  other interactive task the user intends to revisit over time. It may have one
+  Bead and Linear issue for visibility, current status, comments, and concrete
+  child work, but the Ledger never decides that the root task is complete. The
+  only terminal signal is that the user archived the Codex task. A completed
+  canary, bounded operation, canonical closeout, `remaining=[]`, idle turn, or
+  stale title cannot produce `SAFE_TO_ARCHIVE`. Project its fresh thread state
+  as `ACTIVE`, `NEEDS_ACTION`, `BLOCKED`, or `MONITORING` until user archive.
 - `ephemeral_operation`: short manual maintenance or interactive troubleshooting
-  that should finish in its current task. Do not enroll it automatically. If it
-  later creates an explicit deadline, recurring duty, external dependency, or
-  user-requested follow-up, enroll only that durable follow-up objective.
-- `persistent_workbench`: a mail workbench, digital-persona controller, or other
-  long-lived intake surface used intermittently. Do not treat the root task as
-  a finite objective or include it in open-issue counts. Keep it available as
-  `MONITORING`; enroll concrete child objectives separately.
+  that should finish in its current task. Do not enroll it automatically. When
+  the user explicitly asks to record it, the entry is record-only and the user
+  archiving the Codex task is its lifecycle terminal. If it creates a distinct
+  deadline, recurring duty, dependency, or development deliverable, enroll that
+  durable follow-up separately as a `managed_objective`.
 
-A durable responsibility is not by itself a `persistent_workbench`. When a
+`persistent_workbench` is accepted only as a legacy alias of
+`interactive_longline`; normalize it without changing the user-owned lifecycle.
+
+A durable responsibility is not by itself an `interactive_longline`. When a
 bounded execution episode finishes and only a future due date or event trigger
 remains, keep the durable Bead and Linear issue in `monitoring`, clear the live
 `metadata.execution_thread`, and retain the completed thread only as
@@ -136,7 +147,10 @@ Use task titles as a human-readable projection only: `ACTIVE` for live work,
 `NEEDS_ACTION` for a required user login/decision/authorization, `BLOCKED` for
 an external dependency, `MONITORING` for a persistent workbench or supervisor,
 and `SAFE_TO_ARCHIVE` only after authoritative terminal readback. Updating a
-title never archives the task and never changes product SSOT.
+title never archives the task and never changes product SSOT. For
+`interactive_longline` and explicitly recorded `ephemeral_operation`, never set
+`SAFE_TO_ARCHIVE`; fresh user archive is the terminal authority, and any live
+turn must repair a stale terminal title back to its actual execution state.
 
 ## Linear Field Authority
 

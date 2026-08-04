@@ -266,6 +266,28 @@ def check_workflow_policy(repo_root: Path) -> list[str]:
             "workflow policy experience baseline must declare bundle, lifecycle, distribution, and readiness metadata"
         )
     supervisor = policy.get("ledger_supervisor_policy", {})
+    expected_task_lifecycle_classes = {
+        "managed_objective": {
+            "enrollment": "default_for_finite_development_and_delivery",
+            "lifecycle_authority": "beads_and_owner_readback",
+            "terminal_inference": "authoritative_outcome_and_remaining_empty",
+            "title_projection": "execution_state",
+        },
+        "interactive_longline": {
+            "enrollment": "explicit_or_existing_registered_long_lived_interactive_task",
+            "lifecycle_authority": "user_codex_task_archive",
+            "terminal_inference": "forbidden",
+            "title_projection": "fresh_thread_activity",
+        },
+        "ephemeral_operation": {
+            "enrollment": "excluded_by_default_or_explicit_record_only",
+            "lifecycle_authority": "user_codex_task_archive",
+            "terminal_inference": "forbidden",
+            "title_projection": "fresh_thread_activity",
+        },
+    }
+    if supervisor.get("task_lifecycle_classes") != expected_task_lifecycle_classes:
+        errors.append("Ledger Supervisor must keep the three task lifecycle authorities")
     owner_tools = supervisor.get("native_owner_tools", {})
     expected_failure_classes = {
         "invalid_arguments": "caller_schema_error",
