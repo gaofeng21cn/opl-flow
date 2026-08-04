@@ -462,17 +462,18 @@ def reconcile_repository(
         check=False,
     )
     default_ref = default_ref_result.stdout.strip()
-    default_branch = (
+    remote_default_branch = (
         default_ref.removeprefix(f"{remote_name}/")
         if default_ref.startswith(f"{remote_name}/")
         else ""
     )
+    default_branch = remote_default_branch or upstream_branch or ""
 
     base: dict[str, Any] = {
         "repository": slug,
         "remote": remote_name,
         "branch": branch,
-        "default_branch": default_branch or upstream_branch,
+        "default_branch": default_branch,
         "dirty": None,
         "ahead": None,
         "behind": None,

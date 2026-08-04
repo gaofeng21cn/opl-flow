@@ -437,6 +437,23 @@ class CodexFleetTests(unittest.TestCase):
         self.assertEqual(entry["state"], "CURRENT")
         self.assertEqual(entry["remote"], "gh-https")
 
+    def test_repository_sync_uses_upstream_when_remote_head_is_absent(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            _, workspace, checkout = repository_fixture(root)
+            git(checkout, "symbolic-ref", "--delete", "refs/remotes/origin/HEAD")
+
+            entry = fleet.reconcile_repository(
+                checkout,
+                fetch=False,
+                apply=False,
+                expected_owner=None,
+            )
+
+        self.assertIsNotNone(entry)
+        self.assertEqual(entry["default_branch"], "main")
+        self.assertEqual(entry["state"], "CURRENT")
+
     def test_repository_sync_preserves_dirty_main(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
             root = Path(temp_dir)

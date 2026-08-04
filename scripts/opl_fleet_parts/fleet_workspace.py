@@ -276,9 +276,13 @@ def _repository_entry(
         try:
             entry["github_commit"] = github_head(spec["repository"], spec["branch"])
         except Exception:
-            entry["state"] = "GITHUB_UNAVAILABLE"
+            if entry["state"] in SAFE_EXISTING_STATES:
+                entry["state"] = "GITHUB_UNAVAILABLE"
         else:
-            if entry["remote_commit"] != entry["github_commit"]:
+            if (
+                entry["state"] in SAFE_EXISTING_STATES
+                and entry["remote_commit"] != entry["github_commit"]
+            ):
                 entry["state"] = "GITHUB_DRIFT"
     return entry
 
