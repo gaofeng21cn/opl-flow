@@ -288,6 +288,18 @@ def check_workflow_policy(repo_root: Path) -> list[str]:
     }
     if supervisor.get("task_lifecycle_classes") != expected_task_lifecycle_classes:
         errors.append("Ledger Supervisor must keep the three task lifecycle authorities")
+    expected_execution_modes = {
+        "on_demand": {
+            "beads_status": "pinned",
+            "linear_status": "On Demand",
+            "linear_status_type": "backlog",
+            "execution_thread": None,
+            "dispatch": "user_intent_or_explicit_trigger_only",
+            "terminal_inference": "forbidden",
+        }
+    }
+    if supervisor.get("execution_modes") != expected_execution_modes:
+        errors.append("Ledger Supervisor must map on_demand to pinned/On Demand without automatic dispatch")
     expected_bounded_executor_policy = {
         "live_binding": "execution_thread",
         "history_binding": "last_execution_thread",

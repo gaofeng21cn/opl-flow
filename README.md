@@ -170,10 +170,11 @@ blocks dispatch only: reconciliation and authorized user-comment intake keep
 running.
 
 Lifecycle and current activity remain separate. Beads keeps the durable
-`open`, `in_progress`, `blocked`, `deferred`, and `closed` lifecycle, while OPL
-Flow records one execution mode: `active`, `waiting_user`, `waiting_external`,
-`monitoring`, or `aggregate`. Linear displays `Todo`, `In Progress`, `Needs
-Action`, `Blocked`, `Monitoring`, `Backlog`, or `Done` from that combination.
+`open`, `in_progress`, `blocked`, `deferred`, `closed`, and `pinned` lifecycle,
+while OPL Flow records one execution mode: `active`, `waiting_user`,
+`waiting_external`, `monitoring`, `on_demand`, or `aggregate`. Linear displays
+`Todo`, `In Progress`, `Needs Action`, `Blocked`, `Monitoring`, `On Demand`,
+`Backlog`, or `Done` from that combination.
 `Needs Action` identifies owner login, decision, or authorization; `Blocked`
 identifies an external dependency or event. Neither means an Agent remains
 allocated. Both preserve an existing Beads `blocked` lifecycle and otherwise
@@ -181,8 +182,12 @@ preserve `in_progress`; `Monitoring` normalizes to `in_progress`. Only
 genuinely active work is shown as `In Progress`.
 
 `Monitoring` is a durable Ledger responsibility, not a requirement to keep an
-idle Codex task open. Only a genuine workbench or Supervisor remains available
-as a long-lived task. A periodic or event-driven objective clears its live
+idle Codex task open. `On Demand` is the explicit record-only state for a
+long-lived responsibility with no current work, external event, or user action:
+the Bead is `pinned`, the Linear issue is `On Demand`, and no execution thread
+or resident monitor is allocated. It returns to `In Progress` only after a new
+user instruction or explicit trigger. Only a genuine workbench or Supervisor remains
+available as a long-lived task. A periodic or event-driven objective clears its live
 `execution_thread` after each bounded episode, retains the completed thread as
 provenance, and binds a new bounded executor only when its due date or trigger
 fires. The Bead and Linear issue remain the stable identity throughout.

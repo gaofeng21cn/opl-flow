@@ -74,7 +74,7 @@
     "ledgerSupervisorPolicy": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["task_lifecycle_classes", "bounded_executor_policy", "native_owner_tools", "comment_delivery"],
+      "required": ["task_lifecycle_classes", "bounded_executor_policy", "execution_modes", "native_owner_tools", "comment_delivery"],
       "properties": {
         "task_lifecycle_classes": {
           "type": "object",
@@ -132,6 +132,26 @@
             "archived_history_policy": { "const": "provenance_only_never_resume" },
             "trigger_action": { "const": "resume_unarchived_or_create_new" },
             "unbind_after_authoritative_readback": { "const": true }
+          }
+        },
+        "execution_modes": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["on_demand"],
+          "properties": {
+            "on_demand": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["beads_status", "linear_status", "linear_status_type", "execution_thread", "dispatch", "terminal_inference"],
+              "properties": {
+                "beads_status": { "const": "pinned" },
+                "linear_status": { "const": "On Demand" },
+                "linear_status_type": { "const": "backlog" },
+                "execution_thread": { "type": ["null"] },
+                "dispatch": { "const": "user_intent_or_explicit_trigger_only" },
+                "terminal_inference": { "const": "forbidden" }
+              }
+            }
           }
         },
         "native_owner_tools": {

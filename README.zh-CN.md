@@ -204,15 +204,19 @@ Connector 维护这份投影。已登记 Project 默认由本机 Codex 管理；
 Supervisor、Agent 和 Automation 自身评论以防回环，并最迟在下一次 Heartbeat 处理。
 
 任务生命周期与当前执行方式分开管理。Beads 保存 `open`、`in_progress`、
-`blocked`、`deferred`、`closed`；OPL Flow 另记录 `active`、`waiting_user`、
-`waiting_external`、`monitoring` 或 `aggregate`。Linear 据此显示 `Todo`、
-`In Progress`、`Needs Action`、`Blocked`、`Monitoring`、`Backlog` 或 `Done`。
+`blocked`、`deferred`、`closed`、`pinned`；OPL Flow 另记录 `active`、
+`waiting_user`、`waiting_external`、`monitoring`、`on_demand` 或 `aggregate`。
+Linear 据此显示 `Todo`、`In Progress`、`Needs Action`、`Blocked`、
+`Monitoring`、`On Demand`、`Backlog` 或 `Done`。
 `Needs Action` 表示下一步需要用户登录、决策或授权；`Blocked` 表示外部事件或上游依赖阻止
 继续推进，两者都不表示仍有 Agent 占用执行资源。回读时，两者保留 Beads 原有的 `blocked`，
 否则保持 `in_progress`；`Monitoring` 归一化为 `in_progress`。只有当前确实在执行或存在活跃
 后代的任务才显示 `In Progress`。
 
-`Monitoring` 是总账中的长期责任，不要求保留一个空闲 Codex 对话。只有真正的工作台或
+`Monitoring` 是总账中的长期责任，不要求保留一个空闲 Codex 对话。`On Demand` 是
+“长期保留但当前没有动作”的明确记录态：Bead 使用 `pinned`，Linear 使用 `On Demand`，
+不绑定 execution thread，也不启动常驻监控；只有用户新指令或明确事件才恢复为
+`In Progress`。只有真正的工作台或
 Supervisor 才保持长期可用；周期或事件驱动任务在每轮有限执行完成后清空 live
 `execution_thread`，把已完成对话仅作为 provenance 保存，并只在到期或触发事件发生时绑定
 新的有限 executor。整个过程中 Bead 与 Linear issue 始终是稳定身份。

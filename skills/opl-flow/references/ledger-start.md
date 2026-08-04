@@ -120,7 +120,10 @@ conversation:
   only terminal signal is that the user archived the Codex task. A completed
   canary, bounded operation, canonical closeout, `remaining=[]`, idle turn, or
   stale title cannot produce `SAFE_TO_ARCHIVE`. Project its fresh thread state
-  as `ACTIVE`, `NEEDS_ACTION`, `BLOCKED`, or `MONITORING` until user archive.
+  as `ACTIVE`, `NEEDS_ACTION`, `BLOCKED`, `MONITORING`, or `ON_DEMAND` until
+  user archive. Use `ON_DEMAND` when there is no current work, external event,
+  or user action; it maps to a Beads `pinned` issue and does not bind an
+  execution thread.
 - `ephemeral_operation`: short manual maintenance or interactive troubleshooting
   that should finish in its current task. Do not enroll it automatically. When
   the user explicitly asks to record it, the entry is record-only and the user
@@ -164,13 +167,15 @@ Beads to Linear: execution state, blocker, result.
 Beads lifecycle and visible execution activity are separate. Keep the durable
 lifecycle in the native Beads status and store exactly one current
 `metadata.execution_mode`: `active`, `waiting_user`, `waiting_external`,
-`monitoring`, or `aggregate`. Linear displays `Needs Action` when the owner's
+`monitoring`, `on_demand`, or `aggregate`. Linear displays `Needs Action` when the owner's
 login, decision, or authorization is the next step; it displays `Blocked` when
 an external event or dependency prevents progress. Neither state keeps an Agent
 allocated. `Monitoring` also allocates no Agent unless a bounded execution
 episode is currently bound. When Linear is read back, both preserve a Bead
 already in `blocked`; otherwise they keep `in_progress`. `Monitoring`
-normalizes to `in_progress`; only genuinely unstarted work displays `Todo`.
+normalizes to `in_progress`; `on_demand` requires Beads `pinned`, Linear `On Demand`,
+a null `execution_thread`, and user-intent/explicit-trigger dispatch only. Only
+genuinely unstarted work displays `Todo`.
 
 Aggregate issues roll up descendants: an active descendant displays `In
 Progress`; otherwise owner action takes precedence over external blocking,
