@@ -10,13 +10,16 @@ owns durable execution facts, Linear is the narrow human portal, GitHub owns
 code and delivery evidence, and Fleet provides capacity only. Never create a
 second heartbeat for another registered project.
 
-## 1. Establish Fresh Local Truth
+## 1. Run The Bounded Change Detector
 
-1. Read the Instance `AGENTS.md`, primary-checkout Git state, Beads/Dolt state,
-   current worktrees, lifecycle receipts, holders, and owners. Do not reset,
-   force, overwrite, or adopt another owner's write set.
-2. Run `bd dolt pull` in the Instance primary checkout.
-3. From canonical OPL Flow run:
+Phase A establishes enough fresh truth to decide what needs expansion. It does
+not reread every task, worktree, holder, release, deployment, install, or
+runtime owner on every heartbeat.
+
+1. Read the effective Instance `AGENTS.md` and this policy. Keep the private
+   Supervisor memory/cursor location as the durable observation-state owner.
+2. Run `bd dolt pull` in the Instance primary checkout, then from canonical OPL
+   Flow run:
 
    ```bash
    python3 scripts/opl_workflow.py ledger reconcile-operations \
@@ -25,23 +28,43 @@ second heartbeat for another registered project.
      --instance <instance>
    ```
 
-4. Treat a snapshot `validation_errors` entry or exit `3` as control-plane
+3. Treat a snapshot `validation_errors` entry or exit `3` as control-plane
    drift. Fail closed for that affected Bead; do not guess a status or mapping.
-5. Use the snapshot's dynamic ready set, unfinished issues, execution modes,
+4. Use the snapshot's dynamic ready set, unfinished issues, execution modes,
    dependencies, and narrow metadata. Never use a hard-coded task list.
+5. Call `list_threads(limit <= 50)` once. Compare only `updatedAt`, `status`, and
+   `hasUnreadTurn` with the saved per-thread observation. Do not use the title as
+   an observation signature: it is a Supervisor-maintained projection.
+6. For live `metadata.execution_thread` values, call `wait_threads(timeoutMs=0)`
+   in batches of at most eight with each saved `afterCursor`. A changed wait
+   cursor, completion, error, or need-attention result selects that thread for
+   Phase B. An unchanged cursor does not require `read_thread`.
+7. For each registered Linear project, call `list_issues` once with the saved
+   project `updatedAt` waterline. Do not read comments for an unchanged issue.
 
 The snapshot is read-only and intentionally excludes full notes, checkpoints,
 logs, credentials, and unrelated internal metadata. It does not replace owner
 readback or the official Linear Connector.
 
-## 2. Intake Only New Or Changed Threads
+## 2. Expand Only Changed, Due, Or Ambiguous Objects
 
-Use `list_threads(limit <= 50)` and the Dashboard's durable intake cursor.
-Inspect only new or recently changed local tasks. For an existing managed Bead,
-`metadata.execution_thread` is its exact live index. Call `read_thread` for each
-managed objective and each registered interactive longline, then corroborate
-with canonical main/wire, worktree/lifecycle, release, deployment, install, or
-runtime owner evidence as applicable.
+Phase B calls `read_thread` only for a new thread, changed summary, changed wait
+cursor, unread turn, due review, or ambiguous owner state. An unchanged managed
+objective or registered interactive longline does not receive an hourly exact
+read. When expansion is selected, corroborate only that objective with canonical
+main/wire, worktree/lifecycle, release, deployment, install, or runtime owner
+evidence as applicable.
+
+For `waiting_external`, `monitoring`, and `on_demand`, reuse
+`metadata.next_review_at` as the authority-check backoff. Before it is due, skip
+the owner check unless user, owner, Linear issue, schema/policy, or relevant
+repository evidence changed. Do not create a duplicate
+`next_authority_check_at` field.
+
+Run a complete audit at most every 24 hours, or immediately after a missing or
+ambiguous cursor, schema/policy change, `timeout_unknown`, or explicit user
+request. An unchanged observation never proves completion, archival, delivery,
+or owner correctness; it only proves that the expensive exact read is not due.
 
 Record one stable class and a short reason:
 
@@ -108,7 +131,13 @@ Project only: Bead ID, Chinese title, parent/child hierarchy, status, priority,
 due date, short blocker/result, and GitHub/delivery links. Never project local
 paths, credentials, logs, full notes, checkpoints, or internal metadata.
 
-For issues changed since the stored waterline, call `linear_list_comments`.
+For each registered project, use `linear_list_issues(updatedAt=<waterline>)` to
+select changed issues. Call `linear_list_comments` only for those changed
+issues. The Connector does not promise that `limit=1` is the newest comment, so
+never use a smallest-page ordering assumption as the cursor gate. Page a
+changed issue until the stored comment ID is found or the current changed set
+is exhausted; a missing or ambiguous cursor falls back to the full audit.
+
 Only new comments by configured authorized human accounts are user intent.
 Ignore known agent comment IDs and comments whose first line is exactly:
 
@@ -125,9 +154,11 @@ readback, Linear reply post, and reply readback all succeed. Store the comment
 ID/time and a short result in Beads; do not copy the full comment into Git or
 another Linear comment.
 
-When no initial waterline exists, use the Bead mapping/projected/supervised
-timestamp as the lower bound. If none exists, establish the current latest
-waterline without replaying all history.
+Advance the project issue waterline only after every selected issue has either
+proved no new authorized comment or completed the delivery/reply cursor gate.
+When no initial waterline exists, use the Bead mapping/projected timestamp as
+the lower bound. If none exists, establish the current latest waterline without
+replaying all history.
 
 Before Connector use, perform one bounded TLS health check. On a transport send
 error, verify once. If it still fails, retain the last successful readback,
@@ -182,6 +213,16 @@ Write owner, execution thread, current slice, first blocker, next action,
 remaining, and terminal/readback facts to Beads. Run `bd dolt push` only when
 Beads changed, then pull/read back parity. Narrowly update Linear only when a
 projected field changed.
+
+Emit compact counters for threads listed, summaries changed, wait targets,
+wait cursors changed, exact thread reads, Linear projects probed, Linear issues
+changed, comment pages, authority checks, writes, retries, elapsed seconds, and
+any full-audit reason. For a semantic no-change episode, the expected budget is
+one `list_threads`, one `wait_threads` per live batch of eight, one Linear issue
+delta call per registered project, zero `read_thread`, zero comment calls, zero
+authority checks, and zero semantic writes. Target about 60 seconds for a small
+Ledger. Do not update `last_supervised_at` or another timestamp merely to prove
+that the heartbeat ran.
 
 Notify only for new intake, a processed user comment, direction correction,
 first blocker, material ETA change, completion, or required user action.

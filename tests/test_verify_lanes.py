@@ -184,6 +184,42 @@ class VerifyLaneTests(unittest.TestCase):
         )
 
     def test_ledger_supervisor_contract_rejects_delivery_and_provenance_regressions(self) -> None:
+        fast_path_errors = self.workflow_policy_errors_after(
+            lambda policy: policy["ledger_supervisor_policy"]["incremental_fast_path"]
+            ["no_change_budget"].update(read_thread_calls=1)
+        )
+        self.assertIn(
+            "Ledger Supervisor must keep the bounded incremental no-change fast path",
+            fast_path_errors,
+        )
+
+        title_signature_errors = self.workflow_policy_errors_after(
+            lambda policy: policy["ledger_supervisor_policy"]["incremental_fast_path"]
+            ["thread_detection"]["observation_fields"].append("title")
+        )
+        self.assertIn(
+            "Ledger Supervisor must keep the bounded incremental no-change fast path",
+            title_signature_errors,
+        )
+
+        duplicate_backoff_errors = self.workflow_policy_errors_after(
+            lambda policy: policy["ledger_supervisor_policy"]["incremental_fast_path"]
+            ["external_review"].update(backoff_field="next_authority_check_at")
+        )
+        self.assertIn(
+            "Ledger Supervisor must keep the bounded incremental no-change fast path",
+            duplicate_backoff_errors,
+        )
+
+        comment_probe_errors = self.workflow_policy_errors_after(
+            lambda policy: policy["ledger_supervisor_policy"]["incremental_fast_path"]
+            ["linear_detection"].update(newest_comment_order_assumption="newest_first")
+        )
+        self.assertIn(
+            "Ledger Supervisor must keep the bounded incremental no-change fast path",
+            comment_probe_errors,
+        )
+
         executor_errors = self.workflow_policy_errors_after(
             lambda policy: policy["ledger_supervisor_policy"]["bounded_executor_policy"].update(
                 archived_history_policy="resume_when_triggered",
@@ -222,6 +258,29 @@ class VerifyLaneTests(unittest.TestCase):
         self.assertIn(
             "Ledger Supervisor automated replies must carry marker and answer provenance",
             marker_errors,
+        )
+
+    def test_ledger_supervisor_reference_keeps_incremental_no_change_semantics(self) -> None:
+        reference = (
+            REPO_ROOT / "skills" / "opl-flow" / "references" / "ledger-supervisor.md"
+        ).read_text(encoding="utf-8")
+        normalized = " ".join(reference.split())
+
+        self.assertNotIn(
+            "Call `read_thread` for each managed objective",
+            reference,
+        )
+        self.assertIn(
+            "An unchanged cursor does not require `read_thread`.",
+            reference,
+        )
+        self.assertIn(
+            "zero `read_thread`, zero comment calls, zero authority checks, and zero semantic writes",
+            normalized,
+        )
+        self.assertIn(
+            "Do not create a duplicate `next_authority_check_at` field.",
+            normalized,
         )
 
     def test_every_skill_requires_safe_repository_relative_source_path(self) -> None:

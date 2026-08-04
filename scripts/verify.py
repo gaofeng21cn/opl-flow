@@ -46,6 +46,7 @@ REQUIRED_FILES = (
     "skills/opl-flow/references/app-integration.md",
     "skills/opl-flow/references/codex-baseline.md",
     "skills/opl-flow/references/ledger-start.md",
+    "skills/opl-flow/references/ledger-supervisor.md",
     "skills/opl-flow/references/package-lifecycle.md",
     "skills/opl-flow/references/setup-update.md",
     "skills/opl-flow/references/terminal-readback.md",
@@ -276,6 +277,78 @@ def check_workflow_policy(repo_root: Path) -> list[str]:
             "workflow policy experience baseline must declare bundle, lifecycle, distribution, and readiness metadata"
         )
     supervisor = policy.get("ledger_supervisor_policy", {})
+    expected_incremental_fast_path = {
+        "phase_order": ["change_detection", "selective_expansion"],
+        "state_owner": "private_supervisor_memory_cursor_location",
+        "thread_detection": {
+            "inventory_source": "list_threads",
+            "observation_fields": ["updatedAt", "status", "hasUnreadTurn"],
+            "excluded_observation_fields": ["title"],
+            "live_progress_source": "wait_threads",
+            "wait_timeout_ms": 0,
+            "wait_batch_size": 8,
+            "exact_read_triggers": [
+                "new_thread",
+                "summary_changed",
+                "wait_cursor_changed",
+                "has_unread_turn",
+                "review_due",
+                "ambiguous_owner_state",
+            ],
+        },
+        "linear_detection": {
+            "issue_delta_source": "list_issues_updated_after_project_waterline",
+            "comment_read_scope": "changed_issues_only",
+            "newest_comment_order_assumption": "forbidden",
+        },
+        "external_review": {
+            "backoff_field": "next_review_at",
+            "hourly_polling": False,
+            "early_recheck_triggers": [
+                "user_change",
+                "owner_change",
+                "issue_change",
+                "schema_or_policy_change",
+                "relevant_repository_change",
+            ],
+        },
+        "full_audit": {
+            "cadence_hours": 24,
+            "triggers": [
+                "missing_or_ambiguous_cursor",
+                "schema_or_policy_change",
+                "timeout_unknown",
+                "explicit_user_request",
+            ],
+        },
+        "observability_counters": [
+            "threads_listed",
+            "thread_summaries_changed",
+            "wait_targets",
+            "wait_cursors_changed",
+            "threads_read",
+            "linear_projects_probed",
+            "linear_issues_changed",
+            "linear_comment_pages",
+            "authority_checks",
+            "semantic_writes",
+            "retries",
+            "elapsed_seconds",
+            "full_audit_reason",
+        ],
+        "no_change_budget": {
+            "list_threads_calls": 1,
+            "wait_threads_calls_per_live_batch": 1,
+            "linear_issue_delta_calls_per_project": 1,
+            "read_thread_calls": 0,
+            "linear_comment_calls": 0,
+            "authority_checks": 0,
+            "semantic_writes": 0,
+            "expected_runtime_seconds": 60,
+        },
+    }
+    if supervisor.get("incremental_fast_path") != expected_incremental_fast_path:
+        errors.append("Ledger Supervisor must keep the bounded incremental no-change fast path")
     expected_task_lifecycle_classes = {
         "managed_objective": {
             "enrollment": "default_for_finite_development_and_delivery",

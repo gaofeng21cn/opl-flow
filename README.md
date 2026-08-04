@@ -196,8 +196,14 @@ The Supervisor uses the official `linear_list_comments` route, a per-project
 Linear comment-ID high-watermark, and the comment ID as the idempotency key.
 Native owner-tool preflight keeps `list_threads.limit <= 50` and distinguishes
 invalid arguments, permission denial, unknown timeout, and genuine tool
-unavailability. A timed-out dispatch is reconciled from the destination task
-before at most one retry. Each authorized comment closes delivery, owner-answer
+unavailability. Its hourly no-change path calls `list_threads` once, batches
+live executors through zero-wait `wait_threads`, and queries Linear issues only
+after the saved project waterline. Unchanged threads do not receive exact
+`read_thread` calls, unchanged Linear issues do not receive comment reads, and
+blocked or monitoring objectives reuse `next_review_at` instead of hourly owner
+polling. A full audit runs at a lower cadence or on cursor, schema, timeout, or
+explicit-user triggers. A timed-out dispatch is reconciled from the destination
+task before at most one retry. Each authorized comment closes delivery, owner-answer
 readback, Linear reply, and reply readback before its cursor advances. Every
 automated reply begins with `【OPL Flow · Codex 自动回复】`
 and names the source Codex task and answer provenance; that marker, not the

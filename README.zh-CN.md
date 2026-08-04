@@ -208,8 +208,13 @@ Connector 维护这份投影。已登记 Project 默认由本机 Codex 管理；
 `codex-ready` 只是兼容提示，不再是逐 issue 准入门槛；`codex-paused` 只阻止 dispatch，
 该 issue 的 Linear 对账和授权用户评论摄入仍继续。监督器通过官方
 `linear_list_comments`，按每个 Project 保存 Linear comment-ID 水位，以 comment ID
-作为幂等键，把每条新授权用户评论恰好一次送入对应本机 Codex task；它忽略
-Supervisor、Agent 和 Automation 自身评论以防回环，并最迟在下一次 Heartbeat 处理。
+作为幂等键，把每条新授权用户评论恰好一次送入对应本机 Codex task。每小时无变化
+快路径只调用一次 `list_threads`，把 live executor 按最多 8 个一组交给零等待
+`wait_threads`，并只读取水位后发生变化的 Linear issue；未变化任务不做精确
+`read_thread`，未变化 issue 不读取 comments，Blocked/Monitoring 直接复用
+`next_review_at` 退避而不是每小时复核 owner。完整巡检只在较低频率或 cursor、schema、
+timeout、用户明确要求等触发条件下执行。监督器忽略 Supervisor、Agent 和 Automation
+自身评论以防回环，并最迟在下一次 Heartbeat 处理。
 
 任务生命周期与当前执行方式分开管理。Beads 保存 `open`、`in_progress`、
 `blocked`、`deferred`、`closed`、`pinned`；OPL Flow 另记录 `active`、

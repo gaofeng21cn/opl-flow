@@ -74,8 +74,116 @@
     "ledgerSupervisorPolicy": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["task_lifecycle_classes", "bounded_executor_policy", "execution_modes", "native_owner_tools", "comment_delivery"],
+      "required": ["incremental_fast_path", "task_lifecycle_classes", "bounded_executor_policy", "execution_modes", "native_owner_tools", "comment_delivery"],
       "properties": {
+        "incremental_fast_path": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["phase_order", "state_owner", "thread_detection", "linear_detection", "external_review", "full_audit", "observability_counters", "no_change_budget"],
+          "properties": {
+            "phase_order": { "const": ["change_detection", "selective_expansion"] },
+            "state_owner": { "const": "private_supervisor_memory_cursor_location" },
+            "thread_detection": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["inventory_source", "observation_fields", "excluded_observation_fields", "live_progress_source", "wait_timeout_ms", "wait_batch_size", "exact_read_triggers"],
+              "properties": {
+                "inventory_source": { "const": "list_threads" },
+                "observation_fields": { "const": ["updatedAt", "status", "hasUnreadTurn"] },
+                "excluded_observation_fields": { "const": ["title"] },
+                "live_progress_source": { "const": "wait_threads" },
+                "wait_timeout_ms": { "const": 0 },
+                "wait_batch_size": { "const": 8 },
+                "exact_read_triggers": {
+                  "const": [
+                    "new_thread",
+                    "summary_changed",
+                    "wait_cursor_changed",
+                    "has_unread_turn",
+                    "review_due",
+                    "ambiguous_owner_state"
+                  ]
+                }
+              }
+            },
+            "linear_detection": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["issue_delta_source", "comment_read_scope", "newest_comment_order_assumption"],
+              "properties": {
+                "issue_delta_source": { "const": "list_issues_updated_after_project_waterline" },
+                "comment_read_scope": { "const": "changed_issues_only" },
+                "newest_comment_order_assumption": { "const": "forbidden" }
+              }
+            },
+            "external_review": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["backoff_field", "hourly_polling", "early_recheck_triggers"],
+              "properties": {
+                "backoff_field": { "const": "next_review_at" },
+                "hourly_polling": { "const": false },
+                "early_recheck_triggers": {
+                  "const": [
+                    "user_change",
+                    "owner_change",
+                    "issue_change",
+                    "schema_or_policy_change",
+                    "relevant_repository_change"
+                  ]
+                }
+              }
+            },
+            "full_audit": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["cadence_hours", "triggers"],
+              "properties": {
+                "cadence_hours": { "const": 24 },
+                "triggers": {
+                  "const": [
+                    "missing_or_ambiguous_cursor",
+                    "schema_or_policy_change",
+                    "timeout_unknown",
+                    "explicit_user_request"
+                  ]
+                }
+              }
+            },
+            "observability_counters": {
+              "const": [
+                "threads_listed",
+                "thread_summaries_changed",
+                "wait_targets",
+                "wait_cursors_changed",
+                "threads_read",
+                "linear_projects_probed",
+                "linear_issues_changed",
+                "linear_comment_pages",
+                "authority_checks",
+                "semantic_writes",
+                "retries",
+                "elapsed_seconds",
+                "full_audit_reason"
+              ]
+            },
+            "no_change_budget": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["list_threads_calls", "wait_threads_calls_per_live_batch", "linear_issue_delta_calls_per_project", "read_thread_calls", "linear_comment_calls", "authority_checks", "semantic_writes", "expected_runtime_seconds"],
+              "properties": {
+                "list_threads_calls": { "const": 1 },
+                "wait_threads_calls_per_live_batch": { "const": 1 },
+                "linear_issue_delta_calls_per_project": { "const": 1 },
+                "read_thread_calls": { "const": 0 },
+                "linear_comment_calls": { "const": 0 },
+                "authority_checks": { "const": 0 },
+                "semantic_writes": { "const": 0 },
+                "expected_runtime_seconds": { "const": 60 }
+              }
+            }
+          }
+        },
         "task_lifecycle_classes": {
           "type": "object",
           "additionalProperties": false,

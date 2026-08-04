@@ -329,6 +329,15 @@ projection, comment, owner, and terminal rules live in
 input and fails closed on malformed execution metadata or duplicate Linear
 mappings.
 
+The hourly episode is incremental by default. One `list_threads` inventory and
+batched zero-wait `wait_threads` cursors select changed live tasks; Linear issue
+`updatedAt` waterlines select which issues may need comment intake. Only new,
+changed, due, or ambiguous objects expand to exact task and owner reads.
+`next_review_at` supplies external-review backoff, while missing cursors,
+policy/schema changes, unknown timeouts, explicit owner requests, and the
+lower-cadence 24-hour audit restore complete coverage. Observation cursors live
+in the private Supervisor memory location, not in a second public task store.
+
 `start` discovers the saved project and unique private Instance, then uses Codex
 native task and Automation tools plus official `bd` and `opl_workflow.py` routes.
 It reuses or creates exactly one local Dashboard task, one Bead bound by
