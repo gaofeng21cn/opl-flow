@@ -16,7 +16,7 @@ from .fleet_reconcile import git_value, github_head, github_repository_from_remo
 
 
 PROFILE_SCHEMA = "opl_fleet_workspace_profiles.v1"
-PROFILE_PATH = "fleet/workspace-profiles.json"
+PROFILE_PATH = "workspace-profiles.json"
 SAFE_EXISTING_STATES = {"CURRENT", "BEHIND"}
 CLAIM_READY_STATES = {"CURRENT"}
 PROFILE_ID_PATTERN = re.compile(r"^[a-z0-9][a-z0-9-]{0,62}$")

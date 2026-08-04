@@ -3318,7 +3318,7 @@ class WorkspaceProfileTests(unittest.TestCase):
                 "test-profile": {
                     "node_ids": ["test-node"],
                     "workspace_root": "~/workspace",
-                    "environment_contract": "fleet/environment.json",
+                    "environment_contract": "environment.json",
                     "repositories": [
                         {
                             "repository": "example/project",
@@ -3341,6 +3341,18 @@ class WorkspaceProfileTests(unittest.TestCase):
         payload["profiles"]["second-profile"] = duplicate
         with self.assertRaisesRegex(fleet.FleetError, "nodes are invalid"):
             fleet.validate_workspace_profiles(payload)
+
+    def test_workspace_catalog_uses_the_fleet_control_root_directly(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            control_root = Path(temp_dir)
+            (control_root / "workspace-profiles.json").write_text(
+                json.dumps(self.profile_catalog()),
+                encoding="utf-8",
+            )
+
+            catalog = fleet.workspace_profile_catalog(control_root=control_root)
+
+        self.assertIn("test-profile", catalog["profiles"])
 
     def test_workspace_profile_rejects_unsafe_directory(self) -> None:
         payload = self.profile_catalog()
