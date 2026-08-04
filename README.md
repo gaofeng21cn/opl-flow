@@ -8,11 +8,11 @@
 
 <h1 align="center">OPL Flow</h1>
 
-<p align="center"><strong>The Codex experience baseline and work-coordination control layer</strong></p>
-<p align="center">Raise the floor for one Codex, then keep many tasks, repositories, and machines moving from durable truth.</p>
+<p align="center"><strong>The Codex baseline and durable work-coordination layer</strong></p>
+<p align="center">Raise the floor for one Codex, then connect durable work truth to OPL Fleet's Agent-native distributed execution and continuity system.</p>
 
 <p align="center">
-  <img src="assets/branding/opl-flow-ai-fleet.png" alt="Linear and the local Codex connect through OPL Flow, which keeps every user-ledger task human-readable while Beads remains the durable task authority" width="100%" />
+  <img src="assets/branding/opl-flow-ai-fleet-v3.png" alt="An Agent objective flows from the OPL Ledger through OPL Flow and OPL Fleet's Agent-native control plane to heterogeneous execution nodes, with Linear, GitHub, and local Codex as optional owner-facing surfaces" width="100%" />
 </p>
 
 ## Why OPL Flow
@@ -48,11 +48,11 @@ inoperable.
 
 ## One-Sentence Model
 
-**Codex does the work. OPL Flow establishes the usage baseline and organizes
-how work continues. OPL Ledger is the owner's complete human work ledger and
-keeps durable task truth. Linear makes that truth easy for people to read and
-update. OPL Fleet admits, dispatches, observes, and continues Agent tasks across
-heterogeneous machines.**
+**Codex and worker Agents do the work. OPL Flow establishes the Codex baseline
+and coordinates work from durable truth. OPL Ledger is the owner's complete
+human work ledger. OPL Fleet is the Agent-native distributed execution and
+continuity control system; Linear and GitHub remain optional human-facing and
+delivery authorities.**
 
 `OPL Ledger` names the ledger, not its supervisor, and it is not limited to OPL
 source development. The one local hourly supervisor is named
@@ -81,18 +81,16 @@ development.
 
 ```mermaid
 flowchart LR
-    U[Owner] --> L[Registered Linear projects]
-    L --> S[OPL Flow Supervisor<br/>one hourly heartbeat]
-    S --> C[Local Codex]
-    C <--> F[OPL Flow]
-    F --> B[OPL Ledger<br/>Beads]
+    U[Owner / Agent objective] --> B[OPL Ledger<br/>Beads]
+    B --> F[OPL Flow]
+    F --> N[OPL Fleet<br/>Agent-native control plane]
+    N --> A[Execution adapters<br/>SSH / Codex / Runner / data-job]
+    A --> H[Heterogeneous nodes]
+    F -. optional local executor .-> C[Local Codex]
+    F -. optional human portal .-> L[Linear]
     F --> G[GitHub]
-    F -. optional execution .-> N[OPL Fleet nodes]
-    F -. complete ledger projection, narrow fields .-> L
-    L -. authorized comments by ID .-> S
-    G -. delivery links .-> L
-    I[Private OPL Instance] --- B
-    I --- N
+    I[Private OPL Instance<br/>topology + policy + assets] --- N
+    L -. authorized intent/comments .-> F
 ```
 
 | Component | Authority |
@@ -103,7 +101,7 @@ flowchart LR
 | **OPL Flow Supervisor** | One local hourly supervision loop for all registered Linear projects, Dashboard work, and Ledger reconciliation |
 | **GitHub** | Branch, PR, CI, merge, and release evidence authority |
 | **Linear** | One or more registered human-readable projects covering every ledger task, limited to intent, hierarchy, priority, due, status, short blocker/result, and links |
-| **OPL Fleet** | Agent-native distributed execution and task continuity using fresh node, workspace, owner, and capacity evidence, plus the read-only Ambient Ops observability extension |
+| **OPL Fleet** | Agent-native distributed execution and continuity control system using fresh node, workspace, owner, and capacity evidence, plus the read-only Ambient Ops observability extension |
 | **OPL Instance** | Private ledger data, Fleet topology, policy, assets, and personal overlays |
 
 Flow does not become a central planner. It does not decide domain truth,

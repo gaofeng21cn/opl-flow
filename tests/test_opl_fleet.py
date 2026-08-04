@@ -370,6 +370,21 @@ def repository_fixture(
 
 
 class CodexFleetTests(unittest.TestCase):
+    def test_nodes_json_exposes_controller_identity_for_data_job_consumers(self) -> None:
+        catalog = {
+            "schema": "codex_fleet_nodes.v1",
+            "nodes": [],
+        }
+        with (
+            patch_fleet("remote_asset_catalog", return_value=catalog),
+            patch_fleet("controller_guard", return_value="controller-node"),
+            mock.patch("sys.stdout", new_callable=io.StringIO) as stdout,
+        ):
+            self.assertEqual(fleet.fleet_nodes(json_output=True), 0)
+        payload = json.loads(stdout.getvalue())
+        self.assertEqual(payload["controller"], "controller-node")
+        self.assertEqual(payload["schema"], "codex_fleet_nodes.v1")
+
     def test_repository_remote_parser_accepts_only_configured_owner(self) -> None:
         self.assertEqual(
             fleet.github_repository_from_remote(

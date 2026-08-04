@@ -58,7 +58,9 @@ def fleet_assets() -> int:
 def fleet_nodes(*, json_output: bool) -> int:
     catalog = remote_asset_catalog()
     if json_output:
-        print(json.dumps(catalog, indent=2, sort_keys=True))
+        # Data-job consumers need the controller identity to separate the
+        # local aggregate owner from remote projection candidates.
+        print(json.dumps({**catalog, "controller": controller_guard()}, indent=2, sort_keys=True))
         return 0
     print("NODE\tAPPROVED\tSTATE\tPLATFORM\tINVENTORY")
     for entry in catalog["nodes"]:

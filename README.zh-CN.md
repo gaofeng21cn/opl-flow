@@ -8,11 +8,11 @@
 
 <h1 align="center">OPL Flow</h1>
 
-<p align="center"><strong>Codex 体验基线与工作协同控制层</strong></p>
-<p align="center">先保证一台 Codex 的使用下限，再让多任务、多仓库、多机器围绕可靠状态持续推进</p>
+<p align="center"><strong>Codex 基线与持久工作协同层</strong></p>
+<p align="center">先保证一台 Codex 的使用下限，再把持久工作真相连接到 OPL Fleet 的 Agent 原生分布式执行与连续性系统</p>
 
 <p align="center">
-  <img src="assets/branding/opl-flow-ai-fleet.png" alt="Linear 与本机 Codex 通过 OPL Flow 协作，所有用户总账任务都可读，同时 Beads 仍是持久任务权威" width="100%" />
+  <img src="assets/branding/opl-flow-ai-fleet-v3.png" alt="Agent 目标从 OPL 总账经过 OPL Flow 与 OPL Fleet 的 Agent 原生控制面投放到异构执行节点，Linear、GitHub 与本机 Codex 是可选的 owner-facing 表面" width="100%" />
 </p>
 
 ## OPL Flow 是什么
@@ -36,9 +36,9 @@ Codex 已经能够推理、编程、调用工具并协调多个 Agent。OPL Flow
 
 一句话概括：
 
-> **Codex 负责执行，OPL Flow 负责保证使用下限并让工作持续有序；OPL 总账是当前
-> owner/Instance 的完整人类工作总账并保存任务真相，Linear 方便人查看和录入，
-> OPL Fleet 让 Agent 任务可以在异构机器间准入、投放、观测和连续执行。**
+> **Codex 与 worker Agent 负责执行，OPL Flow 负责保证 Codex 使用下限并基于持久真相
+> 协调工作；OPL 总账是当前 owner/Instance 的完整人类工作总账，OPL Fleet 是 Agent
+> 原生的分布式执行与连续性控制系统，Linear 和 GitHub 分别作为可选的人类门户与交付权威。**
 
 `OPL Ledger` 指总账本身，不是监督器，也不限于 OPL 源码开发。一个本机、每小时运行的
 `OPL Flow Supervisor` 可以监督一个或多个已登记 Linear Projects。
@@ -51,18 +51,16 @@ Flow 本身判为不可用。
 
 ```mermaid
 flowchart LR
-    U[Owner] --> L[已登记 Linear Projects]
-    L --> S[OPL Flow Supervisor<br/>唯一每小时 Heartbeat]
-    S --> C[本机 Codex]
-    C <--> F[OPL Flow]
-    F --> B[OPL 总账<br/>Beads]
+    U[Owner / Agent 目标] --> B[OPL 总账<br/>Beads]
+    B --> F[OPL Flow]
+    F --> N[OPL Fleet<br/>Agent 原生控制面]
+    N --> A[执行适配器<br/>SSH / Codex / Runner / data-job]
+    A --> H[异构机器节点]
+    F -. 可选本机执行 .-> C[本机 Codex]
+    F -. 可选人类门户 .-> L[Linear]
     F --> G[GitHub]
-    F -. 可选的机器执行 .-> N[OPL Fleet 节点]
-    F -. 总账完整覆盖、窄字段 .-> L
-    L -. 按 comment ID 摄入授权评论 .-> S
-    G -. 交付链接 .-> L
-    I[私人 OPL Instance] --- B
-    I --- N
+    I[私人 OPL Instance<br/>拓扑 + 策略 + 资产] --- N
+    L -. 授权意图/评论 .-> F
 ```
 
 | 模块 | 负责什么 | 不负责什么 |
@@ -73,7 +71,7 @@ flowchart LR
 | **OPL Flow Supervisor** | 用唯一每小时 Heartbeat 监督全部已登记 Linear Projects、Dashboard 工作与总账对账 | 取代总账或创建多个并行监督循环 |
 | **GitHub** | 保存分支、PR、CI、合并和发布证据 | 成为任务总账或机器调度器 |
 | **Linear** | 以一个或多个已登记 Project 完整展示所有用户总账任务，但仅保留意图、层级、优先级、到期、状态、简短阻断/结果和链接 | 成为第二套总账或执行调度器 |
-| **OPL Fleet** | 基于节点、workspace、owner 与容量 fresh evidence 的 Agent 原生分布式执行和任务连续性，以及只读 Ambient Ops 可观测性扩展 | 另建任务真相源，或在机器之间复制凭据、会话和软件文件 |
+| **OPL Fleet** | 基于节点、workspace、owner 与容量 fresh evidence 的 Agent 原生分布式执行与连续性控制系统，以及只读 Ambient Ops 可观测性扩展 | 另建任务真相源，或在机器之间复制凭据、会话和软件文件 |
 | **OPL Instance** | 某个个人或组织的私人总账、机器、策略、资产和个性化配置 | 承载通用公开产品代码 |
 
 这些模块可以逐层启用。Linear、Fleet 或私人 Instance 未配置时，OPL Flow 的
