@@ -44,6 +44,8 @@ Choose the narrow command family:
 - `lease`: acquire, verify, renew, release, or reconcile protected capacity.
 - `dispatch`: plan, acquire, verify, execute, or release one adapter-bound
   execution transaction.
+- `data-job`: run a lightweight per-node task and optionally fetch one
+  HOME-relative artifact directory without reserving compute capacity.
 - `runner`: execute the guarded runner transaction.
 - `join` or `reconcile`: enroll or update node-local behavior through the
   Instance policy and owner routes.
@@ -127,6 +129,23 @@ stdout/stderr and an exit code without storing them in the repository or lease
 store. A transport failure is `unknown`: retain the lease, reconcile read-only,
 and do not retry automatically. A known result still requires an explicit
 owner release.
+
+Use `data-job run` for low-impact fan-out work such as analytics projections
+that must cover every current managed node even while the node is interactive:
+
+```bash
+python3 scripts/opl_fleet.py --instance <opl-instance> data-job run <node-id> \
+  --argv-json '["python3", "-"]' \
+  --stdin-file task.py \
+  --artifact-path .local/state/example/output \
+  --artifact-destination ./imports/<node-id>
+```
+
+Data jobs require approved, current nodes with fresh inventory, Python, and a
+fresh Fleet SSH/Tailscale route. They deliberately ignore compute scheduling,
+interactive-idle, GPU, and protected-capacity gates. Fleet treats argv, stdin,
+and the artifact directory as generic task inputs; the caller owns their schema
+and terminal interpretation.
 
 ## Invariants
 

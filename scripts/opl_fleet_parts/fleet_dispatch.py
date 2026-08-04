@@ -8,12 +8,14 @@ import argparse
 import json
 import re
 import shlex
+import shutil
 import subprocess
+import tempfile
 import uuid
 from .fleet_common import EXECUTION_REQUIREMENTS_SCHEMA, FleetError, GPU_APIS, LEASE_PHASES, LEASE_WORKLOAD_CLASSES, MAX_EXECUTION_OUTPUT_BYTES, MAX_EXECUTION_REQUIREMENTS_BYTES, PREEMPTIBLE_WORKLOAD_CLASSES, REMOTE_EXECUTION_TIMEOUT_SECONDS, REMOTE_EXECUTOR, dispatch_adapter, normalize_node_id, parse_requirements, parse_utc, run, utc_now
 from .fleet_reconcile import control_commit, manifest, node_registry, remote_asset_catalog
 from .fleet_lease import acquire_lease_record, active_lease_map, lease_lock, public_lease, read_lease_store, release_lease_record, select_nodes, validate_owner_id, validate_role, validate_ttl
-from .fleet_runner import assert_lease_admission, assert_runner_role_node, assert_runner_role_workload, build_admission_receipt, controller_guard, doctor_result, read_routes, runner_role_nodes, verify_lease_record
+from .fleet_runner import assert_lease_admission, assert_runner_role_node, assert_runner_role_workload, build_admission_receipt, controller_guard, data_job_admission, doctor_result, read_routes, runner_role_nodes, verify_lease_record
 
 def validate_execution_requirements(value: Any) -> dict[str, Any]:
     if not isinstance(value, dict):
@@ -582,6 +584,8 @@ def execute_ssh_session(
     argv: list[str],
     cwd: str | None,
     timeout_seconds: int,
+    stdin_text: str | None = None,
+    allow_local: bool = False,
 ) -> dict[str, Any]:
     if not 1 <= timeout_seconds <= REMOTE_EXECUTION_TIMEOUT_SECONDS:
         raise FleetError("SSH execution timeout is invalid")
@@ -593,28 +597,35 @@ def execute_ssh_session(
         raise FleetError("SSH execution cwd is invalid")
     route = read_routes()["routes"].get(normalize_node_id(node_id)) or {}
     ssh_alias = route.get("ssh")
-    if route.get("local") is True or not re.fullmatch(
-        r"[A-Za-z0-9._-]{1,120}", str(ssh_alias or "")
-    ):
+    local = route.get("local") is True
+    if local and not allow_local:
+        raise FleetError(f"controlled SSH route is unavailable: {node_id}")
+    if not local and not re.fullmatch(r"[A-Za-z0-9._-]{1,120}", str(ssh_alias or "")):
         raise FleetError(f"controlled SSH route is unavailable: {node_id}")
     payload = {
         "argv": argv,
         "cwd": cwd,
         "timeout_seconds": timeout_seconds,
         "output_limit": MAX_EXECUTION_OUTPUT_BYTES,
+        "stdin_text": stdin_text,
     }
     command = f"python3 -c {shlex.quote(REMOTE_EXECUTOR)}"
+    invocation = (
+        ["python3", "-c", REMOTE_EXECUTOR]
+        if local
+        else [
+            "ssh",
+            "-o",
+            "BatchMode=yes",
+            "-o",
+            "ConnectTimeout=8",
+            str(ssh_alias),
+            command,
+        ]
+    )
     try:
         completed = run(
-            [
-                "ssh",
-                "-o",
-                "BatchMode=yes",
-                "-o",
-                "ConnectTimeout=8",
-                str(ssh_alias),
-                command,
-            ],
+            invocation,
             check=False,
             input_text=json.dumps(payload, ensure_ascii=False),
             timeout=timeout_seconds + 15,
@@ -640,6 +651,124 @@ def execute_ssh_session(
             "transport_returncode": completed.returncode,
         }
     return {"known": True, "result": result}
+
+def validate_data_job_artifact_path(value: str) -> str:
+    if (
+        not isinstance(value, str)
+        or not 1 <= len(value.encode("utf-8")) <= 1024
+        or value.startswith(("/", "~"))
+        or "\\" in value
+        or "\x00" in value
+        or re.fullmatch(r"[A-Za-z0-9._/-]+", value) is None
+        or any(part in {"", ".", ".."} for part in value.split("/"))
+    ):
+        raise FleetError("data-job artifact path must be a safe HOME-relative path")
+    return value
+
+def fetch_data_job_artifact(
+    node_id: str,
+    *,
+    artifact_path: str,
+    destination: Path,
+    timeout_seconds: int,
+) -> dict[str, Any]:
+    relative = validate_data_job_artifact_path(artifact_path)
+    route = read_routes()["routes"].get(normalize_node_id(node_id)) or {}
+    destination = destination.expanduser().resolve()
+    if destination.exists():
+        raise FleetError(f"data-job artifact destination already exists: {destination}")
+    destination.parent.mkdir(parents=True, exist_ok=True)
+    staging = Path(tempfile.mkdtemp(prefix="opl-fleet-data-job-"))
+    moved = False
+    try:
+        if route.get("local") is True:
+            source = Path.home() / relative
+            if not source.is_dir():
+                raise FleetError(f"data-job artifact is unavailable: {node_id}/{relative}")
+            shutil.copytree(source, staging / "artifact", dirs_exist_ok=True)
+        else:
+            ssh_alias = route.get("ssh")
+            if not re.fullmatch(r"[A-Za-z0-9._-]{1,120}", str(ssh_alias or "")):
+                raise FleetError(f"controlled SSH route is unavailable: {node_id}")
+            command = [
+                "rsync",
+                "-az",
+                "--delete",
+                "-e",
+                "ssh -o BatchMode=yes -o ConnectTimeout=8",
+                f"{ssh_alias}:{relative}/",
+                f"{staging / 'artifact'}/",
+            ]
+            try:
+                completed = run(command, check=False, timeout=timeout_seconds)
+            except subprocess.TimeoutExpired as exc:
+                raise FleetError(f"data-job artifact fetch timed out: {node_id}") from exc
+            if completed.returncode:
+                detail = (completed.stderr or completed.stdout).strip()
+                raise FleetError(f"data-job artifact fetch failed: {node_id}: {detail}")
+        if destination.exists():
+            raise FleetError(f"data-job artifact destination already exists: {destination}")
+        shutil.move(str(staging / "artifact"), str(destination))
+        moved = True
+        return {
+            "status": "fetched",
+            "source": relative,
+            "destination": str(destination),
+        }
+    finally:
+        shutil.rmtree(staging, ignore_errors=True)
+
+def run_data_job(
+    node_id: str,
+    *,
+    argv: list[str],
+    stdin_text: str | None,
+    cwd: str | None,
+    timeout_seconds: int,
+    artifact_path: str | None,
+    artifact_destination: Path | None,
+) -> dict[str, Any]:
+    controller_guard()
+    if stdin_text is not None and len(stdin_text.encode("utf-8")) > 1024 * 1024:
+        raise FleetError("data-job stdin exceeds size limit")
+    admission = data_job_admission(node_id)
+    payload: dict[str, Any] = {
+        "schema": "opl_fleet_data_job_result.v1",
+        "node_id": normalize_node_id(node_id),
+        "admission": admission,
+    }
+    if not admission["ready"]:
+        payload.update({"status": "skipped", "execution": None, "artifact": None})
+        return payload
+    execution = execute_ssh_session(
+        node_id,
+        argv=argv,
+        cwd=cwd,
+        timeout_seconds=timeout_seconds,
+        stdin_text=stdin_text,
+        allow_local=True,
+    )
+    payload["execution"] = execution
+    if not execution["known"]:
+        payload.update({"status": "unknown", "artifact": None})
+        return payload
+    result = execution["result"]
+    if result["timed_out"] or result["exit_code"] != 0:
+        payload.update({"status": "failed", "artifact": None})
+        return payload
+    if artifact_path is not None:
+        if artifact_destination is None:
+            raise FleetError("data-job artifact destination is required")
+        payload["artifact"] = fetch_data_job_artifact(
+            node_id,
+            artifact_path=artifact_path,
+            destination=artifact_destination,
+            timeout_seconds=timeout_seconds,
+        )
+    else:
+        payload["artifact"] = None
+    payload["status"] = "completed"
+    return payload
 
 def fleet_dispatch_execute(args: argparse.Namespace) -> int:
     controller_guard()

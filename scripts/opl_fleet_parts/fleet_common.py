@@ -132,12 +132,14 @@ def bounded(value, limit):
 
 payload = json.load(sys.stdin)
 argv = payload["argv"]
+stdin_text = payload.get("stdin_text")
 started = now()
 timed_out = False
 try:
     completed = subprocess.run(
         argv,
         cwd=payload.get("cwd") or None,
+        input=stdin_text.encode("utf-8") if isinstance(stdin_text, str) else None,
         capture_output=True,
         timeout=payload["timeout_seconds"],
         check=False,

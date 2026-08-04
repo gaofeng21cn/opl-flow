@@ -12,7 +12,7 @@ from .fleet_common import DISPATCH_ADAPTERS, FleetError, GPU_APIS, LEASE_PHASES,
 from .fleet_reconcile import control_commit, fetch_state_file, fleet_repositories, join, manifest, node_registry, reconcile, record_receipt, remote_asset_catalog
 from .fleet_lease import acquire_lease_record, active_lease_map, lease_lock, public_lease, read_lease_store, reap_expired_leases, release_lease_record, renew_lease_record, select_nodes, write_lease_store
 from .fleet_runner import assert_lease_admission, assert_runner_role_node, assert_runner_role_workload, build_admission_receipt, controller_guard, doctor_result, fleet_runner_renew, fleet_runner_start, fleet_runner_status, fleet_runner_stop, verify_lease_record
-from .fleet_dispatch import dispatch_adapter_from_args, fleet_dispatch_acquire, fleet_dispatch_execute, fleet_dispatch_plan, fleet_dispatch_release, fleet_dispatch_verify
+from .fleet_dispatch import dispatch_adapter_from_args, fleet_dispatch_acquire, fleet_dispatch_execute, fleet_dispatch_plan, fleet_dispatch_release, fleet_dispatch_verify, run_data_job, validate_execution_argv
 from .fleet_workspace import workspace_command
 
 def fleet_status() -> int:
@@ -115,6 +115,22 @@ def fleet_doctor(node_id: str) -> int:
     result = doctor_result(node_id)
     print(json.dumps(result, indent=2, sort_keys=True))
     return 0 if result["ready_for_dispatch"] else 1
+
+def fleet_data_job_run(args: argparse.Namespace) -> int:
+    stdin_text = None
+    if args.stdin_file:
+        stdin_text = args.stdin_file.read_text(encoding="utf-8")
+    payload = run_data_job(
+        args.node_id,
+        argv=validate_execution_argv(args.argv_json),
+        stdin_text=stdin_text,
+        cwd=args.cwd,
+        timeout_seconds=args.timeout_seconds,
+        artifact_path=args.artifact_path,
+        artifact_destination=args.artifact_destination,
+    )
+    print(json.dumps(payload, indent=2, sort_keys=True))
+    return 0 if payload["status"] == "completed" else 2 if payload["status"] == "skipped" else 1
 
 def fleet_lease_show(args: argparse.Namespace) -> int:
     controller_guard()
@@ -343,6 +359,22 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     inventory_parser.add_argument("--json", action="store_true")
     doctor_parser = subparsers.add_parser("doctor")
     doctor_parser.add_argument("node_id")
+    data_job_parser = subparsers.add_parser(
+        "data-job",
+        help="run a lightweight structured task without reserving compute capacity",
+    )
+    data_job_subparsers = data_job_parser.add_subparsers(
+        dest="data_job_action",
+        required=True,
+    )
+    data_job_run = data_job_subparsers.add_parser("run")
+    data_job_run.add_argument("node_id")
+    data_job_run.add_argument("--argv-json", required=True)
+    data_job_run.add_argument("--stdin-file", type=Path)
+    data_job_run.add_argument("--cwd")
+    data_job_run.add_argument("--timeout-seconds", type=int, default=900)
+    data_job_run.add_argument("--artifact-path")
+    data_job_run.add_argument("--artifact-destination", type=Path)
     select_parser = subparsers.add_parser("select")
     select_parser.add_argument("--requires", default="")
     select_parser.add_argument("--min-memory-gb", type=int, default=0)
@@ -586,6 +618,8 @@ def main(argv: list[str] | None = None) -> int:
         return 0
     if args.action == "doctor":
         return fleet_doctor(args.node_id)
+    if args.action == "data-job" and args.data_job_action == "run":
+        return fleet_data_job_run(args)
     if args.action == "select":
         return fleet_select(args)
     if args.action == "dispatch":

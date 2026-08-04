@@ -96,7 +96,7 @@ from opl_fleet_parts.fleet_lease import (
 )
 
 from opl_fleet_parts.fleet_runner import (
-    validate_work_volume_route, read_routes, validate_runner_control, tailscale_online, work_volume_status, doctor_result, controller_guard, runner_role_nodes,
+    validate_work_volume_route, read_routes, validate_runner_control, tailscale_online, work_volume_status, doctor_result, data_job_admission, controller_guard, runner_role_nodes,
     assert_runner_role_node, assert_runner_role_workload, assert_lease_admission, build_admission_receipt, verify_lease_record, runner_transaction_path, runner_binding, runner_control_route,
     runner_control_call, github_runner_state, wait_runner_state, wait_runner_processes, read_runner_transaction, runner_transaction_from_lease, confirm_runner_shutdown, fleet_runner_start,
     fleet_runner_stop, fleet_runner_renew, fleet_runner_status,
@@ -104,11 +104,11 @@ from opl_fleet_parts.fleet_runner import (
 
 from opl_fleet_parts.fleet_dispatch import (
     validate_execution_requirements, read_execution_requirements, request_value, dispatch_adapter_from_args, dispatch_request, dispatch_candidates, dispatch_plan_payload, dispatch_lease,
-    fleet_dispatch_plan, fleet_dispatch_acquire, fleet_dispatch_verify, validate_execution_argv, validate_execution_result, execute_ssh_session, fleet_dispatch_execute, fleet_dispatch_release,
+    fleet_dispatch_plan, fleet_dispatch_acquire, fleet_dispatch_verify, validate_execution_argv, validate_execution_result, execute_ssh_session, validate_data_job_artifact_path, fetch_data_job_artifact, run_data_job, fleet_dispatch_execute, fleet_dispatch_release,
 )
 
 from opl_fleet_parts.fleet_cli import (
-    fleet_status, fleet_assets, fleet_nodes, fleet_select, fleet_doctor, fleet_lease_show, fleet_lease_acquire, fleet_lease_verify,
+    fleet_status, fleet_assets, fleet_nodes, fleet_select, fleet_doctor, fleet_data_job_run, fleet_lease_show, fleet_lease_acquire, fleet_lease_verify,
     fleet_lease_renew, fleet_lease_release, fleet_lease_reap, parse_args, main,
 )
 

@@ -386,6 +386,7 @@ def doctor_result(
         "approved": bool((entry.get("policy") or {}).get("approved")),
         "availability_policy": availability_policy,
         "availability": availability,
+        "local": local,
         "receipt_state": (entry.get("receipt") or {}).get("state", "NO_RECEIPT"),
         "receipt_control_commit": receipt_control_commit,
         "current_control_commit": current_control_commit,
@@ -420,6 +421,52 @@ def doctor_result(
         "work_volume": volume,
     }
     return result
+
+def data_job_admission(
+    node_id: str,
+    *,
+    catalog: dict[str, Any] | None = None,
+    routes: dict[str, Any] | None = None,
+    state_root: Path | None = None,
+    now: dt.datetime | None = None,
+) -> dict[str, Any]:
+    doctor = doctor_result(
+        node_id,
+        catalog=catalog,
+        routes=routes,
+        state_root=state_root,
+        now=now,
+    )
+    route_ready = doctor["ssh"]["reachable"] is True
+    python_ready = "python" in doctor["features"]
+    failures: list[str] = []
+    if not doctor["approved"]:
+        failures.append("not_approved")
+    if doctor["receipt_state"] != "CURRENT":
+        failures.append("node_not_current")
+    if not doctor["inventory_fresh"]:
+        failures.append("inventory_not_fresh")
+    if not python_ready:
+        failures.append("python_not_ready")
+    if not route_ready:
+        failures.append("data_route_unavailable")
+    return {
+        "schema": "opl_fleet_data_job_admission.v1",
+        "node_id": doctor["node_id"],
+        "checked_at": doctor["checked_at"],
+        "ready": not failures,
+        "failures": failures,
+        "approved": doctor["approved"],
+        "receipt_state": doctor["receipt_state"],
+        "inventory_fresh": doctor["inventory_fresh"],
+        "python_ready": python_ready,
+        "availability": doctor["availability"],
+        "local": doctor.get("local") is True,
+        "route_ready": route_ready,
+        "ssh": doctor["ssh"],
+        "tailscale": doctor["tailscale"],
+        "scheduling_observed": doctor["scheduling"],
+    }
 
 def controller_guard() -> str:
     controller = node_identity()

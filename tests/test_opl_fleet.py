@@ -1633,6 +1633,181 @@ class CodexFleetTests(unittest.TestCase):
         self.assertNotIn(argument, " ".join(invocation))
         self.assertEqual(input_payload["argv"], ["printf", "%s", argument])
 
+    def test_data_job_admission_ignores_compute_scheduling_gates(self) -> None:
+        doctor = {
+            "node_id": "fictional-node",
+            "checked_at": "2026-08-04T00:00:00+00:00",
+            "approved": True,
+            "receipt_state": "CURRENT",
+            "inventory_fresh": True,
+            "features": ["python"],
+            "availability": "online",
+            "ssh": {"reachable": True},
+            "tailscale": {"online": True},
+            "scheduling": {
+                "eligible": False,
+                "interactive_busy": True,
+                "busy": True,
+                "storage_ok": False,
+            },
+        }
+        with patch_fleet("doctor_result", return_value=doctor):
+            admission = fleet.data_job_admission("fictional-node")
+        self.assertTrue(admission["ready"])
+        self.assertEqual(admission["failures"], [])
+        self.assertTrue(admission["scheduling_observed"]["interactive_busy"])
+
+    def test_data_job_admission_accepts_any_reachable_controlled_route(self) -> None:
+        doctor = {
+            "node_id": "fictional-node",
+            "checked_at": "2026-08-04T00:00:00+00:00",
+            "approved": True,
+            "receipt_state": "CURRENT",
+            "inventory_fresh": True,
+            "features": ["python"],
+            "availability": "online",
+            "ssh": {"reachable": True},
+            "tailscale": {"online": False},
+            "scheduling": {},
+        }
+        with patch_fleet("doctor_result", return_value=doctor):
+            admission = fleet.data_job_admission("fictional-node")
+        self.assertTrue(admission["ready"])
+        self.assertTrue(admission["route_ready"])
+
+    def test_data_job_admission_requires_current_node_and_data_route(self) -> None:
+        doctor = {
+            "node_id": "fictional-node",
+            "checked_at": "2026-08-04T00:00:00+00:00",
+            "approved": True,
+            "receipt_state": "UPDATE_REQUIRED",
+            "inventory_fresh": True,
+            "features": ["python"],
+            "availability": "transport_degraded",
+            "ssh": {"reachable": False},
+            "tailscale": {"online": True},
+            "scheduling": {},
+        }
+        with patch_fleet("doctor_result", return_value=doctor):
+            admission = fleet.data_job_admission("fictional-node")
+        self.assertFalse(admission["ready"])
+        self.assertEqual(
+            admission["failures"],
+            ["node_not_current", "data_route_unavailable"],
+        )
+
+    def test_data_job_runs_without_capacity_lease_and_fetches_artifact(self) -> None:
+        execution = {
+            "known": True,
+            "result": {
+                "schema": "codex_fleet_ssh_execution_result.v1",
+                "started_at": "2026-08-04T00:00:00+00:00",
+                "finished_at": "2026-08-04T00:00:01+00:00",
+                "exit_code": 0,
+                "timed_out": False,
+                "stdout": "{}\n",
+                "stderr": "",
+                "stdout_truncated": False,
+                "stderr_truncated": False,
+            },
+        }
+        with tempfile.TemporaryDirectory() as temp_dir:
+            destination = Path(temp_dir) / "artifact"
+            with (
+                patch_fleet("controller_guard", return_value="controller"),
+                patch_fleet(
+                    "data_job_admission",
+                    return_value={"ready": True, "node_id": "fictional-node"},
+                ),
+                patch_fleet("execute_ssh_session", return_value=execution) as execute,
+                patch_fleet(
+                    "fetch_data_job_artifact",
+                    return_value={
+                        "status": "fetched",
+                        "source": ".local/state/task/output",
+                        "destination": str(destination),
+                    },
+                ) as fetch,
+            ):
+                result = fleet.run_data_job(
+                    "fictional-node",
+                    argv=["python3", "-"],
+                    stdin_text="print('ok')",
+                    cwd=None,
+                    timeout_seconds=60,
+                    artifact_path=".local/state/task/output",
+                    artifact_destination=destination,
+                )
+        self.assertEqual(result["status"], "completed")
+        execute.assert_called_once_with(
+            "fictional-node",
+            argv=["python3", "-"],
+            cwd=None,
+            timeout_seconds=60,
+            stdin_text="print('ok')",
+            allow_local=True,
+        )
+        fetch.assert_called_once()
+
+    def test_data_job_skips_unready_node_without_execution(self) -> None:
+        with (
+            patch_fleet("controller_guard", return_value="controller"),
+            patch_fleet(
+                "data_job_admission",
+                return_value={
+                    "ready": False,
+                    "node_id": "fictional-node",
+                    "failures": ["node_not_current"],
+                },
+            ),
+            patch_fleet("execute_ssh_session") as execute,
+        ):
+            result = fleet.run_data_job(
+                "fictional-node",
+                argv=["true"],
+                stdin_text=None,
+                cwd=None,
+                timeout_seconds=60,
+                artifact_path=None,
+                artifact_destination=None,
+            )
+        self.assertEqual(result["status"], "skipped")
+        execute.assert_not_called()
+
+    def test_data_job_artifact_path_is_home_relative(self) -> None:
+        self.assertEqual(
+            fleet.validate_data_job_artifact_path(".local/state/task/output"),
+            ".local/state/task/output",
+        )
+        for invalid in (
+            "/tmp/output",
+            "../output",
+            "a/../output",
+            "~/output",
+            "output dir",
+            "output;touch-pwned",
+            "output$(touch-pwned)",
+            "output*",
+            "output:alternate",
+        ):
+            with self.assertRaisesRegex(fleet.FleetError, "HOME-relative"):
+                fleet.validate_data_job_artifact_path(invalid)
+
+    def test_data_job_artifact_fetch_does_not_replace_existing_destination(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            destination = Path(temp_dir) / "artifact"
+            destination.mkdir()
+            marker = destination / "keep.txt"
+            marker.write_text("keep", encoding="utf-8")
+            with self.assertRaisesRegex(fleet.FleetError, "already exists"):
+                fleet.fetch_data_job_artifact(
+                    "fictional-node",
+                    artifact_path=".local/state/task/output",
+                    destination=destination,
+                    timeout_seconds=60,
+                )
+            self.assertEqual(marker.read_text(encoding="utf-8"), "keep")
+
     def test_unknown_ssh_result_retains_lease_and_blocks_retry_claim(self) -> None:
         now = fleet.dt.datetime(2026, 8, 1, tzinfo=fleet.dt.timezone.utc)
         lease = fleet.build_lease(
