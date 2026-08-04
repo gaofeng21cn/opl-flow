@@ -74,7 +74,7 @@
     "ledgerSupervisorPolicy": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["task_lifecycle_classes", "native_owner_tools", "comment_delivery"],
+      "required": ["task_lifecycle_classes", "bounded_executor_policy", "native_owner_tools", "comment_delivery"],
       "properties": {
         "task_lifecycle_classes": {
           "type": "object",
@@ -114,6 +114,24 @@
                 "title_projection": { "const": "fresh_thread_activity" }
               }
             }
+          }
+        },
+        "bounded_executor_policy": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "live_binding",
+            "history_binding",
+            "archived_history_policy",
+            "trigger_action",
+            "unbind_after_authoritative_readback"
+          ],
+          "properties": {
+            "live_binding": { "const": "execution_thread" },
+            "history_binding": { "const": "last_execution_thread" },
+            "archived_history_policy": { "const": "provenance_only_never_resume" },
+            "trigger_action": { "const": "resume_unarchived_or_create_new" },
+            "unbind_after_authoritative_readback": { "const": true }
           }
         },
         "native_owner_tools": {

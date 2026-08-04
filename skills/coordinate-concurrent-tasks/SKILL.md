@@ -81,7 +81,7 @@ description: Coordinate multiple Codex conversations, agents, repositories, or w
 - write-set overlap 是集成风险，不是长期锁。允许各自 worktree 继续准备；共享路径在吸收时只有一个最终 mutation owner，其他成果按 fresh SSOT 语义重放。
 - 不用驻留轮询、等待 ACK 或重复监测冒充 `next_action`。若一个对话没有真实可执行工作，立即重分配一个独立剩余切片；没有诚实切片时，报告分工错误并重组 scope，不制造忙碌证据。
 - 如果对话没有真实可执行工作，不得继续标记为 `ACTIVE`：需要用户动作则转为 `NEEDS_ACTION`，需要外部事件则转为 `BLOCKED`，长期工作台或监督入口转为 `MONITORING`，成果已被 canonical authority 完整覆盖则转为 `SAFE_TO_ARCHIVE`。若仍有可执行缺口则登记最小切片和第一动作；若只是重复 writer 则改为只读审计或 superseded，不新建第二 writer。
-- 有限执行轮次完成后，长期责任保留在 Bead/Linear 的 `MONITORING`，而不是保留一个空闲执行对话。清空 live `execution_thread`，保存 `last_execution_thread`、下次复核日期和事件触发条件；完成的对话按证据转为 `SAFE_TO_ARCHIVE`，得到用户 fresh 验收后归档。到期或事件发生时再绑定一个有限 executor，完成回读后再次解除绑定。
+- 有限执行轮次完成后，长期责任保留在 Bead/Linear 的 `MONITORING`，而不是保留一个空闲执行对话。清空 live `execution_thread`，保存 `last_execution_thread`、下次复核日期和事件触发条件；完成的对话按证据转为 `SAFE_TO_ARCHIVE`，得到用户 fresh 验收后归档。到期或事件发生时，未归档 executor 可恢复，已归档的 `last_execution_thread` 只能作为 provenance，必须新建有限 executor；完成回读后再次解除绑定。
 - currentness 前进后由原对话、原 owner 继续 replay/rebase。不要仅因主线漂移创建等待 successor 或丢弃已有责任。
 
 ### 本地优先、远端最后

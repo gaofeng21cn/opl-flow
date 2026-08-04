@@ -288,6 +288,15 @@ def check_workflow_policy(repo_root: Path) -> list[str]:
     }
     if supervisor.get("task_lifecycle_classes") != expected_task_lifecycle_classes:
         errors.append("Ledger Supervisor must keep the three task lifecycle authorities")
+    expected_bounded_executor_policy = {
+        "live_binding": "execution_thread",
+        "history_binding": "last_execution_thread",
+        "archived_history_policy": "provenance_only_never_resume",
+        "trigger_action": "resume_unarchived_or_create_new",
+        "unbind_after_authoritative_readback": True,
+    }
+    if supervisor.get("bounded_executor_policy") != expected_bounded_executor_policy:
+        errors.append("Ledger Supervisor must never resume an archived bounded executor")
     owner_tools = supervisor.get("native_owner_tools", {})
     expected_failure_classes = {
         "invalid_arguments": "caller_schema_error",

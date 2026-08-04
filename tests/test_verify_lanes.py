@@ -184,6 +184,16 @@ class VerifyLaneTests(unittest.TestCase):
         )
 
     def test_ledger_supervisor_contract_rejects_delivery_and_provenance_regressions(self) -> None:
+        executor_errors = self.workflow_policy_errors_after(
+            lambda policy: policy["ledger_supervisor_policy"]["bounded_executor_policy"].update(
+                archived_history_policy="resume_when_triggered",
+            )
+        )
+        self.assertIn(
+            "Ledger Supervisor must never resume an archived bounded executor",
+            executor_errors,
+        )
+
         taxonomy_errors = self.workflow_policy_errors_after(
             lambda policy: policy["ledger_supervisor_policy"]["native_owner_tools"].update(
                 list_threads_max_limit=100,

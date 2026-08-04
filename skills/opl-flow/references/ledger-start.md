@@ -138,10 +138,12 @@ remains, keep the durable Bead and Linear issue in `monitoring`, clear the live
 `metadata.last_execution_thread` provenance. Store a machine-readable due date
 and short trigger set on the Bead. Mark the completed executor
 `SAFE_TO_ARCHIVE`, and archive it only after fresh user approval. When a due
-date or trigger fires, create or resume one bounded executor, bind it as the
-current `execution_thread`, and clear that binding again after authoritative
-result readback. Do not keep an idle task open merely to represent the durable
-responsibility, and do not create a second Supervisor or heartbeat.
+date or trigger fires, resume an unarchived bounded executor or create a new
+one, bind it as the current `execution_thread`, and clear that binding again
+after authoritative result readback. An archived `last_execution_thread` is
+provenance only and must never be resumed; create a new bounded executor for
+the next episode. Do not keep an idle task open merely to represent the
+durable responsibility, and do not create a second Supervisor or heartbeat.
 
 Use task titles as a human-readable projection only: `ACTIVE` for live work,
 `NEEDS_ACTION` for a required user login/decision/authorization, `BLOCKED` for

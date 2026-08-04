@@ -512,6 +512,13 @@
         "title_projection": "fresh_thread_activity"
       }
     },
+    "bounded_executor_policy": {
+      "live_binding": "execution_thread",
+      "history_binding": "last_execution_thread",
+      "archived_history_policy": "provenance_only_never_resume",
+      "trigger_action": "resume_unarchived_or_create_new",
+      "unbind_after_authoritative_readback": true
+    },
     "native_owner_tools": {
       "preflight_required": true,
       "list_threads_max_limit": 50,
