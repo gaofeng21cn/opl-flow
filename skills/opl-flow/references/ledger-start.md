@@ -62,7 +62,7 @@ project list. Setup, update, and install never run this route.
    comment absent. Track `comment_observed -> destination_delivery_confirmed ->
    owner_answer_read -> linear_reply_posted -> linear_reply_read_back ->
    cursor_advanced`; do not advance earlier. Begin every connector-posted answer
-   with `🤖 Automated Codex reply | OPL Flow Supervisor`, then name the source
+   with `【OPL Flow · Codex 自动回复】`, then name the source
    Codex task and whether answer provenance is owner readback, newly executed
    work, or another explicit authority. Treat this marker as non-user provenance
    even when Linear uses the same account as the human. Ignore Supervisor,

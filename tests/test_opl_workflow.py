@@ -17,6 +17,7 @@ from scripts.opl_workflow import (
     linear_probe,
     main,
     reconcile_operations,
+    supervisor_snapshot,
     workflow_status,
 )
 
@@ -157,6 +158,104 @@ else:
             with self.env(root), self.assertRaisesRegex(WorkflowError, "invalid next_review_on"):
                 reconcile_operations(instance, str(bd))
             self.assertFalse(log.exists())
+
+    def test_supervisor_snapshot_compacts_owner_fields_and_ready_graph(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            issue = {
+                "id": "opl-1",
+                "title": "Current objective",
+                "status": "in_progress",
+                "priority": 1,
+                "issue_type": "task",
+                "owner": "owner@example.com",
+                "updated_at": "2026-08-04T00:00:00Z",
+                "labels": ["opl"],
+                "parent": "opl-root",
+                "dependencies": [{"depends_on_id": "opl-0", "type": "blocks", "ignored": "value"}],
+                "metadata": {
+                    "execution_mode": "active",
+                    "execution_thread": "thread-1",
+                    "remaining": ["verify"],
+                    "linear_issue_identifier": "FG-1",
+                    "checkpoint": "must-not-leak",
+                },
+            }
+            git_results = [
+                subprocess.CompletedProcess([], 0, str(root) + "\n", ""),
+                subprocess.CompletedProcess([], 0, "abc123\n", ""),
+                subprocess.CompletedProcess([], 0, "main\n", ""),
+                subprocess.CompletedProcess([], 0, "## main...origin/main\n", ""),
+            ]
+            with (
+                mock.patch("scripts.opl_workflow.executable", return_value="/usr/bin/git"),
+                mock.patch(
+                    "scripts.opl_workflow.run",
+                    side_effect=[
+                        {"open": 1},
+                        [{"id": "opl-1"}],
+                        [issue],
+                        {"mode": "embedded"},
+                        *git_results,
+                    ],
+                ),
+            ):
+                result = supervisor_snapshot(root, "/tmp/bd")
+
+            self.assertEqual(result["schema"], "opl_flow_supervisor_snapshot.v1")
+            self.assertEqual(result["ready_ids"], ["opl-1"])
+            self.assertEqual(result["counts"]["by_execution_mode"], {"active": 1})
+            self.assertTrue(result["git"]["clean"])
+            self.assertEqual(result["validation_errors"], [])
+            self.assertNotIn("checkpoint", result["issues"][0]["metadata"])
+            self.assertEqual(
+                result["issues"][0]["dependencies"],
+                [{"depends_on_id": "opl-0", "type": "blocks"}],
+            )
+
+    def test_supervisor_snapshot_reports_mode_remaining_and_mapping_drift(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            issues = [
+                {
+                    "id": "opl-1",
+                    "status": "in_progress",
+                    "metadata": {
+                        "execution_mode": "unknown",
+                        "remaining": "not-json",
+                        "linear_issue_identifier": "FG-1",
+                    },
+                },
+                {
+                    "id": "opl-2",
+                    "status": "blocked",
+                    "metadata": {
+                        "execution_mode": "waiting_external",
+                        "remaining": [],
+                        "linear_issue_identifier": "FG-1",
+                    },
+                },
+            ]
+            git_results = [
+                subprocess.CompletedProcess([], 0, str(root) + "\n", ""),
+                subprocess.CompletedProcess([], 0, "abc123\n", ""),
+                subprocess.CompletedProcess([], 0, "main\n", ""),
+                subprocess.CompletedProcess([], 0, "## main...origin/main\n M local\n", ""),
+            ]
+            with (
+                mock.patch("scripts.opl_workflow.executable", return_value="/usr/bin/git"),
+                mock.patch(
+                    "scripts.opl_workflow.run",
+                    side_effect=[{}, [], issues, {"mode": "embedded"}, *git_results],
+                ),
+            ):
+                result = supervisor_snapshot(root, "/tmp/bd")
+
+            self.assertFalse(result["git"]["clean"])
+            self.assertEqual(result["counts"]["validation_errors"], 3)
+            self.assertTrue(any("unknown metadata.execution_mode" in item for item in result["validation_errors"]))
+            self.assertTrue(any("remaining must be a JSON array" in item for item in result["validation_errors"]))
+            self.assertTrue(any("duplicate linear_issue_identifier" in item for item in result["validation_errors"]))
 
     def test_init_rejects_linked_checkout(self) -> None:
         with tempfile.TemporaryDirectory() as temp:

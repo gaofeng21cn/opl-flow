@@ -199,7 +199,7 @@ invalid arguments, permission denial, unknown timeout, and genuine tool
 unavailability. A timed-out dispatch is reconciled from the destination task
 before at most one retry. Each authorized comment closes delivery, owner-answer
 readback, Linear reply, and reply readback before its cursor advances. Every
-automated reply begins with `🤖 Automated Codex reply | OPL Flow Supervisor`
+automated reply begins with `【OPL Flow · Codex 自动回复】`
 and names the source Codex task and answer provenance; that marker, not the
 Linear account identity, prevents feedback loops. Linear owns human intent,
 priority, due date, pause/cancel input, and optional readiness hints; Beads owns
@@ -266,7 +266,7 @@ and a multi-machine AI fleet without loading or configuring every backend.
 
 ## Core Skills And Optional Enhancements
 
-OPL Flow `0.1.33` bundles seven core Skills with the Plugin:
+OPL Flow `0.1.34` bundles seven core Skills with the Plugin:
 
 - `opl-flow` as the progressive primary router for `doctor`, `setup`, `tune`,
   `update`, `start`, and `fleet`;
@@ -332,6 +332,13 @@ narrow-field parity, enables exact-once authorized comment intake, and reads
 the Dashboard/Bead/Automation/Linear/Dolt owners back. The same Supervisor can
 later add more registered Linear projects. Repeated runs do not create a second
 supervision loop, Dashboard Bead, or issue.
+
+Each heartbeat then uses `$opl-flow supervise`. The Automation stores only its
+private Instance, Dashboard, registered-project, authorized-account, schedule,
+and notification inputs; the versioned Skill owns the reusable supervision
+policy. `ledger supervisor-snapshot` compacts dynamic Beads/Dolt/Git evidence
+and validates execution modes, remaining arrays, and Linear mapping uniqueness
+without copying full notes or checkpoints into the prompt.
 
 For Profile and tool setup, ask:
 

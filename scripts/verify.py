@@ -359,7 +359,7 @@ def check_workflow_policy(repo_root: Path) -> list[str]:
     ):
         errors.append("Ledger Supervisor comment delivery must reconcile timeout and close reply readback before cursor advance")
     expected_reply = {
-        "first_line": "🤖 Automated Codex reply | OPL Flow Supervisor",
+        "first_line": "【OPL Flow · Codex 自动回复】",
         "required_provenance": ["source_codex_task", "answer_provenance"],
         "non_user_detection": "marker_not_linear_author_identity",
     }

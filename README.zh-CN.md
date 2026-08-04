@@ -109,7 +109,7 @@ OPL Flow 和 OPL Skills 不是两套相互竞争的工作流，而是“核心�
 
 ### OPL Flow 内置 Skill
 
-当前 `0.1.33` 随插件安装七个核心 Skill：
+当前 `0.1.34` 随插件安装七个核心 Skill：
 
 - `opl-flow`：渐进加载的主入口，固定路由 `doctor/setup/tune/update/start/fleet`；
 - `coordinate-concurrent-tasks`：多任务、多对话和多 worktree 的并发协调；
@@ -167,6 +167,12 @@ OPL Skills 的浏览分类与安装 preset 分离。`development` 方法和六�
 Connector 把每个用户总账 Bead 投影为唯一 Linear issue，保留层级并限制字段集合，
 最后从 owner API fresh 回读任务、Bead、Automation、Linear 和 Dolt。同一 Supervisor
 以后可以增加更多已登记 Project；重复执行不会创建第二套循环、Dashboard Bead 或 issue。
+
+之后每次 Heartbeat 调用 `$opl-flow supervise`。Automation 只保存私人 Instance、
+Dashboard、已登记 Project、授权账号、频率和通知参数；可复用监督规则由版本化 Skill
+统一持有。`ledger supervisor-snapshot` 压缩动态 Beads/Dolt/Git 证据，并校验
+execution mode、remaining 数组和 Linear 映射唯一性，不把完整 notes 或 checkpoint
+复制进提示词。
 
 私人 Skill 放在各自的 OPL Instance 中，不进入公开增强包。
 

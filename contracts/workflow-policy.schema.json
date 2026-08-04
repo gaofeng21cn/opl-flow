@@ -220,7 +220,7 @@
               "additionalProperties": false,
               "required": ["first_line", "required_provenance", "non_user_detection"],
               "properties": {
-                "first_line": { "const": "🤖 Automated Codex reply | OPL Flow Supervisor" },
+                "first_line": { "const": "【OPL Flow · Codex 自动回复】" },
                 "required_provenance": { "const": ["source_codex_task", "answer_provenance"] },
                 "non_user_detection": { "const": "marker_not_linear_author_identity" }
               }

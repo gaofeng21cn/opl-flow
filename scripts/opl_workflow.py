@@ -14,6 +14,35 @@ from typing import Any, Iterable
 
 
 PROGRAM_REF = "opl://program/operations-maintenance"
+SUPERVISOR_EXECUTION_MODES = {
+    "active",
+    "waiting_user",
+    "waiting_external",
+    "monitoring",
+    "on_demand",
+    "aggregate",
+}
+SUPERVISOR_METADATA_FIELDS = (
+    "task_lifecycle_class",
+    "classification",
+    "classification_reason",
+    "execution_mode",
+    "execution_thread",
+    "last_execution_thread",
+    "current_slice",
+    "first_blocker",
+    "next_action",
+    "remaining",
+    "linear_issue_identifier",
+    "linear_issue_url",
+    "last_user_comment_id",
+    "last_user_comment_at",
+    "last_agent_writeback_comment_id",
+    "last_supervised_at",
+    "thread_intake_cursor_at",
+    "next_review_at",
+    "trigger_condition",
+)
 REGISTRY_SECTIONS = (
     ("services", "service"),
     ("domains", "domain"),
@@ -457,6 +486,146 @@ def reconcile_operations(
     }
 
 
+def supervisor_snapshot(root: Path, bd: str, git_arg: str | None = None) -> dict[str, Any]:
+    """Collect a compact, read-only Ledger input for one supervisor episode."""
+
+    status = run([bd, "status", "--no-activity", "--json"], root, json_output=True)
+    ready = run([bd, "ready", "--limit", "0", "--json"], root, json_output=True)
+    issues = run(
+        [
+            bd,
+            "list",
+            "--status",
+            "open,in_progress,blocked,deferred",
+            "--limit",
+            "0",
+            "--json",
+        ],
+        root,
+        json_output=True,
+    )
+    dolt = run([bd, "dolt", "status", "--json"], root, json_output=True)
+    if not isinstance(status, dict):
+        raise WorkflowError("bd status returned an invalid payload")
+    if not isinstance(ready, list):
+        raise WorkflowError("bd ready returned an invalid payload")
+    if not isinstance(issues, list):
+        raise WorkflowError("bd list returned an invalid payload")
+    if not isinstance(dolt, dict):
+        raise WorkflowError("bd dolt status returned an invalid payload")
+
+    ready_ids = {
+        str(item["id"])
+        for item in ready
+        if isinstance(item, dict) and item.get("id") is not None
+    }
+    compact: list[dict[str, Any]] = []
+    errors: list[str] = []
+    linear_identifiers: dict[str, str] = {}
+    linear_urls: dict[str, str] = {}
+    status_counts: dict[str, int] = {}
+    mode_counts: dict[str, int] = {}
+
+    for raw in issues:
+        if not isinstance(raw, dict) or not isinstance(raw.get("id"), str):
+            errors.append("unfinished issue payload is missing a string id")
+            continue
+        issue_id = raw["id"]
+        issue_status = raw.get("status")
+        status_counts[str(issue_status)] = status_counts.get(str(issue_status), 0) + 1
+        metadata = raw.get("metadata") if isinstance(raw.get("metadata"), dict) else {}
+        selected_metadata = {
+            field: metadata[field]
+            for field in SUPERVISOR_METADATA_FIELDS
+            if field in metadata
+        }
+        mode = metadata.get("execution_mode")
+        if mode not in SUPERVISOR_EXECUTION_MODES:
+            errors.append(f"{issue_id}: missing or unknown metadata.execution_mode")
+        else:
+            mode_counts[mode] = mode_counts.get(mode, 0) + 1
+        if "remaining" in metadata and not isinstance(metadata["remaining"], list):
+            errors.append(f"{issue_id}: metadata.remaining must be a JSON array")
+        for field, seen in (
+            ("linear_issue_identifier", linear_identifiers),
+            ("linear_issue_url", linear_urls),
+        ):
+            value = metadata.get(field)
+            if not isinstance(value, str) or not value:
+                continue
+            if value in seen:
+                errors.append(f"{issue_id}: duplicate {field} with {seen[value]}")
+            else:
+                seen[value] = issue_id
+
+        dependencies = []
+        for dependency in raw.get("dependencies", []):
+            if not isinstance(dependency, dict):
+                continue
+            dependencies.append(
+                {
+                    key: dependency[key]
+                    for key in ("depends_on_id", "type")
+                    if dependency.get(key) is not None
+                }
+            )
+        compact.append(
+            {
+                "id": issue_id,
+                "title": raw.get("title"),
+                "status": issue_status,
+                "priority": raw.get("priority"),
+                "issue_type": raw.get("issue_type"),
+                "owner": raw.get("owner"),
+                "updated_at": raw.get("updated_at"),
+                "due_at": raw.get("due_at"),
+                "defer_until": raw.get("defer_until"),
+                "parent": raw.get("parent"),
+                "ready": issue_id in ready_ids,
+                "labels": raw.get("labels") if isinstance(raw.get("labels"), list) else [],
+                "dependencies": dependencies,
+                "metadata": selected_metadata,
+            }
+        )
+
+    git = executable("git", git_arg)
+    git_root = run([git, "rev-parse", "--show-toplevel"], root)
+    git_head = run([git, "rev-parse", "HEAD"], root)
+    git_branch = run([git, "branch", "--show-current"], root)
+    git_status = run([git, "status", "--porcelain=v1", "--branch"], root)
+    assert isinstance(git_root, subprocess.CompletedProcess)
+    assert isinstance(git_head, subprocess.CompletedProcess)
+    assert isinstance(git_branch, subprocess.CompletedProcess)
+    assert isinstance(git_status, subprocess.CompletedProcess)
+
+    return {
+        "schema": "opl_flow_supervisor_snapshot.v1",
+        "instance": str(root),
+        "git": {
+            "root": git_root.stdout.strip(),
+            "head": git_head.stdout.strip(),
+            "branch": git_branch.stdout.strip(),
+            "status": git_status.stdout.splitlines(),
+            "clean": not any(
+                line and not line.startswith("##")
+                for line in git_status.stdout.splitlines()
+            ),
+        },
+        "dolt": dolt,
+        "ledger_status": status,
+        "counts": {
+            "unfinished": len(compact),
+            "ready": len(ready_ids),
+            "by_status": dict(sorted(status_counts.items())),
+            "by_execution_mode": dict(sorted(mode_counts.items())),
+            "validation_errors": len(errors),
+        },
+        "ready_ids": sorted(ready_ids),
+        "issues": sorted(compact, key=lambda item: item["id"]),
+        "validation_errors": errors,
+    }
+
+
 def workflow_status(
     instance: Path | None,
     bd_arg: str | None,
@@ -524,6 +693,10 @@ def parser() -> argparse.ArgumentParser:
     reconcile.add_argument("--registry", type=Path)
     reconcile.add_argument("--dry-run", action="store_true")
     reconcile.add_argument("--bd-bin")
+    supervisor = ledger_commands.add_parser("supervisor-snapshot")
+    supervisor.add_argument("--instance")
+    supervisor.add_argument("--bd-bin")
+    supervisor.add_argument("--git-bin")
     fleet = commands.add_parser("fleet", add_help=False)
     fleet.add_argument("--instance")
     fleet.add_argument("--fleet-bin")
@@ -564,12 +737,15 @@ def main(argv: list[str] | None = None) -> int:
         root = instance_root(args.instance)
         assert root is not None
         bd = executable("bd", args.bd_bin)
-        result = (
-            init_ledger(root, bd, args.prefix)
-            if args.ledger_command == "init"
-            else reconcile_operations(root, bd, args.registry, dry_run=args.dry_run)
-        )
+        if args.ledger_command == "init":
+            result = init_ledger(root, bd, args.prefix)
+        elif args.ledger_command == "reconcile-operations":
+            result = reconcile_operations(root, bd, args.registry, dry_run=args.dry_run)
+        else:
+            result = supervisor_snapshot(root, bd, args.git_bin)
         print(json.dumps(result, ensure_ascii=False, indent=2, sort_keys=True))
+        if args.ledger_command == "supervisor-snapshot" and result["validation_errors"]:
+            return 3
         return 0
     except WorkflowError as exc:
         print(f"ERROR: {exc}", file=sys.stderr)

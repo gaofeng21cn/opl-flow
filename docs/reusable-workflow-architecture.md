@@ -321,6 +321,14 @@ Use $opl-flow setup to establish or repair that baseline.
 Use $opl-flow start to create or reuse my OPL ledger Dashboard and supervise it every hour.
 ```
 
+The resulting heartbeat calls `$opl-flow supervise` for one bounded episode.
+Its prompt retains private inputs and scheduling only; reusable intake,
+projection, comment, owner, and terminal rules live in
+`skills/opl-flow/references/ledger-supervisor.md`. The read-only
+`ledger supervisor-snapshot` command produces the compact dynamic Beads/Dolt/Git
+input and fails closed on malformed execution metadata or duplicate Linear
+mappings.
+
 `start` discovers the saved project and unique private Instance, then uses Codex
 native task and Automation tools plus official `bd` and `opl_workflow.py` routes.
 It reuses or creates exactly one local Dashboard task, one Bead bound by

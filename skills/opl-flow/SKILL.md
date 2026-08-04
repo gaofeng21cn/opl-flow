@@ -33,6 +33,7 @@ Ledger, Fleet, package, and App contract into an ordinary baseline task.
 | `tune` (`$opl-flow tune`) | Improve `AGENTS.md`, model/reasoning defaults, capability selection, or optional enhancements while preserving user ownership. | `references/codex-baseline.md`, `references/app-integration.md` |
 | `update` (`$opl-flow update`) | Update Flow and configured components from their owners, migrate known legacy surfaces, and verify effective discovery. | `references/setup-update.md`, `references/package-lifecycle.md` |
 | `start` (`$opl-flow start`) | Idempotently bind the owner's Ledger Dashboard, Bead, Linear projection, and hourly `OPL Flow Supervisor`. | `references/ledger-start.md` |
+| `supervise` (`$opl-flow supervise`) | Run one bounded episode of the existing Ledger Supervisor without duplicating its reusable policy in the Automation prompt. | `references/ledger-supervisor.md`, then `references/terminal-readback.md` |
 | `fleet` (`$opl-flow fleet`) | Configure, inspect, admit, select, or dispatch across Instance-backed machines. | Use `$opl-fleet`; load its Skill instead of expanding Fleet here. |
 
 Natural-language examples:
@@ -40,6 +41,7 @@ Natural-language examples:
 - "检查/修复 Codex 使用基线" -> `doctor` first, then `setup` only when repair is authorized.
 - "优化我的 AGENTS.md 和模型设置" -> `tune`.
 - "创建 OPL 总账并每小时监督" -> `start`.
+- An existing Supervisor heartbeat -> `supervise`.
 - "配置或使用 OPL Fleet" -> `fleet`.
 
 ## Shared Invariants
@@ -137,6 +139,16 @@ comment cursor until the automated Linear reply has been posted and read back.
 Do not synthesize an onboarding receipt or accept local config, a prompt, or a
 test as proof. Finish by reading the Dashboard, Bead, heartbeat, Linear comment
 cursor, and Dolt parity back from their current owners.
+
+### `supervise`
+
+Load `references/ledger-supervisor.md` and execute one finite episode for the
+already configured Dashboard and registered Linear projects. The heartbeat
+supplies private identifiers and notification policy; this Skill supplies the
+reusable intake, owner, projection, comment-idempotency, dispatch, transport,
+and closeout rules. Do not create another heartbeat, keep a monitoring executor
+resident, auto-archive a Codex task, or turn the Automation prompt into a
+second policy source.
 
 ### `fleet`
 
