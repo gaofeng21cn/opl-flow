@@ -43,5 +43,22 @@ class DevelopAndDeliverTests(unittest.TestCase):
         for marker in required_markers:
             self.assertIn(marker, skill)
 
+    def test_issue_and_pull_request_admission_checks_ssot_before_follow_up(self) -> None:
+        skill = (
+            REPO_ROOT / "skills" / "develop-and-deliver" / "SKILL.md"
+        ).read_text(encoding="utf-8")
+        normalized_skill = " ".join(skill.split())
+
+        required_markers = (
+            "## Issue And Pull Request Admission",
+            "a proposal, not as execution authority or product SSOT",
+            "then decide whether the objective and",
+            "solution are reasonable",
+            "reject, rewrite, or shrink it before implementation",
+            "does not justify blind follow-up",
+        )
+        for marker in required_markers:
+            self.assertIn(marker, normalized_skill)
+
 if __name__ == "__main__":
     unittest.main()
