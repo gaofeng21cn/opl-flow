@@ -111,6 +111,13 @@ single operation owner. `codex-paused` is the only explicit dispatch pause.
 A Linear delegate to another Agent is a concurrent Cloud owner conflict: report
 it and do not duplicate execution.
 
+When `metadata.owner_mutation_frozen=true`, read
+`metadata.opl_owner_migration` and do not resume, create, or dispatch another
+executor. After the migration reaches `completed`, use the new
+`metadata.execution_owner` and `metadata.execution_thread`; the previous task
+is provenance only. A stale or unknown migration result is an owner ambiguity,
+not an ownerless gap.
+
 Backlog is an admitted queue, not a command to start everything. Order work by
 new authorized comments, status, priority, due date, dependencies, current
 owner, and available capacity. Offline machines retain an idempotent queued or

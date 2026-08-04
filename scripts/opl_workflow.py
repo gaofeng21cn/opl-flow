@@ -12,6 +12,29 @@ import sys
 from pathlib import Path
 from typing import Any, Iterable
 
+try:
+    from .opl_task_owner import (
+        TaskOwnerError,
+        claim as claim_owner_migration,
+        preflight as preflight_owner_migration,
+        prepare as prepare_owner_migration,
+        public_status as owner_migration_status,
+        release_source as release_owner_migration,
+        rollback as rollback_owner_migration,
+        verify_target as verify_owner_migration,
+    )
+except ImportError:  # Direct script execution.
+    from opl_task_owner import (
+        TaskOwnerError,
+        claim as claim_owner_migration,
+        preflight as preflight_owner_migration,
+        prepare as prepare_owner_migration,
+        public_status as owner_migration_status,
+        release_source as release_owner_migration,
+        rollback as rollback_owner_migration,
+        verify_target as verify_owner_migration,
+    )
+
 
 PROGRAM_REF = "opl://program/operations-maintenance"
 SUPERVISOR_EXECUTION_MODES = {
@@ -280,6 +303,158 @@ def secure_ledger_dir(root: Path) -> None:
         os.chmod(root / ".beads", 0o700)
     except OSError as exc:
         raise WorkflowError(f"cannot secure {root / '.beads'}: {exc}") from exc
+
+
+def bead_issue(root: Path, bd: str, issue_id: str) -> dict[str, Any]:
+    payload = run([bd, "show", issue_id, "--json"], root, json_output=True)
+    if isinstance(payload, list) and len(payload) == 1:
+        payload = payload[0]
+    if not isinstance(payload, dict) or payload.get("id") != issue_id:
+        raise WorkflowError(f"bd show returned an invalid issue: {issue_id}")
+    metadata = payload.get("metadata")
+    if metadata is not None and not isinstance(metadata, dict):
+        raise WorkflowError(f"Bead metadata is invalid: {issue_id}")
+    return payload
+
+
+def dolt_pull(root: Path, bd: str) -> None:
+    result = run([bd, "dolt", "pull"], root, check=False)
+    assert isinstance(result, subprocess.CompletedProcess)
+    if result.returncode:
+        raise WorkflowError(f"bd dolt pull failed: {(result.stderr or result.stdout).strip()}")
+
+
+def apply_bead_metadata(
+    root: Path,
+    bd: str,
+    issue: dict[str, Any],
+    metadata: dict[str, Any],
+) -> dict[str, Any]:
+    issue_id = str(issue["id"])
+    if issue.get("metadata") == metadata:
+        return issue
+    run(
+        [
+            bd,
+            "update",
+            issue_id,
+            "--metadata",
+            json.dumps(metadata, ensure_ascii=False, sort_keys=True),
+            "--json",
+        ],
+        root,
+    )
+    local = bead_issue(root, bd, issue_id)
+    if local.get("metadata") != metadata:
+        raise WorkflowError("Bead metadata write readback did not match")
+    pushed = run([bd, "dolt", "push"], root, check=False)
+    assert isinstance(pushed, subprocess.CompletedProcess)
+    if pushed.returncode:
+        # A failed push is unknown until the shared Dolt authority is read.
+        pulled = run([bd, "dolt", "pull"], root, check=False)
+        assert isinstance(pulled, subprocess.CompletedProcess)
+        if pulled.returncode:
+            raise WorkflowError("owner migration push result is unknown; read-only reconcile required")
+        reconciled = bead_issue(root, bd, issue_id)
+        if reconciled.get("metadata") != metadata:
+            raise WorkflowError("owner migration lost the Dolt CAS; winner readback required")
+        return reconciled
+    dolt_pull(root, bd)
+    canonical = bead_issue(root, bd, issue_id)
+    if canonical.get("metadata") != metadata:
+        raise WorkflowError("owner migration Dolt parity did not match")
+    return canonical
+
+
+def read_json_argument(value: str, label: str) -> dict[str, Any]:
+    path = Path(value[1:] if value.startswith("@") else value).expanduser().resolve()
+    try:
+        payload = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as exc:
+        raise WorkflowError(f"cannot read {label}: {path}") from exc
+    if not isinstance(payload, dict):
+        raise WorkflowError(f"{label} must be a JSON object")
+    return payload
+
+
+def owner_migration_command(root: Path, bd: str, args: argparse.Namespace) -> dict[str, Any]:
+    dolt_pull(root, bd)
+    issue = bead_issue(root, bd, args.bead_id)
+    action = args.owner_action
+    if action == "status":
+        return owner_migration_status(issue)
+    try:
+        if action == "prepare":
+            metadata = prepare_owner_migration(
+                issue,
+                source_owner_id=args.source_owner,
+                source_node_id=args.source_node,
+                source_executor_handle=args.source_executor,
+                target_owner_id=args.target_owner,
+                target_node_id=args.target_node,
+                target_profile_id=args.target_profile,
+                instruction_revision=args.instruction_revision,
+                instruction_summary=args.instruction_summary,
+                checkpoint=read_json_argument(args.checkpoint_json, "source checkpoint"),
+                actor=args.actor,
+                migration_id=args.migration_id,
+            )
+        elif action == "preflight":
+            metadata = preflight_owner_migration(
+                issue,
+                migration_id=args.migration_id,
+                workspace_readback=read_json_argument(
+                    args.workspace_readback_json, "workspace readback"
+                ),
+                node_readback=read_json_argument(
+                    args.node_readback_json, "node readback"
+                ),
+                actor=args.actor,
+            )
+        elif action == "claim":
+            metadata = claim_owner_migration(
+                issue,
+                migration_id=args.migration_id,
+                target_executor_handle=args.target_executor,
+                expected_instruction_revision=args.instruction_revision,
+                expected_instruction_fingerprint=args.instruction_fingerprint,
+                workspace_readback=read_json_argument(
+                    args.workspace_readback_json, "workspace readback"
+                ),
+                node_readback=read_json_argument(
+                    args.node_readback_json, "node readback"
+                ),
+                actor=args.actor,
+            )
+        elif action == "verify":
+            metadata = verify_owner_migration(
+                issue,
+                migration_id=args.migration_id,
+                target_executor_handle=args.target_executor,
+                workspace_readback=read_json_argument(
+                    args.workspace_readback_json, "workspace readback"
+                ),
+                node_readback=read_json_argument(
+                    args.node_readback_json, "node readback"
+                ),
+                actor=args.actor,
+            )
+        elif action == "release":
+            metadata = release_owner_migration(
+                issue,
+                migration_id=args.migration_id,
+                actor=args.actor,
+            )
+        else:
+            metadata = rollback_owner_migration(
+                issue,
+                migration_id=args.migration_id,
+                actor=args.actor,
+            )
+    except TaskOwnerError as exc:
+        raise WorkflowError(str(exc)) from exc
+    canonical = apply_bead_metadata(root, bd, issue, metadata)
+    return owner_migration_status(canonical)
 
 
 def init_ledger(root: Path, bd: str, prefix: str) -> dict[str, str]:
@@ -697,6 +872,54 @@ def parser() -> argparse.ArgumentParser:
     supervisor.add_argument("--instance")
     supervisor.add_argument("--bd-bin")
     supervisor.add_argument("--git-bin")
+    owner = ledger_commands.add_parser("owner")
+    owner_commands = owner.add_subparsers(dest="owner_action", required=True)
+
+    def owner_common(command: argparse.ArgumentParser) -> None:
+        command.add_argument("bead_id")
+        command.add_argument("--instance")
+        command.add_argument("--bd-bin")
+        command.add_argument("--actor", default="opl-flow")
+
+    owner_status = owner_commands.add_parser("status")
+    owner_common(owner_status)
+    owner_prepare = owner_commands.add_parser("prepare")
+    owner_common(owner_prepare)
+    owner_prepare.add_argument("--source-owner", required=True)
+    owner_prepare.add_argument("--source-node", required=True)
+    owner_prepare.add_argument("--source-executor", required=True)
+    owner_prepare.add_argument("--target-owner", required=True)
+    owner_prepare.add_argument("--target-node", required=True)
+    owner_prepare.add_argument("--target-profile", required=True)
+    owner_prepare.add_argument("--instruction-revision", type=int, required=True)
+    owner_prepare.add_argument("--instruction-summary", required=True)
+    owner_prepare.add_argument("--checkpoint-json", required=True)
+    owner_prepare.add_argument("--migration-id")
+    owner_preflight = owner_commands.add_parser("preflight")
+    owner_common(owner_preflight)
+    owner_preflight.add_argument("--migration-id", required=True)
+    owner_preflight.add_argument("--workspace-readback-json", required=True)
+    owner_preflight.add_argument("--node-readback-json", required=True)
+    owner_claim = owner_commands.add_parser("claim")
+    owner_common(owner_claim)
+    owner_claim.add_argument("--migration-id", required=True)
+    owner_claim.add_argument("--target-executor", required=True)
+    owner_claim.add_argument("--instruction-revision", type=int, required=True)
+    owner_claim.add_argument("--instruction-fingerprint", required=True)
+    owner_claim.add_argument("--workspace-readback-json", required=True)
+    owner_claim.add_argument("--node-readback-json", required=True)
+    owner_verify = owner_commands.add_parser("verify")
+    owner_common(owner_verify)
+    owner_verify.add_argument("--migration-id", required=True)
+    owner_verify.add_argument("--target-executor", required=True)
+    owner_verify.add_argument("--workspace-readback-json", required=True)
+    owner_verify.add_argument("--node-readback-json", required=True)
+    owner_release = owner_commands.add_parser("release")
+    owner_common(owner_release)
+    owner_release.add_argument("--migration-id", required=True)
+    owner_rollback = owner_commands.add_parser("rollback")
+    owner_common(owner_rollback)
+    owner_rollback.add_argument("--migration-id", required=True)
     fleet = commands.add_parser("fleet", add_help=False)
     fleet.add_argument("--instance")
     fleet.add_argument("--fleet-bin")
@@ -737,7 +960,9 @@ def main(argv: list[str] | None = None) -> int:
         root = instance_root(args.instance)
         assert root is not None
         bd = executable("bd", args.bd_bin)
-        if args.ledger_command == "init":
+        if args.ledger_command == "owner":
+            result = owner_migration_command(root, bd, args)
+        elif args.ledger_command == "init":
             result = init_ledger(root, bd, args.prefix)
         elif args.ledger_command == "reconcile-operations":
             result = reconcile_operations(root, bd, args.registry, dry_run=args.dry_run)

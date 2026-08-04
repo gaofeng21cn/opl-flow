@@ -9,6 +9,7 @@ import unittest
 from scripts.verify import (
     CORE_SKILL_IDS,
     CORE_TEST_MODULES,
+    REQUIRED_FILES,
     check_required_files,
     check_plugin_json,
     check_workflow_policy,
@@ -22,7 +23,6 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 class VerifyLaneTests(unittest.TestCase):
     def test_required_files_cover_every_fleet_runtime_module(self) -> None:
         self.assertEqual(check_required_files(REPO_ROOT), [])
-
         runtime_modules = (
             "scripts/opl_fleet_parts/__init__.py",
             "scripts/opl_fleet_parts/fleet_cli.py",
@@ -32,6 +32,8 @@ class VerifyLaneTests(unittest.TestCase):
             "scripts/opl_fleet_parts/fleet_lease.py",
             "scripts/opl_fleet_parts/fleet_reconcile.py",
             "scripts/opl_fleet_parts/fleet_runner.py",
+            "scripts/opl_fleet_parts/fleet_workspace.py",
+            "scripts/opl_task_owner.py",
         )
         with tempfile.TemporaryDirectory() as temp_dir:
             errors = check_required_files(Path(temp_dir))
@@ -42,6 +44,11 @@ class VerifyLaneTests(unittest.TestCase):
                 missing,
                 f"check_required_files must flag missing {relative_path}",
             )
+
+    def test_required_files_include_owner_migration_contracts(self) -> None:
+        required = set(REQUIRED_FILES)
+        self.assertIn("contracts/fleet-workspace-profile.schema.json", required)
+        self.assertIn("contracts/task-owner-migration.schema.json", required)
 
     def test_plugin_exposes_the_seven_bounded_flow_skills(self) -> None:
         self.assertEqual(check_plugin_json(REPO_ROOT), [])
@@ -168,6 +175,17 @@ class VerifyLaneTests(unittest.TestCase):
             )
 
             return check_workflow_policy(repo_root)
+
+    def test_workflow_policy_rejects_weakened_owner_migration_gate(self) -> None:
+        errors = self.workflow_policy_errors_after(
+            lambda policy: policy["task_owner_migration_policy"].update(
+                native_handoff="authoritative"
+            )
+        )
+        self.assertIn(
+            "workflow policy task owner migration contract must remain fail-closed",
+            errors,
+        )
 
     def test_every_skill_requires_original_github_source(self) -> None:
         errors = self.workflow_policy_errors_after(

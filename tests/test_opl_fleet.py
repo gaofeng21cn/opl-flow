@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import base64
+import copy
 import contextlib
 import hashlib
 import importlib.util
@@ -39,6 +40,7 @@ FLEET_PART_MODULES = (
     "fleet_reconcile",
     "fleet_runner",
     "fleet_dispatch",
+    "fleet_workspace",
     "fleet_cli",
 )
 
@@ -2568,6 +2570,7 @@ class CodexFleetTests(unittest.TestCase):
                     "manifest",
                     return_value={"inventory": {"max_age_hours": 36}},
                 ),
+                patch_fleet("control_commit", return_value="c" * 40),
             ):
                 result = fleet.doctor_result(
                     node_id,
@@ -2621,6 +2624,7 @@ class CodexFleetTests(unittest.TestCase):
                     "manifest",
                     return_value={"inventory": {"max_age_hours": 36}},
                 ),
+                patch_fleet("control_commit", return_value="c" * 40),
             ):
                 result = fleet.doctor_result(
                     node_id,
@@ -3305,6 +3309,169 @@ class CodexFleetTests(unittest.TestCase):
         self.assertEqual(result["state"], "CURRENT")
 
 
+class WorkspaceProfileTests(unittest.TestCase):
+    def profile_catalog(self) -> dict[str, object]:
+        return {
+            "$schema": "https://one-person-lab.dev/schemas/opl-flow/fleet-workspace-profile.v1.json",
+            "schema": "opl_fleet_workspace_profiles.v1",
+            "profiles": {
+                "test-profile": {
+                    "node_ids": ["test-node"],
+                    "workspace_root": "~/workspace",
+                    "environment_contract": "fleet/environment.json",
+                    "repositories": [
+                        {
+                            "repository": "example/project",
+                            "directory": "project",
+                            "branch": "main",
+                            "remote": "https://github.com/example/project.git",
+                            "role": "authority",
+                            "required": True,
+                        }
+                    ],
+                    "automation_placements": [],
+                }
+            },
+        }
+
+    def test_workspace_profile_rejects_duplicate_node_or_repository(self) -> None:
+        payload = self.profile_catalog()
+        duplicate = copy.deepcopy(payload["profiles"]["test-profile"])
+        duplicate["repositories"].append(copy.deepcopy(duplicate["repositories"][0]))
+        payload["profiles"]["second-profile"] = duplicate
+        with self.assertRaisesRegex(fleet.FleetError, "nodes are invalid"):
+            fleet.validate_workspace_profiles(payload)
+
+    def test_workspace_profile_rejects_unsafe_directory(self) -> None:
+        payload = self.profile_catalog()
+        payload["profiles"]["test-profile"]["repositories"][0]["directory"] = "../project"
+        with self.assertRaisesRegex(fleet.FleetError, "repository directory"):
+            fleet.validate_workspace_profiles(payload)
+
+    def test_workspace_sync_is_all_or_nothing_on_preflight_blocker(self) -> None:
+        profile = self.profile_catalog()["profiles"]["test-profile"]
+        before = {
+            "schema": "opl_fleet_workspace_readback.v1",
+            "profile_id": "test-profile",
+            "state": "ATTENTION",
+            "repositories": [
+                {"repository": "example/project", "required": True, "state": "DIRTY"}
+            ],
+        }
+        with (
+            patch_fleet("workspace_profile", return_value=profile),
+            patch_fleet("profile_workspace_root", return_value=Path("/tmp/workspace")),
+            patch_fleet("workspace_readback", return_value=before),
+            mock.patch.object(
+                sys.modules["opl_fleet_parts"].fleet_workspace,
+                "_clone_missing",
+            ) as clone,
+        ):
+            result = fleet.sync_workspace("test-profile")
+        self.assertFalse(result["applied"])
+        clone.assert_not_called()
+
+    def test_claim_check_requires_fresh_github_currentness(self) -> None:
+        current = {
+            "schema": "opl_fleet_workspace_readback.v1",
+            "profile_id": "test-profile",
+            "state": "CURRENT",
+        }
+        with patch_fleet("workspace_readback", return_value=current) as readback:
+            result = fleet.workspace_command("test-profile", "claim-check")
+        self.assertTrue(result["claim_ready"])
+        readback.assert_called_once_with(
+            "test-profile", fetch=True, fresh_github=True
+        )
+
+    def test_workspace_readback_rejects_missing_runtime_command(self) -> None:
+        profile = self.profile_catalog()["profiles"]["test-profile"]
+        repository = {
+            "repository": "example/project",
+            "directory": "project",
+            "branch": "main",
+            "required": True,
+            "local_commit": "a" * 40,
+            "remote_commit": "a" * 40,
+            "github_commit": "a" * 40,
+            "worktree_count": 1,
+            "state": "CURRENT",
+        }
+        workspace_module = sys.modules["opl_fleet_parts"].fleet_workspace
+        with (
+            patch_fleet("workspace_profile", return_value=profile),
+            patch_fleet("profile_workspace_root", return_value=Path("/tmp/workspace")),
+            mock.patch.object(
+                workspace_module,
+                "_repository_entry",
+                return_value=repository,
+            ),
+            patch_fleet(
+                "profile_environment_contract",
+                return_value={"runtime_requirements": {"commands": ["bd", "git"]}},
+            ),
+            patch_fleet("profile_environment_fingerprint", return_value="b" * 64),
+            mock.patch.object(workspace_module.shutil, "which", side_effect=[None, "/usr/bin/git"]),
+        ):
+            result = fleet.workspace_readback(
+                "test-profile",
+                fetch=True,
+                fresh_github=True,
+            )
+        self.assertEqual(result["state"], "ATTENTION")
+        self.assertEqual(result["missing_commands"], ["bd"])
+        self.assertEqual(result["attention_count"], 1)
+
+    def test_doctor_rejects_receipt_from_old_instance_revision(self) -> None:
+        node_id = "fictional-node"
+        live = dispatchable_inventory(node_id)
+        live["observed_at"] = "2026-08-04T00:00:00+00:00"
+        catalog = {
+            "schema": "codex_fleet_assets.v1",
+            "nodes": [
+                {
+                    "node_id": node_id,
+                    "policy": {
+                        "approved": True,
+                        "display_name": "Fictional",
+                        "availability_policy": "always_on",
+                        "labels": ["development"],
+                        "notes": [],
+                        "scheduling": {
+                            "requires_ac": False,
+                            "min_free_gb": 1,
+                            "preferred_for": [],
+                        },
+                    },
+                    "receipt": receipt(node_id),
+                    "inventory": live,
+                }
+            ],
+        }
+        with tempfile.TemporaryDirectory() as temp_dir:
+            with (
+                patch_fleet("control_commit", return_value="f" * 40),
+                patch_fleet("collect_inventory", return_value=live),
+                patch_fleet("node_registry", return_value={"nodes": {}}),
+                patch_fleet("tailscale_online", return_value=True),
+                patch_fleet(
+                    "work_volume_status",
+                    return_value={"required": False, "configured": False, "ready": True},
+                ),
+                patch_fleet("manifest", return_value={"inventory": {"max_age_hours": 36}}),
+            ):
+                result = fleet.doctor_result(
+                    node_id,
+                    catalog=catalog,
+                    routes={node_id: {"local": True, "tailscale_host": node_id}},
+                    state_root=Path(temp_dir),
+                    now=fleet.dt.datetime(2026, 8, 4, tzinfo=fleet.dt.timezone.utc),
+                )
+        self.assertFalse(result["control_current"])
+        self.assertFalse(result["admission_ready"])
+        self.assertFalse(result["ready_for_dispatch"])
+
+
 class OplFleetFacadeTests(unittest.TestCase):
     """Characterization of the facade: re-export surface, CLI contract, entry."""
 
@@ -3320,6 +3487,7 @@ class OplFleetFacadeTests(unittest.TestCase):
             "doctor_result",
             "fleet_dispatch_execute",
             "execute_ssh_session",
+            "workspace_command",
             "STATE_ROOT",
             "REMOTE_EXECUTOR",
         ):

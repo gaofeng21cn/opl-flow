@@ -77,6 +77,14 @@ from opl_fleet_parts.fleet_reconcile import (
     join, fetch_state_file, remote_asset_catalog,
 )
 
+from opl_fleet_parts.fleet_workspace import (
+    PROFILE_SCHEMA, PROFILE_PATH, canonical_json_digest, validate_workspace_profiles,
+    workspace_profile_catalog, workspace_profile, profile_workspace_root,
+    profile_environment_contract, profile_environment_fingerprint,
+    workspace_readback, sync_workspace,
+    workspace_command,
+)
+
 from opl_fleet_parts.fleet_features import (
     inventory_is_fresh, inventory_age_seconds, parse_memory_bytes, gpu_profiles, matching_gpus, node_features,
 )

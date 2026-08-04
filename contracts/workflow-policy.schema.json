@@ -16,6 +16,7 @@
     "conflicts",
     "retires",
     "ledger_supervisor_policy",
+    "task_owner_migration_policy",
     "codex_model_policy",
     "migration_policy",
     "historical_fingerprints"
@@ -43,6 +44,7 @@
     "conflicts": { "$ref": "#/$defs/migrations" },
     "retires": { "$ref": "#/$defs/migrations" },
     "ledger_supervisor_policy": { "$ref": "#/$defs/ledgerSupervisorPolicy" },
+    "task_owner_migration_policy": { "$ref": "#/$defs/taskOwnerMigrationPolicy" },
     "codex_model_policy": {
       "type": "object",
       "additionalProperties": false,
@@ -71,6 +73,62 @@
     "historical_fingerprints": { "type": "object" }
   },
   "$defs": {
+    "taskOwnerMigrationPolicy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "authority",
+        "objective_identity",
+        "executor_handle",
+        "native_handoff",
+        "workspace_authority",
+        "workspace_admission",
+        "state_sequence",
+        "claim_mutations",
+        "post_claim_rollback",
+        "dolt_unknown_result",
+        "automation_cutover"
+      ],
+      "properties": {
+        "authority": { "const": "beads_dolt" },
+        "objective_identity": { "const": "bead_id" },
+        "executor_handle": { "const": "replaceable_codex_task" },
+        "native_handoff": { "const": "optional_non_authoritative" },
+        "workspace_authority": { "const": "private_instance_profile" },
+        "workspace_admission": {
+          "const": [
+            "declared_environment_current",
+            "fresh_fetch",
+            "fresh_github_head",
+            "clean_default_branch",
+            "no_active_task_worktree",
+            "current_instance_control_receipt"
+          ]
+        },
+        "state_sequence": {
+          "const": [
+            "source_checkpointed",
+            "target_preflighted",
+            "target_acknowledged",
+            "target_verified",
+            "completed"
+          ]
+        },
+        "claim_mutations": {
+          "const": [
+            "opl_owner_claim_generation",
+            "execution_owner",
+            "execution_thread",
+            "execution_node"
+          ]
+        },
+        "post_claim_rollback": { "const": "reverse_migration_only" },
+        "dolt_unknown_result": { "const": "read_only_reconcile_no_retry" },
+        "automation_cutover": {
+          "const": ["old_disabled_readback", "new_active_readback"]
+        }
+      }
+    },
     "ledgerSupervisorPolicy": {
       "type": "object",
       "additionalProperties": false,

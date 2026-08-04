@@ -341,6 +341,13 @@ def doctor_result(
     availability_policy = str(
         (entry.get("policy") or {}).get("availability_policy", "always_on")
     )
+    receipt_control_commit = (entry.get("receipt") or {}).get("control_commit")
+    current_control_commit = control_commit()
+    control_current = bool(
+        isinstance(receipt_control_commit, str)
+        and COMMIT_PATTERN.fullmatch(receipt_control_commit)
+        and receipt_control_commit == current_control_commit
+    )
     if local or ssh_reachable is True:
         availability = "online"
     elif ssh_reachable is False:
@@ -358,6 +365,7 @@ def doctor_result(
     admission_ready = bool(
         (entry.get("policy") or {}).get("approved")
         and (entry.get("receipt") or {}).get("state") == "CURRENT"
+        and control_current
         and fresh
         and codex_ready
         and ssh_reachable is True
@@ -379,6 +387,9 @@ def doctor_result(
         "availability_policy": availability_policy,
         "availability": availability,
         "receipt_state": (entry.get("receipt") or {}).get("state", "NO_RECEIPT"),
+        "receipt_control_commit": receipt_control_commit,
+        "current_control_commit": current_control_commit,
+        "control_current": control_current,
         "inventory_fresh": fresh,
         "codex_ready": codex_ready,
         "live_inventory": bool(live_inventory),

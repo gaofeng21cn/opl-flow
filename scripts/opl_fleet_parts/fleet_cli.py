@@ -13,6 +13,7 @@ from .fleet_reconcile import control_commit, fetch_state_file, fleet_repositorie
 from .fleet_lease import acquire_lease_record, active_lease_map, lease_lock, public_lease, read_lease_store, reap_expired_leases, release_lease_record, renew_lease_record, select_nodes, write_lease_store
 from .fleet_runner import assert_lease_admission, assert_runner_role_node, assert_runner_role_workload, build_admission_receipt, controller_guard, doctor_result, fleet_runner_renew, fleet_runner_start, fleet_runner_status, fleet_runner_stop, verify_lease_record
 from .fleet_dispatch import dispatch_adapter_from_args, fleet_dispatch_acquire, fleet_dispatch_execute, fleet_dispatch_plan, fleet_dispatch_release, fleet_dispatch_verify
+from .fleet_workspace import workspace_command
 
 def fleet_status() -> int:
     spec = manifest()
@@ -318,6 +319,24 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     )
     repos_subparsers.add_parser("status")
     repos_subparsers.add_parser("sync")
+    workspace_parser = subparsers.add_parser(
+        "workspace",
+        help="validate, materialize, synchronize, or admit a declared workspace",
+    )
+    workspace_subparsers = workspace_parser.add_subparsers(
+        dest="workspace_action",
+        required=True,
+    )
+    for workspace_action in (
+        "validate",
+        "plan",
+        "status",
+        "bootstrap",
+        "sync",
+        "claim-check",
+    ):
+        command = workspace_subparsers.add_parser(workspace_action)
+        command.add_argument("--profile", required=True)
     nodes_parser = subparsers.add_parser("nodes")
     nodes_parser.add_argument("--json", action="store_true")
     inventory_parser = subparsers.add_parser("inventory")
@@ -549,6 +568,16 @@ def main(argv: list[str] | None = None) -> int:
         return fleet_assets()
     if args.action == "repos":
         return fleet_repositories(sync=args.repos_action == "sync")
+    if args.action == "workspace":
+        result = workspace_command(args.profile, args.workspace_action)
+        print(json.dumps(result, indent=2, sort_keys=True))
+        if args.workspace_action == "validate":
+            return 0
+        if args.workspace_action in {"bootstrap", "sync"}:
+            return 0 if result["state"] == "CURRENT" and result["applied"] else 1
+        if args.workspace_action == "claim-check":
+            return 0 if result["claim_ready"] else 1
+        return 0 if result["state"] == "CURRENT" else 1
     if args.action == "nodes":
         return fleet_nodes(json_output=args.json)
     if args.action == "inventory":

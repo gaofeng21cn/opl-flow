@@ -56,6 +56,43 @@
             "minLength": 1,
             "type": "string"
           },
+          "repo_root": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "updated_at": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "ownership_transfers": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["recorded_at", "reason", "from", "to"],
+              "properties": {
+                "recorded_at": {"type": "string", "format": "date-time"},
+                "reason": {"type": "string", "minLength": 1},
+                "from": {"$ref": "#/$defs/ownerTransition"},
+                "to": {"$ref": "#/$defs/ownerTransition"}
+              }
+            }
+          },
+          "objective_amendments": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["recorded_at", "reason", "actor", "from", "to"],
+              "properties": {
+                "recorded_at": {"type": "string", "format": "date-time"},
+                "reason": {"type": "string", "minLength": 1},
+                "actor": {"$ref": "#/$defs/ownerActor"},
+                "from": {"$ref": "#/$defs/objectiveTransition"},
+                "to": {"$ref": "#/$defs/objectiveTransition"}
+              }
+            }
+          },
           "objective_id": {
             "minLength": 1,
             "type": "string"
@@ -150,6 +187,39 @@
     "recorded_at",
     "entries"
   ],
+  "$defs": {
+    "ownerActor": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["thread_id", "owner", "execution_owner"],
+      "properties": {
+        "thread_id": {"type": "string", "minLength": 1},
+        "owner": {"type": "string", "minLength": 1},
+        "execution_owner": {"type": "string", "minLength": 1}
+      }
+    },
+    "ownerTransition": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["thread_id", "objective_id", "owner", "execution_owner", "next_action"],
+      "properties": {
+        "thread_id": {"type": "string", "minLength": 1},
+        "objective_id": {"type": "string", "minLength": 1},
+        "owner": {"type": "string", "minLength": 1},
+        "execution_owner": {"type": "string", "minLength": 1},
+        "next_action": {"type": "string", "minLength": 1}
+      }
+    },
+    "objectiveTransition": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["objective_id", "next_action"],
+      "properties": {
+        "objective_id": {"type": "string", "minLength": 1},
+        "next_action": {"type": "string", "minLength": 1}
+      }
+    }
+  },
   "title": "OPL Flow worktree ownership ledger",
   "type": "object"
 }

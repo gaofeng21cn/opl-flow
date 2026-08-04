@@ -18,9 +18,10 @@ task/thread tools as the authority and start read-only.
    interrupted, use `send_message_to_thread` once with the objective, surviving
    checkpoint, first remaining action, and current mutation boundary.
 4. If the task is unreadable, report that exact native readback. Create or fork
-   a successor only when the user explicitly requests a new task. Before a
-   writer successor starts, fresh-read Git/runtime ownership and establish an
-   explicit authority transfer.
+   a successor only when the user explicitly requests a new task or an already
+   authorized Beads owner-migration objective requires a replacement executor.
+   Before a writer successor starts, fresh-read Git/runtime ownership and
+   establish the Beads execution-owner transfer.
 5. Read back the resumed or new task. Recovery is complete only when it is
    readable, has one live owner, and has begun a concrete next action.
 
@@ -32,6 +33,8 @@ task/thread tools as the authority and start read-only.
   transcript.
 - Do not create a duplicate writer for a shared checkout, canonical mutation,
   release, deployment, install, VM, database, or runtime operation.
+- When a Bead has `owner_mutation_frozen=true`, follow its migration receipt;
+  do not resume the old task or infer an ownerless gap from native task state.
 - Do not archive the old task merely because a continuation exists.
 - If native task tools are unavailable, use only current Git/runtime evidence
   and user-provided context; label the missing task history as unknown.

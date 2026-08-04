@@ -1,0 +1,151 @@
+{
+  "$id": "https://one-person-lab.dev/schemas/opl-flow/task-owner-migration.v1.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "OPL task execution owner migration",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "migration_id",
+    "generation",
+    "state",
+    "objective",
+    "instruction",
+    "source_claim",
+    "source_checkpoint",
+    "target",
+    "transitions"
+  ],
+  "properties": {
+    "schema": {"const": "opl_task_owner_migration.v1"},
+    "migration_id": {"type": "string", "format": "uuid"},
+    "generation": {"type": "integer", "minimum": 1},
+    "state": {
+      "enum": [
+        "source_checkpointed",
+        "target_preflighted",
+        "target_acknowledged",
+        "target_verified",
+        "completed",
+        "blocked",
+        "unknown",
+        "rolled_back"
+      ]
+    },
+    "objective": {"$ref": "#/$defs/objective"},
+    "instruction": {"$ref": "#/$defs/instruction"},
+    "source_claim": {"$ref": "#/$defs/claim"},
+    "source_checkpoint": {"$ref": "#/$defs/checkpoint"},
+    "target": {"$ref": "#/$defs/target"},
+    "transitions": {
+      "type": "array",
+      "minItems": 1,
+      "items": {"$ref": "#/$defs/transition"}
+    }
+  },
+  "$defs": {
+    "objective": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["bead_id", "fingerprint"],
+      "properties": {
+        "bead_id": {"type": "string", "minLength": 1, "maxLength": 128},
+        "fingerprint": {"type": "string", "pattern": "^[0-9a-f]{64}$"}
+      }
+    },
+    "instruction": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["revision", "fingerprint", "summary"],
+      "properties": {
+        "revision": {"type": "integer", "minimum": 1},
+        "fingerprint": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+        "summary": {"type": "string", "minLength": 1, "maxLength": 2000}
+      }
+    },
+    "claim": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["generation", "owner_id", "node_id", "executor_handle"],
+      "properties": {
+        "generation": {"type": "integer", "minimum": 0},
+        "owner_id": {"type": "string", "minLength": 1, "maxLength": 128},
+        "node_id": {"type": "string", "pattern": "^[a-z0-9][a-z0-9-]{0,62}$"},
+        "executor_handle": {"type": "string", "minLength": 1, "maxLength": 128}
+      }
+    },
+    "checkpoint": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["recorded_at", "write_set", "remaining", "next_action", "git_recovery"],
+      "properties": {
+        "recorded_at": {"type": "string", "format": "date-time"},
+        "write_set": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {"type": "string", "minLength": 1, "maxLength": 300}
+        },
+        "remaining": {
+          "type": "array",
+          "items": {"type": "string", "minLength": 1, "maxLength": 500}
+        },
+        "next_action": {"type": "string", "minLength": 1, "maxLength": 2000},
+        "git_recovery": {
+          "type": "array",
+          "items": {"$ref": "#/$defs/gitRecovery"}
+        }
+      }
+    },
+    "gitRecovery": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["repository", "ref", "commit", "tree"],
+      "properties": {
+        "repository": {"type": "string", "pattern": "^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$"},
+        "ref": {"type": "string", "minLength": 1, "maxLength": 200},
+        "commit": {"type": "string", "pattern": "^[0-9a-f]{40}$"},
+        "tree": {"type": "string", "pattern": "^[0-9a-f]{40}$"}
+      }
+    },
+    "target": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["node_id", "profile_id", "owner_id", "executor_handle", "preflight"],
+      "properties": {
+        "node_id": {"type": "string", "pattern": "^[a-z0-9][a-z0-9-]{0,62}$"},
+        "profile_id": {"type": "string", "pattern": "^[a-z0-9][a-z0-9-]{0,62}$"},
+        "owner_id": {"type": "string", "minLength": 1, "maxLength": 128},
+        "executor_handle": {"type": ["string", "null"], "maxLength": 128},
+        "preflight": {
+          "anyOf": [
+            {"type": "null"},
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["checked_at", "node_checked_at", "control_commit", "workspace_fingerprint", "environment_fingerprint", "repository_fingerprint"],
+              "properties": {
+                "checked_at": {"type": "string", "format": "date-time"},
+                "node_checked_at": {"type": "string", "format": "date-time"},
+                "control_commit": {"type": "string", "pattern": "^[0-9a-f]{40}$"},
+                "workspace_fingerprint": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+                "environment_fingerprint": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+                "repository_fingerprint": {"type": "string", "pattern": "^[0-9a-f]{64}$"}
+              }
+            }
+          ]
+        }
+      }
+    },
+    "transition": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["state", "recorded_at", "actor"],
+      "properties": {
+        "state": {"type": "string", "minLength": 1},
+        "recorded_at": {"type": "string", "format": "date-time"},
+        "actor": {"type": "string", "minLength": 1, "maxLength": 128}
+      }
+    }
+  }
+}

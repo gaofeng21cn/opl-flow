@@ -658,6 +658,40 @@
       }
     }
   },
+  "task_owner_migration_policy": {
+    "authority": "beads_dolt",
+    "objective_identity": "bead_id",
+    "executor_handle": "replaceable_codex_task",
+    "native_handoff": "optional_non_authoritative",
+    "workspace_authority": "private_instance_profile",
+    "workspace_admission": [
+      "declared_environment_current",
+      "fresh_fetch",
+      "fresh_github_head",
+      "clean_default_branch",
+      "no_active_task_worktree",
+      "current_instance_control_receipt"
+    ],
+    "state_sequence": [
+      "source_checkpointed",
+      "target_preflighted",
+      "target_acknowledged",
+      "target_verified",
+      "completed"
+    ],
+    "claim_mutations": [
+      "opl_owner_claim_generation",
+      "execution_owner",
+      "execution_thread",
+      "execution_node"
+    ],
+    "post_claim_rollback": "reverse_migration_only",
+    "dolt_unknown_result": "read_only_reconcile_no_retry",
+    "automation_cutover": [
+      "old_disabled_readback",
+      "new_active_readback"
+    ]
+  },
   "codex_model_policy": {
     "authority": "opl-flow",
     "mode_default": "auto",

@@ -26,6 +26,8 @@ REQUIRED_FILES = (
     ".codex-plugin/plugin.json",
     "contracts/workflow-policy.json",
     "contracts/workflow-policy.schema.json",
+    "contracts/fleet-workspace-profile.schema.json",
+    "contracts/task-owner-migration.schema.json",
     "contracts/worktree-ownership-ledger.schema.json",
     "README.md",
     "docs/compatibility.md",
@@ -69,6 +71,8 @@ REQUIRED_FILES = (
     "scripts/opl_fleet_parts/fleet_lease.py",
     "scripts/opl_fleet_parts/fleet_reconcile.py",
     "scripts/opl_fleet_parts/fleet_runner.py",
+    "scripts/opl_fleet_parts/fleet_workspace.py",
+    "scripts/opl_task_owner.py",
     "scripts/fleet_inventory.py",
     "profile/manifest.json",
     "profile/modules/01-user-preferences.md",
@@ -82,6 +86,7 @@ CORE_TEST_MODULES = (
     "tests/test_worktree_lifecycle.py",
     "tests/test_opl_workflow.py",
     "tests/test_opl_fleet.py",
+    "tests/test_task_owner_migration.py",
     "tests/test_fleet_inventory.py",
     "tests/test_github_ssot_patrol.py",
     "tests/test_package_descriptor.py",
@@ -136,7 +141,8 @@ def check_workflow_policy(repo_root: Path) -> list[str]:
     required_sections = (
         "provides", "requires", "experience_baseline", "compatible_optional",
         "capability_bundles",
-        "conflicts", "retires", "ledger_supervisor_policy", "codex_model_policy", "migration_policy",
+        "conflicts", "retires", "ledger_supervisor_policy", "task_owner_migration_policy",
+        "codex_model_policy", "migration_policy",
         "historical_fingerprints",
     )
     for section in required_sections:
@@ -276,6 +282,39 @@ def check_workflow_policy(repo_root: Path) -> list[str]:
         errors.append(
             "workflow policy experience baseline must declare bundle, lifecycle, distribution, and readiness metadata"
         )
+    expected_owner_migration = {
+        "authority": "beads_dolt",
+        "objective_identity": "bead_id",
+        "executor_handle": "replaceable_codex_task",
+        "native_handoff": "optional_non_authoritative",
+        "workspace_authority": "private_instance_profile",
+        "workspace_admission": [
+            "declared_environment_current",
+            "fresh_fetch",
+            "fresh_github_head",
+            "clean_default_branch",
+            "no_active_task_worktree",
+            "current_instance_control_receipt",
+        ],
+        "state_sequence": [
+            "source_checkpointed",
+            "target_preflighted",
+            "target_acknowledged",
+            "target_verified",
+            "completed",
+        ],
+        "claim_mutations": [
+            "opl_owner_claim_generation",
+            "execution_owner",
+            "execution_thread",
+            "execution_node",
+        ],
+        "post_claim_rollback": "reverse_migration_only",
+        "dolt_unknown_result": "read_only_reconcile_no_retry",
+        "automation_cutover": ["old_disabled_readback", "new_active_readback"],
+    }
+    if policy.get("task_owner_migration_policy") != expected_owner_migration:
+        errors.append("workflow policy task owner migration contract must remain fail-closed")
     supervisor = policy.get("ledger_supervisor_policy", {})
     expected_incremental_fast_path = {
         "phase_order": ["change_detection", "selective_expansion"],

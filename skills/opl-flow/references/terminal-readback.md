@@ -24,6 +24,12 @@ After any Flow mutation, read the owner-authoritative surfaces that apply:
    back the same Dashboard, Bead, and heartbeat IDs.
 8. For Fleet: explicit Instance root, fresh node admission, repository
    currentness, lease/runner receipt, and sanitized private-state boundary.
+9. For execution-owner migration: unchanged Bead ID and instruction
+   fingerprint; fresh workspace `claim-check`; fresh Fleet `doctor`; one
+   incremented `opl_owner_claim`; matching `execution_owner`,
+   `execution_thread`, and `execution_node`; source checkpoint recovery refs;
+   Dolt push/pull parity; target executor acknowledgement; and source
+   release. Native handoff or a newly created task alone is not migration.
 
 Report missing external authorization or a required new session as remaining
 work. Do not present a dry-run, test, candidate branch, merge packet, stale

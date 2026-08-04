@@ -34,7 +34,7 @@ Ledger, Fleet, package, and App contract into an ordinary baseline task.
 | `update` (`$opl-flow update`) | Update Flow and configured components from their owners, migrate known legacy surfaces, and verify effective discovery. | `references/setup-update.md`, `references/package-lifecycle.md` |
 | `start` (`$opl-flow start`) | Idempotently bind the owner's Ledger Dashboard, Bead, Linear projection, and hourly `OPL Flow Supervisor`. | `references/ledger-start.md` |
 | `supervise` (`$opl-flow supervise`) | Run one bounded episode of the existing Ledger Supervisor without duplicating its reusable policy in the Automation prompt. | `references/ledger-supervisor.md`, then `references/terminal-readback.md` |
-| `fleet` (`$opl-flow fleet`) | Configure, inspect, admit, select, or dispatch across Instance-backed machines. | Use `$opl-fleet`; load its Skill instead of expanding Fleet here. |
+| `fleet` (`$opl-flow fleet`) | Configure, inspect, admit, select, dispatch, or move a Beads execution owner across Instance-backed machines. | Use `$opl-fleet`; load its Skill instead of expanding Fleet here. |
 
 Natural-language examples:
 
@@ -43,6 +43,7 @@ Natural-language examples:
 - "创建 OPL 总账并每小时监督" -> `start`.
 - An existing Supervisor heartbeat -> `supervise`.
 - "配置或使用 OPL Fleet" -> `fleet`.
+- "把这个任务换到另一台机器继续" -> `fleet`; migrate the Bead owner, not the chat transcript.
 
 ## Shared Invariants
 
@@ -154,7 +155,9 @@ second policy source.
 
 Delegate to `$opl-fleet`. The public engine consumes an explicit private
 Instance root; it never owns topology, credentials, personal policy, or node
-runtime state.
+runtime state. Cross-machine continuity is a Beads execution-owner migration:
+the target may use a newly created Codex task after fresh workspace and node
+admission. Native task handoff is optional and never replaces the Ledger claim.
 
 ## Finish
 
