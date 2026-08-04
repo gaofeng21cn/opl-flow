@@ -25,8 +25,10 @@ layer**. It keeps Codex model-native:
   coordination, and recovery.
 - **OPL Ledger** uses Beads only as the durable task ledger. It does not replace
   Codex scheduling or dispatch agents.
-- **OPL Fleet** supplies optional multi-machine enrollment, capability
-  reconciliation, repository currentness, admission, and dispatch.
+- **OPL Fleet** is the optional Agent-native distributed execution and
+  task-continuity control plane. It supplies multi-machine enrollment,
+  compatible workspace currentness, admission, protected execution, and
+  owner-safe continuation while the Ledger remains task truth.
 - Linear is the complete human-readable projection of the user Ledger. Codex
   maintains every Bead through the official Linear Connector with a narrow
   field set; Linear is not the execution or ledger authority.
@@ -38,7 +40,7 @@ layer**. It keeps Codex model-native:
 | --- | --- | --- |
 | **OPL Flow** | `gaofeng21cn/opl-flow` | Single public product, Codex Plugin/Profile, model and experience-baseline policy, six-action router, core workflow Skills, Ledger adapter, Git lifecycle, and Fleet engine |
 | **OPL Ledger** | OPL Flow module backed by Beads | Dynamic Program, slice, dependency, owner, task, checkpoint, and remaining state |
-| **OPL Fleet** | OPL Flow module | Multi-machine join, capability parity, repository currentness, lease/admission, and optional dispatch |
+| **OPL Fleet** | OPL Flow module | Agent-native distributed execution and task continuity: multi-machine join, compatible workspace currentness, lease/admission, execution adapters, and owner-safe continuation |
 | **OPL Skills** | `gaofeng21cn/opl-skills` | Optional, independently installable public enhancements |
 | **OPL Instance: `<owner>`** | one private repository per owner; for this owner `gaofeng21cn/opl-instance-gaofeng` | Private Ledger data, Fleet nodes/policy, repository governance, Operations Registry, private overlays, personal Skills, and sanitized receipts |
 | **OPL Personal Skills** | `skills/` inside the owner's OPL Instance | Private or personal Skill source; not a separate user-facing product |
@@ -48,6 +50,20 @@ completed on 2026-07-31. The old names remain permanently reserved and are not
 canonical URLs. This physical rename does not prove authority consolidation:
 generic Fleet code, private instance data, contracts, installed routes, and
 live nodes move only through the remaining migration and readback gates below.
+
+The dedicated [OPL Fleet architecture SSOT](./opl-fleet-architecture.md) owns
+Fleet's positioning, task model, authority boundaries, design assessment, and
+capability roadmap. This document owns how Fleet composes with the rest of OPL
+Flow.
+
+The product framing is Slurm-class job control for HPC, Kubernetes-class
+container control for cloud workloads, and Agent-native control for durable
+Agent identity, state, context boundary, permission, budget, dynamic task graph,
+and lifecycle. Existing Agent frameworks and execution engines remain valid
+adapters. A control Agent may translate natural-language intent into a
+Ledger-owned graph and supervise worker Agents, but deterministic contracts
+continue to guard identity, authority, budgets, leases, checkpoints, and
+terminal readback.
 
 ## Authority Layout
 
@@ -251,6 +267,12 @@ Flow workflow entry remains the public user-facing surface.
 
 ### Task-Capacity Dispatch
 
+Fleet complements rather than replaces HPC, cloud, container, CI, and workflow
+schedulers. Those systems may remain execution adapters. Fleet owns the
+Agent-specific continuity around a distributed attempt: durable objective
+binding, compatible workspace admission, protected ownership, checkpoint and
+unknown-result semantics, and task-level terminal readback.
+
 The first supported Flow/Fleet dispatch contract is deliberately small:
 
 ```text
@@ -290,6 +312,43 @@ stdout/stderr, exit code, and timing directly to the controller without storing
 task output in Git, the Instance, or the lease database. Unknown SSH transport
 state retains the lease and requires read-only reconciliation before retry.
 Known results require an explicit owner release.
+
+### Task Identity And Cross-Machine Continuity
+
+Beads/Dolt is the objective and current execution-owner SSOT. GitHub is the
+code-currentness, recoverable-checkpoint, and delivery-evidence authority.
+Fleet owns compatible workspace currentness, node admission, protected
+capacity, and adapter-bound execution. A Codex task or thread is a replaceable
+executor handle; native conversation handoff is an optional shortcut, not the
+continuity contract.
+
+Declarative workspace bootstrap/currentness and compare-and-swap owner
+migration are active source work. The target private Instance profile declares
+node IDs, a workspace root, an environment contract, an explicit repository
+allowlist, and Automation placement. Admission fails closed for dirty, ahead,
+diverged, detached, task-branch, remote-mismatch, active-worktree, or stale
+control states. Missing repositories are staged and cloned from their official
+owners; existing repositories use clean fast-forward-only synchronization.
+
+The target owner migration transaction is:
+
+```text
+prepare source checkpoint -> target workspace preflight -> atomic target claim
+  -> target verification -> source release/completion
+```
+
+The claim is the only owner mutation and binds the execution owner, replaceable
+thread handle, node, generation, workspace fingerprint, and checkpoint to the
+same Ledger objective. After claim, recovery uses a reverse migration rather
+than automatic rollback. Every Ledger mutation follows pull, exact read, one
+metadata mutation, push, then pull/readback; an unknown push result permits
+read-only reconciliation, not another write attempt. Ordinary task migration
+does not move Automations. A singleton Supervisor moves only after old-disabled
+and new-active owner readbacks prevent dual heartbeat.
+
+This target remains unimplemented from the public user's perspective until the
+workspace and owner-migration contracts, source, tests, canonical integration,
+and real cross-machine readback have landed.
 
 This keeps Codex's native task and agent coordination in charge. Flow routes a
 task with declared resource needs; Fleet admits capacity; the selected

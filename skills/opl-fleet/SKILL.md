@@ -1,13 +1,28 @@
 ---
 name: "opl-fleet"
-description: "Use when configuring, inspecting, admitting, selecting, leasing, synchronizing, or dispatching work across OPL Fleet machines backed by a private OPL Instance."
+description: "Use when configuring, inspecting, admitting, selecting, leasing, synchronizing, dispatching, recovering, or continuing Agent work across OPL Fleet machines backed by a private OPL Instance."
 ---
 
 # OPL Fleet
 
-OPL Fleet is Flow's reusable multi-machine engine. It consumes an explicit
-private OPL Instance; it does not own node topology, credentials, personal
+OPL Fleet is Flow's Agent-native distributed execution and task-continuity
+engine for heterogeneous machines. It consumes an explicit private OPL
+Instance and reuses SSH, GitHub Runner, native Codex connections, HPC, cloud,
+container, or workflow systems as execution adapters where appropriate.
+
+The durable objective and current execution owner remain in Beads/Dolt.
+GitHub owns code currentness, recoverable checkpoints, and delivery evidence.
+Fleet owns workspace currentness, node admission, protected capacity, and the
+adapter-bound execution attempt. A Codex task or thread is a replaceable
+executor handle; Fleet does not own node topology, credentials, personal
 policy, private assets, sessions, logs, or runtime databases.
+
+A control Agent may turn natural-language intent into a Ledger-owned dynamic
+task graph and supervise worker Agents through Fleet. Fleet manages versioned
+context references and recovery boundaries, never raw conversation storage.
+Deterministic contracts guard identity, scoped permission, time/token/cost and
+resource budgets, leases, checkpoints, and terminal readback; "Agent manages
+Agent" never grants unconstrained autonomy.
 
 ## Route
 
@@ -35,6 +50,11 @@ Choose the narrow command family:
 
 Read `python3 scripts/opl_fleet.py <command> --help` for exact options rather
 than guessing flags.
+
+Workspace bootstrap/currentness and execution-owner migration are active source
+work, not current public behavior. Do not invent their commands or report them
+as available until they appear in current `--help` output and pass canonical
+source plus real cross-machine readback.
 
 ## Dispatch
 
@@ -122,8 +142,10 @@ owner release.
    another node.
 5. Each node installs and updates components from their current owners and may
    run a different compatible version.
-6. Keep Fleet capacity separate from task truth. Beads/Dolt owns durable work;
-   GitHub owns delivery evidence; Fleet owns only execution admission/capacity.
+6. Keep Fleet attempts and capacity separate from task truth. Beads/Dolt owns
+   the objective and current execution owner; GitHub owns code currentness,
+   checkpoints, and delivery evidence; Fleet owns workspace currentness,
+   execution admission/capacity, and adapter invocation.
 7. Record sanitized receipts in the Instance. Never commit secrets, private
    addresses, exhaustive raw inventory, logs, caches, or runtime databases.
 8. Never report a plan, lease, online runner, or dispatch receipt as proof that

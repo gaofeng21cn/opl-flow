@@ -38,7 +38,8 @@ The second problem introduces familiar questions:
 layer.** It provides the small user-level Profile, model policy, capability
 intent, and core workflow Skills that establish the baseline. When work needs
 durability or capacity, the same Flow adds a Beads-backed Ledger, a complete
-narrow-field Linear projection, and an optional multi-machine Fleet engine.
+narrow-field Linear projection, and an optional Agent-native distributed
+execution and task-continuity control plane.
 
 Flow remains optional. Its absence must not block OPL App, OPL Base, plain
 Codex, another Package, or domain work. A missing recommended baseline
@@ -50,7 +51,8 @@ inoperable.
 **Codex does the work. OPL Flow establishes the usage baseline and organizes
 how work continues. OPL Ledger is the owner's complete human work ledger and
 keeps durable task truth. Linear makes that truth easy for people to read and
-update. OPL Fleet provides execution capacity and observability.**
+update. OPL Fleet admits, dispatches, observes, and continues Agent tasks across
+heterogeneous machines.**
 
 `OPL Ledger` names the ledger, not its supervisor, and it is not limited to OPL
 source development. The one local hourly supervisor is named
@@ -68,7 +70,7 @@ the complete stack without changing the underlying development model.
 | Several active tasks | Ownership, recovery, fresh-SSOT integration, and closeout conventions | Codex native multi-agent and conversation coordination |
 | Long-lived work | OPL Ledger initialization and idempotent reconciliation | Beads owns the database, dependency graph, claims, and Dolt sync |
 | Human visibility | Complete Linear projection of every user-ledger task with a narrow field set | Linear is a portal, not task truth or an agent scheduler |
-| Several machines | A reusable Fleet engine for status, admission, repository currentness, and task-capacity dispatch | Each machine installs from component owners; a private Instance owns topology and policy |
+| Several machines | Agent-native distributed execution, workspace currentness, owner-safe task continuation, and task-capacity dispatch | Each machine installs from component owners; a private Instance owns topology and policy; the Ledger remains task truth |
 
 This is why OPL Flow is no longer only an OPL App companion module. It remains
 an optional default workflow Profile for the App, while also standing on its
@@ -101,7 +103,7 @@ flowchart LR
 | **OPL Flow Supervisor** | One local hourly supervision loop for all registered Linear projects, Dashboard work, and Ledger reconciliation |
 | **GitHub** | Branch, PR, CI, merge, and release evidence authority |
 | **Linear** | One or more registered human-readable projects covering every ledger task, limited to intent, hierarchy, priority, due, status, short blocker/result, and links |
-| **OPL Fleet** | Optional machine execution and admission using fresh node evidence, plus the Ambient Ops observability extension |
+| **OPL Fleet** | Agent-native distributed execution and task continuity using fresh node, workspace, owner, and capacity evidence, plus the read-only Ambient Ops observability extension |
 | **OPL Instance** | Private ledger data, Fleet topology, policy, assets, and personal overlays |
 
 Flow does not become a central planner. It does not decide domain truth,
@@ -215,6 +217,25 @@ use `bd linear sync` as the onboarding or routine reconciliation path.
 
 ### Optional OPL Fleet
 
+OPL Fleet is an open, general Agent-native distributed execution and continuity
+control plane, initially optimized for a person's or small team's heterogeneous
+machines. The useful era framing is Slurm-class job scheduling for HPC,
+Kubernetes-class container orchestration for cloud workloads, and an
+Agent-native control plane for durable Agent identity, state, context boundary,
+permissions, budgets, dynamic task graphs, and lifecycle. This does not deny
+existing Agent frameworks, durable workflows, distributed engines, or managed
+runtimes; it identifies the common control layer that remains fragmented and
+has not yet become broadly adopted.
+
+Fleet complements rather than replaces those systems. They may execute
+commands, containers, jobs, or DAGs, while Fleet binds a durable objective,
+replaceable Agent executor, compatible workspace, protected authority and
+budget, checkpoint, and terminal evidence across machines. A control Agent can
+turn natural-language intent into a Ledger-owned task graph and supervise
+worker Agents, while deterministic Fleet contracts guard identity, permission,
+budget, lease, and lifecycle. The complete positioning and target boundary are the
+[Fleet architecture SSOT](docs/opl-fleet-architecture.md).
+
 The generic Fleet engine lives in this public repository. A private OPL
 Instance supplies node IDs, capabilities, scheduling policy, runner bindings,
 and sanitized receipts. Ambient Ops is the Fleet observability extension inside
@@ -222,7 +243,8 @@ the same OPL Ledger and Supervisor, not a second heartbeat. Nodes update
 software from each component's official owner channel instead of copying the
 controller's bytes or version.
 
-Flow uses one dispatch contract rather than a second scheduler:
+Flow reuses one dispatch contract rather than creating a second task database
+or replacing an execution scheduler:
 
 ```text
 task resource requirements -> dispatch plan -> fresh doctor -> lease CAS
@@ -246,6 +268,14 @@ adapter, platform capabilities, memory, CUDA or Metal API, GPU memory/model,
 priority, interruptibility, and TTL. Fleet evaluates that intent against fresh
 inventory; it does not encode a permanent machine preference or create another
 task database.
+
+The durable objective and current execution owner remain in Beads/Dolt. GitHub
+owns code currentness, recoverable checkpoints, and delivery evidence. A Codex
+task or thread is a replaceable executor handle, so cross-machine continuation
+does not require physically moving the original conversation. Declarative
+workspace bootstrap/currentness and compare-and-swap execution-owner migration
+are active source work; they are not current public behavior until their
+contracts, source, tests, canonical integration, and real node readback land.
 
 ### Git And Worktree Continuity
 
@@ -281,8 +311,8 @@ OPL Flow `0.1.35` bundles seven core Skills with the Plugin:
 - `develop-and-deliver` for systematic implementation and delivery;
 - `github-ssot-patrol` for SSOT-first GitHub CI, open PR, and open issue
   patrols with deterministic read-only snapshots and closeout;
-- `opl-fleet` for Instance-backed node admission, leases, repository
-  currentness, and dispatch;
+- `opl-fleet` for Agent-native multi-machine workspace currentness, node
+  admission, protected execution, task continuity, and dispatch;
 - `task-mode-gate` for actual release, deployment, migration, and destructive
   mutation boundaries;
 - `recover-codex-tasks` for evidence-based recovery of interrupted Codex work.

@@ -15,6 +15,7 @@ owner, purpose, state, and machine boundary.
 
 | Doc | Role | Boundary |
 | --- | --- | --- |
+| [OPL Fleet product and architecture](./opl-fleet-architecture.md) | Agent-native 分布式执行与任务连续性的定位、authority、设计评估和能力 roadmap SSOT | Target/active work；未落入 current source/runtime 的能力不视为已实现 |
 | [Reusable development workflow architecture](./reusable-workflow-architecture.md) | OPL Flow、Ledger、Fleet、Skills、私人 Instance 的产品命名、authority、自动化入门与迁移 SSOT | Target/planned；不替代当前 contracts/source/runtime readback |
 | [Fleet Agent and Cockpit architecture](./fleet-agent-cockpit-architecture.md) | Node Agent、Telemetry Gateway、Cockpit、Controller 的产品词汇、authority、兼容模式和 telemetry protocol SSOT | `contracts/fleet-telemetry-protocol.json`、当前 source 与 fresh runtime readback 才证明生效 |
 | [Composition architecture](./capability-governance.md) | Flow 仓唯一组合架构 SSOT：Package/carrier/executor、presence-only、GHCR、Official Profile 与 personalization safety | Target/planned；当前机器行为仍归 contracts/source/platform readback |
@@ -31,7 +32,7 @@ of creating parallel documents with duplicate prose.
 | --- | --- | --- |
 | Project positioning (`docs/project.md`) | Root `README.md`, especially `Public Role Boundary` | The repository has one small product/profile scope and no separate project portfolio. |
 | Active status and plan | Contracts, source, tests, Git history, and fresh runtime readback | A prose status snapshot would duplicate faster-moving authorities. |
-| Architecture boundary (`docs/architecture.md`) | [Reusable workflow architecture](./reusable-workflow-architecture.md) owns the system/repository boundary; [capability-governance.md](./capability-governance.md) owns Package/carrier/executor composition | The scopes are complementary and must not restate each other's policy. |
+| Architecture boundary (`docs/architecture.md`) | [Reusable workflow architecture](./reusable-workflow-architecture.md) owns the system/repository boundary; [OPL Fleet product and architecture](./opl-fleet-architecture.md) owns Fleet positioning and task-continuity boundaries; [capability-governance.md](./capability-governance.md) owns Package/carrier/executor composition | The scopes are complementary and must not restate each other's policy. |
 | Hard invariants (`docs/invariants.md`) | Root `AGENTS.md` for target anti-regression; `skills/opl-flow/SKILL.md` for operator route; contracts/source/tests for current behavior | Human-readable target rules cannot override transitional machine truth or prove migration. |
 | Decisions (`docs/decisions.md`) | [Composition architecture](./capability-governance.md) for current target and Git history for superseded context | No duplicate active decision ledger is needed in this small repo. |
 

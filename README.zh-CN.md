@@ -31,14 +31,14 @@ Codex 已经能够推理、编程、调用工具并协调多个 Agent。OPL Flow
 - 面向日常开发和并发协作的核心 Skill；
 - 以 Beads 为底层的持久 OPL 总账；
 - 可选的 Linear 人类门户；
-- 可选的多机 Fleet 引擎；
+- 可选的 Agent 原生分布式执行与任务连续性 Fleet 控制面；
 - 并行 Git 工作的恢复、合并与清理工具。
 
 一句话概括：
 
 > **Codex 负责执行，OPL Flow 负责保证使用下限并让工作持续有序；OPL 总账是当前
 > owner/Instance 的完整人类工作总账并保存任务真相，Linear 方便人查看和录入，
-> OPL Fleet 提供执行算力与可观测性。**
+> OPL Fleet 让 Agent 任务可以在异构机器间准入、投放、观测和连续执行。**
 
 `OPL Ledger` 指总账本身，不是监督器，也不限于 OPL 源码开发。一个本机、每小时运行的
 `OPL Flow Supervisor` 可以监督一个或多个已登记 Linear Projects。
@@ -73,7 +73,7 @@ flowchart LR
 | **OPL Flow Supervisor** | 用唯一每小时 Heartbeat 监督全部已登记 Linear Projects、Dashboard 工作与总账对账 | 取代总账或创建多个并行监督循环 |
 | **GitHub** | 保存分支、PR、CI、合并和发布证据 | 成为任务总账或机器调度器 |
 | **Linear** | 以一个或多个已登记 Project 完整展示所有用户总账任务，但仅保留意图、层级、优先级、到期、状态、简短阻断/结果和链接 | 成为第二套总账或执行调度器 |
-| **OPL Fleet** | 节点检查、任务准入、仓库更新、可选分发和 Ambient Ops 可观测性扩展 | 在机器之间复制凭据、会话或软件文件 |
+| **OPL Fleet** | 基于节点、workspace、owner 与容量 fresh evidence 的 Agent 原生分布式执行和任务连续性，以及只读 Ambient Ops 可观测性扩展 | 另建任务真相源，或在机器之间复制凭据、会话和软件文件 |
 | **OPL Instance** | 某个个人或组织的私人总账、机器、策略、资产和个性化配置 | 承载通用公开产品代码 |
 
 这些模块可以逐层启用。Linear、Fleet 或私人 Instance 未配置时，OPL Flow 的
@@ -116,7 +116,8 @@ OPL Flow 和 OPL Skills 不是两套相互竞争的工作流，而是“核心�
 - `develop-and-deliver`：系统化开发、验证与交付；
 - `github-ssot-patrol`：基于最新 SSOT 的 GitHub CI、open PR 与 open issue
   巡检，提供确定性的只读快照与收口；
-- `opl-fleet`：私人 Instance 支撑的节点准入、租约、仓库 currentness 和分发；
+- `opl-fleet`：私人 Instance 支撑的 Agent 原生多机 workspace currentness、节点准入、
+  受保护执行、任务连续性和分发；
 - `task-mode-gate`：真实发布、部署、迁移和破坏性写入边界；
 - `recover-codex-tasks`：基于证据恢复中断或缺失的 Codex 任务。
 
@@ -290,8 +291,25 @@ Skill 会完成能够自动完成的步骤，只在 GitHub、Linear 等外部服
 
 ## 多机 Fleet 的原则
 
+OPL Fleet 是开放通用的 Agent 原生分布式执行与连续性控制面，当前首先服务个人或
+小团队的异构设备。可以用一个简化的时代框架理解：HPC 时代以 Slurm 类系统管理作业
+和算力，云计算时代以 Kubernetes 类系统编排容器与期望状态，Agent 时代则需要统一
+管理 Agent 的身份、状态、上下文边界、权限、预算、动态任务图和生命周期。
+
+这并不否定已经存在的 Agent 框架、耐久工作流、分布式执行引擎和托管运行时，而是指出
+这些能力仍然分散，尚未形成被广泛采用的开放通用 Agent 原生控制平面。Fleet 不替代
+Slurm、Kubernetes、Ray、云批处理、CI 或工作流引擎；它们继续作为命令、容器、作业或
+DAG 的执行后端。Fleet 补齐 Agent 任务跨机器所需的稳定 objective、唯一 execution
+owner、可复现 Agent/workspace 基线、受限权限与预算、checkpoint、未知结果恢复和任务级
+终态证据。
+
+“Agent 管 Agent”指控制 Agent 把人类自然语言意图变成 Ledger 持有的动态任务图，并监督
+worker Agent；Fleet 的确定性合同继续守住身份、权限、预算、租约和生命周期，不代表无约束
+自治。完整定位与目标边界见
+[Fleet 架构 SSOT](docs/opl-fleet-architecture.md)。
+
 OPL Flow 提供通用 Fleet 引擎，私人 OPL Instance 保存节点名称、能力、调度策略、
-执行节点绑定和脱敏回执。
+workspace profile、执行节点绑定和脱敏回执。
 
 - 每台机器从软件和 Skill 的官方来源自行安装、升级；
 - 版本尽量更新到各平台最新兼容版本，而不是照抄主控机器的旧版本；
@@ -300,7 +318,8 @@ OPL Flow 提供通用 Fleet 引擎，私人 OPL Instance 保存节点名称、�
 - 分发前使用实时检查判断电源、负载、磁盘、占用和任务所需能力；
 - 仓库只做安全的快进更新，脏分支、分叉分支和任务分支留给原任务处理。
 
-Flow 通过一套统一的分发契约连接任务和机器，不再另建调度系统：
+Flow 通过一套统一的分发契约连接任务和机器，不再建立第二套任务数据库，也不重写
+已有执行调度系统：
 
 ```text
 任务资源需求 -> 分发规划 -> 实时 doctor -> 租约 CAS
@@ -344,6 +363,14 @@ python3 scripts/opl_fleet.py --instance <opl-instance> dispatch release <dispatc
 内存、CUDA 或 Metal、最低显存、显卡型号、优先级、是否可抢占和租约时长。Fleet 只把
 这些条件与实时库存匹配，不在总账里固定偏好机器，也不建立第二套任务数据库。
 
+任务的稳定 identity 和当前 execution owner 始终由 Beads/Dolt 持有；GitHub 持有代码
+currentness、可恢复 checkpoint 和交付证据；Codex task/thread 只是可替换的 executor
+handle。因此跨机迁移不要求物理搬运原对话，而是源端冻结写入并发布 checkpoint，目标端
+fresh 验证 workspace/Git 后以 CAS 认领同一个 objective，再由新对话继续执行。
+声明式 workspace bootstrap/currentness 与 execution-owner migration 正在独立源码 lane
+实现；在 contracts、source、tests、canonical integration 和真实跨机回读闭合前，仍是
+目标能力，不是已交付的当前行为。
+
 ### 动态加载，而不是全部预加载
 
 `opl-flow` 是稳定的主路由 Skill，但不是把所有能力一次性装入当前上下文：
@@ -353,7 +380,8 @@ python3 scripts/opl_fleet.py --instance <opl-instance> dispatch release <dispatc
    调用并发协调、开发交付、Fleet、门禁或恢复，不会让每个任务都加载全部说明；
 3. 只有任务需要时，才调用已经安装的可选专业 Skill；未安装时由 Codex 直接完成同类
    判断，不因为可选增强缺失而阻断；
-4. 只有任务确实需要远端平台、GPU、虚拟机、图形界面或批量容量时，才启用 Fleet。
+4. 只有任务确实需要跨机执行或迁移、远端平台、GPU、虚拟机、图形界面或批量容量时，
+   才启用 Fleet。
 
 Skill 的安装和升级仍由各自来源负责。安装或升级后如果需要刷新发现结果，重新开启
 一个 Codex 会话；不要把主控机的 Skill 文件复制到其他节点。这样同一套 OPL Flow 可以

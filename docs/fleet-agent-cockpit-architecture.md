@@ -4,7 +4,13 @@ Owner: OPL Flow
 State: active product and protocol SSOT
 Machine authority: `contracts/fleet-telemetry-protocol.json`, current source, and fresh runtime readback
 
+Core Fleet authority: [OPL Fleet product and architecture](./opl-fleet-architecture.md)
+
 ## Product Model
+
+This document owns Fleet's observation products and telemetry boundary. The
+core product positioning, task-continuity model, execution authority, and
+capability roadmap live in the Fleet architecture SSOT linked above.
 
 OPL Fleet is one control plane with deliberately separate observation products:
 
