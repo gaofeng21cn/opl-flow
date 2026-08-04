@@ -3346,6 +3346,10 @@ class WorkspaceProfileTests(unittest.TestCase):
                             "required": True,
                         }
                     ],
+                    "ledger": {
+                        "repository_directory": "project",
+                        "role": "maintainer",
+                    },
                     "automation_placements": [],
                 }
             },
@@ -3376,6 +3380,41 @@ class WorkspaceProfileTests(unittest.TestCase):
         payload["profiles"]["test-profile"]["repositories"][0]["directory"] = "../project"
         with self.assertRaisesRegex(fleet.FleetError, "repository directory"):
             fleet.validate_workspace_profiles(payload)
+
+    def test_workspace_profile_rejects_ledger_outside_repository_allowlist(self) -> None:
+        payload = self.profile_catalog()
+        payload["profiles"]["test-profile"]["ledger"][
+            "repository_directory"
+        ] = "another-repository"
+        with self.assertRaisesRegex(fleet.FleetError, "workspace ledger is invalid"):
+            fleet.validate_workspace_profiles(payload)
+
+    def test_ledger_readback_requires_role_permissions_pull_and_readability(self) -> None:
+        profile = self.profile_catalog()["profiles"]["test-profile"]
+        workspace_module = sys.modules["opl_fleet_parts"].fleet_workspace
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            repository = root / "project"
+            beads = repository / ".beads"
+            beads.mkdir(parents=True)
+            beads.chmod(0o700)
+            fleet.run(["git", "init", str(repository)])
+            git(repository, "config", "beads.role", "maintainer")
+            pull = subprocess.CompletedProcess(["bd", "dolt", "pull"], 0, "", "")
+            readable = subprocess.CompletedProcess(["bd", "list"], 0, "[]", "")
+            with (
+                mock.patch.object(workspace_module.shutil, "which", return_value="/usr/bin/bd"),
+                mock.patch.object(workspace_module, "run", side_effect=[pull, readable]),
+            ):
+                result = fleet.ledger_readback(
+                    profile,
+                    root=root,
+                    fresh_pull=True,
+                )
+
+        self.assertEqual(result["state"], "CURRENT")
+        self.assertTrue(result["fresh_pull"])
+        self.assertTrue(result["readable"])
 
     def test_workspace_sync_is_all_or_nothing_on_preflight_blocker(self) -> None:
         profile = self.profile_catalog()["profiles"]["test-profile"]
@@ -3410,7 +3449,10 @@ class WorkspaceProfileTests(unittest.TestCase):
             result = fleet.workspace_command("test-profile", "claim-check")
         self.assertTrue(result["claim_ready"])
         readback.assert_called_once_with(
-            "test-profile", fetch=True, fresh_github=True
+            "test-profile",
+            fetch=True,
+            fresh_github=True,
+            fresh_ledger=True,
         )
 
     def test_workspace_readback_rejects_missing_runtime_command(self) -> None:
@@ -3440,6 +3482,10 @@ class WorkspaceProfileTests(unittest.TestCase):
                 return_value={"runtime_requirements": {"commands": ["bd", "git"]}},
             ),
             patch_fleet("profile_environment_fingerprint", return_value="b" * 64),
+            patch_fleet(
+                "ledger_readback",
+                return_value={"state": "CURRENT", "fresh_pull": True},
+            ),
             mock.patch.object(workspace_module.shutil, "which", side_effect=[None, "/usr/bin/git"]),
         ):
             result = fleet.workspace_readback(

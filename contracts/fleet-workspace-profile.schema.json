@@ -26,6 +26,7 @@
         "workspace_root",
         "environment_contract",
         "repositories",
+        "ledger",
         "automation_placements"
       ],
       "properties": {
@@ -48,10 +49,23 @@
           "minItems": 1,
           "items": {"$ref": "#/$defs/repository"}
         },
+        "ledger": {"$ref": "#/$defs/ledger"},
         "automation_placements": {
           "type": "array",
           "items": {"$ref": "#/$defs/automation"}
         }
+      }
+    },
+    "ledger": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["repository_directory", "role"],
+      "properties": {
+        "repository_directory": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9_.-]+$"
+        },
+        "role": {"const": "maintainer"}
       }
     },
     "repository": {

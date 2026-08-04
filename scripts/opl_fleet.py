@@ -81,7 +81,7 @@ from opl_fleet_parts.fleet_workspace import (
     PROFILE_SCHEMA, PROFILE_PATH, canonical_json_digest, validate_workspace_profiles,
     workspace_profile_catalog, workspace_profile, profile_workspace_root,
     profile_environment_contract, profile_environment_fingerprint,
-    workspace_readback, sync_workspace,
+    ledger_readback, sync_ledger, workspace_readback, sync_workspace,
     workspace_command,
 )
 

@@ -72,6 +72,7 @@ def validate_workspace_profiles(payload: Any) -> dict[str, Any]:
             "workspace_root",
             "environment_contract",
             "repositories",
+            "ledger",
             "automation_placements",
         }:
             raise FleetError(f"workspace profile fields are not allowed: {profile_id}")
@@ -125,6 +126,19 @@ def validate_workspace_profiles(payload: Any) -> dict[str, Any]:
                 raise FleetError(f"workspace repository is invalid: {profile_id}/{slug}")
             seen_repositories.add(slug)
             seen_directories.add(directory)
+        ledger = profile["ledger"]
+        if not isinstance(ledger, dict) or set(ledger) != {
+            "repository_directory",
+            "role",
+        }:
+            raise FleetError(f"workspace ledger fields are invalid: {profile_id}")
+        ledger_directory = _relative_path(
+            ledger["repository_directory"],
+            "ledger repository directory",
+            single_component=True,
+        )
+        if ledger_directory not in seen_directories or ledger["role"] != "maintainer":
+            raise FleetError(f"workspace ledger is invalid: {profile_id}")
         placements = profile["automation_placements"]
         if not isinstance(placements, list):
             raise FleetError(f"workspace automation placements are invalid: {profile_id}")
@@ -300,11 +314,87 @@ def _repository_fingerprint(entries: list[dict[str, Any]]) -> str:
     )
 
 
+def ledger_readback(
+    profile: dict[str, Any],
+    *,
+    root: Path,
+    fresh_pull: bool,
+) -> dict[str, Any]:
+    ledger = profile["ledger"]
+    directory = str(ledger["repository_directory"])
+    repository = root / directory
+    result = {
+        "repository_directory": directory,
+        "role": ledger["role"],
+        "fresh_pull": False,
+        "readable": False,
+        "state": "ATTENTION",
+    }
+    beads = repository / ".beads"
+    if not repository.is_dir() or not beads.is_dir() or beads.is_symlink():
+        return result
+    if beads.stat().st_mode & 0o077:
+        return {**result, "state": "PERMISSIONS"}
+    role = git_value(repository, ["config", "--get", "beads.role"], check=False)
+    if role.returncode or role.stdout.strip() != ledger["role"]:
+        return {**result, "state": "ROLE_MISMATCH"}
+    bd = shutil.which("bd")
+    if not bd:
+        return {**result, "state": "TOOL_MISSING"}
+    if fresh_pull:
+        pulled = run([bd, "-C", str(repository), "dolt", "pull"], check=False)
+        if pulled.returncode:
+            return {**result, "state": "PULL_FAILED"}
+        result["fresh_pull"] = True
+    readable = run(
+        [bd, "--readonly", "-C", str(repository), "list", "--limit", "1", "--json"],
+        check=False,
+    )
+    if readable.returncode:
+        return {**result, "state": "UNREADABLE"}
+    try:
+        payload = json.loads(readable.stdout)
+    except json.JSONDecodeError:
+        return {**result, "state": "UNREADABLE"}
+    if not isinstance(payload, list):
+        return {**result, "state": "UNREADABLE"}
+    return {**result, "readable": True, "state": "CURRENT"}
+
+
+def sync_ledger(profile: dict[str, Any], *, root: Path) -> None:
+    ledger = profile["ledger"]
+    repository = root / str(ledger["repository_directory"])
+    beads = repository / ".beads"
+    if not repository.is_dir() or not beads.is_dir() or beads.is_symlink():
+        raise FleetError("workspace ledger repository is missing or unsafe")
+    beads.chmod(0o700)
+    configured = git_value(
+        repository,
+        ["config", "beads.role", str(ledger["role"])],
+        check=False,
+    )
+    if configured.returncode:
+        raise FleetError("workspace ledger role configuration failed")
+    bd = shutil.which("bd")
+    if not bd:
+        raise FleetError("workspace ledger requires bd")
+    bootstrapped = run(
+        [bd, "-C", str(repository), "bootstrap", "--yes"],
+        check=False,
+    )
+    if bootstrapped.returncode:
+        raise FleetError("workspace ledger bootstrap failed")
+    pulled = run([bd, "-C", str(repository), "dolt", "pull"], check=False)
+    if pulled.returncode:
+        raise FleetError("workspace ledger pull failed")
+
+
 def workspace_readback(
     profile_id: str,
     *,
     fetch: bool,
     fresh_github: bool,
+    fresh_ledger: bool = False,
 ) -> dict[str, Any]:
     profile = workspace_profile(profile_id)
     root = profile_workspace_root(profile)
@@ -330,6 +420,7 @@ def workspace_readback(
     missing_commands = sorted(
         command for command, available in commands.items() if not available
     )
+    ledger = ledger_readback(profile, root=root, fresh_pull=fresh_ledger)
     profile_fingerprint = canonical_json_digest(profile)
     environment_fingerprint = profile_environment_fingerprint(profile)
     return {
@@ -337,16 +428,25 @@ def workspace_readback(
         "profile_id": profile_id,
         "node_ids": profile["node_ids"],
         "observed_at": utc_now().isoformat().replace("+00:00", "Z"),
-        "state": "CURRENT" if not attention and not missing_commands else "ATTENTION",
+        "state": (
+            "CURRENT"
+            if not attention and not missing_commands and ledger["state"] == "CURRENT"
+            else "ATTENTION"
+        ),
         "profile_fingerprint": profile_fingerprint,
         "environment_fingerprint": environment_fingerprint,
         "repository_fingerprint": _repository_fingerprint(entries),
         "fresh_fetch": fetch,
         "fresh_github": fresh_github,
-        "attention_count": len(attention) + len(missing_commands),
+        "attention_count": (
+            len(attention)
+            + len(missing_commands)
+            + (0 if ledger["state"] == "CURRENT" else 1)
+        ),
         "required_commands": commands,
         "missing_commands": missing_commands,
         "repositories": entries,
+        "ledger": ledger,
         "automation_placements": profile["automation_placements"],
     }
 
@@ -426,7 +526,14 @@ def sync_workspace(profile_id: str) -> dict[str, Any]:
         if merged.returncode:
             raise FleetError(f"workspace fast-forward failed: {spec['repository']}")
 
-    after = workspace_readback(profile_id, fetch=False, fresh_github=True)
+    sync_ledger(profile, root=root)
+
+    after = workspace_readback(
+        profile_id,
+        fetch=False,
+        fresh_github=True,
+        fresh_ledger=True,
+    )
     result = {**after, "action": "sync", "applied": True, "before": before}
     atomic_json(fleet_common.STATE_ROOT / "workspaces" / f"{profile_id}.json", result)
     return result
@@ -448,7 +555,12 @@ def workspace_command(profile_id: str, action: str) -> dict[str, Any]:
     if action in {"bootstrap", "sync"}:
         return sync_workspace(profile_id)
     if action == "claim-check":
-        result = workspace_readback(profile_id, fetch=True, fresh_github=True)
+        result = workspace_readback(
+            profile_id,
+            fetch=True,
+            fresh_github=True,
+            fresh_ledger=True,
+        )
         return {
             **result,
             "claim_ready": result["state"] == "CURRENT",
