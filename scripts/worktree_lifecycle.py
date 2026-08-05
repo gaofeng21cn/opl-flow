@@ -475,7 +475,11 @@ def receipt_repo_root(
     path = Path(worktree)
     try:
         if not path.exists():
-            return declared_root
+            return (
+                declared_root
+                if declared_root is not None and declared_root.is_dir()
+                else None
+            )
         actual_root, _ = resolve_repo(path)
     except (LifecycleError, worktree_fleet_audit.FleetAuditError, OSError):
         return None

@@ -806,6 +806,25 @@ class WorktreeLifecycleTests(unittest.TestCase):
         self.assertFalse(result["ok"])
         self.assertEqual(result["stale_receipts"], [str(missing.resolve())])
 
+    def test_status_keeps_absent_declared_repo_as_stale_receipt(self) -> None:
+        self.register()
+        payload = json.loads(self.ledger.read_text())
+        missing_repo = Path(self.temp.name) / "retired-repo"
+        missing_lane = Path(self.temp.name) / "retired-repo-lane"
+        payload["entries"][0]["repo_root"] = str(missing_repo)
+        payload["entries"][0]["worktree"] = str(missing_lane)
+        self.ledger.write_text(json.dumps(payload), encoding="utf-8")
+
+        result = worktree_lifecycle.status(
+            self.ledger,
+            holders={},
+            holder_scan_available=True,
+        )
+
+        self.assertFalse(result["ok"])
+        self.assertEqual(result["repos"], [])
+        self.assertEqual(result["stale_receipts"], [str(missing_lane.resolve())])
+
     def test_close_refuses_dirty_or_unabsorbed_work(self) -> None:
         self.register()
         (self.lane / "dirty.txt").write_text("dirty\n", encoding="utf-8")
