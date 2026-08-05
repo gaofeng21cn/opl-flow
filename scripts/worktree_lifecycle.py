@@ -512,7 +512,16 @@ def status(
         receipts: dict[str, dict[str, Any]] = {}
         for worktree, receipt in all_receipts.items():
             receipt_root = receipt_repo_root(worktree, receipt)
-            if receipt_root is None or receipt_root in roots:
+            declared = receipt.get("repo_root")
+            declared_root = (
+                Path(declared).expanduser().resolve()
+                if isinstance(declared, str) and declared.strip()
+                else None
+            )
+            if receipt_root in roots or (
+                receipt_root is None
+                and (declared_root is None or declared_root in roots)
+            ):
                 receipts[worktree] = receipt
     if not roots:
         return {
