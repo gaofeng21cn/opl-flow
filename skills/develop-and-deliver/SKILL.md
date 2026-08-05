@@ -81,6 +81,31 @@ after that proof.
 3. Use the repository's existing tools, abstractions, commands, and validation
    lanes. Add a new abstraction only when the current task proves it necessary.
 
+## Replacement And Refactor Cutovers
+
+For a legacy replacement or large refactor, prefer a successor-first controlled
+cutover when the new path can be validated independently and the migration risk
+is recoverable:
+
+1. Prove the smallest real vertical path from an actual caller through the
+   successor to owner-authoritative readback. Preserve data, permissions, and a
+   concrete rollback route.
+2. Switch real callers to the successor once that path passes. Do not make every
+   legacy field or helper cleanup a prerequisite for obtaining a usable new
+   implementation.
+3. Strengthen the successor on the live path, then retire the legacy writer,
+   reader, schema, fixtures, and adapters in coherent batches. Use structural
+   caller analysis, build/type checks, and affected user outcomes as the
+   deletion gate; require per-fragment migration only when a fragment protects
+   distinct irreversible state or a real cross-version contract.
+
+Never delete the working path first and hope to repair the replacement later.
+Conversely, do not preserve permanent dual writes or an automatic legacy
+runtime fallback merely to reduce implementation risk. Use a bounded one-time
+migration or read-only compatibility bridge only for state that cannot be
+reconstructed from the successor authority. Prefer canonical revert, a previous
+immutable artifact, or a recoverable backup for rollback.
+
 ## Issue And Pull Request Admission
 
 Treat an issue, pull request, patch, review request, or automation suggestion as

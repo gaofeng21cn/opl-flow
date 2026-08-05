@@ -60,5 +60,24 @@ class DevelopAndDeliverTests(unittest.TestCase):
         for marker in required_markers:
             self.assertIn(marker, normalized_skill)
 
+    def test_refactors_prefer_successor_first_controlled_cutover(self) -> None:
+        skill = (
+            REPO_ROOT / "skills" / "develop-and-deliver" / "SKILL.md"
+        ).read_text(encoding="utf-8")
+        normalized_skill = " ".join(skill.split())
+
+        required_markers = (
+            "## Replacement And Refactor Cutovers",
+            "successor-first controlled",
+            "smallest real vertical path",
+            "Switch real callers to the successor",
+            "structural caller analysis",
+            "Never delete the working path first",
+            "do not preserve permanent dual writes",
+            "previous immutable artifact",
+        )
+        for marker in required_markers:
+            self.assertIn(marker, normalized_skill)
+
 if __name__ == "__main__":
     unittest.main()
