@@ -1,0 +1,4 @@
+interface:
+  display_name: "Codex App Owner Migration"
+  short_description: "Move task owners through visible Codex App tasks"
+  default_prompt: "Use $codex-app-owner-migration to move this OPL task to a native Codex App owner with readback and local fallback."

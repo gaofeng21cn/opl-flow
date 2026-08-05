@@ -17,6 +17,7 @@
     "retires",
     "ledger_supervisor_policy",
     "task_owner_migration_policy",
+    "codex_app_owner_migration_policy",
     "codex_model_policy",
     "migration_policy",
     "historical_fingerprints"
@@ -45,6 +46,7 @@
     "retires": { "$ref": "#/$defs/migrations" },
     "ledger_supervisor_policy": { "$ref": "#/$defs/ledgerSupervisorPolicy" },
     "task_owner_migration_policy": { "$ref": "#/$defs/taskOwnerMigrationPolicy" },
+    "codex_app_owner_migration_policy": { "$ref": "#/$defs/codexAppOwnerMigrationPolicy" },
     "codex_model_policy": {
       "type": "object",
       "additionalProperties": false,
@@ -73,6 +75,57 @@
     "historical_fingerprints": { "type": "object" }
   },
   "$defs": {
+    "codexAppOwnerMigrationPolicy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "authority",
+        "executor_kind",
+        "target_visibility",
+        "creation_route",
+        "ssh_role",
+        "headless_cli_policy",
+        "source_release_gate",
+        "failure_fallback",
+        "workspace_scope",
+        "full_workspace_required",
+        "automation_policy"
+      ],
+      "properties": {
+        "authority": { "const": "codex_app_native_owner_tools" },
+        "executor_kind": { "const": "native_codex_app_task" },
+        "target_visibility": {
+          "const": [
+            "connected_host_visible",
+            "all_profile_repositories_visible",
+            "native_task_visible_in_target_app",
+            "task_readback_matches_host_project_and_cwd"
+          ]
+        },
+        "creation_route": {
+          "const": [
+            "codex_app_create_thread_in_saved_project",
+            "codex_app_handoff_thread_when_supported"
+          ]
+        },
+        "ssh_role": { "const": "transport_bootstrap_or_readback_only" },
+        "headless_cli_policy": { "const": "never_accept_as_native_owner" },
+        "source_release_gate": {
+          "const": [
+            "target_task_acknowledged",
+            "target_task_readable",
+            "claim_readback_matches",
+            "target_started_or_waiting"
+          ]
+        },
+        "failure_fallback": {
+          "const": "local_owner_continues;rollback_before_claim_or_reverse_migration_after_claim"
+        },
+        "workspace_scope": { "const": "instance_profile_repository_allowlist" },
+        "full_workspace_required": { "const": true },
+        "automation_policy": { "const": "separate_singleton_cas_cutover" }
+      }
+    },
     "taskOwnerMigrationPolicy": {
       "type": "object",
       "additionalProperties": false,

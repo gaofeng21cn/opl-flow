@@ -13,6 +13,7 @@ from pathlib import Path, PurePosixPath
 
 CORE_SKILL_IDS = (
     "coordinate-concurrent-tasks",
+    "codex-app-owner-migration",
     "develop-and-deliver",
     "github-ssot-patrol",
     "opl-fleet",
@@ -35,6 +36,8 @@ REQUIRED_FILES = (
     "LICENSE",
     "skills/coordinate-concurrent-tasks/SKILL.md",
     "skills/coordinate-concurrent-tasks/agents/openai.yaml",
+    "skills/codex-app-owner-migration/SKILL.md",
+    "skills/codex-app-owner-migration/agents/openai.yaml",
     "skills/develop-and-deliver/SKILL.md",
     "skills/develop-and-deliver/agents/openai.yaml",
     "skills/github-ssot-patrol/SKILL.md",
@@ -109,7 +112,7 @@ def check_plugin_json(repo_root: Path) -> list[str]:
         if path.is_dir() and (path / "SKILL.md").exists()
     }
     if discoverable_skills != set(CORE_SKILL_IDS):
-        errors.append("default plugin must expose exactly the seven OPL Flow core skills")
+        errors.append("default plugin must expose exactly the eight OPL Flow core skills")
     policy = json.loads((repo_root / "contracts" / "workflow-policy.json").read_text(encoding="utf-8"))
     if manifest.get("version") != policy.get("package", {}).get("version"):
         errors.append("plugin version must match contracts/workflow-policy.json package.version")
@@ -142,6 +145,7 @@ def check_workflow_policy(repo_root: Path) -> list[str]:
         "provides", "requires", "experience_baseline", "compatible_optional",
         "capability_bundles",
         "conflicts", "retires", "ledger_supervisor_policy", "task_owner_migration_policy",
+        "codex_app_owner_migration_policy",
         "codex_model_policy", "migration_policy",
         "historical_fingerprints",
     )
@@ -196,6 +200,10 @@ def check_workflow_policy(repo_root: Path) -> list[str]:
         "coordinate-concurrent-tasks": (
             "https://github.com/gaofeng21cn/opl-flow",
             "skills/coordinate-concurrent-tasks",
+        ),
+        "codex-app-owner-migration": (
+            "https://github.com/gaofeng21cn/opl-flow",
+            "skills/codex-app-owner-migration",
         ),
         "develop-and-deliver": (
             "https://github.com/gaofeng21cn/opl-flow",
@@ -315,6 +323,34 @@ def check_workflow_policy(repo_root: Path) -> list[str]:
     }
     if policy.get("task_owner_migration_policy") != expected_owner_migration:
         errors.append("workflow policy task owner migration contract must remain fail-closed")
+    expected_codex_app_owner_migration = {
+        "authority": "codex_app_native_owner_tools",
+        "executor_kind": "native_codex_app_task",
+        "target_visibility": [
+            "connected_host_visible",
+            "all_profile_repositories_visible",
+            "native_task_visible_in_target_app",
+            "task_readback_matches_host_project_and_cwd",
+        ],
+        "creation_route": [
+            "codex_app_create_thread_in_saved_project",
+            "codex_app_handoff_thread_when_supported",
+        ],
+        "ssh_role": "transport_bootstrap_or_readback_only",
+        "headless_cli_policy": "never_accept_as_native_owner",
+        "source_release_gate": [
+            "target_task_acknowledged",
+            "target_task_readable",
+            "claim_readback_matches",
+            "target_started_or_waiting",
+        ],
+        "failure_fallback": "local_owner_continues;rollback_before_claim_or_reverse_migration_after_claim",
+        "workspace_scope": "instance_profile_repository_allowlist",
+        "full_workspace_required": True,
+        "automation_policy": "separate_singleton_cas_cutover",
+    }
+    if policy.get("codex_app_owner_migration_policy") != expected_codex_app_owner_migration:
+        errors.append("Codex App owner migration policy must remain native-visible and fail-closed")
     supervisor = policy.get("ledger_supervisor_policy", {})
     expected_incremental_fast_path = {
         "phase_order": ["change_detection", "selective_expansion"],

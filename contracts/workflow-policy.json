@@ -3,7 +3,7 @@
   "schema": "opl_flow_workflow_policy.v4",
   "package": {
     "id": "opl-flow",
-    "version": "0.1.36",
+    "version": "0.1.37",
     "owner": "opl-flow",
     "kind": "workflow_profile"
   },
@@ -32,6 +32,15 @@
       "owner": "opl-flow",
       "source": "https://github.com/gaofeng21cn/opl-flow",
       "source_path": "skills/coordinate-concurrent-tasks",
+      "online_install_default": true,
+      "activation": "task_routed"
+    },
+    {
+      "id": "codex-app-owner-migration",
+      "kind": "codex_skill",
+      "owner": "opl-flow",
+      "source": "https://github.com/gaofeng21cn/opl-flow",
+      "source_path": "skills/codex-app-owner-migration",
       "online_install_default": true,
       "activation": "task_routed"
     },
@@ -691,6 +700,32 @@
       "old_disabled_readback",
       "new_active_readback"
     ]
+  },
+  "codex_app_owner_migration_policy": {
+    "authority": "codex_app_native_owner_tools",
+    "executor_kind": "native_codex_app_task",
+    "target_visibility": [
+      "connected_host_visible",
+      "all_profile_repositories_visible",
+      "native_task_visible_in_target_app",
+      "task_readback_matches_host_project_and_cwd"
+    ],
+    "creation_route": [
+      "codex_app_create_thread_in_saved_project",
+      "codex_app_handoff_thread_when_supported"
+    ],
+    "ssh_role": "transport_bootstrap_or_readback_only",
+    "headless_cli_policy": "never_accept_as_native_owner",
+    "source_release_gate": [
+      "target_task_acknowledged",
+      "target_task_readable",
+      "claim_readback_matches",
+      "target_started_or_waiting"
+    ],
+    "failure_fallback": "local_owner_continues;rollback_before_claim_or_reverse_migration_after_claim",
+    "workspace_scope": "instance_profile_repository_allowlist",
+    "full_workspace_required": true,
+    "automation_policy": "separate_singleton_cas_cutover"
   },
   "codex_model_policy": {
     "authority": "opl-flow",

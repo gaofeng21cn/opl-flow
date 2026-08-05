@@ -40,6 +40,7 @@ Flow Package 可以暴露：
 - `~/.codex/AGENTS.md` minimal runtime Profile；
 - `~/.codex/TASTE.md` non-runtime authoring source；
 - `skills/opl-flow`；
+- `skills/codex-app-owner-migration`；
 - `skills/coordinate-concurrent-tasks`；
 - `skills/develop-and-deliver`；
 - `skills/task-mode-gate`；

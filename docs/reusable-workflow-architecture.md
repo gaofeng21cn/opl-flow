@@ -76,6 +76,7 @@ opl-flow/
 |-- skills/
 |   |-- opl-flow/
 |   |-- coordinate-concurrent-tasks/
+|   |-- codex-app-owner-migration/
 |   |-- develop-and-deliver/
 |   |-- opl-fleet/
 |   |-- task-mode-gate/
@@ -264,6 +265,11 @@ python3 scripts/opl_workflow.py fleet --instance <opl-instance> repos sync
 
 `opl-fleet` is the stable node-local command installed during enrollment. The
 Flow workflow entry remains the public user-facing surface.
+
+`codex-app-owner-migration` is the first-party route for moving a durable task
+owner to a native, user-visible Codex App task. It requires the complete
+Instance repository allowlist and target App readback; SSH/headless CLI is only
+transport support and never a terminal owner substitute.
 
 ### Task-Capacity Dispatch
 

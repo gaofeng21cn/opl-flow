@@ -50,7 +50,7 @@ class VerifyLaneTests(unittest.TestCase):
         self.assertIn("contracts/fleet-workspace-profile.schema.json", required)
         self.assertIn("contracts/task-owner-migration.schema.json", required)
 
-    def test_plugin_exposes_the_seven_bounded_flow_skills(self) -> None:
+    def test_plugin_exposes_the_eight_bounded_flow_skills(self) -> None:
         self.assertEqual(check_plugin_json(REPO_ROOT), [])
 
         discoverable = {
@@ -59,6 +59,14 @@ class VerifyLaneTests(unittest.TestCase):
             if path.is_dir() and (path / "SKILL.md").exists()
         }
         self.assertEqual(discoverable, set(CORE_SKILL_IDS))
+
+    def test_codex_app_owner_migration_skill_declares_native_visibility_boundary(self) -> None:
+        skill = (
+            REPO_ROOT / "skills" / "codex-app-owner-migration" / "SKILL.md"
+        ).read_text(encoding="utf-8")
+        self.assertIn("native, user-visible Codex App task", skill)
+        self.assertIn("headless `codex` process is never accepted", skill)
+        self.assertIn("Migration is optional for delivery", skill)
 
     def test_full_lane_runs_the_complete_current_suite(self) -> None:
         core = contract_test_modules("core")

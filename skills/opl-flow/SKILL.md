@@ -85,6 +85,10 @@ Natural-language examples:
   worktrees, machines, or canonical integration.
 - Use `$recover-codex-tasks` for interrupted, missing, or ambiguous execution
   state.
+- Use `$codex-app-owner-migration` when a task must continue on another machine
+  through a native, user-visible Codex App task. It is the required route for
+  App-visible owner migration; SSH/headless CLI is only transport or diagnostic
+  support.
 - Use `$task-mode-gate` only for real release, deployment, migration,
   destructive/public mutation, or validation-to-production transition.
 - Use `$opl-fleet` for machine topology, admission, leases, repository

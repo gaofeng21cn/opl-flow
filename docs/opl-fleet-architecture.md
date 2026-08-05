@@ -177,10 +177,14 @@ replaced.
 
 ### Active Architecture Work
 
-Declarative workspace bootstrap/currentness and compare-and-swap execution-owner
-migration are active implementation work. They complete a critical part of the
-Agent-native positioning, but remain target behavior until their source,
-contracts, tests, canonical integration, and real cross-machine readback land.
+The reusable Codex App owner-migration route is provided by the first-party
+`codex-app-owner-migration` Skill. It treats the Codex App task as a replaceable
+visible executor handle while Beads/Dolt remains objective truth. The Skill does
+not claim availability from SSH or a headless CLI process: the target host,
+complete profile repository set, and readable target task must be visible in the
+native App before the owner CAS can proceed. Workspace bootstrap/currentness,
+CAS migration, and real cross-machine readback remain fail-closed runtime gates;
+when those gates are unavailable, the source owner continues locally.
 
 The target workspace profile is declared by the private Instance and binds
 nodes, a workspace root, an environment contract, an explicit repository

@@ -300,12 +300,15 @@ and a multi-machine AI fleet without loading or configuring every backend.
 
 ## Core Skills And Optional Enhancements
 
-OPL Flow `0.1.36` bundles seven core Skills with the Plugin:
+OPL Flow `0.1.37` bundles eight core Skills with the Plugin:
 
 - `opl-flow` as the progressive primary router for `doctor`, `setup`, `tune`,
   `update`, `start`, and `fleet`;
 - `coordinate-concurrent-tasks` for concurrent tasks, conversations, and Git
   worktrees;
+- `codex-app-owner-migration` for task-level owner migration through a native,
+  user-visible Codex App task, with complete workspace admission and local
+  fallback;
 - `develop-and-deliver` for systematic implementation and delivery;
 - `github-ssot-patrol` for SSOT-first GitHub CI, open PR, and open issue
   patrols with deterministic read-only snapshots and closeout;

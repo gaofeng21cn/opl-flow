@@ -53,6 +53,7 @@ class PackageDescriptorTests(unittest.TestCase):
             codex_surface["required_skill_ids"],
             [
                 "coordinate-concurrent-tasks",
+                "codex-app-owner-migration",
                 "develop-and-deliver",
                 "github-ssot-patrol",
                 "opl-fleet",
