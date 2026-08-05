@@ -584,7 +584,7 @@ class CodexFleetTests(unittest.TestCase):
                 },
             ),
             patch_fleet("reconcile_pets"),
-            patch_fleet("install_runner", return_value="b" * 40),
+            patch_fleet("install_runner", return_value="b" * 40) as install_runner,
             patch_fleet(
     "runner_call",
                 return_value={"ok": True, "result": {"ok": True, "drift": []}},
@@ -602,6 +602,7 @@ class CodexFleetTests(unittest.TestCase):
             patch_fleet("atomic_json"),
         ):
             result = fleet.reconcile(report=False, install_required=False)
+        install_runner.assert_called_once_with({}, "a" * 40)
         self.assertEqual(result["state"], "UPDATE_REQUIRED")
         self.assertEqual(
             result["drift"],
@@ -3103,37 +3104,86 @@ class CodexFleetTests(unittest.TestCase):
             "discovery_roots": [".agents/skills"],
             "packages": {},
         }
-        completed = fleet.subprocess.CompletedProcess(
-            ["gh", "api"], 0, json.dumps(payload), ""
-        )
-        with patch_fleet("run", return_value=completed):
-            reference = fleet.fetch_skill_reference(
-                {
-                    "repository": "example/instance",
-                    "skill_reference": "contracts/skill-reference.json",
-                },
-                "a" * 40,
-            )
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            reference_path = root / "contracts/skill-reference.json"
+            reference_path.parent.mkdir(parents=True)
+            reference_path.write_text(json.dumps(payload), encoding="utf-8")
+            with patch_fleet("validated_control_checkout", return_value=root) as checkout:
+                reference = fleet.fetch_skill_reference(
+                    {
+                        "repository": "example/instance",
+                        "skill_reference": "contracts/skill-reference.json",
+                    },
+                    "a" * 40,
+                )
+        checkout.assert_called_once_with("example/instance", "a" * 40)
         self.assertEqual(reference["schema"], "codex_skill_reference.v2")
 
-    def test_fetch_skill_reference_rejects_legacy_schema(self) -> None:
-        completed = fleet.subprocess.CompletedProcess(
-            ["gh", "api"],
-            0,
-            json.dumps({"schema": "codex_skill_reference.v1"}),
-            "",
-        )
-        with (
-            patch_fleet("run", return_value=completed),
-            self.assertRaisesRegex(fleet.FleetError, "owner skill reference"),
-        ):
-            fleet.fetch_skill_reference(
-                {
-                    "repository": "example/instance",
-                    "skill_reference": "contracts/skill-reference.json",
-                },
-                "a" * 40,
+    def test_fetch_skill_reference_rejects_checkout_escape(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            with (
+                patch_fleet("validated_control_checkout", return_value=root),
+                self.assertRaisesRegex(fleet.FleetError, "escapes the Instance checkout"),
+            ):
+                fleet.fetch_skill_reference(
+                    {
+                        "repository": "example/instance",
+                        "skill_reference": "../skill-reference.json",
+                    },
+                    "a" * 40,
+                )
+
+    def test_install_runner_uses_verified_instance_revision_without_gh(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            state_root = root / "state"
+            state_root.mkdir()
+            runner = root / "codex_machine_sync.py"
+            runner.write_text("# installed\n", encoding="utf-8")
+            revision = "a" * 40
+            (state_root / "runner.json").write_text(
+                json.dumps({"repository": "example/instance", "commit": revision}),
+                encoding="utf-8",
             )
+            with (
+                patch_fleet("STATE_ROOT", state_root),
+                patch_fleet("RUNNER_PATH", runner),
+                patch_fleet("validated_control_checkout", return_value=root) as checkout,
+                patch_fleet("run") as command,
+            ):
+                installed = fleet.install_runner(
+                    {
+                        "repository": "example/instance",
+                        "install_command": ["npx", "skills", "add"],
+                    },
+                    revision,
+                )
+        self.assertEqual(installed, revision)
+        checkout.assert_called_once_with("example/instance", revision)
+        command.assert_not_called()
+
+    def test_fetch_skill_reference_rejects_legacy_schema(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            reference_path = root / "contracts/skill-reference.json"
+            reference_path.parent.mkdir(parents=True)
+            reference_path.write_text(
+                json.dumps({"schema": "codex_skill_reference.v1"}),
+                encoding="utf-8",
+            )
+            with (
+                patch_fleet("validated_control_checkout", return_value=root),
+                self.assertRaisesRegex(fleet.FleetError, "owner skill reference"),
+            ):
+                fleet.fetch_skill_reference(
+                    {
+                        "repository": "example/instance",
+                        "skill_reference": "contracts/skill-reference.json",
+                    },
+                    "a" * 40,
+                )
 
     def test_install_missing_skills_uses_owner_native_opl_route(self) -> None:
         reference = {

@@ -606,13 +606,21 @@ def github_head(repository: str, branch: str) -> str:
         ["gh", "api", f"repos/{repository}/commits/{branch}", "--jq", ".sha"]
     ).stdout.strip()
 
-def install_runner(spec: dict[str, Any]) -> str:
+def validated_control_checkout(repository: str, revision: str) -> Path:
+    root = fleet_common.CONTROL_ROOT.resolve()
+    remote = git_value(root, ["remote", "get-url", "origin"]).stdout.strip()
+    if github_repository_from_remote(remote) != repository:
+        raise FleetError("fleet runner owner does not match the Instance checkout")
+    if checkout_commit(root) != revision:
+        raise FleetError("Instance checkout revision changed during reconciliation")
+    return root
+
+def install_runner(spec: dict[str, Any], revision: str) -> str:
     repository = str(spec["repository"])
-    branch = str(spec.get("branch", "main"))
-    head = github_head(repository, branch)
+    validated_control_checkout(repository, revision)
     state_path = STATE_ROOT / "runner.json"
     previous = read_json(state_path) if state_path.is_file() else {}
-    if not RUNNER_PATH.is_file() or previous.get("commit") != head:
+    if not RUNNER_PATH.is_file() or previous.get("commit") != revision:
         command = [str(item) for item in spec["install_command"]]
         if command[:3] != ["npx", "skills", "add"]:
             raise FleetError("runner install command is not owner-supported")
@@ -620,22 +628,19 @@ def install_runner(spec: dict[str, Any]) -> str:
         help_text = run([sys.executable, str(RUNNER_PATH), "--help"]).stdout
         if "node-status" not in help_text or "node-sync" not in help_text:
             raise FleetError("installed runner does not expose pull-node commands")
-        atomic_json(state_path, {"repository": repository, "commit": head})
-    return head
+        atomic_json(state_path, {"repository": repository, "commit": revision})
+    return revision
 
 def fetch_skill_reference(spec: dict[str, Any], revision: str) -> dict[str, Any]:
     relative = str(spec["skill_reference"])
     repository = str(spec["repository"])
-    result = run(
-        [
-            "gh",
-            "api",
-            "-H",
-            "Accept: application/vnd.github.raw+json",
-            f"repos/{repository}/contents/{relative}?ref={revision}",
-        ]
-    )
-    payload = json.loads(result.stdout)
+    root = validated_control_checkout(repository, revision).resolve()
+    path = (root / relative).resolve()
+    try:
+        path.relative_to(root)
+    except ValueError as exc:
+        raise FleetError("owner skill reference escapes the Instance checkout") from exc
+    payload = read_json(path)
     if not isinstance(payload, dict) or payload.get("schema") != SKILL_REFERENCE_SCHEMA:
         raise FleetError("owner skill reference is invalid")
     return payload
@@ -1442,7 +1447,7 @@ def reconcile(*, report: bool, install_required: bool) -> dict[str, Any]:
     control_revision = update_control()
     spec = manifest()
     reconcile_pets(spec)
-    runner_revision = install_runner(spec["runner"])
+    runner_revision = install_runner(spec["runner"], control_revision)
     owner_actions: list[str] = []
     if install_required:
         reference = fetch_skill_reference(spec["runner"], runner_revision)
