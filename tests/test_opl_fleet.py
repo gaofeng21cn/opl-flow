@@ -3135,6 +3135,25 @@ class CodexFleetTests(unittest.TestCase):
                     "a" * 40,
                 )
 
+    def test_validated_control_checkout_resolves_instance_repository_root(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            fleet.run(["git", "init", "--initial-branch=main", str(root)])
+            git(root, "config", "user.name", "Test User")
+            git(root, "config", "user.email", "test@example.com")
+            (root / "fleet").mkdir()
+            (root / "fleet/fleet.json").write_text("{}\n", encoding="utf-8")
+            git(root, "add", "fleet/fleet.json")
+            git(root, "commit", "-m", "fixture")
+            git(root, "remote", "add", "origin", "git@github.com:example/instance.git")
+            revision = git(root, "rev-parse", "HEAD")
+            with patch_fleet("CONTROL_ROOT", root / "fleet"):
+                checkout = fleet.validated_control_checkout(
+                    "example/instance",
+                    revision,
+                )
+        self.assertEqual(checkout, root.resolve())
+
     def test_install_runner_uses_verified_instance_revision_without_gh(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
             root = Path(temp_dir)

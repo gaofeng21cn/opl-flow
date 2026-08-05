@@ -607,7 +607,10 @@ def github_head(repository: str, branch: str) -> str:
     ).stdout.strip()
 
 def validated_control_checkout(repository: str, revision: str) -> Path:
-    root = fleet_common.CONTROL_ROOT.resolve()
+    control_root = fleet_common.CONTROL_ROOT.resolve()
+    root = Path(
+        git_value(control_root, ["rev-parse", "--show-toplevel"]).stdout.strip()
+    ).resolve()
     remote = git_value(root, ["remote", "get-url", "origin"]).stdout.strip()
     if github_repository_from_remote(remote) != repository:
         raise FleetError("fleet runner owner does not match the Instance checkout")
