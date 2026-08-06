@@ -199,15 +199,15 @@ Connector 维护这份投影。已登记 Project 默认由本机 Codex 管理；
 与这条路由冲突并 fail closed。数据流是：
 
 ```text
-人从 Linear 写入意图、优先级、到期、可选 codex-ready、codex-paused 或取消
+人从 Linear 写入意图、优先级、到期、可选的 codex-paused 或取消
   -> Codex/OPL Flow 幂等创建或关联唯一 Bead/Linear issue
   -> Codex 按 Beads 依赖、负责人和检查点执行
   -> Beads 向 Linear 投影执行状态、简短阻断和结果
   -> GitHub 提供分支、PR、CI、合并、发布和交付链接
 ```
 
-`codex-ready` 只是兼容提示，不再是逐 issue 准入门槛；`codex-paused` 只阻止 dispatch，
-该 issue 的 Linear 对账和授权用户评论摄入仍继续。监督器通过官方
+`codex-paused` 是唯一显式 dispatch 暂停信号，并且只阻止 dispatch；该 issue 的
+Linear 对账和授权用户评论摄入仍继续。监督器通过官方
 `linear_list_comments`，按每个 Project 保存 Linear comment-ID 水位，以 comment ID
 作为幂等键，把每条新授权用户评论恰好一次送入对应本机 Codex task。每小时无变化
 快路径只调用一次 `list_threads`，把 live executor 按最多 8 个一组交给零等待

@@ -159,8 +159,8 @@ turn must repair a stale terminal title back to its actual execution state.
 
 ## Linear Field Authority
 
-Linear to Beads: human intent, priority, due, optional compatibility
-`codex-ready`, explicit opt-out `codex-paused`, and cancel.
+Linear to Beads: human intent, priority, due, explicit opt-out `codex-paused`,
+and cancel.
 
 Beads to Linear: execution state, blocker, result.
 
@@ -183,14 +183,14 @@ which takes precedence over monitoring. No unresolved descendants displays
 `Done`. Unknown or ambiguous execution mode fails closed without changing
 Linear.
 
-Project only identity, title, hierarchy, status, priority, due, readiness,
+Project only identity, title, hierarchy, status, priority, due, pause intent,
 execution mode, display status, cancel intent, short blocker/result, and links.
 Exclude credentials, local paths, logs, full notes, metadata, and checkpoints.
 
 Every issue in a registered project is managed by local Codex by default.
-`codex-ready` may remain for compatibility but is not required on every issue.
-`codex-paused` blocks dispatch only; Linear reconciliation and authorized user
-comment intake continue so resumption does not lose human intent.
+`codex-paused` is the sole explicit dispatch pause and blocks dispatch only;
+Linear reconciliation and authorized user comment intake continue so resumption
+does not lose human intent.
 
 Beads/Dolt is task SSOT. Linear is the complete human-readable projection;
 GitHub carries delivery evidence; Fleet carries capacity and the optional

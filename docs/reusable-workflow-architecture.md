@@ -132,8 +132,8 @@ Linear human intent <-> local Codex/OPL Flow <-> Beads Ledger -> Linear complete
 ```
 
 Codex maintains exactly one Linear issue per user-ledger Bead and preserves the
-Bead hierarchy. Linear owns human intent, priority, due, `codex-ready`, and
-cancel fields; Beads owns execution state, blocker, and result. GitHub remains
+Bead hierarchy. Linear owns human intent, priority, due, pause, and cancel
+fields; Beads owns execution state, blocker, and result. GitHub remains
 the branch/PR/CI/release evidence authority. Credentials, local paths, logs,
 full notes, internal metadata, and checkpoints never enter the Linear
 projection. The official Linear Connector, not `bd linear sync`, owns this

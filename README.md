@@ -165,9 +165,8 @@ One `OPL Flow Supervisor` can supervise one or more registered Linear projects;
 the current default registration is `OPL Ledger`. Codex maintains one Linear
 issue for every user-ledger Bead through the official Linear Connector and
 preserves parent/child hierarchy. Every registered issue is local-managed by
-default. `codex-ready` is an optional compatibility hint, while `codex-paused`
-blocks dispatch only: reconciliation and authorized user-comment intake keep
-running.
+default. `codex-paused` is the sole explicit dispatch pause and blocks dispatch
+only: reconciliation and authorized user-comment intake keep running.
 
 Lifecycle and current activity remain separate. Beads keeps the durable
 `open`, `in_progress`, `blocked`, `deferred`, `closed`, and `pinned` lifecycle,
@@ -208,7 +207,7 @@ readback, Linear reply, and reply readback before its cursor advances. Every
 automated reply begins with `【OPL Flow · Codex 自动回复】`
 and names the source Codex task and answer provenance; that marker, not the
 Linear account identity, prevents feedback loops. Linear owns human intent,
-priority, due date, pause/cancel input, and optional readiness hints; Beads owns
+priority, due date, and pause/cancel input; Beads owns
 execution state, blocker, and result. The projection excludes credentials,
 local paths, logs, full notes, internal metadata, and checkpoints. It does not
 use `bd linear sync` as the onboarding or routine reconciliation path.
