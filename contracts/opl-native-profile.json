@@ -56,8 +56,7 @@
   "owned_by_repo": [
     "contracts/**",
     "src/**",
-    "tests/**",
-    "docs/status.md"
+    "tests/**"
   ],
   "plugin_native_status": "profile_declared",
   "repo_id": "opl-flow",
