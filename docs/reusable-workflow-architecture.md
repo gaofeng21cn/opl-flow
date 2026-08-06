@@ -1,10 +1,14 @@
 # OPL Reusable Development Workflow Architecture
 
 Owner: `OPL Flow`
+Purpose: `reusable_workflow_target_and_migration_boundary`
 State: `target architecture and migration authority`
 Scope: product names, module ownership, repository boundaries, private-instance
 boundaries, onboarding, and migration order for the reusable development
 workflow.
+Machine boundary: This document owns the reusable workflow target, naming, and
+repository boundaries. Contracts, source, tests, owner surfaces, and fresh
+readback own executable behavior and current machine state.
 
 This document is the SSOT for the reusable workflow system. Package/carrier/
 executor composition remains owned by
@@ -45,11 +49,11 @@ layer**. It keeps Codex model-native:
 | **OPL Instance: `<owner>`** | one private repository per owner; for this owner `gaofeng21cn/opl-instance-gaofeng` | Private Ledger data, Fleet nodes/policy, repository governance, Operations Registry, private overlays, personal Skills, and sanitized receipts |
 | **OPL Personal Skills** | `skills/` inside the owner's OPL Instance | Private or personal Skill source; not a separate user-facing product |
 
-The GitHub repository renames to `opl-skills` and `opl-instance-gaofeng`
-completed on 2026-07-31. The old names remain permanently reserved and are not
-canonical URLs. This physical rename does not prove authority consolidation:
-generic Fleet code, private instance data, contracts, installed routes, and
-live nodes move only through the remaining migration and readback gates below.
+The table above is the current repository-identity boundary. Superseded names
+remain reserved provenance and are never canonical URLs or source owners. A
+physical rename or redirect does not prove authority consolidation: generic
+Fleet code, private instance data, contracts, installed routes, and live nodes
+move only through their owning migration and readback gates.
 
 The dedicated [OPL Fleet architecture SSOT](./opl-fleet-architecture.md) owns
 Fleet's positioning, task model, authority boundaries, design assessment, and
@@ -484,34 +488,22 @@ controller, inbound SSH, Linear, or Fleet.
 - Maintain exactly one active source owner for every Skill and contract during
   transfer.
 
-### Phase 3: Physical Rename And Retirement
+### Phase 3: Repository Identity Boundary
 
-- **Completed 2026-07-31:** rename `codex-skills-public` to `opl-skills` and
-  `codex-skills-private` to `opl-instance-gaofeng`, with the GitHub Repository
-  Governance owner performing the physical mutation and remote readback.
-- Keep source constants, schemas, validators, tests, presets, installer routes,
-  local remotes, and live node routes on the new canonical names. Do not leave
-  machine-readable contracts dependent on redirects.
-- Treat the GitHub Repository Governance task as the sole writer for GitHub
-  rename, redirect, topics, settings, Actions, and owner-authoritative remote
-  readback; OPL Flow supplies the source checkpoint and expected mapping.
-- Update Git remotes, raw/API URLs, installer commands, manifests, workflows,
-  docs, `skill-reference`, management boundaries, repository governance,
-  skill-authority contracts, validators/tests, `codex-machine-sync` presets,
-  installed runtime projections, node control checkouts, and local directory
-  names.
-- Permanently reserve the old repository names and never reuse them. Verify
-  GitHub redirects as a temporary compatibility check, but immediately update
-  every canonical URL, local remote, and managed caller to the new names;
-  redirects are never an authority or long-term dependency.
-- Re-audit GitHub-hosted Actions, Pages, releases, deployments, hooks,
-  environments, secrets, and variables immediately before rename. GitHub
-  Action references hosted inside a renamed repository do not follow repository
-  redirects. The current two source repositories expose none of those surfaces
-  and are not Action sources, so they do not require old-name shim repositories.
-- Retire transitional layouts and compatibility references only after all
-  generic and personal authorities have moved and live nodes use the new
-  routes. Repository rename completion alone does not satisfy this gate.
+- The canonical public and private repository identities are the owners listed
+  in the Product And Repository Names table. Source constants, schemas,
+  validators, presets, installer routes, Git remotes, raw/API URLs, workflows,
+  `skill-reference`, and managed node routes must point directly to them.
+- Superseded identities may appear only as historical provenance or explicit
+  owner-scoped migration inputs. They are not active sources, aliases, fallback
+  routes, or authority, and machine-readable contracts must not depend on a
+  redirect.
+- Repository Governance remains the sole owner for physical GitHub rename,
+  redirect, topics, settings, Actions, and remote readback. OPL Flow owns only
+  its expected identity mapping and consumer-side source contracts.
+- Remove any remaining migration recognition only after fresh source and
+  installed-node readback prove no active consumer. A redirect, clean source
+  scan, or repository rename alone does not satisfy that gate.
 
 ### Phase 4: Release Qualification
 
