@@ -724,8 +724,8 @@ def check_profile(repo_root: Path) -> list[str]:
         line.startswith("- ") or bool(re.match(r"^\d+\. ", line))
         for line in agents.splitlines()
     )
-    if instruction_count > 8:
-        errors.append("AGENTS.md must contain at most 8 prioritized instructions")
+    if instruction_count > 9:
+        errors.append("AGENTS.md must contain at most 9 prioritized instructions")
 
     profile_size = len(agents.encode("utf-8"))
     if profile_size > 2048:

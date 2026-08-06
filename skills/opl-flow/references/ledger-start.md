@@ -131,9 +131,6 @@ conversation:
   deadline, recurring duty, dependency, or development deliverable, enroll that
   durable follow-up separately as a `managed_objective`.
 
-`persistent_workbench` is accepted only as a legacy alias of
-`interactive_longline`; normalize it without changing the user-owned lifecycle.
-
 A durable responsibility is not by itself an `interactive_longline`. When a
 bounded execution episode finishes and only a future due date or event trigger
 remains, keep the durable Bead and Linear issue in `monitoring`, clear the live

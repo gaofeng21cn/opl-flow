@@ -12,6 +12,7 @@ from scripts.verify import (
     REQUIRED_FILES,
     check_required_files,
     check_plugin_json,
+    check_profile,
     check_workflow_policy,
     contract_test_modules,
 )
@@ -75,6 +76,27 @@ class VerifyLaneTests(unittest.TestCase):
         self.assertEqual(contract_test_modules("full"), core)
         with self.assertRaisesRegex(ValueError, "unknown verification lane: ops-kit"):
             contract_test_modules("ops-kit")
+
+    def test_profile_allows_nine_prioritized_instructions_but_not_ten(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            repo_root = Path(temp_dir)
+            (repo_root / "templates").mkdir()
+            (repo_root / "profile" / "modules").mkdir(parents=True)
+
+            def errors_for(count: int) -> list[str]:
+                profile = "\n".join(f"{index}. instruction" for index in range(1, count + 1))
+                for relative_path in (
+                    "templates/AGENTS.md",
+                    "profile/modules/01-user-preferences.md",
+                ):
+                    (repo_root / relative_path).write_text(f"{profile}\n", encoding="utf-8")
+                return check_profile(repo_root)
+
+            self.assertEqual(errors_for(9), [])
+            self.assertEqual(
+                errors_for(10),
+                ["AGENTS.md must contain at most 9 prioritized instructions"],
+            )
 
     def test_workflow_policy_rejects_retired_codex_ops_kit(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
@@ -308,6 +330,20 @@ class VerifyLaneTests(unittest.TestCase):
             "Do not create a duplicate `next_authority_check_at` field.",
             normalized,
         )
+
+    def test_ledger_references_do_not_resurrect_retired_workbench_alias(self) -> None:
+        references = "\n".join(
+            (
+                REPO_ROOT / relative_path
+            ).read_text(encoding="utf-8")
+            for relative_path in (
+                "skills/opl-flow/references/ledger-start.md",
+                "skills/opl-flow/references/ledger-supervisor.md",
+            )
+        )
+
+        self.assertNotIn("persistent_workbench", references)
+        self.assertIn("interactive_longline", references)
 
     def test_every_skill_requires_safe_repository_relative_source_path(self) -> None:
         for invalid_path in ("../skills/opl-flow", "/skills/opl-flow", r"skills\opl-flow"):

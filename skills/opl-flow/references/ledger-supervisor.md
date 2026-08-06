@@ -73,8 +73,7 @@ Record one stable class and a short reason:
   this class. Enroll exactly one Bead and one Linear issue.
 - `interactive_longline`: a user-returning network, operations, mail, persona,
   or other persistent workbench. It may be registered for visibility, but only
-  the user archiving its Codex task is terminal. `persistent_workbench` is a
-  legacy alias.
+  the user archiving its Codex task is terminal.
 - `ephemeral_operation`: a bounded manual operation or diagnosis that normally
   ends in the current interaction. Exclude it by default; if explicitly
   enrolled, keep it record-only. Enroll any durable deadline, recurring duty,
