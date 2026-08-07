@@ -1,5 +1,11 @@
 # 浏览器工具路由
 
+Owner: `OPL Flow`
+Purpose: `browser_tool_routing`
+State: `active_workflow_support`
+Machine boundary: 本文只定义默认选路与降级纪律；当前可用 connector、Skill、
+浏览器会话、权限和操作结果仍以各工具的 fresh runtime readback 为准。
+
 本文是 OPL Flow 的浏览器操作路由。目标不是减少工具数量，而是让同一类任务每次都走同一条路径，并让切换有明确原因。
 
 ## 总原则

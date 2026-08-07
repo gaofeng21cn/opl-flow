@@ -1,8 +1,10 @@
 # OPL Fleet Agent And Cockpit
 
-Owner: OPL Flow
-State: active product and protocol SSOT
-Machine authority: `contracts/fleet-telemetry-protocol.json`, current source, and fresh runtime readback
+Owner: `OPL Flow`
+Purpose: `fleet_observability_architecture`
+State: `active_product_protocol_ssot`
+Machine boundary: `contracts/fleet-telemetry-protocol.json`, current source, and
+fresh runtime readback own effective protocol and product behavior.
 
 Core Fleet authority: [OPL Fleet product and architecture](./opl-fleet-architecture.md)
 

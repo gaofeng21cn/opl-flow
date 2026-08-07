@@ -1,11 +1,10 @@
 # OPL Fleet Product And Architecture
 
-Owner: OPL Flow
-
-State: product positioning and target architecture SSOT
-
-Runtime authority: current contracts, source, private Instance policy, and fresh
-node/executor readback
+Owner: `OPL Flow`
+Purpose: `fleet_product_target_architecture`
+State: `active_target_architecture_ssot`
+Machine boundary: Current contracts, source, private Instance policy, and fresh
+node/executor readback own implemented behavior and effective fleet state.
 
 ## Positioning Decision
 
