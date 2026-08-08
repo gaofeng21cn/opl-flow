@@ -1,6 +1,6 @@
 {
   "name": "opl-flow",
-  "version": "0.1.38",
+  "version": "0.1.39",
   "description": "OPL Flow establishes the Codex experience baseline and coordinates durable work across tasks, repositories, and machines.",
   "author": {
     "name": "Gaofeng"
@@ -30,7 +30,7 @@
   },
   "homepage": "https://github.com/gaofeng21cn/opl-flow",
   "repository": "https://github.com/gaofeng21cn/opl-flow",
-  "license": "MIT",
+  "license": "Apache-2.0",
   "keywords": [
     "codex",
     "workflow",

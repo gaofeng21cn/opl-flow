@@ -69,6 +69,29 @@ class VerifyLaneTests(unittest.TestCase):
         self.assertIn("headless `codex` process is never accepted", skill)
         self.assertIn("Migration is optional for delivery", skill)
 
+    def test_profile_and_delivery_skill_require_proportional_complexity(self) -> None:
+        profile = (REPO_ROOT / "templates" / "AGENTS.md").read_text(encoding="utf-8")
+        skill = (
+            REPO_ROOT / "skills" / "develop-and-deliver" / "SKILL.md"
+        ).read_text(encoding="utf-8")
+
+        self.assertIn("小功能不是银行金库", profile)
+        self.assertIn("当前需求、真实 caller、既有合同、已观察故障或可信风险", profile)
+        self.assertIn("## Keep Complexity Proportional", skill)
+        self.assertIn("needs a present payer", skill)
+        self.assertIn("do not repeat hashes", skill)
+
+    def test_package_declares_apache_2_license_consistently(self) -> None:
+        plugin = json.loads(
+            (REPO_ROOT / ".codex-plugin" / "plugin.json").read_text(encoding="utf-8")
+        )
+        license_text = (REPO_ROOT / "LICENSE").read_text(encoding="utf-8")
+
+        self.assertEqual(plugin["license"], "Apache-2.0")
+        self.assertIn("Apache License", license_text)
+        self.assertIn("Version 2.0, January 2004", license_text)
+        self.assertIn("Copyright 2026 Gaofeng", license_text)
+
     def test_full_lane_runs_the_complete_current_suite(self) -> None:
         core = contract_test_modules("core")
 

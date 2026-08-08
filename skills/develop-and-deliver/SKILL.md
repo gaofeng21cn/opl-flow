@@ -81,6 +81,30 @@ after that proof.
 3. Use the repository's existing tools, abstractions, commands, and validation
    lanes. Add a new abstraction only when the current task proves it necessary.
 
+## Keep Complexity Proportional
+
+A small feature does not need a bank vault around it. Scope architecture to the
+current behavior and real boundary, even when the surrounding repository is
+large.
+
+- Every added file, abstraction, dependency, state, execution path, fallback,
+  compatibility path, and verification gate needs a present payer: a current
+  requirement or caller, an existing contract, an observed failure, or a
+  credible concrete risk.
+- Prefer the direct implementation, one production path, and one source of
+  truth. Reuse current modules, dependencies, and project conventions before
+  creating another layer. Keep the result readable; this is not code golf.
+- Future scale, generic robustness, abstract best practice, and unevidenced
+  attacker or outage stories do not pay for complexity. Defer those mechanisms
+  until the corresponding requirement or evidence exists.
+- Preserve the smallest correct controls for real security, integrity,
+  concurrency, compatibility, privacy, accessibility, legal, and irreversible
+  boundaries. Simplicity must not erase an obligation that currently exists.
+- Start with the smallest check that exercises the changed behavior. Expand
+  only when repository contracts, blast radius, or failure evidence requires
+  it; do not repeat hashes, broad suites, or completion audits as routine
+  ceremony when they add no new evidence.
+
 ## Replacement And Refactor Cutovers
 
 For a legacy replacement or large refactor, prefer a successor-first controlled
