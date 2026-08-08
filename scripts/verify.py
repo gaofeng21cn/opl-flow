@@ -424,6 +424,26 @@ def check_workflow_policy(repo_root: Path) -> list[str]:
     }
     if supervisor.get("incremental_fast_path") != expected_incremental_fast_path:
         errors.append("Ledger Supervisor must keep the bounded incremental no-change fast path")
+    expected_linear_assignee_projection = {
+        "mode": "single_authorized_human",
+        "source": "heartbeat_authorized_human_accounts",
+        "single_account_required": True,
+        "multiple_accounts_policy": "fail_closed_require_project_mapping",
+        "scope": "all_registered_project_issues",
+        "repair_selection": "changed_or_drifted_issues_only",
+        "full_repair_triggers": [
+            "explicit_user_request",
+            "policy_change",
+            "missing_assignment_waterline",
+        ],
+        "write_batch_size": 10,
+        "readback": "exact_project_issue_count_and_zero_mismatches",
+        "execution_truth_owner": "beads_dolt_not_linear_assignee",
+    }
+    if supervisor.get("linear_assignee_projection") != expected_linear_assignee_projection:
+        errors.append(
+            "Ledger Supervisor must keep one authorized human assignee projection with drift-only repair"
+        )
     expected_task_lifecycle_classes = {
         "managed_objective": {
             "enrollment": "default_for_finite_development_and_delivery",

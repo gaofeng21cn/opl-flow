@@ -205,6 +205,17 @@ else:
             self.assertEqual(result["schema"], "opl_flow_supervisor_snapshot.v1")
             self.assertEqual(result["ready_ids"], ["opl-1"])
             self.assertEqual(result["counts"]["by_execution_mode"], {"active": 1})
+            self.assertEqual(
+                result["counts"]["semantic"],
+                {
+                    "unfinished_tasks": 1,
+                    "active_objectives": 1,
+                    "live_executors": 1,
+                    "monitoring": 0,
+                    "on_demand": 0,
+                    "aggregate_control_planes": 0,
+                },
+            )
             self.assertTrue(result["git"]["clean"])
             self.assertEqual(result["validation_errors"], [])
             self.assertNotIn("checkpoint", result["issues"][0]["metadata"])
@@ -252,6 +263,8 @@ else:
                 result = supervisor_snapshot(root, "/tmp/bd")
 
             self.assertFalse(result["git"]["clean"])
+            self.assertEqual(result["counts"]["semantic"]["unfinished_tasks"], 1)
+            self.assertEqual(result["counts"]["semantic"]["live_executors"], 0)
             self.assertEqual(result["counts"]["validation_errors"], 3)
             self.assertTrue(any("unknown metadata.execution_mode" in item for item in result["validation_errors"]))
             self.assertTrue(any("remaining must be a JSON array" in item for item in result["validation_errors"]))

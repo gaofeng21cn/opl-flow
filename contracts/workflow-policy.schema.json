@@ -185,7 +185,7 @@
     "ledgerSupervisorPolicy": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["incremental_fast_path", "task_lifecycle_classes", "bounded_executor_policy", "execution_modes", "native_owner_tools", "comment_delivery"],
+      "required": ["incremental_fast_path", "linear_assignee_projection", "task_lifecycle_classes", "bounded_executor_policy", "execution_modes", "native_owner_tools", "comment_delivery"],
       "properties": {
         "incremental_fast_path": {
           "type": "object",
@@ -293,6 +293,29 @@
                 "expected_runtime_seconds": { "const": 60 }
               }
             }
+          }
+        },
+        "linear_assignee_projection": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["mode", "source", "single_account_required", "multiple_accounts_policy", "scope", "repair_selection", "full_repair_triggers", "write_batch_size", "readback", "execution_truth_owner"],
+          "properties": {
+            "mode": { "const": "single_authorized_human" },
+            "source": { "const": "heartbeat_authorized_human_accounts" },
+            "single_account_required": { "const": true },
+            "multiple_accounts_policy": { "const": "fail_closed_require_project_mapping" },
+            "scope": { "const": "all_registered_project_issues" },
+            "repair_selection": { "const": "changed_or_drifted_issues_only" },
+            "full_repair_triggers": {
+              "const": [
+                "explicit_user_request",
+                "policy_change",
+                "missing_assignment_waterline"
+              ]
+            },
+            "write_batch_size": { "const": 10 },
+            "readback": { "const": "exact_project_issue_count_and_zero_mismatches" },
+            "execution_truth_owner": { "const": "beads_dolt_not_linear_assignee" }
           }
         },
         "task_lifecycle_classes": {

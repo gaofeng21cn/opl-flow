@@ -51,7 +51,11 @@ project list. Setup, update, and install never run this route.
 8. Reconcile every user-ledger Bead to exactly one Linear issue through
    `mcp__codex_apps__linear_list_issues`, `mcp__codex_apps__linear_get_issue`,
    and `mcp__codex_apps__linear_save_issue`. Read before write and read back
-   after write; preserve hierarchy and the narrow field contract. Do not use
+   after write; preserve hierarchy and the narrow field contract. When exactly
+   one authorized human account is configured, assign every issue in each
+   registered project to that account. With multiple accounts, require an
+   explicit project mapping instead of guessing. Linear assignee is human
+   accountability only; Beads/Dolt remains execution-owner truth. Do not use
    `bd linear sync`.
 9. For every projected issue, use `mcp__codex_apps__linear_list_comments` and
    the registered project's saved comment-ID cursor. Use
@@ -92,6 +96,8 @@ Do not build a parallel receipt. Complete `start` only when the same run reads:
   counts, and titles match actual execution and canonical state; no task was
   archived automatically;
 - Linear `list_issues`/`get_issue`: one current issue per Bead after write;
+  every registered project issue has the configured human assignee and the
+  mismatch count is zero;
 - Linear `list_comments` plus the destination task's `read_thread`: every
   authorized comment after the saved cursor has one confirmed delivery, one
   owner-answer readback, one marked Linear reply and reply readback; every

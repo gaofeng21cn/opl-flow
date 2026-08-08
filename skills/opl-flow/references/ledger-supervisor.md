@@ -31,7 +31,10 @@ runtime owner on every heartbeat.
 3. Treat a snapshot `validation_errors` entry or exit `3` as control-plane
    drift. Fail closed for that affected Bead; do not guess a status or mapping.
 4. Use the snapshot's dynamic ready set, unfinished issues, execution modes,
-   dependencies, and narrow metadata. Never use a hard-coded task list.
+   dependencies, narrow metadata, and `counts.semantic`. Treat raw `unfinished`
+   as the Beads row count; use `semantic.unfinished_tasks` for real tasks and
+   `semantic.aggregate_control_planes` for Dashboard/portal control planes.
+   Never use a hard-coded task list or manually recompute these counts.
 5. Call `list_threads(limit <= 50)` once. Compare only `updatedAt`, `status`, and
    `hasUnreadTurn` with the saved per-thread observation. Do not use the title as
    an observation signature: it is a Supervisor-maintained projection.
@@ -136,6 +139,18 @@ is exact; duplicates or ambiguous identity fail closed.
 Project only: Bead ID, Chinese title, parent/child hierarchy, status, priority,
 due date, short blocker/result, and GitHub/delivery links. Never project local
 paths, credentials, logs, full notes, checkpoints, or internal metadata.
+
+Project assignee is a human-accountability projection, not execution truth.
+When the heartbeat supplies exactly one `authorized_human_accounts` entry,
+assign every issue in every registered project, including completed issues, to
+that account. If multiple accounts are configured, require an explicit
+project-to-account mapping and fail closed when it is absent. During ordinary
+heartbeats, inspect assignee only on issues selected by the project waterline
+and repair only mismatches. Perform one full-project assignee audit only after
+an explicit user request, a policy change, or a missing assignment waterline;
+list the project once, filter mismatches locally, write at most ten issues per
+batch, then read back the exact project issue count and zero mismatches. Never
+infer `execution_owner` or `execution_thread` from Linear assignee.
 
 For each registered project, use `linear_list_issues(updatedAt=<waterline>)` to
 select changed issues. Call `linear_list_comments` only for those changed

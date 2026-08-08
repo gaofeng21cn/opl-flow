@@ -268,6 +268,17 @@ class VerifyLaneTests(unittest.TestCase):
             comment_probe_errors,
         )
 
+        assignee_errors = self.workflow_policy_errors_after(
+            lambda policy: policy["ledger_supervisor_policy"]
+            ["linear_assignee_projection"].update(
+                repair_selection="all_issues_every_heartbeat",
+            )
+        )
+        self.assertIn(
+            "Ledger Supervisor must keep one authorized human assignee projection with drift-only repair",
+            assignee_errors,
+        )
+
         executor_errors = self.workflow_policy_errors_after(
             lambda policy: policy["ledger_supervisor_policy"]["bounded_executor_policy"].update(
                 archived_history_policy="resume_when_triggered",

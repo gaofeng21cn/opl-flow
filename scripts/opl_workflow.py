@@ -700,6 +700,7 @@ def supervisor_snapshot(root: Path, bd: str, git_arg: str | None = None) -> dict
     linear_urls: dict[str, str] = {}
     status_counts: dict[str, int] = {}
     mode_counts: dict[str, int] = {}
+    live_executor_count = 0
 
     for raw in issues:
         if not isinstance(raw, dict) or not isinstance(raw.get("id"), str):
@@ -719,6 +720,9 @@ def supervisor_snapshot(root: Path, bd: str, git_arg: str | None = None) -> dict
             errors.append(f"{issue_id}: missing or unknown metadata.execution_mode")
         else:
             mode_counts[mode] = mode_counts.get(mode, 0) + 1
+        execution_thread = metadata.get("execution_thread")
+        if isinstance(execution_thread, str) and execution_thread.strip():
+            live_executor_count += 1
         if "remaining" in metadata and not isinstance(metadata["remaining"], list):
             errors.append(f"{issue_id}: metadata.remaining must be a JSON array")
         for field, seen in (
@@ -793,6 +797,18 @@ def supervisor_snapshot(root: Path, bd: str, git_arg: str | None = None) -> dict
             "ready": len(ready_ids),
             "by_status": dict(sorted(status_counts.items())),
             "by_execution_mode": dict(sorted(mode_counts.items())),
+            "semantic": {
+                "unfinished_tasks": sum(
+                    count
+                    for mode, count in mode_counts.items()
+                    if mode != "aggregate"
+                ),
+                "active_objectives": mode_counts.get("active", 0),
+                "live_executors": live_executor_count,
+                "monitoring": mode_counts.get("monitoring", 0),
+                "on_demand": mode_counts.get("on_demand", 0),
+                "aggregate_control_planes": mode_counts.get("aggregate", 0),
+            },
             "validation_errors": len(errors),
         },
         "ready_ids": sorted(ready_ids),
