@@ -137,7 +137,9 @@ Load `references/package-release.md` and use its bundled script for the three
 thin actions: `prepare`, `publish`, and `activate`. Do not reconstruct inputs or
 repeat readbacks manually. Keep owner/tag, Framework projection, public
 publication, and local activation as separate authorities. Never commit, tag,
-or overwrite the user's Profile from the script.
+or overwrite the user's Profile from the script. Invoke `publish` only after a
+current direct user instruction authorizes the public release; that invocation
+records the exact protected-environment approval through GitHub.
 
 ### `start`
 

@@ -276,6 +276,54 @@ def wait_for_run_id(repo: str, request_id: str, framework_commit: str) -> int:
     raise ReleaseError("dispatched publication run did not become visible")
 
 
+def approve_release_environment(repo: str, run_id: int, request_id: str) -> dict[str, Any]:
+    endpoint = f"repos/{repo}/actions/runs/{run_id}/pending_deployments"
+    last_status = ""
+    for _ in range(15):
+        pending = command_json(["gh", "api", endpoint], timeout=30)
+        if not isinstance(pending, list):
+            raise ReleaseError("GitHub pending deployments readback is invalid")
+        if pending:
+            matches = [
+                item
+                for item in pending
+                if isinstance(item, dict)
+                and isinstance(item.get("environment"), dict)
+                and item["environment"].get("name") == "release-stable"
+            ]
+            if len(pending) != 1 or len(matches) != 1:
+                raise ReleaseError("publication has an unexpected pending deployment set")
+            deployment = matches[0]
+            environment_id = deployment["environment"].get("id")
+            if not isinstance(environment_id, int) or deployment.get("current_user_can_approve") is not True:
+                raise ReleaseError("current GitHub identity cannot approve release-stable")
+            command_json(
+                [
+                    "gh", "api", "--method", "POST", endpoint,
+                    "-F", f"environment_ids[]={environment_id}",
+                    "-f", "state=approved",
+                    "-f", f"comment=Authorized OPL Package publication {request_id}",
+                ],
+                timeout=30,
+            )
+            return {
+                "status": "approved",
+                "environment": "release-stable",
+                "environment_id": environment_id,
+            }
+        run = command_json(
+            ["gh", "run", "view", str(run_id), "--repo", repo, "--json", "status"],
+            timeout=30,
+        )
+        last_status = str(run.get("status") or "") if isinstance(run, dict) else ""
+        if last_status not in ("queued", "waiting"):
+            return {"status": "not_required", "environment": None, "environment_id": None}
+        time.sleep(1)
+    if last_status == "waiting":
+        raise ReleaseError("release-stable approval did not become available within 15s")
+    return {"status": "not_required", "environment": None, "environment_id": None}
+
+
 def validate_receipt(
     receipt: dict[str, Any],
     *,
@@ -375,6 +423,7 @@ def publish(args: argparse.Namespace) -> dict[str, Any]:
             raise ReleaseError("publication dispatch failed and no matching run exists")
     if run_id is None:
         run_id = wait_for_run_id(repo, request_id, framework_commit)
+    environment_approval = approve_release_environment(repo, run_id, request_id)
     sys.stderr.write(f"Watching Package publication run {run_id}\n")
     watched = subprocess.run(
         [
@@ -468,6 +517,7 @@ def publish(args: argparse.Namespace) -> dict[str, Any]:
         "run_url": run.get("url"),
         "digest": digest,
         "latest_stable_predecessor": predecessor,
+        "environment_approval": environment_approval,
         "timings": timings,
     }
 
@@ -557,6 +607,9 @@ def activate(args: argparse.Namespace) -> dict[str, Any]:
         [args.opl_bin, "packages", "update", args.package_id, "--json"],
         timeout=args.timeout,
     )
+    update_surface = update.get("opl_agent_package_update") if isinstance(update, dict) else None
+    if not isinstance(update_surface, dict):
+        raise ReleaseError("Framework Package update returned no update surface")
     after_entry = plugin_entry(selector, args.codex_bin)
     if (
         not after_entry
@@ -579,6 +632,10 @@ def activate(args: argparse.Namespace) -> dict[str, Any]:
         [args.opl_bin, "packages", "status", "--package-id", args.package_id, "--json"],
         timeout=args.timeout,
     )
+    status_surface = status.get("opl_agent_package_status") if isinstance(status, dict) else None
+    if not isinstance(status_surface, dict):
+        raise ReleaseError("Framework Package status returned no status surface")
+    managed_policy = status_surface.get("managed_policy_currentness")
     user_profile = Path(args.user_profile).expanduser().resolve()
     profile = profile_delta(before_profile, installed_profile(after_entry), user_profile)
     return {
@@ -587,8 +644,21 @@ def activate(args: argparse.Namespace) -> dict[str, Any]:
         "package_id": args.package_id,
         "version": expected_version,
         "plugin_selector": selector,
-        "package_update": update,
-        "package_status": status,
+        "package_update": {
+            "status": update_surface.get("status"),
+            "target_version": update_surface.get("target_version"),
+            "observed_version": update_surface.get("observed_version"),
+            "release_catalog_digest": update_surface.get("release_catalog_digest"),
+        },
+        "package_status": {
+            "status": status_surface.get("status"),
+            "installed_package_count": status_surface.get("installed_package_count"),
+            "operational_ready": status_surface.get("operational_ready"),
+            "launch_state": status_surface.get("launch_state"),
+            "managed_policy_currentness": (
+                managed_policy.get("status") if isinstance(managed_policy, dict) else None
+            ),
+        },
         "required_skill_ids": required_skills,
         "missing_skill_ids": missing_skills,
         "profile": profile,

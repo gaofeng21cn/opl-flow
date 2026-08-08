@@ -107,7 +107,7 @@ OPL Flow 和 OPL Skills 不是两套相互竞争的工作流，而是“核心�
 
 ### OPL Flow 内置 Skill
 
-当前 `0.1.40` 随插件安装八个核心 Skill：
+当前 `0.1.41` 随插件安装八个核心 Skill：
 
 - `opl-flow`：渐进加载的主入口，固定路由
   `doctor/setup/tune/update/release-package/start/fleet`；

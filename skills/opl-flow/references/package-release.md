@@ -38,8 +38,11 @@ python3 <opl-flow-skill>/scripts/package_release.py publish \
 
 `publish` requires clean Framework `HEAD == origin/main`. It reads the current
 predecessor, dispatches one protected workflow, reconciles an unknown dispatch
-by request id, verifies the receipt, immutable and `latest-stable` digests, and
-both attestations, then reports queue, job, and total seconds.
+by request id, formally approves the one exact pending `release-stable`
+deployment through the authenticated GitHub reviewer, verifies the receipt,
+immutable and `latest-stable` digests, and both attestations, then reports
+queue, job, and total seconds. Fail immediately on another pending environment,
+multiple pending deployments, or missing reviewer authority.
 
 ```bash
 python3 <opl-flow-skill>/scripts/package_release.py activate \
@@ -49,9 +52,10 @@ python3 <opl-flow-skill>/scripts/package_release.py activate \
 
 `activate` delegates marketplace refresh and carrier update to Framework once,
 then reads back the enabled Plugin version, required Skills, single-Package
-status, and default Profile delta. It reports `profile_merge_required` and a
-diff when the default changed; merge user Profile content semantically outside
-the script. Start a fresh Codex executor when discovery is required.
+status, and default Profile delta as a compact summary. It reports
+`profile_merge_required` and a diff when the default changed; merge user Profile
+content semantically outside the script. Start a fresh Codex executor when
+discovery is required.
 
 ## Terminal Readback
 

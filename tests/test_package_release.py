@@ -59,6 +59,29 @@ class PackageReleaseTests(unittest.TestCase):
             self.assertEqual(user_path.read_text(encoding="utf-8"), "user override\n")
             self.assertFalse(result["automatic_write_performed"])
 
+    def test_publish_approves_only_the_exact_release_environment(self) -> None:
+        pending = [{
+            "environment": {"id": 42, "name": "release-stable"},
+            "current_user_can_approve": True,
+        }]
+        with patch.object(release, "command_json", side_effect=[pending, [{"id": 7}]]) as command:
+            result = release.approve_release_environment("owner/repo", 123, "request-1")
+
+        self.assertEqual(
+            result,
+            {"status": "approved", "environment": "release-stable", "environment_id": 42},
+        )
+        self.assertEqual(
+            command.call_args_list[1].args[0],
+            [
+                "gh", "api", "--method", "POST",
+                "repos/owner/repo/actions/runs/123/pending_deployments",
+                "-F", "environment_ids[]=42",
+                "-f", "state=approved",
+                "-f", "comment=Authorized OPL Package publication request-1",
+            ],
+        )
+
     def test_activate_delegates_marketplace_refresh_to_one_framework_update(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)
@@ -93,7 +116,24 @@ class PackageReleaseTests(unittest.TestCase):
 
             def command_json(argv: list[str], **_: object) -> dict[str, object]:
                 calls.append(argv)
-                return {"status": "ok"}
+                if argv[1:3] == ["packages", "update"]:
+                    return {
+                        "opl_agent_package_update": {
+                            "status": "updated",
+                            "target_version": "0.1.40",
+                            "observed_version": "0.1.40",
+                            "release_catalog_digest": "sha256:digest",
+                        }
+                    }
+                return {
+                    "opl_agent_package_status": {
+                        "status": "available",
+                        "installed_package_count": 1,
+                        "operational_ready": True,
+                        "launch_state": "ready",
+                        "managed_policy_currentness": {"status": "current"},
+                    }
+                }
 
             args = argparse.Namespace(
                 package_id="opl-flow",
@@ -120,6 +160,8 @@ class PackageReleaseTests(unittest.TestCase):
             self.assertEqual(result["status"], "installed_and_read_back")
             self.assertTrue(result["fresh_discovery_required"])
             self.assertEqual(result["missing_skill_ids"], [])
+            self.assertEqual(result["package_status"]["operational_ready"], True)
+            self.assertNotIn("opl_agent_package_status", result["package_status"])
 
 
 if __name__ == "__main__":
