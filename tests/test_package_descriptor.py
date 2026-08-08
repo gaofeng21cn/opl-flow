@@ -56,6 +56,7 @@ class PackageDescriptorTests(unittest.TestCase):
                 "codex-app-owner-migration",
                 "develop-and-deliver",
                 "github-ssot-patrol",
+                "opl-doc",
                 "opl-fleet",
                 "opl-flow",
                 "recover-codex-tasks",

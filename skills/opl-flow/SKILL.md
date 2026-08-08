@@ -83,6 +83,8 @@ Natural-language examples:
 - Use `$github-ssot-patrol` for scheduled or interactive GitHub CI, open PR,
   and open issue patrols that require SSOT-first intake and deterministic
   closeout.
+- Use `$opl-doc` to align developer documentation with live repository truth,
+  consolidate competing current narratives, and retire stale documentation.
 - Use `$coordinate-concurrent-tasks` for multiple Codex tasks, repositories,
   worktrees, machines, or canonical integration.
 - Use `$recover-codex-tasks` for interrupted, missing, or ambiguous execution

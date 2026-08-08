@@ -82,6 +82,8 @@ opl-flow/
 |   |-- coordinate-concurrent-tasks/
 |   |-- codex-app-owner-migration/
 |   |-- develop-and-deliver/
+|   |-- github-ssot-patrol/
+|   |-- opl-doc/
 |   |-- opl-fleet/
 |   |-- task-mode-gate/
 |   `-- recover-codex-tasks/

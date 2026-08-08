@@ -26,6 +26,8 @@ executor-neutral 的 Package identity、Profile、偏好和公共 status/actions
 | Git/local neutral proof | 验证公共 Package/status/action 合同不需要 Codex 私有字段。 | 第二个正式 carrier、第二 executor 产品或 ordinary currentness。 |
 | `skills/coordinate-concurrent-tasks` | 有界协调现有 owner、fresh-main integration 和 archive-readiness review。 | Git/release/package mutation authority 或自动 archive。 |
 | `skills/develop-and-deliver` | 多步骤软件实现、验证、fresh-main 吸收与真实交付。 | 领域 truth、发布授权或独立 Package lifecycle。 |
+| `skills/github-ssot-patrol` | 基于 fresh SSOT 巡检 GitHub CI、open PR 和 open issue，并确定性收口。 | GitHub mutation 授权、产品 truth 或自动合并。 |
+| `skills/opl-doc` | 以 live repo truth 治理开发文档语义、唯一 owner 和 stale surface。 | Consumer repo truth、固定文档布局或第二套工作总账。 |
 | `skills/task-mode-gate` | 约束真实发布、部署、迁移、公共或破坏性 mutation。 | 普通开发方法论或只读任务门禁。 |
 | `skills/recover-codex-tasks` | 基于本机任务数据库和证据恢复中断工作。 | 伪造任务状态、外部 authority 或自动归档。 |
 | Specialist skills | 由自己的 explicit/narrow trigger 按需加载。 | 每个任务预加载全部方法或把可选增强变成 Flow 依赖。 |
@@ -43,6 +45,8 @@ Flow Package 可以暴露：
 - `skills/codex-app-owner-migration`；
 - `skills/coordinate-concurrent-tasks`；
 - `skills/develop-and-deliver`；
+- `skills/github-ssot-patrol`；
+- `skills/opl-doc`；
 - `skills/task-mode-gate`；
 - `skills/recover-codex-tasks`；
 - `skills/opl-fleet`；

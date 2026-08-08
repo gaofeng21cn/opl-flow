@@ -1,6 +1,6 @@
 {
   "name": "opl-flow",
-  "version": "0.1.41",
+  "version": "0.1.42",
   "description": "OPL Flow establishes the Codex experience baseline and coordinates durable work across tasks, repositories, and machines.",
   "author": {
     "name": "Gaofeng"
@@ -19,6 +19,7 @@
       "model-recommendation",
       "capability-management",
       "task-coordination",
+      "document-governance",
       "durable-ledger",
       "dashboard-onboarding",
       "hourly-supervision",

@@ -12,7 +12,7 @@ installed state, callability, publication, and release qualification.
 OPL Flow is the sole strategy owner for the default Codex working experience.
 The policy covers:
 
-- the user Profile and eight Flow-owned core workflow Skills;
+- the user Profile and nine Flow-owned core workflow Skills;
 - recommended model and reasoning intent;
 - default Skills and Tools, their source owners, installation intent, and
   degradation behavior;
@@ -65,7 +65,7 @@ No reverse edge may make App or Framework policy the semantic owner.
 `contracts/workflow-policy.json` uses `opl_flow_workflow_policy.v4` and separates
 five concerns:
 
-1. `provides`: the Plugin/Profile and eight Flow-owned core Skills.
+1. `provides`: the Plugin/Profile and nine Flow-owned core Skills.
 2. `requires`: dependencies whose absence can make Flow itself non-operational.
 3. `experience_baseline`: default/recommended capabilities. Absence degrades
    the experience but never disables Flow, Ledger, or core Skills.
@@ -121,13 +121,14 @@ are never bundled.
 
 Skills that define the default Codex work style or Flow's multi-task,
 multi-repository, multi-machine control path belong in OPL Flow. The current
-eight-Skill core set is:
+nine-Skill core set is:
 
 - `opl-flow`;
 - `coordinate-concurrent-tasks`;
 - `codex-app-owner-migration`;
 - `develop-and-deliver`;
 - `github-ssot-patrol`;
+- `opl-doc`;
 - `recover-codex-tasks`;
 - `task-mode-gate`;
 - `opl-fleet`.

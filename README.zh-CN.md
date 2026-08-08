@@ -107,7 +107,7 @@ OPL Flow 和 OPL Skills 不是两套相互竞争的工作流，而是“核心�
 
 ### OPL Flow 内置 Skill
 
-当前 `0.1.41` 随插件安装八个核心 Skill：
+当前 `0.1.42` 随插件安装九个核心 Skill：
 
 - `opl-flow`：渐进加载的主入口，固定路由
   `doctor/setup/tune/update/release-package/start/fleet`；
@@ -117,6 +117,8 @@ OPL Flow 和 OPL Skills 不是两套相互竞争的工作流，而是“核心�
 - `develop-and-deliver`：系统化开发、验证与交付；
 - `github-ssot-patrol`：基于最新 SSOT 的 GitHub CI、open PR 与 open issue
   巡检，提供确定性的只读快照与收口；
+- `opl-doc`：以 live repo truth 为依据做开发文档语义治理，不强制固定目录，也不建立
+  第二套工作总账；
 - `opl-fleet`：私人 Instance 支撑的 Agent 原生多机 workspace currentness、节点准入、
   受保护执行、任务连续性和分发；
 - `task-mode-gate`：真实发布、部署、迁移和破坏性写入边界；

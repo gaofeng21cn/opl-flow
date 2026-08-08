@@ -16,6 +16,7 @@ CORE_SKILL_IDS = (
     "codex-app-owner-migration",
     "develop-and-deliver",
     "github-ssot-patrol",
+    "opl-doc",
     "opl-fleet",
     "opl-flow",
     "recover-codex-tasks",
@@ -44,6 +45,8 @@ REQUIRED_FILES = (
     "skills/github-ssot-patrol/agents/openai.yaml",
     "skills/github-ssot-patrol/references/decision-contract.md",
     "skills/github-ssot-patrol/scripts/github_patrol.py",
+    "skills/opl-doc/SKILL.md",
+    "skills/opl-doc/agents/openai.yaml",
     "skills/opl-fleet/SKILL.md",
     "skills/opl-fleet/agents/openai.yaml",
     "skills/opl-flow/SKILL.md",
@@ -94,6 +97,7 @@ CORE_TEST_MODULES = (
     "tests/test_task_owner_migration.py",
     "tests/test_fleet_inventory.py",
     "tests/test_github_ssot_patrol.py",
+    "tests/test_opl_doc.py",
     "tests/test_package_descriptor.py",
     "tests/test_package_release.py",
 )
@@ -115,7 +119,7 @@ def check_plugin_json(repo_root: Path) -> list[str]:
         if path.is_dir() and (path / "SKILL.md").exists()
     }
     if discoverable_skills != set(CORE_SKILL_IDS):
-        errors.append("default plugin must expose exactly the eight OPL Flow core skills")
+        errors.append("default plugin must expose exactly the nine OPL Flow core skills")
     policy = json.loads((repo_root / "contracts" / "workflow-policy.json").read_text(encoding="utf-8"))
     if manifest.get("version") != policy.get("package", {}).get("version"):
         errors.append("plugin version must match contracts/workflow-policy.json package.version")
@@ -215,6 +219,10 @@ def check_workflow_policy(repo_root: Path) -> list[str]:
         "github-ssot-patrol": (
             "https://github.com/gaofeng21cn/opl-flow",
             "skills/github-ssot-patrol",
+        ),
+        "opl-doc": (
+            "https://github.com/gaofeng21cn/opl-flow",
+            "skills/opl-doc",
         ),
         "opl-fleet": (
             "https://github.com/gaofeng21cn/opl-flow",

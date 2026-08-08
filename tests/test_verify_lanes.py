@@ -51,7 +51,7 @@ class VerifyLaneTests(unittest.TestCase):
         self.assertIn("contracts/fleet-workspace-profile.schema.json", required)
         self.assertIn("contracts/task-owner-migration.schema.json", required)
 
-    def test_plugin_exposes_the_eight_bounded_flow_skills(self) -> None:
+    def test_plugin_exposes_the_nine_bounded_flow_skills(self) -> None:
         self.assertEqual(check_plugin_json(REPO_ROOT), [])
 
         discoverable = {
@@ -60,6 +60,24 @@ class VerifyLaneTests(unittest.TestCase):
             if path.is_dir() and (path / "SKILL.md").exists()
         }
         self.assertEqual(discoverable, set(CORE_SKILL_IDS))
+
+    def test_opl_doc_stays_a_thin_model_native_skill(self) -> None:
+        skill_root = REPO_ROOT / "skills" / "opl-doc"
+        files = {
+            path.relative_to(skill_root).as_posix()
+            for path in skill_root.rglob("*")
+            if path.is_file()
+        }
+        self.assertEqual(files, {"SKILL.md", "agents/openai.yaml"})
+
+        skill = (skill_root / "SKILL.md").read_text(encoding="utf-8")
+        self.assertIn("Do not require a fixed set of files", skill)
+        self.assertIn("Let the model make semantic judgments", skill)
+        self.assertIn("Do not create a second ledger", skill)
+        self.assertIn("Keep each repository's product and domain truth", skill)
+        self.assertNotIn("opl-doc-doctor", skill)
+        self.assertNotIn("native-sync", skill)
+        self.assertNotIn("family-plan", skill)
 
     def test_codex_app_owner_migration_skill_declares_native_visibility_boundary(self) -> None:
         skill = (

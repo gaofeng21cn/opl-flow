@@ -299,7 +299,7 @@ and a multi-machine AI fleet without loading or configuring every backend.
 
 ## Core Skills And Optional Enhancements
 
-OPL Flow `0.1.41` bundles eight core Skills with the Plugin:
+OPL Flow `0.1.42` bundles nine core Skills with the Plugin:
 
 - `opl-flow` as the progressive primary router for `doctor`, `setup`, `tune`,
   `update`, `release-package`, `start`, and `fleet`;
@@ -311,6 +311,8 @@ OPL Flow `0.1.41` bundles eight core Skills with the Plugin:
 - `develop-and-deliver` for systematic implementation and delivery;
 - `github-ssot-patrol` for SSOT-first GitHub CI, open PR, and open issue
   patrols with deterministic read-only snapshots and closeout;
+- `opl-doc` for semantic developer-document governance grounded in live repo
+  truth, without a fixed document layout or a second work ledger;
 - `opl-fleet` for Agent-native multi-machine workspace currentness, node
   admission, protected execution, task continuity, and dispatch;
 - `task-mode-gate` for actual release, deployment, migration, and destructive
