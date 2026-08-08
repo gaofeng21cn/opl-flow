@@ -1,6 +1,6 @@
 ---
 name: "opl-flow"
-description: "Use when configuring, diagnosing, tuning, updating, or explaining the OPL Flow Codex experience baseline; starting its durable ledger supervisor; routing multi-machine work; or when the user explicitly asks to use OPL Flow."
+description: "Use when configuring, diagnosing, tuning, updating, releasing, or explaining the OPL Flow Codex experience baseline; starting its durable ledger supervisor; routing multi-machine work; publishing a first-party OPL Package; or when the user explicitly asks to use OPL Flow."
 ---
 
 # OPL Flow
@@ -32,6 +32,7 @@ Ledger, Fleet, package, and App contract into an ordinary baseline task.
 | `setup` (`$opl-flow setup`) | Establish or repair the owner-supported baseline on this machine; optionally initialize an Instance. | `references/setup-update.md`, `references/package-lifecycle.md` |
 | `tune` (`$opl-flow tune`) | Improve `AGENTS.md`, model/reasoning defaults, capability selection, or optional enhancements while preserving user ownership. | `references/codex-baseline.md`, `references/app-integration.md` |
 | `update` (`$opl-flow update`) | Update Flow and configured components from their owners, migrate known legacy surfaces, and verify effective discovery. | `references/setup-update.md`, `references/package-lifecycle.md` |
+| `release-package` (`$opl-flow release-package`) | Prepare, publish, and locally activate one first-party OPL Package without rebuilding the release workflow by hand. | `references/package-release.md` |
 | `start` (`$opl-flow start`) | Idempotently bind the owner's Ledger Dashboard, Bead, Linear projection, and hourly `OPL Flow Supervisor`. | `references/ledger-start.md` |
 | `supervise` (`$opl-flow supervise`) | Run one bounded episode of the existing Ledger Supervisor without duplicating its reusable policy in the Automation prompt. | `references/ledger-supervisor.md`, then `references/terminal-readback.md` |
 | `fleet` (`$opl-flow fleet`) | Configure, inspect, admit, select, dispatch, or move a Beads execution owner across Instance-backed machines. | Use `$opl-fleet`; load its Skill instead of expanding Fleet here. |
@@ -40,6 +41,7 @@ Natural-language examples:
 
 - "检查/修复 Codex 使用基线" -> `doctor` first, then `setup` only when repair is authorized.
 - "优化我的 AGENTS.md 和模型设置" -> `tune`.
+- "发布最新 Package 版本" -> `release-package`.
 - "创建 OPL 总账并每小时监督" -> `start`.
 - An existing Supervisor heartbeat -> `supervise`.
 - "配置或使用 OPL Fleet" -> `fleet`.
@@ -128,6 +130,14 @@ surfaces, then verify package bytes, Profile, baseline, optional discovery, and
 executor callability. Never use wildcard OPL Skills installation; resolve a
 named preset to explicit Skill IDs from the OPL Skills catalog. Update does not
 run onboarding or create a second supervision loop.
+
+### `release-package`
+
+Load `references/package-release.md` and use its bundled script for the three
+thin actions: `prepare`, `publish`, and `activate`. Do not reconstruct inputs or
+repeat readbacks manually. Keep owner/tag, Framework projection, public
+publication, and local activation as separate authorities. Never commit, tag,
+or overwrite the user's Profile from the script.
 
 ### `start`
 

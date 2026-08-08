@@ -53,8 +53,10 @@ REQUIRED_FILES = (
     "skills/opl-flow/references/ledger-start.md",
     "skills/opl-flow/references/ledger-supervisor.md",
     "skills/opl-flow/references/package-lifecycle.md",
+    "skills/opl-flow/references/package-release.md",
     "skills/opl-flow/references/setup-update.md",
     "skills/opl-flow/references/terminal-readback.md",
+    "skills/opl-flow/scripts/package_release.py",
     "skills/recover-codex-tasks/SKILL.md",
     "skills/recover-codex-tasks/agents/openai.yaml",
     "skills/task-mode-gate/SKILL.md",
@@ -93,6 +95,7 @@ CORE_TEST_MODULES = (
     "tests/test_fleet_inventory.py",
     "tests/test_github_ssot_patrol.py",
     "tests/test_package_descriptor.py",
+    "tests/test_package_release.py",
 )
 VERIFY_LANES = ("core", "full")
 

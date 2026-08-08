@@ -107,9 +107,10 @@ OPL Flow 和 OPL Skills 不是两套相互竞争的工作流，而是“核心�
 
 ### OPL Flow 内置 Skill
 
-当前 `0.1.39` 随插件安装八个核心 Skill：
+当前 `0.1.40` 随插件安装八个核心 Skill：
 
-- `opl-flow`：渐进加载的主入口，固定路由 `doctor/setup/tune/update/start/fleet`；
+- `opl-flow`：渐进加载的主入口，固定路由
+  `doctor/setup/tune/update/release-package/start/fleet`；
 - `coordinate-concurrent-tasks`：多任务、多对话和多 worktree 的并发协调；
 - `codex-app-owner-migration`：通过 Codex App 原生可见任务迁移执行 owner，要求完整
   workspace 准入、目标任务 readback，并在迁移失败时保持本机 owner 继续执行；
