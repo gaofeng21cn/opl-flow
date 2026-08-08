@@ -66,22 +66,11 @@ opl packages install opl-flow
 opl packages update opl-flow
 ```
 
-目标普通 publication source 是 Flow owner 的 per-Package GHCR `latest-stable`。
-GHCR 不执行本机 lifecycle。shared `one-person-lab-manifest:latest-stable` 只用于
-Full/offline/integration-test/QA snapshot，不决定 ordinary currentness。
-
-Base 可以下载、校验并 hand off OCI bytes；配置的 carrier 执行
-install/update/remove，并以 fresh local readback 定义 installed truth。Codex
-Plugin Manager 是当前正式 carrier，Codex CLI 是当前正式 executor。
-
-Required composition 不要求 shared SemVer/ABI cohort、App catalog 或 Full lock。
-experience baseline 可以使用 owner/version/readiness metadata 做 repair 和 degraded
-诊断，但不得升级为 Flow operational 门禁。精确 build lock 只绑定一次 Full payload
-assembly，不定义 ordinary installed truth。
-
-Framework Profile materialization 保留 target SHA stale-write check、backup、candidate
-validation 和 atomic apply。其 rollback receipt 只说明 Profile mutation 的
-compatibility recovery，不是通用 Package dependency。
+Codex Plugin Manager 与 Codex CLI 是当前正式 carrier/executor。安装、更新、
+Profile materialization、publication channel 和 installed-currentness 的唯一组合边界
+见 [capability-governance.md](./capability-governance.md)；操作步骤见
+[new-machine-codex-setup.md](./new-machine-codex-setup.md)。本文不维护第二份 lifecycle
+叙事。
 
 ## Standard And Full
 
