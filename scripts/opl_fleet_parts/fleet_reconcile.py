@@ -648,6 +648,175 @@ def fetch_skill_reference(spec: dict[str, Any], revision: str) -> dict[str, Any]
         raise FleetError("owner skill reference is invalid")
     return payload
 
+def protected_discovery_root_paths(
+    reference: dict[str, Any],
+    *,
+    home: Path | None = None,
+) -> tuple[tuple[str, Path], ...]:
+    discovery_roots = reference.get("discovery_roots")
+    protected_roots = reference.get("protected_discovery_roots", [])
+    if not isinstance(discovery_roots, list) or not isinstance(protected_roots, list):
+        raise FleetError("owner skill discovery root policy is invalid")
+    declared = {str(root) for root in discovery_roots}
+    owner_home = home or Path.home()
+    resolved: list[tuple[str, Path]] = []
+    for raw in protected_roots:
+        if not isinstance(raw, str) or not raw:
+            raise FleetError("protected skill root must be a home-relative path")
+        relative = Path(raw)
+        if (
+            raw not in declared
+            or relative.is_absolute()
+            or ".." in relative.parts
+            or "\\" in raw
+        ):
+            raise FleetError(f"unsafe protected skill root: {raw}")
+        resolved.append((raw, owner_home / relative))
+    return tuple(resolved)
+
+def repair_protected_discovery_roots(
+    reference: dict[str, Any],
+    *,
+    home: Path | None = None,
+) -> list[str]:
+    repaired: list[str] = []
+    for relative, root in protected_discovery_root_paths(reference, home=home):
+        root.parent.mkdir(parents=True, exist_ok=True)
+        if root.is_symlink():
+            try:
+                target = root.resolve(strict=True)
+            except OSError as exc:
+                raise FleetError(f"protected skill root target is unavailable: {relative}") from exc
+            if not target.is_dir():
+                raise FleetError(f"protected skill root target is not a directory: {relative}")
+            transaction = Path(tempfile.mkdtemp(
+                prefix=f".{root.name}.opl-root-recovery-",
+                dir=root.parent,
+            ))
+            staged = transaction / "restored"
+            displaced = transaction / "displaced-link"
+            try:
+                shutil.copytree(target, staged, symlinks=True)
+                if not root.is_symlink() or root.resolve(strict=True) != target:
+                    raise FleetError(f"protected skill root changed during recovery: {relative}")
+                root.replace(displaced)
+                try:
+                    staged.replace(root)
+                except Exception:
+                    displaced.replace(root)
+                    raise
+            finally:
+                if root.exists() or root.is_symlink():
+                    shutil.rmtree(transaction, ignore_errors=True)
+            repaired.append(relative)
+            continue
+        if root.exists():
+            if not root.is_dir():
+                raise FleetError(f"protected skill root is not a directory: {relative}")
+            continue
+        root.mkdir(parents=True)
+        repaired.append(relative)
+    return repaired
+
+def _flow_package_status(opl_command: str) -> dict[str, Any] | None:
+    result = run(
+        [opl_command, "packages", "status", "--package-id", "opl-flow", "--json"],
+        check=False,
+        timeout=60,
+    )
+    if result.returncode:
+        return None
+    try:
+        payload = json.loads(result.stdout)
+    except json.JSONDecodeError:
+        return None
+    status = payload.get("opl_agent_package_status") if isinstance(payload, dict) else None
+    return status if isinstance(status, dict) else None
+
+def reconcile_flow_experience_baseline(*, opl_command: str | None = None) -> dict[str, Any]:
+    receipt: dict[str, Any] = {
+        "surface_kind": "opl_flow_experience_baseline_reconcile.v1",
+        "status": "unavailable",
+        "repair_attempted": False,
+        "failure_ids": [],
+        "reason": "opl_command_unavailable",
+    }
+    resolved_opl_command = opl_command or shutil.which("opl")
+    if not resolved_opl_command:
+        return receipt
+    status = _flow_package_status(resolved_opl_command)
+    if status is None:
+        return {**receipt, "reason": "package_status_unavailable"}
+    baseline = status.get("experience_baseline")
+    if not isinstance(baseline, dict):
+        return {**receipt, "reason": "experience_baseline_readback_missing"}
+    failure_ids = sorted({
+        str(item)
+        for item in baseline.get("failure_ids", [])
+        if isinstance(item, str) and item
+    })
+    baseline_status = baseline.get("status")
+    if baseline_status == "current":
+        return {
+            **receipt,
+            "status": "current",
+            "failure_ids": failure_ids,
+            "reason": None,
+        }
+    if baseline_status != "degraded":
+        return {
+            **receipt,
+            "failure_ids": failure_ids,
+            "reason": "experience_baseline_not_actionable",
+        }
+
+    repair_command = baseline.get("repair_command")
+    try:
+        repair_parts = shlex.split(repair_command) if isinstance(repair_command, str) else []
+    except ValueError:
+        repair_parts = []
+    if repair_parts != ["opl", "packages", "repair", "--package-id", "opl-flow"]:
+        return {
+            **receipt,
+            "status": "repair_failed",
+            "failure_ids": failure_ids,
+            "reason": "repair_command_not_authorized",
+        }
+    repair = run(
+        [resolved_opl_command, *repair_parts[1:], "--json"],
+        check=False,
+        timeout=300,
+    )
+    if repair.returncode:
+        return {
+            **receipt,
+            "status": "repair_failed",
+            "repair_attempted": True,
+            "failure_ids": failure_ids,
+            "reason": "repair_command_failed",
+        }
+    repaired_status = _flow_package_status(resolved_opl_command)
+    repaired_baseline = (
+        repaired_status.get("experience_baseline")
+        if isinstance(repaired_status, dict)
+        else None
+    )
+    if not isinstance(repaired_baseline, dict) or repaired_baseline.get("status") != "current":
+        return {
+            **receipt,
+            "status": "repair_failed",
+            "repair_attempted": True,
+            "failure_ids": failure_ids,
+            "reason": "repair_readback_not_current",
+        }
+    return {
+        **receipt,
+        "status": "repaired",
+        "repair_attempted": True,
+        "failure_ids": failure_ids,
+        "reason": None,
+    }
+
 def _plugin_skill_roots_from_payload(payload: object) -> tuple[Path, ...]:
     if not isinstance(payload, dict) or not isinstance(payload.get("installed"), list):
         return ()
@@ -1451,9 +1620,21 @@ def reconcile(*, report: bool, install_required: bool) -> dict[str, Any]:
     spec = manifest()
     reconcile_pets(spec)
     runner_revision = install_runner(spec["runner"], control_revision)
+    reference = fetch_skill_reference(spec["runner"], runner_revision)
+    repaired_roots = repair_protected_discovery_roots(reference)
+    atomic_json(
+        STATE_ROOT / "protected-skill-roots.json",
+        {
+            "surface_kind": "opl_protected_skill_roots_reconcile.v1",
+            "status": "repaired" if repaired_roots else "current",
+            "protected_roots": list(reference.get("protected_discovery_roots", [])),
+            "repaired_roots": repaired_roots,
+        },
+    )
+    baseline_reconcile = reconcile_flow_experience_baseline()
+    atomic_json(STATE_ROOT / "flow-experience-baseline.json", baseline_reconcile)
     owner_actions: list[str] = []
     if install_required:
-        reference = fetch_skill_reference(spec["runner"], runner_revision)
         owner_actions = install_missing_owner_skills(reference)
     apply = runner_call("node-sync")
     verify = runner_call("node-status")

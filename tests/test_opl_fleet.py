@@ -586,6 +586,18 @@ class CodexFleetTests(unittest.TestCase):
             patch_fleet("reconcile_pets"),
             patch_fleet("install_runner", return_value="b" * 40) as install_runner,
             patch_fleet(
+                "fetch_skill_reference",
+                return_value={"discovery_roots": [], "protected_discovery_roots": []},
+            ) as fetch_reference,
+            patch_fleet(
+                "repair_protected_discovery_roots",
+                return_value=[],
+            ) as repair_roots,
+            patch_fleet(
+                "reconcile_flow_experience_baseline",
+                return_value={"status": "current"},
+            ) as reconcile_baseline,
+            patch_fleet(
     "runner_call",
                 return_value={"ok": True, "result": {"ok": True, "drift": []}},
             ),
@@ -599,10 +611,27 @@ class CodexFleetTests(unittest.TestCase):
             ),
             patch_fleet("collect_inventory", return_value={}),
             patch_fleet("node_registry", return_value={}),
-            patch_fleet("atomic_json"),
+            patch_fleet("atomic_json") as atomic_json,
         ):
             result = fleet.reconcile(report=False, install_required=False)
         install_runner.assert_called_once_with({}, "a" * 40)
+        fetch_reference.assert_called_once_with({}, "b" * 40)
+        repair_roots.assert_called_once_with(
+            {"discovery_roots": [], "protected_discovery_roots": []}
+        )
+        reconcile_baseline.assert_called_once_with()
+        self.assertIn(
+            mock.call(
+                fleet.STATE_ROOT / "protected-skill-roots.json",
+                {
+                    "surface_kind": "opl_protected_skill_roots_reconcile.v1",
+                    "status": "current",
+                    "protected_roots": [],
+                    "repaired_roots": [],
+                },
+            ),
+            atomic_json.call_args_list,
+        )
         self.assertEqual(result["state"], "UPDATE_REQUIRED")
         self.assertEqual(
             result["drift"],
@@ -3097,6 +3126,184 @@ class CodexFleetTests(unittest.TestCase):
         self.assertEqual(actions, ["codex-bundled"])
         command.assert_called_once()
         self.assertEqual(command.call_args.args[0][:3], ["npx", "skills", "add"])
+
+    def test_protected_skill_root_symlink_is_recovered_as_physical_directory(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            home = Path(temp_dir)
+            foreign_root = home / ".foreign/skills"
+            skill = foreign_root / "helper"
+            skill.mkdir(parents=True)
+            (skill / "SKILL.md").write_text("# helper\n", encoding="utf-8")
+            protected = home / ".agents/skills"
+            protected.parent.mkdir(parents=True)
+            protected.symlink_to(foreign_root, target_is_directory=True)
+            reference = {
+                "discovery_roots": [".agents/skills"],
+                "protected_discovery_roots": [".agents/skills"],
+                "packages": {},
+            }
+
+            repaired = fleet.repair_protected_discovery_roots(reference, home=home)
+
+            self.assertEqual(repaired, [".agents/skills"])
+            self.assertTrue(protected.is_dir())
+            self.assertFalse(protected.is_symlink())
+            self.assertEqual(
+                (protected / "helper/SKILL.md").read_text(encoding="utf-8"),
+                "# helper\n",
+            )
+            self.assertEqual(
+                (foreign_root / "helper/SKILL.md").read_text(encoding="utf-8"),
+                "# helper\n",
+            )
+
+    def test_protected_skill_root_repair_is_idempotent_and_rejects_unsafe_paths(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            home = Path(temp_dir)
+            protected = home / ".agents/skills"
+            protected.mkdir(parents=True)
+            reference = {
+                "discovery_roots": [".agents/skills"],
+                "protected_discovery_roots": [".agents/skills"],
+                "packages": {},
+            }
+            self.assertEqual(
+                fleet.repair_protected_discovery_roots(reference, home=home),
+                [],
+            )
+            unsafe = {
+                **reference,
+                "protected_discovery_roots": ["../foreign-skills"],
+            }
+            with self.assertRaisesRegex(fleet.FleetError, "unsafe protected skill root"):
+                fleet.repair_protected_discovery_roots(unsafe, home=home)
+
+    def test_protected_skill_root_repair_preserves_non_directory_conflict(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            home = Path(temp_dir)
+            protected = home / ".agents/skills"
+            protected.parent.mkdir(parents=True)
+            protected.write_text("keep\n", encoding="utf-8")
+            reference = {
+                "discovery_roots": [".agents/skills"],
+                "protected_discovery_roots": [".agents/skills"],
+                "packages": {},
+            }
+            with self.assertRaisesRegex(fleet.FleetError, "is not a directory"):
+                fleet.repair_protected_discovery_roots(reference, home=home)
+            self.assertEqual(protected.read_text(encoding="utf-8"), "keep\n")
+
+    def test_flow_experience_baseline_repair_runs_only_when_degraded(self) -> None:
+        current = {
+            "opl_agent_package_status": {
+                "experience_baseline": {
+                    "status": "current",
+                    "failure_ids": [],
+                    "repair_command": None,
+                }
+            }
+        }
+        with (
+            patch_fleet(
+                "run",
+                return_value=fleet.subprocess.CompletedProcess(
+                    [], 0, json.dumps(current), ""
+                ),
+            ) as command,
+        ):
+            result = fleet.reconcile_flow_experience_baseline(opl_command="/opt/opl")
+        self.assertEqual(result["status"], "current")
+        self.assertFalse(result["repair_attempted"])
+        command.assert_called_once_with(
+            ["/opt/opl", "packages", "status", "--package-id", "opl-flow", "--json"],
+            check=False,
+            timeout=60,
+        )
+
+    def test_flow_experience_baseline_non_actionable_status_stays_unavailable(self) -> None:
+        unavailable = {
+            "opl_agent_package_status": {
+                "experience_baseline": {
+                    "status": "unavailable",
+                    "failure_ids": ["fixture-skill"],
+                    "repair_command": None,
+                }
+            }
+        }
+        with patch_fleet(
+            "run",
+            return_value=fleet.subprocess.CompletedProcess(
+                [], 0, json.dumps(unavailable), ""
+            ),
+        ) as command:
+            result = fleet.reconcile_flow_experience_baseline(opl_command="/opt/opl")
+        self.assertEqual(result["status"], "unavailable")
+        self.assertFalse(result["repair_attempted"])
+        self.assertEqual(result["reason"], "experience_baseline_not_actionable")
+        command.assert_called_once()
+
+    def test_flow_experience_baseline_repair_converges_and_reads_back(self) -> None:
+        degraded = {
+            "opl_agent_package_status": {
+                "experience_baseline": {
+                    "status": "degraded",
+                    "failure_ids": ["fixture-skill"],
+                    "repair_command": "opl packages repair --package-id opl-flow",
+                }
+            }
+        }
+        current = {
+            "opl_agent_package_status": {
+                "experience_baseline": {
+                    "status": "current",
+                    "failure_ids": [],
+                    "repair_command": None,
+                }
+            }
+        }
+        responses = [
+            fleet.subprocess.CompletedProcess([], 0, json.dumps(degraded), ""),
+            fleet.subprocess.CompletedProcess([], 0, "{}", ""),
+            fleet.subprocess.CompletedProcess([], 0, json.dumps(current), ""),
+        ]
+        with (
+            patch_fleet("run", side_effect=responses) as command,
+        ):
+            result = fleet.reconcile_flow_experience_baseline(opl_command="/opt/opl")
+        self.assertEqual(result["status"], "repaired")
+        self.assertTrue(result["repair_attempted"])
+        self.assertEqual(result["failure_ids"], ["fixture-skill"])
+        self.assertEqual(
+            command.call_args_list[1],
+            mock.call(
+                ["/opt/opl", "packages", "repair", "--package-id", "opl-flow", "--json"],
+                check=False,
+                timeout=300,
+            ),
+        )
+
+    def test_flow_experience_baseline_repair_rejects_untrusted_command(self) -> None:
+        degraded = {
+            "opl_agent_package_status": {
+                "experience_baseline": {
+                    "status": "degraded",
+                    "failure_ids": ["fixture-skill"],
+                    "repair_command": "opl packages repair --package-id other-package",
+                }
+            }
+        }
+        with (
+            patch_fleet(
+                "run",
+                return_value=fleet.subprocess.CompletedProcess(
+                    [], 0, json.dumps(degraded), ""
+                ),
+            ) as command,
+        ):
+            result = fleet.reconcile_flow_experience_baseline(opl_command="/opt/opl")
+        self.assertEqual(result["status"], "repair_failed")
+        self.assertEqual(result["reason"], "repair_command_not_authorized")
+        command.assert_called_once()
 
     def test_fetch_skill_reference_accepts_current_schema(self) -> None:
         payload = {
