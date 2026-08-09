@@ -393,6 +393,13 @@ class CodexFleetTests(unittest.TestCase):
             ),
             "example/opl-flow",
         )
+        self.assertEqual(
+            fleet.github_repository_from_remote(
+                "ssh://git@ssh.github.com:443/example/opl-flow.git",
+                expected_owner="example",
+            ),
+            "example/opl-flow",
+        )
         self.assertIsNone(
             fleet.github_repository_from_remote(
                 "https://github.com/another/opl-flow.git",

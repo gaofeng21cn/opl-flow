@@ -381,7 +381,8 @@ def github_repository_from_remote(
     expected_owner: str | None = None,
 ) -> str | None:
     match = re.fullmatch(
-        r"(?:https?://github\.com/|git@github\.com:|ssh://git@github\.com/)"
+        r"(?:https?://github\.com/|git@github\.com:|ssh://git@github\.com/|"
+        r"ssh://git@ssh\.github\.com:443/)"
         r"(?P<owner>[A-Za-z0-9_.-]+)/(?P<repo>[A-Za-z0-9_.-]+?)(?:\.git)?/?",
         remote.strip(),
     )
