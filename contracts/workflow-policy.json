@@ -3,7 +3,7 @@
   "schema": "opl_flow_workflow_policy.v4",
   "package": {
     "id": "opl-flow",
-    "version": "0.1.42",
+    "version": "0.1.43",
     "owner": "opl-flow",
     "kind": "workflow_profile"
   },
@@ -459,10 +459,11 @@
     {
       "id": "ponytail",
       "discovery_ids": ["ponytail", "ponytail-local", "ponytail-ponytail"],
+      "surface_kinds": ["plugin", "config_table", "service", "prompt_or_agent"],
       "config_markers": ["ponytail"],
       "service_ids": [],
       "auto_retire_on_optimize": true,
-      "reason": "Global persona hooks and mode routing are no longer part of the minimal OPL Flow profile."
+      "reason": "Global persona hooks and mode routing are no longer part of the minimal OPL Flow profile; an explicit task-local Ponytail Skill remains compatible."
     },
     {
       "id": "codexcont-intelligence-enhancement",

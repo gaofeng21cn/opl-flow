@@ -601,6 +601,12 @@
         "properties": {
           "id": { "type": "string", "minLength": 1 },
           "discovery_ids": { "type": "array", "items": { "type": "string", "minLength": 1 } },
+          "surface_kinds": {
+            "type": "array",
+            "minItems": 1,
+            "uniqueItems": true,
+            "items": { "enum": ["plugin", "skill", "service", "config_table", "prompt_or_agent"] }
+          },
           "config_markers": { "type": "array", "items": { "type": "string", "minLength": 1 } },
           "service_ids": { "type": "array", "items": { "type": "string", "minLength": 1 } },
           "skill_source": {

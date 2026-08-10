@@ -198,6 +198,31 @@ class VerifyLaneTests(unittest.TestCase):
             errors,
         )
 
+        with tempfile.TemporaryDirectory() as temp_dir:
+            repo_root = Path(temp_dir)
+            contracts = repo_root / "contracts"
+            contracts.mkdir()
+            policy = json.loads(
+                (REPO_ROOT / "contracts" / "workflow-policy.json").read_text(encoding="utf-8")
+            )
+            ponytail = next(item for item in policy["conflicts"] if item["id"] == "ponytail")
+            ponytail["surface_kinds"].append("skill")
+            (contracts / "workflow-policy.json").write_text(
+                f"{json.dumps(policy, indent=2)}\n",
+                encoding="utf-8",
+            )
+            (contracts / "workflow-policy.schema.json").write_text(
+                (REPO_ROOT / "contracts" / "workflow-policy.schema.json").read_text(encoding="utf-8"),
+                encoding="utf-8",
+            )
+
+            errors = check_workflow_policy(repo_root)
+
+        self.assertIn(
+            "workflow policy must preserve the explicit task-local Ponytail Skill surface",
+            errors,
+        )
+
     def test_workflow_policy_requires_canonical_github_authority(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
             repo_root = Path(temp_dir)

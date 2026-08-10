@@ -686,6 +686,9 @@ def check_workflow_policy(repo_root: Path) -> list[str]:
     expected_ponytail_conflicts = {"ponytail", "ponytail-local", "ponytail-ponytail"}
     if set(ponytail_conflict.get("discovery_ids", [])) != expected_ponytail_conflicts:
         errors.append("workflow policy must retire only Ponytail plugin and main-persona discovery aliases")
+    expected_ponytail_surfaces = {"plugin", "config_table", "service", "prompt_or_agent"}
+    if set(ponytail_conflict.get("surface_kinds", [])) != expected_ponytail_surfaces:
+        errors.append("workflow policy must preserve the explicit task-local Ponytail Skill surface")
     retired_discovery_ids = {
         discovery_id
         for item in migrations
