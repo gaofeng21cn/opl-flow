@@ -26,6 +26,7 @@ CORE_SKILL_IDS = (
 REQUIRED_FILES = (
     ".agents/plugins/marketplace.json",
     ".codex-plugin/plugin.json",
+    "plugin.json",
     "contracts/workflow-policy.json",
     "contracts/workflow-policy.schema.json",
     "contracts/fleet-workspace-profile.schema.json",
@@ -110,6 +111,7 @@ def check_required_files(repo_root: Path) -> list[str]:
 def check_plugin_json(repo_root: Path) -> list[str]:
     errors: list[str] = []
     manifest = json.loads((repo_root / ".codex-plugin" / "plugin.json").read_text(encoding="utf-8"))
+    portable = json.loads((repo_root / "plugin.json").read_text(encoding="utf-8"))
     if manifest.get("name") != "opl-flow":
         errors.append("plugin name must be opl-flow")
     if manifest.get("skills") != "./skills/":
@@ -123,6 +125,15 @@ def check_plugin_json(repo_root: Path) -> list[str]:
     policy = json.loads((repo_root / "contracts" / "workflow-policy.json").read_text(encoding="utf-8"))
     if manifest.get("version") != policy.get("package", {}).get("version"):
         errors.append("plugin version must match contracts/workflow-policy.json package.version")
+    if portable.get("$schema") != "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json":
+        errors.append("portable plugin must use Agent Plugins 1.0")
+    portable_interface = portable.get("extensions", {}).get("com.openai", {}).get("interface")
+    if (
+        portable.get("name") != manifest.get("name")
+        or portable.get("version") != manifest.get("version")
+        or portable_interface != manifest.get("interface")
+    ):
+        errors.append("portable and Codex plugin manifests must bind the same identity and interface")
     description = manifest.get("description")
     if not isinstance(description, str) or not description.strip():
         errors.append("plugin description must be a non-empty string")

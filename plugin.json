@@ -1,0 +1,45 @@
+{
+  "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
+  "name": "opl-flow",
+  "version": "0.1.44",
+  "description": "OPL Flow establishes the Codex experience baseline and coordinates durable work across tasks, repositories, and machines.",
+  "author": {
+    "name": "Gaofeng"
+  },
+  "homepage": "https://github.com/gaofeng21cn/opl-flow",
+  "repository": "https://github.com/gaofeng21cn/opl-flow",
+  "license": "Apache-2.0",
+  "keywords": [
+    "codex",
+    "workflow",
+    "opl",
+    "agents"
+  ],
+  "extensions": {
+    "com.openai": {
+      "interface": {
+        "displayName": "OPL Flow",
+        "shortDescription": "Configure and coordinate Codex work",
+        "longDescription": "OPL Flow configures the Codex experience baseline and coordinates durable work. Framework and Codex own installation and Profile materialization; explicit $opl-flow start idempotently binds the Ledger through native owner APIs and fresh readback.",
+        "developerName": "Gaofeng",
+        "category": "Developer Tools",
+        "capabilities": [
+          "workflow",
+          "preferences",
+          "codex-experience-baseline",
+          "model-recommendation",
+          "capability-management",
+          "task-coordination",
+          "document-governance",
+          "durable-ledger",
+          "dashboard-onboarding",
+          "hourly-supervision",
+          "linear-ledger-projection",
+          "multi-machine-fleet",
+          "codegraph-bootstrap"
+        ],
+        "defaultPrompt": "Use $opl-flow doctor to check my Codex baseline, or $opl-flow start for idempotent Ledger onboarding."
+      }
+    }
+  }
+}
