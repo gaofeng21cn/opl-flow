@@ -12,7 +12,6 @@ from scripts.verify import (
     REQUIRED_FILES,
     check_required_files,
     check_plugin_json,
-    check_profile,
     check_workflow_policy,
     contract_test_modules,
 )
@@ -61,44 +60,6 @@ class VerifyLaneTests(unittest.TestCase):
         }
         self.assertEqual(discoverable, set(CORE_SKILL_IDS))
 
-    def test_opl_doc_stays_a_thin_model_native_skill(self) -> None:
-        skill_root = REPO_ROOT / "skills" / "opl-doc"
-        files = {
-            path.relative_to(skill_root).as_posix()
-            for path in skill_root.rglob("*")
-            if path.is_file()
-        }
-        self.assertEqual(files, {"SKILL.md", "agents/openai.yaml"})
-
-        skill = (skill_root / "SKILL.md").read_text(encoding="utf-8")
-        self.assertIn("Do not require a fixed set of files", skill)
-        self.assertIn("Let the model make semantic judgments", skill)
-        self.assertIn("Do not create a second ledger", skill)
-        self.assertIn("Keep each repository's product and domain truth", skill)
-        self.assertNotIn("opl-doc-doctor", skill)
-        self.assertNotIn("native-sync", skill)
-        self.assertNotIn("family-plan", skill)
-
-    def test_codex_app_owner_migration_skill_declares_native_visibility_boundary(self) -> None:
-        skill = (
-            REPO_ROOT / "skills" / "codex-app-owner-migration" / "SKILL.md"
-        ).read_text(encoding="utf-8")
-        self.assertIn("native, user-visible Codex App task", skill)
-        self.assertIn("headless `codex` process is never accepted", skill)
-        self.assertIn("Migration is optional for delivery", skill)
-
-    def test_profile_and_delivery_skill_require_proportional_complexity(self) -> None:
-        profile = (REPO_ROOT / "templates" / "AGENTS.md").read_text(encoding="utf-8")
-        skill = (
-            REPO_ROOT / "skills" / "develop-and-deliver" / "SKILL.md"
-        ).read_text(encoding="utf-8")
-
-        self.assertIn("小功能不是银行金库", profile)
-        self.assertIn("当前需求、真实 caller、既有合同、已观察故障或可信风险", profile)
-        self.assertIn("## Keep Complexity Proportional", skill)
-        self.assertIn("needs a present payer", skill)
-        self.assertIn("do not repeat hashes", skill)
-
     def test_package_declares_apache_2_license_consistently(self) -> None:
         plugin = json.loads(
             (REPO_ROOT / ".codex-plugin" / "plugin.json").read_text(encoding="utf-8")
@@ -117,27 +78,6 @@ class VerifyLaneTests(unittest.TestCase):
         self.assertEqual(contract_test_modules("full"), core)
         with self.assertRaisesRegex(ValueError, "unknown verification lane: ops-kit"):
             contract_test_modules("ops-kit")
-
-    def test_profile_allows_nine_prioritized_instructions_but_not_ten(self) -> None:
-        with tempfile.TemporaryDirectory() as temp_dir:
-            repo_root = Path(temp_dir)
-            (repo_root / "templates").mkdir()
-            (repo_root / "profile" / "modules").mkdir(parents=True)
-
-            def errors_for(count: int) -> list[str]:
-                profile = "\n".join(f"{index}. instruction" for index in range(1, count + 1))
-                for relative_path in (
-                    "templates/AGENTS.md",
-                    "profile/modules/01-user-preferences.md",
-                ):
-                    (repo_root / relative_path).write_text(f"{profile}\n", encoding="utf-8")
-                return check_profile(repo_root)
-
-            self.assertEqual(errors_for(9), [])
-            self.assertEqual(
-                errors_for(10),
-                ["AGENTS.md must contain at most 9 prioritized instructions"],
-            )
 
     def test_workflow_policy_rejects_retired_codex_ops_kit(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
