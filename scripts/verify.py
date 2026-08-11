@@ -32,9 +32,6 @@ REQUIRED_FILES = (
     "contracts/fleet-workspace-profile.schema.json",
     "contracts/task-owner-migration.schema.json",
     "contracts/worktree-ownership-ledger.schema.json",
-    "README.md",
-    "docs/compatibility.md",
-    "docs/new-machine-codex-setup.md",
     "LICENSE",
     "skills/coordinate-concurrent-tasks/SKILL.md",
     "skills/coordinate-concurrent-tasks/agents/openai.yaml",
@@ -88,7 +85,6 @@ REQUIRED_FILES = (
 )
 
 CORE_TEST_MODULES = (
-    "tests/test_develop_and_deliver.py",
     "tests/test_verify_lanes.py",
     "tests/test_worktree_absorption_audit.py",
     "tests/test_worktree_fleet_audit.py",
@@ -98,7 +94,6 @@ CORE_TEST_MODULES = (
     "tests/test_task_owner_migration.py",
     "tests/test_fleet_inventory.py",
     "tests/test_github_ssot_patrol.py",
-    "tests/test_opl_doc.py",
     "tests/test_package_descriptor.py",
     "tests/test_package_release.py",
 )
@@ -765,13 +760,6 @@ def check_profile(repo_root: Path) -> list[str]:
     errors: list[str] = []
     agents = (repo_root / "templates" / "AGENTS.md").read_text(encoding="utf-8")
 
-    instruction_count = sum(
-        line.startswith("- ") or bool(re.match(r"^\d+\. ", line))
-        for line in agents.splitlines()
-    )
-    if instruction_count > 9:
-        errors.append("AGENTS.md must contain at most 9 prioritized instructions")
-
     profile_size = len(agents.encode("utf-8"))
     if profile_size > 2048:
         print(
@@ -800,18 +788,6 @@ def check_retired_skill(repo_root: Path) -> list[str]:
         errors.append(f"retired skill directory still exists: skills/{retired}")
     if (repo_root / "optional-skills" / "codex-ops-kit").exists():
         errors.append("retired skill directory still exists: optional-skills/codex-ops-kit")
-    roots = ("README.md", "docs", "profile", "templates", "skills", "optional-skills", "scripts", "tests", ".codex-plugin")
-    for root_name in roots:
-        root = repo_root / root_name
-        paths = [root] if root.is_file() else root.rglob("*")
-        for path in paths:
-            if not path.is_file() or path == Path(__file__).resolve():
-                continue
-            try:
-                if retired in path.read_text(encoding="utf-8"):
-                    errors.append(f"retired skill reference remains: {path.relative_to(repo_root)}")
-            except UnicodeDecodeError:
-                continue
     return errors
 
 

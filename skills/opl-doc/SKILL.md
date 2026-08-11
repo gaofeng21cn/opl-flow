@@ -51,6 +51,24 @@ remove stale text. Preserve history only when it has an actual provenance or
 no-resurrection purpose; do not turn active documentation into a chronological
 execution log.
 
+## Keep Document Semantics Model-Owned
+
+Documentation prose, semantic content, structure, naming, priority, and
+current-state narratives are AI-managed. Scripts, contracts, and tests must not
+decide whether that content is correct through required or forbidden keywords,
+exact sentences, text snapshots, heading or section layouts, line/page/word or
+file counts, or status and priority assertions embedded in Markdown or Skill
+text.
+
+Machine checks may validate deterministic mechanics without becoming a second
+semantic owner: parsability and front matter/schema, links and referenced asset
+existence, generated-artifact integrity and provenance, explicitly executable
+code examples, secrets and security boundaries, path safety, license identity,
+and irreversible side-effect gates. Retire a check when it reads prose to infer
+design intent, progress, priority, documentation quality, or current truth.
+Do not add a test that merely asserts this Skill or Profile contains prescribed
+wording; verify carrier identity and installed readback instead.
+
 ## Make Proportional Changes
 
 - Edit the smallest set of sections that restores a clear owner and accurate
@@ -59,8 +77,8 @@ execution log.
   coverage database, mandatory change packet, or fixed batch matrix. For durable
   multi-step work, use the existing OPL Flow, Beads, Linear, or repo-native
   owner surface.
-- Let the model make semantic judgments from context. Use scripts only for
-  deterministic discovery or validation that is genuinely repeated and
+- Let the model make semantic judgments from context. Use scripts only for the
+  deterministic mechanics above when the check is genuinely repeated and
   error-prone; file presence and keyword counts do not prove documentation is
   correct.
 - Match claim strength to evidence. Mark unknown, deferred, or externally
