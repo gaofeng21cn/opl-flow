@@ -17,6 +17,7 @@ import socket
 import subprocess
 import sys
 import tempfile
+import time
 try:
     import tomllib
 except ModuleNotFoundError:  # pragma: no cover - Python < 3.11 degrades safely.
@@ -1683,19 +1684,27 @@ def join(args: argparse.Namespace) -> int:
 
 def fetch_state_file(relative: str) -> str:
     spec = manifest()
-    result = run(
-        [
-            "gh",
-            "api",
-            "-H",
-            "Accept: application/vnd.github.raw+json",
-            f"repos/{spec['repository']}/contents/{relative}?ref=state",
-        ],
-        check=False,
+    command = [
+        "gh",
+        "api",
+        "-H",
+        "Accept: application/vnd.github.raw+json",
+        f"repos/{spec['repository']}/contents/{relative}?ref=state",
+    ]
+    retry_delays = (0.25, 0.75)
+    result: subprocess.CompletedProcess[str] | None = None
+    for attempt in range(len(retry_delays) + 1):
+        result = run(command, check=False, timeout=10)
+        if result.returncode == 0:
+            return result.stdout
+        if attempt < len(retry_delays):
+            time.sleep(retry_delays[attempt])
+    assert result is not None
+    detail = " ".join((result.stderr or result.stdout).split())[:240]
+    suffix = f": {detail}" if detail else f" (exit {result.returncode})"
+    raise FleetError(
+        f"fleet state file is unavailable after 3 attempts: {relative}{suffix}"
     )
-    if result.returncode:
-        raise FleetError(f"fleet state file is unavailable: {relative}")
-    return result.stdout
 
 def remote_asset_catalog() -> dict[str, Any]:
     payload = json.loads(fetch_state_file("ASSETS.json"))
