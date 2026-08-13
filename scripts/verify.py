@@ -262,7 +262,7 @@ def check_workflow_policy(repo_root: Path) -> list[str]:
         "officecli", "officecli-docx", "officecli-pptx", "officecli-xlsx",
         "officecli-academic-paper", "officecli-data-dashboard",
         "officecli-financial-model", "officecli-pitch-deck",
-        "mineru-document-extractor", "ui-ux-pro-max",
+        "mineru-document-extractor",
     }
     if baseline_ids != expected:
         errors.append("workflow policy experience baseline is incomplete or contains duplicates")
@@ -288,10 +288,6 @@ def check_workflow_policy(repo_root: Path) -> list[str]:
         "mineru-document-extractor": (
             "https://github.com/opendatalab/MinerU-Ecosystem",
             "skills",
-        ),
-        "ui-ux-pro-max": (
-            "https://github.com/nextlevelbuilder/ui-ux-pro-max-skill",
-            ".claude/skills/ui-ux-pro-max",
         ),
     }
     if baseline_skill_sources != expected_skill_sources:
@@ -582,7 +578,6 @@ def check_workflow_policy(repo_root: Path) -> list[str]:
         "internet-research": "experience_baseline",
         "office-authoring": "experience_baseline",
         "document-extraction": "experience_baseline",
-        "visual-design": "experience_baseline",
         "architecture-enhancement": "compatible_optional",
         "official-codex-office-runtime": "compatible_optional",
     }

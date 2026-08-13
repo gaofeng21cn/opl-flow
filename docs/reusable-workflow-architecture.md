@@ -116,7 +116,7 @@ stable actions and loads only the references required by the selected action:
 Framework and App report three independent planes:
 
 1. `package_operational`: Flow installed, enabled, and callable;
-2. `experience_baseline`: recommended research, Office, extraction, and UI
+2. `experience_baseline`: recommended research, Office, and extraction
    capabilities, where missing means `degraded` with a repair action;
 3. `specialized_capabilities`: optional capabilities such as
    `architect-and-simplify`, where absence is normal.

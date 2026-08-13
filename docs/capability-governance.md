@@ -90,7 +90,6 @@ The three status planes are intentionally independent:
 | Internet research | experience baseline | Agent Reach Skill + CLI | owner-supported install/repair | none |
 | Office authoring | experience baseline | OfficeCLI Skill family + CLI | Framework materialization | OfficeCLI CLI only |
 | Document extraction | experience baseline | MinerU extractor Skill + CLI | Framework materialization | `mineru-open-api` CLI only |
-| Visual design | experience baseline | `ui-ux-pro-max` | Framework materialization | none |
 | Architecture enhancement | compatible optional | `architect-and-simplify` | observe only | none |
 | Official Codex Office runtime | compatible optional | OpenAI Office/PDF runtime capability | observe only | none |
 

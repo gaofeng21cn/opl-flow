@@ -22,7 +22,7 @@ product problems remain outside that native intelligence:
 
 - establish a dependable usage floor for one Codex: a concise `AGENTS.md`,
   model/reasoning recommendation, effective context boundaries, and the
-  recommended research, document, extraction, and UI capabilities;
+  recommended research, document authoring, and extraction capabilities;
 - preserve execution continuity when work spans conversations, tasks,
   repositories, and machines.
 
@@ -130,7 +130,7 @@ claim that a model missing from the live Codex catalog is usable.
 ### Three Independent Status Planes
 
 - `package_operational`: Flow itself is installed, enabled, and callable.
-- `experience_baseline`: recommended research, Office, extraction, and UI
+- `experience_baseline`: recommended research, Office, and extraction
   capabilities are current or `degraded`; degradation offers repair but does
   not block Flow.
 - `specialized_capabilities`: optional enhancements are present or absent;

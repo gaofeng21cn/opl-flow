@@ -171,11 +171,11 @@ class VerifyLaneTests(unittest.TestCase):
             policy = json.loads(
                 (REPO_ROOT / "contracts" / "workflow-policy.json").read_text(encoding="utf-8")
             )
-            ui_ux = next(
+            mineru = next(
                 item for item in policy["experience_baseline"]
-                if item["id"] == "ui-ux-pro-max"
+                if item["id"] == "mineru-document-extractor"
             )
-            ui_ux["source"] = "https://github.com/example/ui-ux-pro-max-skill"
+            mineru["source"] = "https://github.com/example/mineru"
             (contracts / "workflow-policy.json").write_text(
                 f"{json.dumps(policy, indent=2)}\n",
                 encoding="utf-8",

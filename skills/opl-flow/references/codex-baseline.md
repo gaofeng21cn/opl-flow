@@ -34,7 +34,6 @@ The baseline is grouped as:
 | Internet research | Agent Reach Skill + CLI/doctor | degraded, owner repair offered |
 | Office authoring | OfficeCLI Skill family + CLI | degraded, Framework repair offered |
 | Document extraction | MinerU extractor Skill + CLI | degraded, Framework repair offered |
-| Visual design | `ui-ux-pro-max` | degraded, Framework repair offered |
 
 App first-run does not own this table. Read `system_initialize.recommended_skills`
 from the installed Framework projection. When Flow is absent, that Flow-derived
@@ -81,8 +80,8 @@ The carrier must not overwrite an unknown existing Profile.
 ## Capability Routing
 
 The experience baseline is intentionally broad enough to establish the OPL App
-usage floor: internet research, Office documents, document extraction, and UI
-design support. It is not a claim that every task requires those tools.
+usage floor: internet research, Office documents, and document extraction. It
+is not a claim that every task requires those tools.
 
 Specialized development and architecture capabilities remain in OPL Skills.
 When `architect-and-simplify` is discovered, use it for architecture mapping or
