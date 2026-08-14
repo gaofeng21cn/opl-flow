@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import argparse
 import fcntl
+import hashlib
 import json
 import os
 import re
@@ -968,6 +969,363 @@ def configured_remotes(repo_root: Path) -> list[str]:
     )
 
 
+def verify_recovery_archive(
+    repo_root: Path,
+    *,
+    archive_bundle: Path,
+    archive_sha256: str,
+    recovery: dict[str, Any],
+) -> dict[str, Any]:
+    """Verify that an immutable Git bundle preserves one recorded recovery."""
+    expected_digest = archive_sha256.strip()
+    if re.fullmatch(r"[0-9a-f]{64}", expected_digest) is None:
+        raise LifecycleError("archive SHA-256 must be exactly 64 lowercase hex characters")
+
+    archive_input = Path(os.path.abspath(archive_bundle.expanduser()))
+    if not archive_input.is_file():
+        raise LifecycleError(f"archive bundle is not a regular file: {archive_input}")
+    archive = archive_input.resolve()
+    digest = hashlib.sha256()
+    try:
+        with archive.open("rb") as handle:
+            for chunk in iter(lambda: handle.read(1024 * 1024), b""):
+                digest.update(chunk)
+    except OSError as exc:
+        raise LifecycleError(f"cannot read archive bundle {archive}: {exc}") from exc
+    actual_digest = digest.hexdigest()
+    if actual_digest != expected_digest:
+        raise LifecycleError("archive bundle SHA-256 does not match")
+
+    verified = git(repo_root, "bundle", "verify", str(archive), check=False)
+    if verified.returncode != 0:
+        detail = verified.stderr.strip() or verified.stdout.strip() or "bundle verification failed"
+        raise LifecycleError(f"archive bundle cannot be verified: {detail}")
+    listed = git(repo_root, "bundle", "list-heads", str(archive), check=False)
+    if listed.returncode != 0:
+        detail = listed.stderr.strip() or listed.stdout.strip() or "head listing failed"
+        raise LifecycleError(f"archive bundle heads cannot be read: {detail}")
+    heads: list[tuple[str, str]] = []
+    for line in listed.stdout.splitlines():
+        fields = line.split(maxsplit=1)
+        if len(fields) != 2 or re.fullmatch(r"[0-9a-f]{40,64}", fields[0]) is None:
+            raise LifecycleError("archive bundle returned an invalid head identity")
+        heads.append((fields[1], fields[0]))
+    if not heads:
+        raise LifecycleError("archive bundle contains no heads")
+
+    recovery_branch = recovery.get("branch")
+    recovery_commit = recovery.get("commit")
+    recovery_tree = recovery.get("tree")
+    if not all(
+        isinstance(value, str) and value.strip()
+        for value in (recovery_branch, recovery_commit, recovery_tree)
+    ):
+        raise LifecycleError("superseded receipt recovery branch, commit, and tree are required")
+
+    with tempfile.TemporaryDirectory(prefix="opl-flow-recovery-archive-") as temporary:
+        temporary_root = Path(temporary)
+        archive_repo = temporary_root / "archive.git"
+        git(temporary_root, "init", "--bare", str(archive_repo))
+        refspecs = [
+            f"{ref}:refs/opl-flow-archive/{index}"
+            for index, (ref, _) in enumerate(heads)
+        ]
+        fetched = git(
+            archive_repo,
+            "fetch",
+            "--no-tags",
+            str(archive),
+            *refspecs,
+            check=False,
+        )
+        if fetched.returncode != 0:
+            detail = fetched.stderr.strip() or fetched.stdout.strip() or "bundle fetch failed"
+            raise LifecycleError(f"archive bundle objects cannot be verified: {detail}")
+
+        recorded_commit = git(
+            archive_repo,
+            "rev-parse",
+            "--verify",
+            f"{recovery_commit}^{{commit}}",
+            check=False,
+        )
+        recorded_tree = git(
+            archive_repo,
+            "rev-parse",
+            "--verify",
+            f"{recovery_commit}^{{tree}}",
+            check=False,
+        )
+        if (
+            recorded_commit.returncode != 0
+            or recorded_commit.stdout.strip() != recovery_commit
+            or recorded_tree.returncode != 0
+            or recorded_tree.stdout.strip() != recovery_tree
+        ):
+            raise LifecycleError(
+                "archive bundle does not preserve the recorded recovery commit and tree"
+            )
+
+        reachable_from: list[dict[str, str]] = []
+        for ref, head in heads:
+            ancestor = git(
+                archive_repo,
+                "merge-base",
+                "--is-ancestor",
+                recovery_commit,
+                head,
+                check=False,
+            )
+            if ancestor.returncode == 0:
+                reachable_from.append({"ref": ref, "head": head})
+            elif ancestor.returncode != 1:
+                raise LifecycleError("archive recovery reachability cannot be verified")
+        if not reachable_from:
+            raise LifecycleError("archive recovery commit is not reachable from any bundle head")
+
+    return {
+        "path": str(archive),
+        "sha256": actual_digest,
+        "head_count": len(heads),
+        "recovery": {
+            "branch": recovery_branch,
+            "commit": recovery_commit,
+            "tree": recovery_tree,
+        },
+        "recovery_reachable_from": reachable_from,
+    }
+
+
+def close_superseded(
+    ledger_path: Path,
+    *,
+    repo_root: Path,
+    worktree: Path,
+    thread_id: str,
+    objective_id: str,
+    owner: str,
+    reason: str,
+    target: str | None = None,
+    archive_bundle: Path | None = None,
+    archive_sha256: str | None = None,
+    holders: dict[str, list[dict[str, Any]]] | None = None,
+    holder_scan_available: bool | None = None,
+) -> dict[str, Any]:
+    """Close one exact absent receipt whose recovery was explicitly superseded."""
+    reason = reason.strip()
+    if not reason:
+        raise LifecycleError("supersession reason must be non-empty")
+
+    repo_key = str(Path(os.path.abspath(repo_root.expanduser())))
+    root = repo_root.expanduser().resolve()
+    top = Path(git(root, "rev-parse", "--show-toplevel").stdout.strip()).resolve()
+    if top != root:
+        raise LifecycleError(f"repo root must be its Git top level: {root}")
+
+    lane_input = Path(os.path.abspath(worktree.expanduser()))
+    lane_key = str(lane_input)
+    if os.path.lexists(lane_input):
+        raise LifecycleError("superseded close requires the worktree path to be absent")
+    lane = lane_input.resolve()
+    if lane == root:
+        raise LifecycleError("canonical checkout cannot be superseded-closed")
+
+    canonical_target = worktree_fleet_audit.upstream_target(root, target)
+    target_remote, target_branch = worktree_fleet_audit.split_remote_target(canonical_target)
+    if holders is None:
+        holders, detected = worktree_fleet_audit.scan_holders([lane])
+        if holder_scan_available is None:
+            holder_scan_available = detected
+    if holder_scan_available is not True:
+        raise LifecycleError("superseded close requires an available holder scan")
+
+    with ledger_lock(ledger_path):
+        payload = read_ledger(ledger_path)
+        matches = [item for item in payload["entries"] if item.get("worktree") == lane_key]
+        if len(matches) != 1 or matches[0].get("status") != "ACTIVE":
+            raise LifecycleError(f"unique ACTIVE receipt not found for {lane_key}")
+        entry = matches[0]
+        expected_identity = {
+            "repo_root": repo_key,
+            "worktree": lane_key,
+            "thread_id": thread_id,
+            "objective_id": objective_id,
+            "owner": owner,
+        }
+        drift = [
+            key for key, expected in expected_identity.items() if entry.get(key) != expected
+        ]
+        if drift:
+            raise LifecycleError(
+                "superseded receipt identity does not match: " + ", ".join(sorted(drift))
+            )
+
+        recovery = entry.get("remote_recovery")
+        if recovery is not None and not isinstance(recovery, dict):
+            raise LifecycleError("superseded receipt recovery identity is invalid")
+        branch = recovery.get("branch") if recovery is not None else None
+        if branch is not None:
+            if not isinstance(branch, str) or not branch.strip():
+                raise LifecycleError("superseded receipt recovery branch is invalid")
+            if git(root, "check-ref-format", "--branch", branch, check=False).returncode != 0:
+                raise LifecycleError(f"invalid recorded task branch: {branch}")
+            if branch == target_branch:
+                raise LifecycleError("refusing to supersede-close the canonical branch")
+
+        if os.path.lexists(lane_input) or os.path.lexists(lane_input / ".git"):
+            raise LifecycleError(
+                "superseded close requires the worktree path and .git file to be absent"
+            )
+        registered = {
+            str(Path(str(item["worktree"])).resolve()) for item in worktree_records(root)
+        }
+        if str(lane) in registered:
+            raise LifecycleError(
+                "superseded close requires the worktree registration to be absent"
+            )
+        admin_matches = git_admin_matches(root, lane)
+        if admin_matches:
+            raise LifecycleError(
+                "superseded close requires the worktree gitdir administration to be absent: "
+                + ", ".join(admin_matches)
+            )
+
+        if branch is not None:
+            local_ref = f"refs/heads/{branch}"
+            local_ref_check = git(
+                root, "show-ref", "--verify", "--quiet", local_ref, check=False
+            )
+            if local_ref_check.returncode == 0:
+                raise LifecycleError(
+                    f"superseded close requires local task ref to be absent: {local_ref}"
+                )
+            if local_ref_check.returncode != 1:
+                raise LifecycleError(f"cannot verify local task ref absence: {local_ref}")
+            for remote in configured_remotes(root):
+                tracking_ref = f"refs/remotes/{remote}/{branch}"
+                tracking_ref_check = git(
+                    root,
+                    "show-ref",
+                    "--verify",
+                    "--quiet",
+                    tracking_ref,
+                    check=False,
+                )
+                if tracking_ref_check.returncode == 0:
+                    raise LifecycleError(
+                        "superseded close requires tracking task ref to be absent: "
+                        + tracking_ref
+                    )
+                if tracking_ref_check.returncode != 1:
+                    raise LifecycleError(
+                        f"cannot verify tracking task ref absence: {tracking_ref}"
+                    )
+                wire = git(
+                    root,
+                    "ls-remote",
+                    "--heads",
+                    remote,
+                    local_ref,
+                ).stdout.strip()
+                if wire:
+                    raise LifecycleError(
+                        f"superseded close requires wire task ref to be absent on {remote}: "
+                        f"{local_ref}"
+                    )
+
+            branch_config_check = git(
+                root,
+                "config",
+                "--local",
+                "--get-regexp",
+                rf"^branch\.{re.escape(branch)}\.",
+                check=False,
+            )
+            if branch_config_check.returncode not in (0, 1):
+                raise LifecycleError("cannot verify task branch config absence")
+            if branch_config_check.stdout.strip():
+                raise LifecycleError("superseded close requires task branch config to be absent")
+
+        path_holders = holders.get(lane_key, []) or holders.get(str(lane), [])
+        if path_holders:
+            raise LifecycleError(f"superseded close requires holder0: {path_holders}")
+        locks = git_lock_paths(root)
+        if locks:
+            raise LifecycleError("superseded close requires Git locks0: " + ", ".join(locks))
+
+        target_head = git(root, "rev-parse", f"{canonical_target}^{{commit}}").stdout.strip()
+        target_wire = git(
+            root,
+            "ls-remote",
+            "--heads",
+            target_remote,
+            f"refs/heads/{target_branch}",
+        ).stdout.strip()
+        if not target_wire or target_wire.split()[0] != target_head:
+            raise LifecycleError("canonical target must be checked and match its wire")
+
+        archive: dict[str, Any] | None = None
+        if recovery is not None:
+            if archive_bundle is None or archive_sha256 is None:
+                raise LifecycleError(
+                    "superseded recovery requires an archive bundle and exact SHA-256"
+                )
+            archive = verify_recovery_archive(
+                root,
+                archive_bundle=archive_bundle,
+                archive_sha256=archive_sha256,
+                recovery=recovery,
+            )
+        elif archive_bundle is not None or archive_sha256 is not None:
+            raise LifecycleError("detached superseded receipt does not require an archive bundle")
+
+        payload["entries"].remove(entry)
+        write_ledger(ledger_path, payload)
+        remaining = [
+            item
+            for item in read_ledger(ledger_path)["entries"]
+            if item.get("worktree") == lane_key
+        ]
+        if remaining:
+            raise LifecycleError("superseded lifecycle receipt remained after close")
+
+    classification = "superseded_archived" if recovery is not None else "superseded_no_recovery"
+    return {
+        "schema": "opl_flow_worktree_superseded_close_receipt.v1",
+        "worktree": lane_key,
+        "repo_root": repo_key,
+        "branch": branch,
+        "thread_id": thread_id,
+        "objective_id": objective_id,
+        "owner": owner,
+        "classification": classification,
+        "reason": reason,
+        "canonical_target": canonical_target,
+        "canonical_head": target_head,
+        "archive": archive,
+        "assertions": {
+            "exact_receipt_identity": True,
+            "path_absent": True,
+            "git_file_absent": True,
+            "registration_absent": True,
+            "gitdir_absent": True,
+            "task_ref_identity_bound_or_detached": True,
+            "local_ref_absent": True,
+            "tracking_ref_absent": True,
+            "wire_ref_absent": True,
+            "branch_config_absent": True,
+            "holders_absent": True,
+            "git_locks_absent": True,
+            "canonical_target_matches_wire": True,
+            "archive_not_required_or_verified": archive is not None or recovery is None,
+            "recovery_commit_tree_verified": archive is not None or recovery is None,
+            "recovery_reachable_from_archive": archive is not None or recovery is None,
+        },
+        "remaining": remaining,
+        "closed": True,
+    }
+
+
 def close_stale(
     ledger_path: Path,
     *,
@@ -1313,6 +1671,20 @@ def parser() -> argparse.ArgumentParser:
     close_stale_parser.add_argument("--objective-id", required=True)
     close_stale_parser.add_argument("--owner", required=True)
     close_stale_parser.add_argument("--branch", required=True)
+
+    close_superseded_parser = commands.add_parser(
+        "close-superseded",
+        help="Close one absent receipt whose recovery is intentionally superseded and archived.",
+    )
+    close_superseded_parser.add_argument("--repo-root", required=True, type=Path)
+    close_superseded_parser.add_argument("--worktree", required=True, type=Path)
+    close_superseded_parser.add_argument("--thread-id", required=True)
+    close_superseded_parser.add_argument("--objective-id", required=True)
+    close_superseded_parser.add_argument("--owner", required=True)
+    close_superseded_parser.add_argument("--reason", required=True)
+    close_superseded_parser.add_argument("--target")
+    close_superseded_parser.add_argument("--archive-bundle", type=Path)
+    close_superseded_parser.add_argument("--archive-sha256")
     return root
 
 
@@ -1377,7 +1749,7 @@ def main() -> int:
             )
         elif args.command == "close":
             result = close(ledger_path, worktree=args.worktree, target=args.target)
-        else:
+        elif args.command == "close-stale":
             result = close_stale(
                 ledger_path,
                 repo_root=args.repo_root,
@@ -1386,6 +1758,19 @@ def main() -> int:
                 objective_id=args.objective_id,
                 owner=args.owner,
                 branch=args.branch,
+            )
+        else:
+            result = close_superseded(
+                ledger_path,
+                repo_root=args.repo_root,
+                worktree=args.worktree,
+                thread_id=args.thread_id,
+                objective_id=args.objective_id,
+                owner=args.owner,
+                reason=args.reason,
+                target=args.target,
+                archive_bundle=args.archive_bundle,
+                archive_sha256=args.archive_sha256,
             )
     except (LifecycleError, worktree_fleet_audit.FleetAuditError) as exc:
         print(json.dumps({"ok": False, "error": str(exc)}, indent=2, sort_keys=True))

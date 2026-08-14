@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import hashlib
 import json
 import os
 import sqlite3
@@ -1141,6 +1142,143 @@ class WorktreeLifecycleTests(unittest.TestCase):
         }
         arguments.update(overrides)
         return worktree_lifecycle.close_stale(self.ledger, **arguments)
+
+    def create_lane_bundle(self, name: str = "recovery.bundle") -> tuple[Path, str]:
+        bundle = Path(self.temp.name) / name
+        git(self.repo, "bundle", "create", str(bundle), "lane")
+        return bundle, hashlib.sha256(bundle.read_bytes()).hexdigest()
+
+    def superseded_close(self, **overrides: object) -> dict[str, object]:
+        entry = json.loads(self.ledger.read_text(encoding="utf-8"))["entries"][0]
+        arguments: dict[str, object] = {
+            "repo_root": Path(entry["repo_root"]),
+            "worktree": Path(entry["worktree"]),
+            "thread_id": "thread-1",
+            "objective_id": "objective-1",
+            "owner": "owner-1",
+            "reason": "superseded by the current product SSOT",
+            "holders": {},
+            "holder_scan_available": True,
+        }
+        arguments.update(overrides)
+        return worktree_lifecycle.close_superseded(self.ledger, **arguments)
+
+    def test_superseded_close_archives_unabsorbed_recovery(self) -> None:
+        self.register()
+        self.commit_lane()
+        recovery = worktree_lifecycle.checkpoint(
+            self.ledger,
+            worktree=self.lane,
+            remote="origin",
+        )
+        bundle, digest = self.create_lane_bundle()
+        self.remove_lane_surfaces()
+        git(self.repo, "push", "origin", "--delete", "lane")
+
+        result = self.superseded_close(
+            archive_bundle=bundle,
+            archive_sha256=digest,
+        )
+
+        self.assertTrue(result["closed"])
+        self.assertEqual(result["classification"], "superseded_archived")
+        self.assertEqual(result["archive"]["sha256"], digest)
+        self.assertEqual(result["archive"]["recovery"], recovery)
+        self.assertEqual(result["remaining"], [])
+        self.assertTrue(all(result["assertions"].values()))
+        self.assertEqual(json.loads(self.ledger.read_text())["entries"], [])
+
+    def test_superseded_close_supports_detached_receipt_without_recovery(self) -> None:
+        self.register()
+        git(self.lane, "switch", "--detach")
+        git(self.repo, "branch", "-D", "lane")
+        git(self.repo, "worktree", "remove", str(self.lane))
+
+        result = self.superseded_close()
+
+        self.assertTrue(result["closed"])
+        self.assertEqual(result["classification"], "superseded_no_recovery")
+        self.assertIsNone(result["branch"])
+        self.assertIsNone(result["archive"])
+        self.assertEqual(json.loads(self.ledger.read_text())["entries"], [])
+
+    def test_superseded_close_refuses_identity_drift_without_writing_ledger(self) -> None:
+        self.register()
+        self.remove_lane_surfaces()
+        before = self.ledger.read_bytes()
+
+        with self.assertRaisesRegex(worktree_lifecycle.LifecycleError, "identity"):
+            self.superseded_close(owner="other-owner")
+
+        self.assertEqual(self.ledger.read_bytes(), before)
+
+    def test_superseded_close_requires_archive_for_recovery_without_writing_ledger(self) -> None:
+        self.register()
+        self.commit_lane()
+        worktree_lifecycle.checkpoint(self.ledger, worktree=self.lane, remote="origin")
+        self.remove_lane_surfaces()
+        git(self.repo, "push", "origin", "--delete", "lane")
+        before = self.ledger.read_bytes()
+
+        with self.assertRaisesRegex(worktree_lifecycle.LifecycleError, "requires an archive"):
+            self.superseded_close()
+
+        self.assertEqual(self.ledger.read_bytes(), before)
+
+    def test_superseded_close_refuses_archive_digest_mismatch_without_writing_ledger(self) -> None:
+        self.register()
+        self.commit_lane()
+        worktree_lifecycle.checkpoint(self.ledger, worktree=self.lane, remote="origin")
+        bundle, _ = self.create_lane_bundle()
+        self.remove_lane_surfaces()
+        git(self.repo, "push", "origin", "--delete", "lane")
+        before = self.ledger.read_bytes()
+
+        with self.assertRaisesRegex(worktree_lifecycle.LifecycleError, "SHA-256 does not match"):
+            self.superseded_close(
+                archive_bundle=bundle,
+                archive_sha256="0" * 64,
+            )
+
+        self.assertEqual(self.ledger.read_bytes(), before)
+
+    def test_superseded_close_refuses_bundle_without_recovery_without_writing_ledger(self) -> None:
+        self.register()
+        self.commit_lane()
+        bundle = Path(self.temp.name) / "main-only.bundle"
+        git(self.repo, "bundle", "create", str(bundle), "main")
+        digest = hashlib.sha256(bundle.read_bytes()).hexdigest()
+        worktree_lifecycle.checkpoint(self.ledger, worktree=self.lane, remote="origin")
+        self.remove_lane_surfaces()
+        git(self.repo, "push", "origin", "--delete", "lane")
+        before = self.ledger.read_bytes()
+
+        with self.assertRaisesRegex(
+            worktree_lifecycle.LifecycleError,
+            "does not preserve the recorded recovery",
+        ):
+            self.superseded_close(
+                archive_bundle=bundle,
+                archive_sha256=digest,
+            )
+
+        self.assertEqual(self.ledger.read_bytes(), before)
+
+    def test_superseded_close_refuses_remaining_task_ref_without_writing_ledger(self) -> None:
+        self.register()
+        self.commit_lane()
+        worktree_lifecycle.checkpoint(self.ledger, worktree=self.lane, remote="origin")
+        bundle, digest = self.create_lane_bundle()
+        self.remove_lane_surfaces(delete_local_branch=False)
+        before = self.ledger.read_bytes()
+
+        with self.assertRaisesRegex(worktree_lifecycle.LifecycleError, "local task ref"):
+            self.superseded_close(
+                archive_bundle=bundle,
+                archive_sha256=digest,
+            )
+
+        self.assertEqual(self.ledger.read_bytes(), before)
 
     def test_stale_close_removes_exact_absent_receipt(self) -> None:
         self.register()
