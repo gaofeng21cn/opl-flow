@@ -8,6 +8,45 @@
     "kind": "workflow_profile"
   },
   "workflow_generation": "model-native-gpt-5.6",
+  "task_boundary_policy": {
+    "authority": "opl-flow",
+    "stop_ladder": [
+      "user_request",
+      "necessity",
+      "reachable_evidence",
+      "acceptance_dependency"
+    ],
+    "expansion_rule": "only_stop_ladder_reasons",
+    "unsupported_expansion": "defer_and_report",
+    "task_modes": [
+      {
+        "id": "answer",
+        "mutation": "read_only",
+        "scope": "requested_answer"
+      },
+      {
+        "id": "review",
+        "mutation": "read_only",
+        "scope": "requested_review_surface"
+      },
+      {
+        "id": "change",
+        "mutation": "requested_result_and_necessary_consequences",
+        "scope": "requested_change"
+      },
+      {
+        "id": "monitor",
+        "mutation": "read_only",
+        "scope": "bounded_observation_and_requested_alerts"
+      }
+    ],
+    "task_mode_gate_handoff": {
+      "skill_id": "task-mode-gate",
+      "precondition": "stop_ladder_supported_reason_and_high_risk_mutation",
+      "relationship": "stop_ladder_then_gate",
+      "gate_authority": "task-mode-gate"
+    }
+  },
   "provides": [
     {
       "id": "opl-flow",

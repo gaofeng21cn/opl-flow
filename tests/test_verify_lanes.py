@@ -120,6 +120,24 @@ class VerifyLaneTests(unittest.TestCase):
         self.assertEqual(bundle["online_materialization"], "observe_only")
         self.assertEqual(bundle["readiness"]["absence_effect"], "optional_absent")
 
+    def test_workflow_policy_fixes_task_boundary_modes_and_handoff(self) -> None:
+        policy = json.loads(
+            (REPO_ROOT / "contracts" / "workflow-policy.json").read_text(encoding="utf-8")
+        )
+        boundary = policy["task_boundary_policy"]
+        self.assertEqual(
+            boundary["stop_ladder"],
+            ["user_request", "necessity", "reachable_evidence", "acceptance_dependency"],
+        )
+        self.assertEqual(
+            [mode["id"] for mode in boundary["task_modes"]],
+            ["answer", "review", "change", "monitor"],
+        )
+        self.assertEqual(
+            boundary["task_mode_gate_handoff"]["relationship"],
+            "stop_ladder_then_gate",
+        )
+
     def test_workflow_policy_preserves_explicit_ponytail_skills(self) -> None:
         self.assertEqual(check_workflow_policy(REPO_ROOT), [])
 

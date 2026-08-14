@@ -9,6 +9,16 @@ Constrain an actual production or high-risk mutation without turning production
 sequencing into a general development methodology. This skill never grants
 product, repository, release, or external write authority.
 
+## Stop Ladder Handoff
+
+OPL Flow's `task_boundary_policy` runs before this Skill. Expand into this gate
+only when a supported Stop Ladder reason exists and the requested change
+actually crosses a release, deployment, migration, public, destructive, or
+validation-to-production boundary. The Stop Ladder does not grant mutation
+authority. Once handed off, this Skill remains the owner of production mode,
+mutation scope, idempotency, reconciliation, and final owner-authoritative
+readback.
+
 ## Exit When Not Applicable
 
 Do not apply this skill because a plan, document, issue, or conversation merely

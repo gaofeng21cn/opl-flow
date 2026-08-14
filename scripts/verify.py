@@ -155,7 +155,7 @@ def check_workflow_policy(repo_root: Path) -> list[str]:
     if policy.get("package", {}).get("id") != "opl-flow":
         errors.append("workflow policy package id must be opl-flow")
     required_sections = (
-        "provides", "requires", "experience_baseline", "compatible_optional",
+        "task_boundary_policy", "provides", "requires", "experience_baseline", "compatible_optional",
         "capability_bundles",
         "conflicts", "retires", "ledger_supervisor_policy", "task_owner_migration_policy",
         "codex_app_owner_migration_policy",
@@ -165,6 +165,41 @@ def check_workflow_policy(repo_root: Path) -> list[str]:
     for section in required_sections:
         if section not in policy:
             errors.append(f"workflow policy missing {section}")
+    expected_task_boundary_policy = {
+        "authority": "opl-flow",
+        "stop_ladder": [
+            "user_request",
+            "necessity",
+            "reachable_evidence",
+            "acceptance_dependency",
+        ],
+        "expansion_rule": "only_stop_ladder_reasons",
+        "unsupported_expansion": "defer_and_report",
+        "task_modes": [
+            {"id": "answer", "mutation": "read_only", "scope": "requested_answer"},
+            {"id": "review", "mutation": "read_only", "scope": "requested_review_surface"},
+            {
+                "id": "change",
+                "mutation": "requested_result_and_necessary_consequences",
+                "scope": "requested_change",
+            },
+            {
+                "id": "monitor",
+                "mutation": "read_only",
+                "scope": "bounded_observation_and_requested_alerts",
+            },
+        ],
+        "task_mode_gate_handoff": {
+            "skill_id": "task-mode-gate",
+            "precondition": "stop_ladder_supported_reason_and_high_risk_mutation",
+            "relationship": "stop_ladder_then_gate",
+            "gate_authority": "task-mode-gate",
+        },
+    }
+    if policy.get("task_boundary_policy") != expected_task_boundary_policy:
+        errors.append(
+            "workflow policy task boundary policy must keep the Stop Ladder, four task modes, and task-mode-gate handoff fixed"
+        )
     capabilities = [
         item
         for section in ("provides", "requires", "experience_baseline", "compatible_optional")

@@ -8,6 +8,7 @@
     "schema",
     "package",
     "workflow_generation",
+    "task_boundary_policy",
     "provides",
     "requires",
     "experience_baseline",
@@ -37,6 +38,7 @@
       }
     },
     "workflow_generation": { "type": "string", "minLength": 1 },
+    "task_boundary_policy": { "$ref": "#/$defs/taskBoundaryPolicy" },
     "provides": { "$ref": "#/$defs/providedCapabilities" },
     "requires": { "$ref": "#/$defs/dependencies" },
     "experience_baseline": { "$ref": "#/$defs/dependencies" },
@@ -75,6 +77,71 @@
     "historical_fingerprints": { "type": "object" }
   },
   "$defs": {
+    "taskBoundaryPolicy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "authority",
+        "stop_ladder",
+        "expansion_rule",
+        "unsupported_expansion",
+        "task_modes",
+        "task_mode_gate_handoff"
+      ],
+      "properties": {
+        "authority": { "const": "opl-flow" },
+        "stop_ladder": {
+          "const": [
+            "user_request",
+            "necessity",
+            "reachable_evidence",
+            "acceptance_dependency"
+          ]
+        },
+        "expansion_rule": { "const": "only_stop_ladder_reasons" },
+        "unsupported_expansion": { "const": "defer_and_report" },
+        "task_modes": {
+          "const": [
+            {
+              "id": "answer",
+              "mutation": "read_only",
+              "scope": "requested_answer"
+            },
+            {
+              "id": "review",
+              "mutation": "read_only",
+              "scope": "requested_review_surface"
+            },
+            {
+              "id": "change",
+              "mutation": "requested_result_and_necessary_consequences",
+              "scope": "requested_change"
+            },
+            {
+              "id": "monitor",
+              "mutation": "read_only",
+              "scope": "bounded_observation_and_requested_alerts"
+            }
+          ]
+        },
+        "task_mode_gate_handoff": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "skill_id",
+            "precondition",
+            "relationship",
+            "gate_authority"
+          ],
+          "properties": {
+            "skill_id": { "const": "task-mode-gate" },
+            "precondition": { "const": "stop_ladder_supported_reason_and_high_risk_mutation" },
+            "relationship": { "const": "stop_ladder_then_gate" },
+            "gate_authority": { "const": "task-mode-gate" }
+          }
+        }
+      }
+    },
     "codexAppOwnerMigrationPolicy": {
       "type": "object",
       "additionalProperties": false,
