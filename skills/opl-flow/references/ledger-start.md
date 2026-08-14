@@ -170,15 +170,18 @@ Beads to Linear: execution state, blocker, result.
 Beads lifecycle and visible execution activity are separate. Keep the durable
 lifecycle in the native Beads status and store exactly one current
 `metadata.execution_mode`: `active`, `waiting_user`, `waiting_external`,
-`monitoring`, `on_demand`, or `aggregate`. Linear displays `Needs Action` when the owner's
+`backlog`, `monitoring`, `on_demand`, or `aggregate`. Linear displays `Needs Action` when the owner's
 login, decision, or authorization is the next step; it displays `Blocked` when
 an external event or dependency prevents progress. Neither state keeps an Agent
 allocated. `Monitoring` also allocates no Agent unless a bounded execution
 episode is currently bound. When Linear is read back, both preserve a Bead
 already in `blocked`; otherwise they keep `in_progress`. `Monitoring`
 normalizes to `in_progress`; `on_demand` requires Beads `pinned`, Linear `On Demand`,
-a null `execution_thread`, and user-intent/explicit-trigger dispatch only. Only
-genuinely unstarted work displays `Todo`.
+a null `execution_thread`, `interactive_longline`, and user-intent/explicit-trigger
+dispatch only. Planned finite development with no allocated executor uses
+`backlog`, Beads `deferred`, and Linear `Backlog`; it returns to execution when
+capacity or its declared dependency releases it. Only genuinely unplanned work
+displays `Todo`.
 
 Aggregate issues roll up descendants: an active descendant displays `In
 Progress`; otherwise owner action takes precedence over external blocking,

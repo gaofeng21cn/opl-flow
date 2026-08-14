@@ -89,7 +89,7 @@ conflict as recovery signals, not ordinary progress. Only the selected product
 controller/executor receives exact readback; do not broaden recovery into a
 fleet-wide progress poll.
 
-For `waiting_external`, `monitoring`, and `on_demand`, reuse
+For `backlog`, `waiting_external`, `monitoring`, and `on_demand`, reuse
 `metadata.next_review_at` as the authority-check backoff. Before it is due, skip
 the owner check unless user, owner, Linear issue, schema/policy, or relevant
 repository evidence changed. Do not create a duplicate
@@ -230,6 +230,7 @@ Keep Beads lifecycle separate from the human status projection. Every
 unfinished Bead must have exactly one execution mode:
 
 - `active`
+- `backlog`
 - `waiting_user`
 - `waiting_external`
 - `monitoring`
@@ -240,7 +241,7 @@ For managed objectives, project:
 
 | Beads / mode | Linear |
 | --- | --- |
-| `deferred` | Backlog |
+| `deferred + backlog` | Backlog |
 | `open` | Todo |
 | `in_progress + active` | In Progress |
 | `waiting_user` | Needs Action |
@@ -254,6 +255,13 @@ Blocked means an external event or upstream dependency prevents progress.
 Neither allocates an Agent. Preserve an existing Beads `blocked` lifecycle for
 Needs Action/Blocked; otherwise preserve `in_progress`. Unknown mode or missing
 Linear status fails closed and must not be guessed back to Todo.
+
+Backlog means a finite `managed_objective` is planned but has no allocated
+executor yet; capacity planning or a declared dependency release promotes it
+to `active`. On Demand is reserved for a long-horizon `interactive_longline`
+that the user revisits irregularly by manual or explicit trigger. Never use On
+Demand for queued development, dependency waits, recovery disposition,
+cleanup-only work, or completed provenance.
 
 An interactive longline or explicitly enrolled ephemeral operation follows
 fresh thread activity and cannot become Done from a bounded result,

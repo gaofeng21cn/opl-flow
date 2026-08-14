@@ -507,19 +507,38 @@
         "execution_modes": {
           "type": "object",
           "additionalProperties": false,
-          "required": ["on_demand"],
+          "required": ["backlog", "on_demand"],
           "properties": {
+            "backlog": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["beads_status", "linear_status", "linear_status_type", "execution_thread", "dispatch", "eligible_classes"],
+              "properties": {
+                "beads_status": { "const": "deferred" },
+                "linear_status": { "const": "Backlog" },
+                "linear_status_type": { "const": "backlog" },
+                "execution_thread": { "type": ["null"] },
+                "dispatch": { "const": "planned_capacity_or_dependency_release" },
+                "eligible_classes": {
+                  "const": ["managed_objective"]
+                }
+              }
+            },
             "on_demand": {
               "type": "object",
               "additionalProperties": false,
-              "required": ["beads_status", "linear_status", "linear_status_type", "execution_thread", "dispatch", "terminal_inference"],
+              "required": ["beads_status", "linear_status", "linear_status_type", "execution_thread", "dispatch", "terminal_inference", "eligible_classes", "purpose"],
               "properties": {
                 "beads_status": { "const": "pinned" },
                 "linear_status": { "const": "On Demand" },
                 "linear_status_type": { "const": "backlog" },
                 "execution_thread": { "type": ["null"] },
                 "dispatch": { "const": "user_intent_or_explicit_trigger_only" },
-                "terminal_inference": { "const": "forbidden" }
+                "terminal_inference": { "const": "forbidden" },
+                "eligible_classes": {
+                  "const": ["interactive_longline"]
+                },
+                "purpose": { "const": "long_horizon_irregular_manual_followup" }
               }
             }
           }

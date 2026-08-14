@@ -186,6 +186,12 @@ executors on every heartbeat. Use exact thread waits or reads only to recover a
 lost executor, a missing callback, or a cross-objective owner/write-set
 conflict. A callback wakes the owner but never replaces terminal evidence.
 
+Keep planned finite development in `backlog` until capacity or a declared
+dependency releases it. `on_demand` is only for an `interactive_longline` that
+the user returns to irregularly and manually; it must never hide a queued
+development slice, dependency wait, recovery disposition, or completed
+provenance record.
+
 ### `fleet`
 
 Delegate to `$opl-fleet`. The public engine consumes an explicit private

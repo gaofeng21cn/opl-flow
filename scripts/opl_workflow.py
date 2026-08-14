@@ -39,6 +39,7 @@ except ImportError:  # Direct script execution.
 PROGRAM_REF = "opl://program/operations-maintenance"
 SUPERVISOR_EXECUTION_MODES = {
     "active",
+    "backlog",
     "waiting_user",
     "waiting_external",
     "monitoring",
@@ -723,6 +724,23 @@ def supervisor_snapshot(root: Path, bd: str, git_arg: str | None = None) -> dict
         execution_thread = metadata.get("execution_thread")
         if isinstance(execution_thread, str) and execution_thread.strip():
             live_executor_count += 1
+        classification = metadata.get("classification") or metadata.get(
+            "task_lifecycle_class"
+        )
+        if mode == "backlog":
+            if classification != "managed_objective":
+                errors.append(
+                    f"{issue_id}: backlog is reserved for managed_objective"
+                )
+            if isinstance(execution_thread, str) and execution_thread.strip():
+                errors.append(f"{issue_id}: backlog must not bind execution_thread")
+        if mode == "on_demand":
+            if classification != "interactive_longline":
+                errors.append(
+                    f"{issue_id}: on_demand is reserved for interactive_longline"
+                )
+            if isinstance(execution_thread, str) and execution_thread.strip():
+                errors.append(f"{issue_id}: on_demand must not bind execution_thread")
         if "remaining" in metadata and not isinstance(metadata["remaining"], list):
             errors.append(f"{issue_id}: metadata.remaining must be a JSON array")
         for field, seen in (
@@ -804,6 +822,7 @@ def supervisor_snapshot(root: Path, bd: str, git_arg: str | None = None) -> dict
                     if mode != "aggregate"
                 ),
                 "active_objectives": mode_counts.get("active", 0),
+                "backlog": mode_counts.get("backlog", 0),
                 "live_executors": live_executor_count,
                 "monitoring": mode_counts.get("monitoring", 0),
                 "on_demand": mode_counts.get("on_demand", 0),

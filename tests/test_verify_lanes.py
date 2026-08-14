@@ -383,6 +383,25 @@ class VerifyLaneTests(unittest.TestCase):
             executor_errors,
         )
 
+        backlog_taxonomy_errors = self.workflow_policy_errors_after(
+            lambda policy: policy["ledger_supervisor_policy"]["execution_modes"].pop(
+                "backlog"
+            )
+        )
+        self.assertIn(
+            "Ledger Supervisor must separate planned managed backlog from long-horizon manual on_demand",
+            backlog_taxonomy_errors,
+        )
+
+        on_demand_scope_errors = self.workflow_policy_errors_after(
+            lambda policy: policy["ledger_supervisor_policy"]["execution_modes"]
+            ["on_demand"].update(eligible_classes=["managed_objective"])
+        )
+        self.assertIn(
+            "Ledger Supervisor must separate planned managed backlog from long-horizon manual on_demand",
+            on_demand_scope_errors,
+        )
+
         taxonomy_errors = self.workflow_policy_errors_after(
             lambda policy: policy["ledger_supervisor_policy"]["native_owner_tools"].update(
                 list_threads_max_limit=100,

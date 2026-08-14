@@ -719,13 +719,27 @@
       "unbind_after_authoritative_readback": true
     },
     "execution_modes": {
+      "backlog": {
+        "beads_status": "deferred",
+        "linear_status": "Backlog",
+        "linear_status_type": "backlog",
+        "execution_thread": null,
+        "dispatch": "planned_capacity_or_dependency_release",
+        "eligible_classes": [
+          "managed_objective"
+        ]
+      },
       "on_demand": {
         "beads_status": "pinned",
         "linear_status": "On Demand",
         "linear_status_type": "backlog",
         "execution_thread": null,
         "dispatch": "user_intent_or_explicit_trigger_only",
-        "terminal_inference": "forbidden"
+        "terminal_inference": "forbidden",
+        "eligible_classes": [
+          "interactive_longline"
+        ],
+        "purpose": "long_horizon_irregular_manual_followup"
       }
     },
     "native_owner_tools": {

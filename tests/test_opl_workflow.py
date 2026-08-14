@@ -210,6 +210,7 @@ else:
                 {
                     "unfinished_tasks": 1,
                     "active_objectives": 1,
+                    "backlog": 0,
                     "live_executors": 1,
                     "monitoring": 0,
                     "on_demand": 0,
@@ -266,9 +267,74 @@ else:
             self.assertEqual(result["counts"]["semantic"]["unfinished_tasks"], 1)
             self.assertEqual(result["counts"]["semantic"]["live_executors"], 0)
             self.assertEqual(result["counts"]["validation_errors"], 3)
-            self.assertTrue(any("unknown metadata.execution_mode" in item for item in result["validation_errors"]))
-            self.assertTrue(any("remaining must be a JSON array" in item for item in result["validation_errors"]))
-            self.assertTrue(any("duplicate linear_issue_identifier" in item for item in result["validation_errors"]))
+            self.assertTrue(
+                any(
+                    "unknown metadata.execution_mode" in item
+                    for item in result["validation_errors"]
+                )
+            )
+            self.assertTrue(
+                any(
+                    "remaining must be a JSON array" in item
+                    for item in result["validation_errors"]
+                )
+            )
+            self.assertTrue(
+                any(
+                    "duplicate linear_issue_identifier" in item
+                    for item in result["validation_errors"]
+                )
+            )
+
+    def test_supervisor_snapshot_separates_backlog_from_on_demand(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            issues = [
+                {
+                    "id": "opl-backlog",
+                    "status": "deferred",
+                    "metadata": {
+                        "classification": "managed_objective",
+                        "execution_mode": "backlog",
+                        "execution_thread": None,
+                        "remaining": ["planned implementation"],
+                    },
+                },
+                {
+                    "id": "opl-invalid-on-demand",
+                    "status": "pinned",
+                    "metadata": {
+                        "classification": "managed_objective",
+                        "execution_mode": "on_demand",
+                        "execution_thread": None,
+                        "remaining": ["queued implementation"],
+                    },
+                },
+            ]
+            git_results = [
+                subprocess.CompletedProcess([], 0, str(root) + "\n", ""),
+                subprocess.CompletedProcess([], 0, "abc123\n", ""),
+                subprocess.CompletedProcess([], 0, "main\n", ""),
+                subprocess.CompletedProcess([], 0, "## main...origin/main\n", ""),
+            ]
+            with (
+                mock.patch("scripts.opl_workflow.executable", return_value="/usr/bin/git"),
+                mock.patch(
+                    "scripts.opl_workflow.run",
+                    side_effect=[{}, [], issues, {"mode": "embedded"}, *git_results],
+                ),
+            ):
+                result = supervisor_snapshot(root, "/tmp/bd")
+
+            self.assertEqual(
+                result["counts"]["by_execution_mode"],
+                {"backlog": 1, "on_demand": 1},
+            )
+            self.assertEqual(result["counts"]["semantic"]["backlog"], 1)
+            self.assertIn(
+                "opl-invalid-on-demand: on_demand is reserved for interactive_longline",
+                result["validation_errors"],
+            )
 
     def test_init_rejects_linked_checkout(self) -> None:
         with tempfile.TemporaryDirectory() as temp:
