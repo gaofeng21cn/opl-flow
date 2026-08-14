@@ -88,6 +88,12 @@ When `architect-and-simplify` is discovered, use it for architecture mapping or
 simplification. When absent, perform the same work model-natively and report
 the capability as optional, not degraded.
 
+The external `stop-that-shit` Plugin is an explicit optional Guard for covered
+Codex Hook events. Observe it separately from Flow's model-native Stop Ladder;
+do not install or enable it by default, make Flow depend on it, or describe its
+absence as degraded. When the user enables it, report Hook trust and coverage
+as guard state rather than a security or general model-behavior guarantee.
+
 For Full distribution, read the Framework-generated
 `opl_flow_capability_build_lock.v1`. Do not derive Full payload selection from
 an App source manifest; it provides resolution hints only after Flow has

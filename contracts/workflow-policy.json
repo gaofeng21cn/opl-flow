@@ -339,6 +339,20 @@
       "activation": "task_routed",
       "readiness_adapter": "runtime_observation",
       "source": "openai-primary-runtime"
+    },
+    {
+      "id": "stop-that-shit",
+      "kind": "codex_plugin",
+      "owner": "lennney",
+      "bundle_id": "task-boundary-guard",
+      "online_install_default": false,
+      "offline_bundle": "none",
+      "activation": "explicit",
+      "readiness_adapter": "runtime_observation",
+      "conflict_policy": "managed_reconcile",
+      "credential_policy": "none",
+      "source": "https://github.com/lennney/stop-that-shit",
+      "source_path": ".codex-plugin"
     }
   ],
   "capability_bundles": [
@@ -409,6 +423,19 @@
       "label": "Official Codex Office runtime",
       "relationship": "compatible_optional",
       "member_refs": ["runtime_capability:openai-primary-runtime-office-pdf"],
+      "online_materialization": "observe_only",
+      "full_distribution": "none",
+      "readiness": {
+        "aggregation": "observe_members",
+        "absence_effect": "optional_absent",
+        "repair_policy": "none"
+      }
+    },
+    {
+      "id": "task-boundary-guard",
+      "label": "Task boundary guard",
+      "relationship": "compatible_optional",
+      "member_refs": ["codex_plugin:stop-that-shit"],
       "online_materialization": "observe_only",
       "full_distribution": "none",
       "readiness": {

@@ -105,6 +105,23 @@ large.
   it; do not repeat hashes, broad suites, or completion audits as routine
   ceremony when they add no new evidence.
 
+### Stop Ladder
+
+Before adding work outside the user's wording, ask four questions in order:
+
+1. Did the user request it?
+2. Is it necessary to complete the requested result?
+3. What reachable code, data, deployment state, or acceptance evidence proves that need?
+4. Would omitting it fail the current acceptance?
+
+If none is supported by current evidence, report or defer the idea. This
+applies especially to new dependencies, hashes or digests, compatibility
+layers, migration frameworks, new abstractions, subagents, and repeated audits.
+It does not remove necessary callers, fixtures, schema, tests, or real security,
+accessibility, compatibility, and migration obligations. Review, answer, and
+monitor remain read-only; change authorizes only the requested result and its
+necessary consequences.
+
 ## Replacement And Refactor Cutovers
 
 For a legacy replacement or large refactor, prefer a successor-first controlled

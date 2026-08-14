@@ -110,6 +110,16 @@ class VerifyLaneTests(unittest.TestCase):
 
         self.assertIn("retired codex-ops-kit must not remain in workflow dependencies", errors)
 
+    def test_workflow_policy_keeps_stop_guard_out_of_default_bundles(self) -> None:
+        policy = json.loads(
+            (REPO_ROOT / "contracts" / "workflow-policy.json").read_text(encoding="utf-8")
+        )
+        guard = next(item for item in policy["compatible_optional"] if item["id"] == "stop-that-shit")
+        self.assertFalse(guard["online_install_default"])
+        bundle = next(item for item in policy["capability_bundles"] if item["id"] == "task-boundary-guard")
+        self.assertEqual(bundle["online_materialization"], "observe_only")
+        self.assertEqual(bundle["readiness"]["absence_effect"], "optional_absent")
+
     def test_workflow_policy_preserves_explicit_ponytail_skills(self) -> None:
         self.assertEqual(check_workflow_policy(REPO_ROOT), [])
 

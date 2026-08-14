@@ -580,6 +580,7 @@ def check_workflow_policy(repo_root: Path) -> list[str]:
         "document-extraction": "experience_baseline",
         "architecture-enhancement": "compatible_optional",
         "official-codex-office-runtime": "compatible_optional",
+        "task-boundary-guard": "compatible_optional",
     }
     if {item.get("id"): item.get("relationship") for item in bundles} != expected_bundle_relationships:
         errors.append("workflow policy capability bundle relationships are incomplete")
@@ -663,6 +664,30 @@ def check_workflow_policy(repo_root: Path) -> list[str]:
         for key, value in expected_architect.items()
     ):
         errors.append("architect-and-simplify must remain an observed optional OPL Skills capability")
+    stop_guard = next(
+        (
+            item for item in policy.get("compatible_optional", [])
+            if item.get("kind") == "codex_plugin" and item.get("id") == "stop-that-shit"
+        ),
+        None,
+    )
+    expected_stop_guard = {
+        "id": "stop-that-shit",
+        "kind": "codex_plugin",
+        "owner": "lennney",
+        "bundle_id": "task-boundary-guard",
+        "online_install_default": False,
+        "offline_bundle": "none",
+        "activation": "explicit",
+        "readiness_adapter": "runtime_observation",
+        "source": "https://github.com/lennney/stop-that-shit",
+        "source_path": ".codex-plugin",
+    }
+    if stop_guard is None or any(
+        stop_guard.get(key) != value
+        for key, value in expected_stop_guard.items()
+    ):
+        errors.append("stop-that-shit must remain an explicit, non-blocking optional guard")
     dependencies = [
         item
         for section in ("requires", "experience_baseline")

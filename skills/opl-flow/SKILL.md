@@ -18,6 +18,15 @@ owns personal Ledger and Fleet state.
 Keep ordinary reasoning model-native. Do not bootstrap a planner/executor role
 stack or a second development methodology.
 
+Flow's task boundary policy uses a four-question Stop Ladder before expanding
+scope: user request, necessity, reachable evidence, and current acceptance.
+Review/answer/monitor are read-only; change covers the requested result and
+necessary consequences. New dependencies, hashing, compatibility layers,
+migration frameworks, abstractions, subagents, and repeat audits require a
+current reason. The optional `stop-that-shit` Guard may enforce some of these
+facts on supported Hook events, but its absence is non-blocking and it is not a
+second Flow owner.
+
 ## Choose One Action
 
 Infer the action from natural language. Ask only when two actions would produce
