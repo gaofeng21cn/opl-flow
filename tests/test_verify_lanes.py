@@ -266,6 +266,57 @@ class VerifyLaneTests(unittest.TestCase):
         )
 
     def test_ledger_supervisor_contract_rejects_delivery_and_provenance_regressions(self) -> None:
+        event_driven_error = (
+            "Ledger coordination must remain event-driven across the global supervisor, "
+            "product controller, and bounded executors"
+        )
+        missing_product_controller_errors = self.workflow_policy_errors_after(
+            lambda policy: policy["ledger_supervisor_policy"]
+            ["event_driven_control_plane"].pop("product_controller")
+        )
+        self.assertIn(event_driven_error, missing_product_controller_errors)
+
+        resident_polling_errors = self.workflow_policy_errors_after(
+            lambda policy: policy["ledger_supervisor_policy"]
+            ["event_driven_control_plane"]["product_controller"].update(
+                resident_polling=True,
+            )
+        )
+        self.assertIn(event_driven_error, resident_polling_errors)
+
+        periodic_progress_errors = self.workflow_policy_errors_after(
+            lambda policy: policy["ledger_supervisor_policy"]
+            ["event_driven_control_plane"]["global_supervisor"].update(
+                product_progress_polling=True,
+            )
+        )
+        self.assertIn(event_driven_error, periodic_progress_errors)
+
+        periodic_audit_errors = self.workflow_policy_errors_after(
+            lambda policy: policy["ledger_supervisor_policy"]["incremental_fast_path"]
+            ["full_audit"].update(periodic_schedule=True)
+        )
+        self.assertIn(
+            "Ledger Supervisor must keep the bounded incremental no-change fast path",
+            periodic_audit_errors,
+        )
+
+        incomplete_callback_errors = self.workflow_policy_errors_after(
+            lambda policy: policy["ledger_supervisor_policy"]
+            ["event_driven_control_plane"]["executor"].update(
+                callback_events=["checkpoint", "terminal"],
+            )
+        )
+        self.assertIn(event_driven_error, incomplete_callback_errors)
+
+        expanded_fallback_errors = self.workflow_policy_errors_after(
+            lambda policy: policy["ledger_supervisor_policy"]
+            ["event_driven_control_plane"]["fallback"]["triggers"].append(
+                "scheduled_progress_scan"
+            )
+        )
+        self.assertIn(event_driven_error, expanded_fallback_errors)
+
         fast_path_errors = self.workflow_policy_errors_after(
             lambda policy: policy["ledger_supervisor_policy"]["incremental_fast_path"]
             ["no_change_budget"].update(read_thread_calls=1)
@@ -273,6 +324,15 @@ class VerifyLaneTests(unittest.TestCase):
         self.assertIn(
             "Ledger Supervisor must keep the bounded incremental no-change fast path",
             fast_path_errors,
+        )
+
+        routine_wait_errors = self.workflow_policy_errors_after(
+            lambda policy: policy["ledger_supervisor_policy"]["incremental_fast_path"]
+            ["no_change_budget"].update(wait_threads_calls=1)
+        )
+        self.assertIn(
+            "Ledger Supervisor must keep the bounded incremental no-change fast path",
+            routine_wait_errors,
         )
 
         title_signature_errors = self.workflow_policy_errors_after(
@@ -363,10 +423,9 @@ class VerifyLaneTests(unittest.TestCase):
             "Call `read_thread` for each managed objective",
             reference,
         )
-        self.assertIn(
-            "An unchanged cursor does not require `read_thread`.",
-            reference,
-        )
+        self.assertIn("With no event,", reference)
+        self.assertIn("zero `wait_threads`", reference)
+        self.assertIn("The global Supervisor does not resident-poll either role.", reference)
         self.assertIn(
             "zero `read_thread`, zero comment calls, zero authority checks, and zero semantic writes",
             normalized,

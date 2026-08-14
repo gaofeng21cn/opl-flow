@@ -252,8 +252,67 @@
     "ledgerSupervisorPolicy": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["incremental_fast_path", "linear_assignee_projection", "task_lifecycle_classes", "bounded_executor_policy", "execution_modes", "native_owner_tools", "comment_delivery"],
+      "required": ["event_driven_control_plane", "incremental_fast_path", "linear_assignee_projection", "task_lifecycle_classes", "bounded_executor_policy", "execution_modes", "native_owner_tools", "comment_delivery"],
       "properties": {
+        "event_driven_control_plane": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["dispatch_mode", "global_supervisor", "product_controller", "executor", "fallback", "idle_product_activity"],
+          "properties": {
+            "dispatch_mode": { "const": "event_driven" },
+            "global_supervisor": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["role", "scheduled_episode_scope", "product_progress_polling"],
+              "properties": {
+                "role": { "const": "ledger_macro_reconciliation_and_exception_fallback" },
+                "scheduled_episode_scope": { "const": "bounded_change_detection_and_ledger_reconciliation" },
+                "product_progress_polling": { "const": false }
+              }
+            },
+            "product_controller": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["role", "callback_handling", "resident_polling"],
+              "properties": {
+                "role": { "const": "objective_graph_acceptance_and_successor_dispatch" },
+                "callback_handling": { "const": "same_episode_accept_repair_or_dispatch" },
+                "resident_polling": { "const": false }
+              }
+            },
+            "executor": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["role", "callback_target", "callback_events", "callback_is_completion_evidence"],
+              "properties": {
+                "role": { "const": "bounded_slice_execution" },
+                "callback_target": { "const": "product_controller" },
+                "callback_events": { "const": ["checkpoint", "terminal", "real_blocker"] },
+                "callback_is_completion_evidence": { "const": false }
+              }
+            },
+            "fallback": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["owner", "triggers", "routine_progress_polling"],
+              "properties": {
+                "owner": { "const": "global_supervisor" },
+                "triggers": { "const": ["executor_lost", "callback_missing", "cross_objective_owner_or_write_set_conflict"] },
+                "routine_progress_polling": { "const": false }
+              }
+            },
+            "idle_product_activity": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["product_reads", "successor_dispatches", "semantic_writes"],
+              "properties": {
+                "product_reads": { "const": 0 },
+                "successor_dispatches": { "const": 0 },
+                "semantic_writes": { "const": 0 }
+              }
+            }
+          }
+        },
         "incremental_fast_path": {
           "type": "object",
           "additionalProperties": false,
@@ -264,12 +323,13 @@
             "thread_detection": {
               "type": "object",
               "additionalProperties": false,
-              "required": ["inventory_source", "observation_fields", "excluded_observation_fields", "live_progress_source", "wait_timeout_ms", "wait_batch_size", "exact_read_triggers"],
+              "required": ["inventory_source", "observation_fields", "excluded_observation_fields", "progress_signal_source", "wait_threads_policy", "wait_timeout_ms", "wait_batch_size", "exact_read_triggers"],
               "properties": {
                 "inventory_source": { "const": "list_threads" },
                 "observation_fields": { "const": ["updatedAt", "status", "hasUnreadTurn"] },
                 "excluded_observation_fields": { "const": ["title"] },
-                "live_progress_source": { "const": "wait_threads" },
+                "progress_signal_source": { "const": "executor_callback_to_product_controller" },
+                "wait_threads_policy": { "const": "fallback_only_after_executor_loss_missing_callback_or_cross_objective_conflict" },
                 "wait_timeout_ms": { "const": 0 },
                 "wait_batch_size": { "const": 8 },
                 "exact_read_triggers": {
@@ -315,9 +375,10 @@
             "full_audit": {
               "type": "object",
               "additionalProperties": false,
-              "required": ["cadence_hours", "triggers"],
+              "required": ["periodic_schedule", "minimum_interval_hours", "triggers"],
               "properties": {
-                "cadence_hours": { "const": 24 },
+                "periodic_schedule": { "const": false },
+                "minimum_interval_hours": { "const": 24 },
                 "triggers": {
                   "const": [
                     "missing_or_ambiguous_cursor",
@@ -348,10 +409,10 @@
             "no_change_budget": {
               "type": "object",
               "additionalProperties": false,
-              "required": ["list_threads_calls", "wait_threads_calls_per_live_batch", "linear_issue_delta_calls_per_project", "read_thread_calls", "linear_comment_calls", "authority_checks", "semantic_writes", "expected_runtime_seconds"],
+              "required": ["list_threads_calls", "wait_threads_calls", "linear_issue_delta_calls_per_project", "read_thread_calls", "linear_comment_calls", "authority_checks", "semantic_writes", "expected_runtime_seconds"],
               "properties": {
                 "list_threads_calls": { "const": 1 },
-                "wait_threads_calls_per_live_batch": { "const": 1 },
+                "wait_threads_calls": { "const": 0 },
                 "linear_issue_delta_calls_per_project": { "const": 1 },
                 "read_thread_calls": { "const": 0 },
                 "linear_comment_calls": { "const": 0 },

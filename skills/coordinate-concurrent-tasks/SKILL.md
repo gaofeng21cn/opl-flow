@@ -49,9 +49,12 @@ description: Coordinate multiple Codex conversations, agents, repositories, or w
 
 ### 执行连续性
 
+- 控制面分三层：全局 Supervisor 只持有总账、宏观调控和异常兜底；产品总控持有本产品的 objective graph、结果验收、首个真实断点修复和续派；executor 只持有一个有界切片。产品总控是逻辑责任，不要求另建一个常驻轮询对话。
+- executor 在可恢复 checkpoint、terminal 或 real blocker 时主动回调产品总控；产品总控在同一执行轮次验收、修复或续派。回调只是触发与 provenance，不替代 checkpoint、canonical、runtime 或 cleanup 证据。
+- 全局 Supervisor 不按 heartbeat 常规轮询产品 executor。只有 executor 失联、应有 callback 缺失或跨 objective owner/write-set 冲突时，才对精确目标执行兜底回读；无事件时不读取产品、不续派、不写语义状态。
 - `ACTIVE` 标题或总账登记不等于活跃执行。每个 `ACTIVE` objective 必须同时有 live execution owner、可立即执行的 `next_action` 和本轮推进证据。
 - **Active-progress invariant**：只有同时满足以下条件时才可保留 `ACTIVE`：存在唯一 live owner/execution owner；精确 write set 已登记；`next_action` 现在即可执行；当前 worktree/branch/checkpoint 可回读；最近一轮包含真实推进证据（实现、验证、commit、checkpoint、吸收、安装生效、发布回读或清理之一）。标题、spinner、未归档状态、callback、候选 commit 或测试通过都不能单独证明活跃执行。
-- 子任务、callback、测试或一次 operation 结束后，主控必须在同一轮验收结果并立即继续、修复首个真实断点或重分配；不得停在回调、候选、失败回执或等待另一个对话自行醒来。
+- 子任务、callback、测试或一次 operation 结束后，产品总控必须在同一轮验收结果并立即继续、修复首个真实断点或重分配；不得停在回调、候选、失败回执或等待另一个对话自行醒来。
 - 一个切片完成后不得因等待冲突而停住：owner 应先完成本地等价门禁，commit 并 push 可恢复 task checkpoint，回读远端 SHA/tree/blob，再把精确 integration boundary 交给唯一 Integrator；冲突只在 fresh main 的 canonical integration 临界区解决。
 - currentness drift 由原 owner 基于 fresh SSOT 做 semantic replay 并继续验证，不以漂移为理由进入等待或遗弃责任。
 - fail-closed 只终止当前 operation，不终止 objective。若没有不可替代的权限、外部输入或安全边界，主控修复断点后发起新的合法 operation，并持续到 `SAFE_TO_ARCHIVE`。

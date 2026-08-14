@@ -178,6 +178,14 @@ and closeout rules. Do not create another heartbeat, keep a monitoring executor
 resident, auto-archive a Codex task, or turn the Automation prompt into a
 second policy source.
 
+Keep product execution event-driven. The global Supervisor owns Ledger and
+macro reconciliation only; each product controller owns its objective graph,
+acceptance, blocker repair, and successor dispatch; bounded executors call the
+product controller on checkpoint, terminal, or real blocker. Do not poll live
+executors on every heartbeat. Use exact thread waits or reads only to recover a
+lost executor, a missing callback, or a cross-objective owner/write-set
+conflict. A callback wakes the owner but never replaces terminal evidence.
+
 ### `fleet`
 
 Delegate to `$opl-fleet`. The public engine consumes an explicit private

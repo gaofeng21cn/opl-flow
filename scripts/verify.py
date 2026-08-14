@@ -400,6 +400,44 @@ def check_workflow_policy(repo_root: Path) -> list[str]:
     if policy.get("codex_app_owner_migration_policy") != expected_codex_app_owner_migration:
         errors.append("Codex App owner migration policy must remain native-visible and fail-closed")
     supervisor = policy.get("ledger_supervisor_policy", {})
+    expected_event_driven_control_plane = {
+        "dispatch_mode": "event_driven",
+        "global_supervisor": {
+            "role": "ledger_macro_reconciliation_and_exception_fallback",
+            "scheduled_episode_scope": "bounded_change_detection_and_ledger_reconciliation",
+            "product_progress_polling": False,
+        },
+        "product_controller": {
+            "role": "objective_graph_acceptance_and_successor_dispatch",
+            "callback_handling": "same_episode_accept_repair_or_dispatch",
+            "resident_polling": False,
+        },
+        "executor": {
+            "role": "bounded_slice_execution",
+            "callback_target": "product_controller",
+            "callback_events": ["checkpoint", "terminal", "real_blocker"],
+            "callback_is_completion_evidence": False,
+        },
+        "fallback": {
+            "owner": "global_supervisor",
+            "triggers": [
+                "executor_lost",
+                "callback_missing",
+                "cross_objective_owner_or_write_set_conflict",
+            ],
+            "routine_progress_polling": False,
+        },
+        "idle_product_activity": {
+            "product_reads": 0,
+            "successor_dispatches": 0,
+            "semantic_writes": 0,
+        },
+    }
+    if supervisor.get("event_driven_control_plane") != expected_event_driven_control_plane:
+        errors.append(
+            "Ledger coordination must remain event-driven across the global supervisor, "
+            "product controller, and bounded executors"
+        )
     expected_incremental_fast_path = {
         "phase_order": ["change_detection", "selective_expansion"],
         "state_owner": "private_supervisor_memory_cursor_location",
@@ -407,7 +445,8 @@ def check_workflow_policy(repo_root: Path) -> list[str]:
             "inventory_source": "list_threads",
             "observation_fields": ["updatedAt", "status", "hasUnreadTurn"],
             "excluded_observation_fields": ["title"],
-            "live_progress_source": "wait_threads",
+            "progress_signal_source": "executor_callback_to_product_controller",
+            "wait_threads_policy": "fallback_only_after_executor_loss_missing_callback_or_cross_objective_conflict",
             "wait_timeout_ms": 0,
             "wait_batch_size": 8,
             "exact_read_triggers": [
@@ -436,7 +475,8 @@ def check_workflow_policy(repo_root: Path) -> list[str]:
             ],
         },
         "full_audit": {
-            "cadence_hours": 24,
+            "periodic_schedule": False,
+            "minimum_interval_hours": 24,
             "triggers": [
                 "missing_or_ambiguous_cursor",
                 "schema_or_policy_change",
@@ -461,7 +501,7 @@ def check_workflow_policy(repo_root: Path) -> list[str]:
         ],
         "no_change_budget": {
             "list_threads_calls": 1,
-            "wait_threads_calls_per_live_batch": 1,
+            "wait_threads_calls": 0,
             "linear_issue_delta_calls_per_project": 1,
             "read_thread_calls": 0,
             "linear_comment_calls": 0,

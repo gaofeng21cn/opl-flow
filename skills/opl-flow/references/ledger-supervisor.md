@@ -10,6 +10,29 @@ owns durable execution facts, Linear is the narrow human portal, GitHub owns
 code and delivery evidence, and Fleet provides capacity only. Never create a
 second heartbeat for another registered project.
 
+## Control Plane Separation
+
+Use an event-driven three-layer control plane:
+
+- The global Supervisor owns Ledger reconciliation, macro coordination, and
+  exception fallback. A scheduled episode is only a bounded change detector;
+  it never becomes a product execution loop.
+- Each product controller owns its objective graph, accepts executor results,
+  fixes the first real blocker, and dispatches the next bounded slice. This is
+  a logical product responsibility, not a requirement for another resident
+  polling conversation.
+- Each executor owns one bounded slice and calls its product controller on a
+  recoverable checkpoint, terminal result, or real blocker. The product
+  controller handles that callback in the same episode by accepting the
+  evidence, repairing the blocker, or dispatching the successor.
+
+A callback is a wake-up signal and provenance, not proof of completion. The
+product controller still verifies owner, write set, checkpoint, canonical
+absorption, runtime/publication state, and cleanup as applicable. The global
+Supervisor intervenes only when an executor is lost, a required callback is
+missing, or cross-objective owner/write-set conflict appears. With no event,
+perform no product read, successor dispatch, or semantic write.
+
 ## 1. Run The Bounded Change Detector
 
 Phase A establishes enough fresh truth to decide what needs expansion. It does
@@ -38,10 +61,13 @@ runtime owner on every heartbeat.
 5. Call `list_threads(limit <= 50)` once. Compare only `updatedAt`, `status`, and
    `hasUnreadTurn` with the saved per-thread observation. Do not use the title as
    an observation signature: it is a Supervisor-maintained projection.
-6. For live `metadata.execution_thread` values, call `wait_threads(timeoutMs=0)`
-   in batches of at most eight with each saved `afterCursor`. A changed wait
-   cursor, completion, error, or need-attention result selects that thread for
-   Phase B. An unchanged cursor does not require `read_thread`.
+6. Do not call `wait_threads` merely because a live
+   `metadata.execution_thread` exists. Normal progress arrives as an executor
+   callback to the product controller. Use `wait_threads(timeoutMs=0)` in
+   batches of at most eight only during Phase B after `executor_lost`,
+   `callback_missing`, or a cross-objective owner/write-set conflict selects an
+   exact recovery target. An unchanged callback or thread summary does not
+   require `wait_threads` or `read_thread`.
 7. For each registered Linear project, call `list_issues` once with the saved
    project `updatedAt` waterline. Do not read comments for an unchanged issue.
 
@@ -58,16 +84,23 @@ read. When expansion is selected, corroborate only that objective with canonical
 main/wire, worktree/lifecycle, release, deployment, install, or runtime owner
 evidence as applicable.
 
+Treat `executor_lost`, `callback_missing`, and cross-objective owner/write-set
+conflict as recovery signals, not ordinary progress. Only the selected product
+controller/executor receives exact readback; do not broaden recovery into a
+fleet-wide progress poll.
+
 For `waiting_external`, `monitoring`, and `on_demand`, reuse
 `metadata.next_review_at` as the authority-check backoff. Before it is due, skip
 the owner check unless user, owner, Linear issue, schema/policy, or relevant
 repository evidence changed. Do not create a duplicate
 `next_authority_check_at` field.
 
-Run a complete audit at most every 24 hours, or immediately after a missing or
+Do not schedule a periodic complete audit. Run one only after a missing or
 ambiguous cursor, schema/policy change, `timeout_unknown`, or explicit user
-request. An unchanged observation never proves completion, archival, delivery,
-or owner correctness; it only proves that the expensive exact read is not due.
+request, and no more than once every 24 hours unless a current integrity
+boundary requires immediate reconciliation. An unchanged observation never
+proves completion, archival, delivery, or owner correctness; it only proves
+that the expensive exact read is not triggered.
 
 Record one stable class and a short reason:
 
@@ -96,6 +129,11 @@ product owner.
 ## 3. Bounded Executors
 
 Only a genuine workbench or the Supervisor keeps a long-lived conversation.
+Product controllers and executors advance through direct events: executors
+call back on checkpoint, terminal, or real blocker, and the product controller
+accepts, repairs, or dispatches the next bounded slice in the same episode.
+The global Supervisor does not resident-poll either role.
+
 For a monitoring or on-demand objective, bind a finite executor only when its
 review date, authorized user comment, or explicit event fires. After
 authoritative readback:
@@ -239,11 +277,11 @@ Emit compact counters for threads listed, summaries changed, wait targets,
 wait cursors changed, exact thread reads, Linear projects probed, Linear issues
 changed, comment pages, authority checks, writes, retries, elapsed seconds, and
 any full-audit reason. For a semantic no-change episode, the expected budget is
-one `list_threads`, one `wait_threads` per live batch of eight, one Linear issue
-delta call per registered project, zero `read_thread`, zero comment calls, zero
-authority checks, and zero semantic writes. Target about 60 seconds for a small
-Ledger. Do not update `last_supervised_at` or another timestamp merely to prove
-that the heartbeat ran.
+one `list_threads`, zero `wait_threads`, one Linear issue delta call per
+registered project, zero `read_thread`, zero comment calls, zero authority
+checks, and zero semantic writes. Target about 60 seconds for a small Ledger.
+Do not update `last_supervised_at` or another timestamp merely to prove that the
+heartbeat ran.
 
 Notify only for new intake, a processed user comment, direction correction,
 first blocker, material ETA change, completion, or required user action.
