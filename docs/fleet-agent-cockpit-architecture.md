@@ -19,7 +19,7 @@ OPL Fleet is one control plane with deliberately separate observation products:
 | Product term | Current implementation | Responsibility |
 | --- | --- | --- |
 | OPL Fleet Controller | OPL Flow plus one private OPL Instance | Node registry, policy, fresh doctor/admission, leases, dispatch, and execution adapter selection |
-| OPL Fleet Agent · Codex TPS | `codex-tps` | Node-local observation, doctor, execution constraints, sanitized receipts, Codex Telemetry, and the Host dashboard |
+| OPL Fleet Agent | `opl-fleet-agent` | Node-local observation, doctor, execution constraints, sanitized receipts, Codex Telemetry, and the Host dashboard |
 | OPL Fleet Telemetry Gateway | `ambient-ops` Docker service | Authenticated allowlisted ingest, fleet aggregation, history, and read-only status projection |
 | OPL Fleet Cockpit · Ambient Ops | `ambient-ops` Web, Android, and iOS clients | Fleet/Host visualization, router network visualization, and display preferences |
 
@@ -60,18 +60,20 @@ source of the observation and the platform remains the process lifecycle owner.
 These are product modes, not competing authorities. A deployment can keep Direct
 available while also reporting to a Gateway.
 
-## Compatibility Migration
+## Identity Stability
 
-The first public names are `OPL Fleet Agent · Codex TPS` and
-`OPL Fleet Cockpit · Ambient Ops`. Repository URLs, Bundle IDs, Android package
-names, release asset names, update channels, `_codex-tps._tcp.local`, and
-`_ambient-ops._tcp.local` remain stable. Physical repository or binary renames are
-eligible only after the versioned Agent/Fleet protocol has shipped and a real
-upgrade from the compatibility identities has passed.
+The Agent identity cutover is complete. The admitted node product is
+`OPL Fleet Agent`, its implementation identifier is `opl-fleet-agent`, its macOS
+bundle identifier is `io.github.gaofeng21cn.opl-fleet-agent`, and Direct discovery
+uses `_opl-fleet-agent._tcp.local`. Consumers do not read or normalize the retired
+Agent identity.
 
-Existing Codex TPS and Ambient Ops behavior remains supported during the migration.
-New protocol fields are additive and capability-advertised before any consumer
-requires them.
+`OPL Fleet Cockpit · Ambient Ops` keeps its own bounded Gateway implementation
+alias and `_ambient-ops._tcp.local` discovery service. Repository URLs, Cockpit
+bundle identifiers, Android package names, current release assets, and current
+discovery identifiers remain stable. Any future Agent identity change requires a
+versioned contract and coordinated caller cutover. New protocol fields are
+additive and capability-advertised before any consumer requires them.
 
 ## Privacy And Failure Semantics
 
@@ -117,6 +119,6 @@ Framework Host adapter   Local / Direct / Fleet
                   Telemetry Gateway -> Cockpit
 ```
 
-Codex TPS and Ambient Ops consume the public protocol. They do not duplicate the
+OPL Fleet Agent and Ambient Ops consume the public protocol. They do not duplicate the
 private node registry or Controller policy. The private Instance selects approved
 nodes and desired capabilities without importing public product source.
