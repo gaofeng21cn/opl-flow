@@ -27,6 +27,26 @@ The Controller is the only scheduling authority. Agent telemetry may describe
 capacity or execution state, but neither the Gateway nor Cockpit may turn an
 observation into admission, a lease, dispatch, or remote execution.
 
+## Capability Provider Boundary
+
+The Fleet Agent remains a native process. Its Capability Package contributes a
+discoverable, typed, read-only provider to the Framework Host; it does not move
+process startup, shutdown, updates, local state, or collection into Cordis. The
+provider ABI is `opl-fleet-agent.capabilities@1.0.0`, and its response shape is
+owned by `contracts/fleet-agent-provider.schema.json`.
+
+| Provider read | Stable ref | Projection status |
+| --- | --- | --- |
+| Local aggregate telemetry | `fleet.agent.telemetry.v1#local` | `projected` |
+| Current local doctor observation | `fleet.agent.doctor.v1#current` | `projected` |
+| Execution constraints | no provider ref | `not_projected` until a real caller proves a contract |
+| Execution receipts | no provider ref | `deferred` until a real caller proves a contract |
+
+Both reads are `observation_only`. They cannot issue or imply an admission
+decision, lease, dispatch, completion verdict, or native lifecycle action. A Host
+adapter may validate and project the response, while the native Agent remains the
+source of the observation and the platform remains the process lifecycle owner.
+
 ## Three Modes
 
 - **Local:** the Agent reads local Codex usage and host telemetry and renders it
@@ -55,16 +75,20 @@ requires them.
 
 ## Privacy And Failure Semantics
 
-The telemetry envelope contains stable logical identity, product version, aggregate
-usage, active-conversation count, host CPU/network values, capability flags, doctor
-state, constraints, currentness, and sanitized receipts. It never contains prompts,
-responses, conversation content, session IDs, local paths, interface names, network
+The broader telemetry envelope contains stable logical identity, product version,
+aggregate usage, active-conversation count, host CPU/network values, capability
+flags, doctor state, constraints, currentness, and sanitized receipts. The
+Capability Provider projects only aggregate telemetry and doctor observations;
+constraints are `not_projected` and receipts are `deferred`. Neither surface ever
+contains raw prompts, responses, content, session IDs, local paths, interfaces,
 addresses, credentials, secrets, or raw logs.
 
-Nodes without fresh evidence are `stale` or `unavailable`. The Gateway and Cockpit
-must not infer currentness, doctor success, lease ownership, or task completion from
-an old sample. Installed binaries, release tags, and Controller receipts remain
-independent terminal surfaces and require their own fresh readback.
+Every provider response carries `fresh`, `stale`, or `unavailable` plus an explicit
+`last_observed_at` and `last_known` value. A stale response is always last-known,
+never current. The Gateway, Host adapter, and Cockpit must not infer currentness,
+doctor success, lease ownership, or task completion from an old sample. Installed
+binaries, release tags, and Controller receipts remain independent terminal
+surfaces and require their own fresh readback.
 
 ## Dependency Direction
 
@@ -74,12 +98,14 @@ OPL Flow public protocol and Controller engine
 private Instance topology and policy
                 |
                 v
-     OPL Fleet Agent telemetry envelope
-                |
-        Local / Direct / Fleet
-                |
-                v
-Telemetry Gateway -> Cockpit read-only projections
+OPL Fleet Agent native process and provider
+       |                         |
+       | provider ABI            | telemetry envelope
+       v                         v
+Framework Host adapter   Local / Direct / Fleet
+                                 |
+                                 v
+                  Telemetry Gateway -> Cockpit
 ```
 
 Codex TPS and Ambient Ops consume the public protocol. They do not duplicate the

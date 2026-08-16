@@ -1,0 +1,252 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.invalid/fleet-agent-provider.schema.json",
+  "title": "OPL Fleet Agent read-only provider response",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "capability_abi",
+    "access",
+    "authority",
+    "operation",
+    "read_ref",
+    "observed_at",
+    "freshness",
+    "node",
+    "payload"
+  ],
+  "properties": {
+    "schema": { "const": "opl_fleet_agent_provider.v1" },
+    "capability_abi": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "version"],
+      "properties": {
+        "id": { "const": "opl-fleet-agent.capabilities" },
+        "version": { "const": "1.0.0" }
+      }
+    },
+    "access": { "const": "read_only" },
+    "authority": { "const": "observation_only" },
+    "operation": { "enum": ["telemetry.read", "doctor.read"] },
+    "read_ref": {
+      "enum": [
+        "fleet.agent.telemetry.v1#local",
+        "fleet.agent.doctor.v1#current"
+      ]
+    },
+    "observed_at": { "type": "string", "format": "date-time" },
+    "freshness": { "$ref": "#/$defs/freshness" },
+    "node": { "$ref": "#/$defs/nodeIdentity" },
+    "payload": {}
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": { "operation": { "const": "telemetry.read" } },
+        "required": ["operation"]
+      },
+      "then": {
+        "properties": {
+          "read_ref": { "const": "fleet.agent.telemetry.v1#local" },
+          "payload": { "$ref": "#/$defs/telemetryPayload" }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": { "operation": { "const": "doctor.read" } },
+        "required": ["operation"]
+      },
+      "then": {
+        "properties": {
+          "read_ref": { "const": "fleet.agent.doctor.v1#current" },
+          "payload": { "$ref": "#/$defs/doctorPayload" }
+        }
+      }
+    }
+  ],
+  "$defs": {
+    "freshness": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["state", "last_observed_at", "last_known"],
+      "properties": {
+        "state": { "enum": ["fresh", "stale", "unavailable"] },
+        "last_observed_at": {
+          "oneOf": [
+            { "type": "string", "format": "date-time" },
+            { "type": "null" }
+          ]
+        },
+        "last_known": { "type": "boolean" },
+        "reason_code": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9_]{0,63}$"
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": { "state": { "const": "stale" } },
+            "required": ["state"]
+          },
+          "then": {
+            "properties": {
+              "last_observed_at": { "type": "string", "format": "date-time" },
+              "last_known": { "const": true }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": { "state": { "const": "fresh" } },
+            "required": ["state"]
+          },
+          "then": {
+            "properties": {
+              "last_observed_at": { "type": "string", "format": "date-time" },
+              "last_known": { "const": false }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "state": { "const": "unavailable" },
+              "last_observed_at": { "type": "string" }
+            },
+            "required": ["state", "last_observed_at"]
+          },
+          "then": {
+            "properties": { "last_known": { "const": true } }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "state": { "const": "unavailable" },
+              "last_observed_at": { "type": "null" }
+            },
+            "required": ["state", "last_observed_at"]
+          },
+          "then": {
+            "properties": { "last_known": { "const": false } }
+          }
+        }
+      ]
+    },
+    "nodeIdentity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["stable_node_id", "display_name", "platform", "agent_version"],
+      "properties": {
+        "stable_node_id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[A-Za-z0-9._:-]+$"
+        },
+        "display_name": { "type": "string", "minLength": 1, "maxLength": 128 },
+        "platform": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 64,
+          "pattern": "^[A-Za-z0-9._-]+$"
+        },
+        "agent_version": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 64,
+          "pattern": "^[A-Za-z0-9.+_-]+$"
+        }
+      }
+    },
+    "telemetryPayload": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["collection_status", "metrics", "host_capability_flags"],
+      "properties": {
+        "collection_status": { "enum": ["available", "degraded", "unavailable"] },
+        "metrics": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "aggregate_token_rate",
+            "aggregate_request_rate",
+            "active_conversation_count",
+            "host_cpu_percent",
+            "host_network_receive_bytes_per_second",
+            "host_network_transmit_bytes_per_second"
+          ],
+          "properties": {
+            "aggregate_token_rate": { "$ref": "#/$defs/nonNegativeNumberOrNull" },
+            "aggregate_request_rate": { "$ref": "#/$defs/nonNegativeNumberOrNull" },
+            "active_conversation_count": { "$ref": "#/$defs/nonNegativeIntegerOrNull" },
+            "host_cpu_percent": {
+              "oneOf": [
+                { "type": "number", "minimum": 0, "maximum": 100 },
+                { "type": "null" }
+              ]
+            },
+            "host_network_receive_bytes_per_second": { "$ref": "#/$defs/nonNegativeNumberOrNull" },
+            "host_network_transmit_bytes_per_second": { "$ref": "#/$defs/nonNegativeNumberOrNull" }
+          }
+        },
+        "host_capability_flags": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 64,
+            "pattern": "^[a-z][a-z0-9._-]*$"
+          }
+        }
+      }
+    },
+    "doctorPayload": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["doctor_state", "capability_currentness", "checks"],
+      "properties": {
+        "doctor_state": { "enum": ["healthy", "degraded", "failing", "unavailable", "unknown"] },
+        "capability_currentness": { "enum": ["current", "stale", "unavailable", "unknown"] },
+        "checks": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["check_id", "state"],
+            "properties": {
+              "check_id": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 64,
+                "pattern": "^[a-z][a-z0-9._-]*$"
+              },
+              "state": { "enum": ["pass", "warn", "fail", "unavailable", "unknown"] },
+              "reason_code": {
+                "type": "string",
+                "pattern": "^[a-z][a-z0-9_]{0,63}$"
+              }
+            }
+          }
+        }
+      }
+    },
+    "nonNegativeNumberOrNull": {
+      "oneOf": [
+        { "type": "number", "minimum": 0 },
+        { "type": "null" }
+      ]
+    },
+    "nonNegativeIntegerOrNull": {
+      "oneOf": [
+        { "type": "integer", "minimum": 0 },
+        { "type": "null" }
+      ]
+    }
+  }
+}

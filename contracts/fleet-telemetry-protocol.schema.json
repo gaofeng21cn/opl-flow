@@ -8,6 +8,7 @@
     "schema",
     "product_terms",
     "authority",
+    "provider_abi",
     "modes",
     "compatibility",
     "telemetry_envelope"
@@ -35,6 +36,72 @@
         "node_agent": { "$ref": "#/$defs/authorityRole" },
         "telemetry_gateway": { "$ref": "#/$defs/authorityRole" },
         "cockpit": { "$ref": "#/$defs/authorityRole" }
+      }
+    },
+    "provider_abi": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema_ref",
+        "schema",
+        "capability_abi",
+        "native_carrier",
+        "package_role",
+        "access",
+        "authority",
+        "operations",
+        "read_refs",
+        "projection_status",
+        "forbidden_authorities",
+        "forbidden_fields",
+        "host_boundary"
+      ],
+      "properties": {
+        "schema_ref": { "const": "./fleet-agent-provider.schema.json" },
+        "schema": { "const": "opl_fleet_agent_provider.v1" },
+        "capability_abi": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["id", "version"],
+          "properties": {
+            "id": { "const": "opl-fleet-agent.capabilities" },
+            "version": { "const": "1.0.0" }
+          }
+        },
+        "native_carrier": { "const": "opl_fleet_agent_process" },
+        "package_role": { "const": "capability_provider" },
+        "access": { "const": "read_only" },
+        "authority": { "const": "observation_only" },
+        "operations": {
+          "type": "array",
+          "minItems": 2,
+          "maxItems": 2,
+          "uniqueItems": true,
+          "items": { "enum": ["telemetry.read", "doctor.read"] }
+        },
+        "read_refs": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["telemetry", "doctor"],
+          "properties": {
+            "telemetry": { "const": "fleet.agent.telemetry.v1#local" },
+            "doctor": { "const": "fleet.agent.doctor.v1#current" }
+          }
+        },
+        "projection_status": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["telemetry", "doctor", "execution_constraints", "execution_receipts"],
+          "properties": {
+            "telemetry": { "const": "projected" },
+            "doctor": { "const": "projected" },
+            "execution_constraints": { "const": "not_projected" },
+            "execution_receipts": { "const": "deferred" }
+          }
+        },
+        "forbidden_authorities": { "$ref": "#/$defs/nonEmptyStringList" },
+        "forbidden_fields": { "$ref": "#/$defs/nonEmptyStringList" },
+        "host_boundary": { "$ref": "#/$defs/nonEmptyStringList" }
       }
     },
     "modes": {

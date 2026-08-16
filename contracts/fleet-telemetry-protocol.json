@@ -76,6 +76,62 @@
       ]
     }
   },
+  "provider_abi": {
+    "schema_ref": "./fleet-agent-provider.schema.json",
+    "schema": "opl_fleet_agent_provider.v1",
+    "capability_abi": {
+      "id": "opl-fleet-agent.capabilities",
+      "version": "1.0.0"
+    },
+    "native_carrier": "opl_fleet_agent_process",
+    "package_role": "capability_provider",
+    "access": "read_only",
+    "authority": "observation_only",
+    "operations": [
+      "telemetry.read",
+      "doctor.read"
+    ],
+    "read_refs": {
+      "telemetry": "fleet.agent.telemetry.v1#local",
+      "doctor": "fleet.agent.doctor.v1#current"
+    },
+    "projection_status": {
+      "telemetry": "projected",
+      "doctor": "projected",
+      "execution_constraints": "not_projected",
+      "execution_receipts": "deferred"
+    },
+    "forbidden_authorities": [
+      "node_admission",
+      "lease_authority",
+      "dispatch_authority",
+      "completion_verdict",
+      "native_carrier_lifecycle"
+    ],
+    "forbidden_fields": [
+      "prompt",
+      "response",
+      "content",
+      "conversation_content",
+      "raw_prompt",
+      "raw_response",
+      "raw_content",
+      "session_id",
+      "local_path",
+      "interface",
+      "interface_name",
+      "address",
+      "network_address",
+      "credential",
+      "secret",
+      "raw_log"
+    ],
+    "host_boundary": [
+      "framework_host_adapts_provider_without_owning_native_process_lifecycle",
+      "capability_package_discovers_provider_without_copying_agent_state",
+      "provider_observations_never_imply_admission_lease_dispatch_or_completion"
+    ]
+  },
   "modes": [
     {
       "id": "local",
@@ -141,10 +197,16 @@
     "forbidden_fields": [
       "prompt",
       "response",
+      "content",
       "conversation_content",
+      "raw_prompt",
+      "raw_response",
+      "raw_content",
       "session_id",
       "local_path",
+      "interface",
       "interface_name",
+      "address",
       "network_address",
       "credential",
       "secret",
