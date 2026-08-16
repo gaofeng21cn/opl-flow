@@ -37,7 +37,7 @@ owned by `contracts/fleet-agent-provider.schema.json`.
 
 | Provider read | Stable ref | Projection status |
 | --- | --- | --- |
-| Local aggregate telemetry | `fleet.agent.telemetry.v1#local` | `projected` |
+| Local aggregate telemetry (`1m`/`5m` token and request rates) | `fleet.agent.telemetry.v1#local` | `projected` |
 | Current local doctor observation | `fleet.agent.doctor.v1#current` | `projected` |
 | Execution constraints | no provider ref | `not_projected` until a real caller proves a contract |
 | Execution receipts | no provider ref | `deferred` until a real caller proves a contract |
@@ -85,10 +85,19 @@ addresses, credentials, secrets, or raw logs.
 
 Every provider response carries `fresh`, `stale`, or `unavailable` plus an explicit
 `last_observed_at` and `last_known` value. A stale response is always last-known,
-never current. The Gateway, Host adapter, and Cockpit must not infer currentness,
-doctor success, lease ownership, or task completion from an old sample. Installed
-binaries, release tags, and Controller receipts remain independent terminal
-surfaces and require their own fresh readback.
+never current. The top-level `observed_at` records the read attempt even when the
+native carrier is unavailable; `native_carrier.availability` and `.status` report
+that carrier result independently from observation freshness.
+
+When an unavailable carrier has no prior observation, `node` is `null`; telemetry
+rates and host metrics are `null`, and doctor state is `unavailable`. Implementations
+must not invent a node ID, Agent version, zero metrics, or healthy doctor result as a
+sentinel. When a prior observation exists, `last_known=true`, `last_observed_at`
+identifies that sample, and its node and payload may be projected as last-known.
+The Gateway, Host adapter, and Cockpit must not infer currentness, doctor success,
+lease ownership, or task completion from that old sample. Installed binaries,
+release tags, and Controller receipts remain independent terminal surfaces and
+require their own fresh readback.
 
 ## Dependency Direction
 

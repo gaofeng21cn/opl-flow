@@ -67,6 +67,11 @@ class FleetTelemetryProtocolTests(unittest.TestCase):
         self.assertEqual(capability_abi["properties"]["version"]["const"], "1.0.0")
         self.assertEqual(properties["access"]["const"], "read_only")
         self.assertEqual(properties["authority"]["const"], "observation_only")
+        self.assertEqual(properties["native_carrier"]["$ref"], "#/$defs/nativeCarrier")
+        self.assertEqual(
+            properties["node"]["oneOf"],
+            [{"$ref": "#/$defs/nodeIdentity"}, {"type": "null"}],
+        )
         freshness = self.provider_schema["$defs"]["freshness"]
         self.assertTrue({"state", "last_observed_at", "last_known"}.issubset(freshness["required"]))
         self.assertEqual(
@@ -76,6 +81,108 @@ class FleetTelemetryProtocolTests(unittest.TestCase):
         stale_rule = freshness["allOf"][0]
         self.assertEqual(stale_rule["if"]["properties"]["state"]["const"], "stale")
         self.assertEqual(stale_rule["then"]["properties"]["last_known"]["const"], True)
+
+    def test_provider_telemetry_has_fixed_one_and_five_minute_rates(self) -> None:
+        telemetry = self.provider_schema["$defs"]["telemetryPayload"]
+        self.assertEqual(
+            set(telemetry["required"]),
+            {
+                "collection_status",
+                "windows",
+                "active_conversation_count",
+                "host_cpu_percent",
+                "host_network_receive_bytes_per_second",
+                "host_network_transmit_bytes_per_second",
+                "host_capability_flags",
+            },
+        )
+        windows = telemetry["properties"]["windows"]
+        self.assertEqual(set(windows["required"]), {"one_minute", "five_minutes"})
+        self.assertEqual(
+            windows["properties"],
+            {
+                "one_minute": {"$ref": "#/$defs/oneMinuteRateWindow"},
+                "five_minutes": {"$ref": "#/$defs/fiveMinuteRateWindow"},
+            },
+        )
+        for definition, seconds in (("oneMinuteRateWindow", 60), ("fiveMinuteRateWindow", 300)):
+            window = self.provider_schema["$defs"][definition]
+            self.assertEqual(window["properties"]["window_seconds"]["const"], seconds)
+            self.assertTrue(
+                {"window_seconds", "token_rate_per_second", "request_rate_per_minute"}.issubset(
+                    window["required"]
+                )
+            )
+
+    def test_unavailable_carrier_does_not_require_sentinel_identity(self) -> None:
+        carrier = self.provider_schema["$defs"]["nativeCarrier"]
+        self.assertEqual(
+            set(carrier["properties"]["availability"]["enum"]),
+            {"available", "unavailable"},
+        )
+        unavailable_rule = next(
+            rule
+            for rule in self.provider_schema["allOf"]
+            if rule.get("if", {}).get("properties", {}).get("native_carrier")
+        )
+        self.assertEqual(
+            unavailable_rule["if"]["properties"]["native_carrier"]
+            ["properties"]["availability"]["const"],
+            "unavailable",
+        )
+        self.assertEqual(
+            unavailable_rule["then"]["properties"]["freshness"]["properties"]["state"]["const"],
+            "unavailable",
+        )
+        available_rule = next(
+            rule
+            for rule in self.provider_schema["allOf"]
+            if rule.get("if", {})
+            .get("properties", {})
+            .get("native_carrier", {})
+            .get("properties", {})
+            .get("availability", {})
+            .get("const")
+            == "available"
+        )
+        self.assertEqual(
+            available_rule["then"]["properties"]["node"],
+            {"$ref": "#/$defs/nodeIdentity"},
+        )
+        no_observation_rule = next(
+            rule
+            for rule in self.provider_schema["allOf"]
+            if rule.get("if", {})
+            .get("properties", {})
+            .get("freshness", {})
+            .get("properties", {})
+            .get("last_known", {})
+            .get("const")
+            is False
+        )
+        self.assertEqual(no_observation_rule["then"]["properties"]["node"], {"type": "null"})
+
+    def test_no_last_known_observation_uses_null_metrics_and_unavailable_doctor(self) -> None:
+        telemetry = self.provider_schema["$defs"]["unavailableTelemetryPayload"]
+        telemetry_properties = telemetry["allOf"][1]["properties"]
+        self.assertEqual(telemetry_properties["collection_status"]["const"], "unavailable")
+        for window in ("one_minute", "five_minutes"):
+            rate_properties = telemetry_properties["windows"]["properties"][window]["properties"]
+            self.assertEqual(rate_properties["token_rate_per_second"], {"type": "null"})
+            self.assertEqual(rate_properties["request_rate_per_minute"], {"type": "null"})
+        for field in (
+            "active_conversation_count",
+            "host_cpu_percent",
+            "host_network_receive_bytes_per_second",
+            "host_network_transmit_bytes_per_second",
+        ):
+            self.assertEqual(telemetry_properties[field], {"type": "null"})
+
+        doctor = self.provider_schema["$defs"]["unavailableDoctorPayload"]
+        doctor_properties = doctor["allOf"][1]["properties"]
+        self.assertEqual(doctor_properties["doctor_state"]["const"], "unavailable")
+        self.assertEqual(doctor_properties["capability_currentness"]["const"], "unavailable")
+        self.assertEqual(doctor_properties["checks"], {"maxItems": 0})
 
     def test_controller_remains_the_only_dispatch_authority(self) -> None:
         authority = self.contract["authority"]

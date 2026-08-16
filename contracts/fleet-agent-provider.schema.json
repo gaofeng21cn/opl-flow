@@ -13,6 +13,7 @@
     "read_ref",
     "observed_at",
     "freshness",
+    "native_carrier",
     "node",
     "payload"
   ],
@@ -36,9 +37,19 @@
         "fleet.agent.doctor.v1#current"
       ]
     },
-    "observed_at": { "type": "string", "format": "date-time" },
+    "observed_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "Time of this provider read attempt, including unavailable attempts."
+    },
     "freshness": { "$ref": "#/$defs/freshness" },
-    "node": { "$ref": "#/$defs/nodeIdentity" },
+    "native_carrier": { "$ref": "#/$defs/nativeCarrier" },
+    "node": {
+      "oneOf": [
+        { "$ref": "#/$defs/nodeIdentity" },
+        { "type": "null" }
+      ]
+    },
     "payload": {}
   },
   "allOf": [
@@ -65,9 +76,146 @@
           "payload": { "$ref": "#/$defs/doctorPayload" }
         }
       }
+    },
+    {
+      "if": {
+        "properties": {
+          "native_carrier": {
+            "properties": { "availability": { "const": "unavailable" } },
+            "required": ["availability"]
+          }
+        },
+        "required": ["native_carrier"]
+      },
+      "then": {
+        "properties": {
+          "freshness": {
+            "properties": { "state": { "const": "unavailable" } }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "native_carrier": {
+            "properties": { "availability": { "const": "available" } },
+            "required": ["availability"]
+          }
+        },
+        "required": ["native_carrier"]
+      },
+      "then": {
+        "properties": { "node": { "$ref": "#/$defs/nodeIdentity" } }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "native_carrier": {
+            "properties": { "availability": { "const": "unavailable" } },
+            "required": ["availability"]
+          },
+          "freshness": {
+            "properties": {
+              "state": { "const": "unavailable" },
+              "last_known": { "const": false }
+            },
+            "required": ["state", "last_known"]
+          }
+        },
+        "required": ["native_carrier", "freshness"]
+      },
+      "then": {
+        "properties": { "node": { "type": "null" } }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "native_carrier": {
+            "properties": { "availability": { "const": "unavailable" } },
+            "required": ["availability"]
+          },
+          "freshness": {
+            "properties": { "last_known": { "const": true } },
+            "required": ["last_known"]
+          }
+        },
+        "required": ["native_carrier", "freshness"]
+      },
+      "then": {
+        "properties": { "node": { "$ref": "#/$defs/nodeIdentity" } }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "operation": { "const": "telemetry.read" },
+          "freshness": {
+            "properties": {
+              "state": { "const": "unavailable" },
+              "last_known": { "const": false }
+            },
+            "required": ["state", "last_known"]
+          }
+        },
+        "required": ["operation", "freshness"]
+      },
+      "then": {
+        "properties": { "payload": { "$ref": "#/$defs/unavailableTelemetryPayload" } }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "operation": { "const": "doctor.read" },
+          "freshness": {
+            "properties": {
+              "state": { "const": "unavailable" },
+              "last_known": { "const": false }
+            },
+            "required": ["state", "last_known"]
+          }
+        },
+        "required": ["operation", "freshness"]
+      },
+      "then": {
+        "properties": { "payload": { "$ref": "#/$defs/unavailableDoctorPayload" } }
+      }
     }
   ],
   "$defs": {
+    "nativeCarrier": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "availability", "status"],
+      "properties": {
+        "kind": { "const": "opl_fleet_agent_process" },
+        "availability": { "enum": ["available", "unavailable"] },
+        "status": { "enum": ["ready", "degraded", "not_running", "unreachable", "unknown"] }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": { "availability": { "const": "available" } },
+            "required": ["availability"]
+          },
+          "then": {
+            "properties": { "status": { "enum": ["ready", "degraded"] } }
+          }
+        },
+        {
+          "if": {
+            "properties": { "availability": { "const": "unavailable" } },
+            "required": ["availability"]
+          },
+          "then": {
+            "properties": { "status": { "enum": ["not_running", "unreachable", "unknown"] } }
+          }
+        }
+      ]
+    },
     "freshness": {
       "type": "object",
       "additionalProperties": false,
@@ -166,34 +314,35 @@
     "telemetryPayload": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["collection_status", "metrics", "host_capability_flags"],
+      "required": [
+        "collection_status",
+        "windows",
+        "active_conversation_count",
+        "host_cpu_percent",
+        "host_network_receive_bytes_per_second",
+        "host_network_transmit_bytes_per_second",
+        "host_capability_flags"
+      ],
       "properties": {
         "collection_status": { "enum": ["available", "degraded", "unavailable"] },
-        "metrics": {
+        "windows": {
           "type": "object",
           "additionalProperties": false,
-          "required": [
-            "aggregate_token_rate",
-            "aggregate_request_rate",
-            "active_conversation_count",
-            "host_cpu_percent",
-            "host_network_receive_bytes_per_second",
-            "host_network_transmit_bytes_per_second"
-          ],
+          "required": ["one_minute", "five_minutes"],
           "properties": {
-            "aggregate_token_rate": { "$ref": "#/$defs/nonNegativeNumberOrNull" },
-            "aggregate_request_rate": { "$ref": "#/$defs/nonNegativeNumberOrNull" },
-            "active_conversation_count": { "$ref": "#/$defs/nonNegativeIntegerOrNull" },
-            "host_cpu_percent": {
-              "oneOf": [
-                { "type": "number", "minimum": 0, "maximum": 100 },
-                { "type": "null" }
-              ]
-            },
-            "host_network_receive_bytes_per_second": { "$ref": "#/$defs/nonNegativeNumberOrNull" },
-            "host_network_transmit_bytes_per_second": { "$ref": "#/$defs/nonNegativeNumberOrNull" }
+            "one_minute": { "$ref": "#/$defs/oneMinuteRateWindow" },
+            "five_minutes": { "$ref": "#/$defs/fiveMinuteRateWindow" }
           }
         },
+        "active_conversation_count": { "$ref": "#/$defs/nonNegativeIntegerOrNull" },
+        "host_cpu_percent": {
+          "oneOf": [
+            { "type": "number", "minimum": 0, "maximum": 100 },
+            { "type": "null" }
+          ]
+        },
+        "host_network_receive_bytes_per_second": { "$ref": "#/$defs/nonNegativeNumberOrNull" },
+        "host_network_transmit_bytes_per_second": { "$ref": "#/$defs/nonNegativeNumberOrNull" },
         "host_capability_flags": {
           "type": "array",
           "uniqueItems": true,
@@ -205,6 +354,57 @@
           }
         }
       }
+    },
+    "oneMinuteRateWindow": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["window_seconds", "token_rate_per_second", "request_rate_per_minute"],
+      "properties": {
+        "window_seconds": { "const": 60 },
+        "token_rate_per_second": { "$ref": "#/$defs/nonNegativeNumberOrNull" },
+        "request_rate_per_minute": { "$ref": "#/$defs/nonNegativeNumberOrNull" }
+      }
+    },
+    "fiveMinuteRateWindow": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["window_seconds", "token_rate_per_second", "request_rate_per_minute"],
+      "properties": {
+        "window_seconds": { "const": 300 },
+        "token_rate_per_second": { "$ref": "#/$defs/nonNegativeNumberOrNull" },
+        "request_rate_per_minute": { "$ref": "#/$defs/nonNegativeNumberOrNull" }
+      }
+    },
+    "unavailableTelemetryPayload": {
+      "allOf": [
+        { "$ref": "#/$defs/telemetryPayload" },
+        {
+          "properties": {
+            "collection_status": { "const": "unavailable" },
+            "windows": {
+              "properties": {
+                "one_minute": {
+                  "properties": {
+                    "token_rate_per_second": { "type": "null" },
+                    "request_rate_per_minute": { "type": "null" }
+                  }
+                },
+                "five_minutes": {
+                  "properties": {
+                    "token_rate_per_second": { "type": "null" },
+                    "request_rate_per_minute": { "type": "null" }
+                  }
+                }
+              }
+            },
+            "active_conversation_count": { "type": "null" },
+            "host_cpu_percent": { "type": "null" },
+            "host_network_receive_bytes_per_second": { "type": "null" },
+            "host_network_transmit_bytes_per_second": { "type": "null" },
+            "host_capability_flags": { "maxItems": 0 }
+          }
+        }
+      ]
     },
     "doctorPayload": {
       "type": "object",
@@ -235,6 +435,18 @@
           }
         }
       }
+    },
+    "unavailableDoctorPayload": {
+      "allOf": [
+        { "$ref": "#/$defs/doctorPayload" },
+        {
+          "properties": {
+            "doctor_state": { "const": "unavailable" },
+            "capability_currentness": { "const": "unavailable" },
+            "checks": { "maxItems": 0 }
+          }
+        }
+      ]
     },
     "nonNegativeNumberOrNull": {
       "oneOf": [
