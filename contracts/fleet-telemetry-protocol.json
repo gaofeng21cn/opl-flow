@@ -7,8 +7,8 @@
       "implementation": "OPL Flow plus one private OPL Instance"
     },
     "node_agent": {
-      "display_name": "OPL Fleet Agent · Codex TPS",
-      "implementation": "codex-tps"
+      "display_name": "OPL Fleet Agent",
+      "implementation": "opl-fleet-agent"
     },
     "telemetry_gateway": {
       "display_name": "OPL Fleet Telemetry Gateway",
@@ -151,22 +151,22 @@
   ],
   "compatibility": {
     "display_names": {
-      "node_agent": "OPL Fleet Agent · Codex TPS",
+      "node_agent": "OPL Fleet Agent",
       "cockpit": "OPL Fleet Cockpit · Ambient Ops"
     },
     "preserve": [
       "repository_urls",
-      "bundle_identifiers",
+      "cockpit_bundle_identifiers",
       "android_package_names",
       "release_asset_names",
-      "update_channels",
-      "direct_and_gateway_discovery"
+      "gateway_update_channels",
+      "current_direct_and_gateway_discovery"
     ],
     "service_identifiers": {
-      "direct": "_codex-tps._tcp.local",
+      "direct": "_opl-fleet-agent._tcp.local",
       "gateway": "_ambient-ops._tcp.local"
     },
-    "rename_gate": "Consider physical repository or binary renames only after the Agent/Fleet protocol is deployed and verified through a real upgrade path."
+    "rename_gate": "The current OPL Fleet Agent identity is the only admitted Agent identity; any future identity change requires a versioned contract and coordinated caller cutover."
   },
   "telemetry_envelope": {
     "schema": "opl_fleet_agent_telemetry.v1",
@@ -222,7 +222,7 @@
       "additive_optional_fields_within_v1",
       "new_major_schema_for_semantic_or_required_field_changes",
       "advertise_capabilities_before_consumers_depend_on_them",
-      "keep_existing_direct_and_gateway_protocols_during_v1_migration"
+      "keep_current_direct_and_gateway_protocols_stable_within_v1"
     ]
   }
 }

@@ -190,12 +190,17 @@ class FleetTelemetryProtocolTests(unittest.TestCase):
         for role in ("node_agent", "telemetry_gateway", "cockpit"):
             self.assertIn("dispatch_authority", authority[role]["must_not_own"])
 
-    def test_modes_and_compatibility_identities_are_stable(self) -> None:
+    def test_modes_and_current_identities_are_stable(self) -> None:
         self.assertEqual({item["id"] for item in self.contract["modes"]}, {"local", "direct", "fleet"})
         compatibility = self.contract["compatibility"]
-        self.assertEqual(compatibility["service_identifiers"]["direct"], "_codex-tps._tcp.local")
+        self.assertEqual(compatibility["display_names"]["node_agent"], "OPL Fleet Agent")
+        self.assertEqual(compatibility["service_identifiers"]["direct"], "_opl-fleet-agent._tcp.local")
         self.assertEqual(compatibility["service_identifiers"]["gateway"], "_ambient-ops._tcp.local")
-        self.assertTrue({"repository_urls", "bundle_identifiers", "android_package_names"}.issubset(compatibility["preserve"]))
+        self.assertTrue({
+            "repository_urls",
+            "cockpit_bundle_identifiers",
+            "android_package_names",
+        }.issubset(compatibility["preserve"]))
 
     def test_privacy_denylist_is_explicit(self) -> None:
         forbidden = set(self.contract["telemetry_envelope"]["forbidden_fields"])

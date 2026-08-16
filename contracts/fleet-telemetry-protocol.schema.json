@@ -130,7 +130,7 @@
           "additionalProperties": false,
           "required": ["node_agent", "cockpit"],
           "properties": {
-            "node_agent": { "const": "OPL Fleet Agent · Codex TPS" },
+            "node_agent": { "const": "OPL Fleet Agent" },
             "cockpit": { "const": "OPL Fleet Cockpit · Ambient Ops" }
           }
         },
@@ -140,7 +140,7 @@
           "additionalProperties": false,
           "required": ["direct", "gateway"],
           "properties": {
-            "direct": { "const": "_codex-tps._tcp.local" },
+            "direct": { "const": "_opl-fleet-agent._tcp.local" },
             "gateway": { "const": "_ambient-ops._tcp.local" }
           }
         },
