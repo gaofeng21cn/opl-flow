@@ -81,6 +81,31 @@ after that proof.
 3. Use the repository's existing tools, abstractions, commands, and validation
    lanes. Add a new abstraction only when the current task proves it necessary.
 
+## Model Complex Features Before Coding
+
+Use this sequence only when a change introduces or reshapes several product
+objects, decisions, state owners, or UI flows. Do not force a narrow local
+change through it.
+
+1. Clarify the user problem, intended outcome, scope, and constraints.
+2. Name the core objects and the decisions or relationships between them.
+3. Assign the feature rules or algorithm and every authoritative state to one
+   real owner. Separate owner state from caches, projections, and display-only
+   fields.
+4. Design UI state and interactions as projections and commands over that
+   model. The UI must not invent a second state owner or silently decide
+   unresolved product policy.
+5. Update the relevant canonical product, architecture, or contract source so
+   the decision has one durable SSOT. When implementation still lags, record
+   that as a gap instead of describing the target as current behavior.
+6. Implement outward from the owner through the smallest real vertical path,
+   then verify the user-visible outcome.
+
+This is an order of reasoning, not a mandatory design document, diagram, ADR,
+schema, review meeting, or planning phase. Write only enough to make the
+decisions durable. Use a prototype only when a real experiment is needed to
+resolve state, logic, or interaction uncertainty.
+
 ## Keep Complexity Proportional
 
 A small feature does not need a bank vault around it. Scope architecture to the
@@ -104,6 +129,20 @@ large.
   only when repository contracts, blast radius, or failure evidence requires
   it; do not repeat hashes, broad suites, or completion audits as routine
   ceremony when they add no new evidence.
+
+### Progress Tripwire
+
+Count a working deliverable, movement of the deepest real breakpoint, or new
+acceptance evidence as progress. Plans, checklists, documents, receipts, audit
+counts, test counts, tool calls, and subagent counts do not substitute for it
+unless that process artifact is itself the requested deliverable.
+
+Treat newly discovered work as a candidate until it is tied to the current
+terminal outcome or a real hard boundary. Stop searching when direct evidence
+is sufficient. If process artifacts keep growing while the deliverable,
+breakpoint, and acceptance evidence do not change, stop expanding the process
+and return to the delivery path; do not add another process layer to manage the
+process itself.
 
 ### Stop Ladder
 

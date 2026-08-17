@@ -894,19 +894,6 @@ def check_profile(repo_root: Path) -> list[str]:
     errors: list[str] = []
     agents = (repo_root / "templates" / "AGENTS.md").read_text(encoding="utf-8")
 
-    profile_size = len(agents.encode("utf-8"))
-    if profile_size > 2048:
-        print(
-            "WARNING: AGENTS.md exceeds the 2 KB focus target; "
-            "keep reviewing clarity and move detail only when functionality is preserved",
-            file=sys.stderr,
-        )
-    if profile_size > 4096:
-        print(
-            "WARNING: AGENTS.md exceeds 4 KB; this is a soft maintainability signal, not a gate",
-            file=sys.stderr,
-        )
-
     profile_source = (repo_root / "profile" / "modules" / "01-user-preferences.md").read_text(
         encoding="utf-8"
     )
