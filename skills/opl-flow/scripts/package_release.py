@@ -127,7 +127,6 @@ def prepare(args: argparse.Namespace) -> dict[str, Any]:
         / "contracts/opl-framework/package-payload-allowlists"
         / f"{args.package_id}.json"
     )
-    catalog_path = framework_root / "contracts/opl-framework/bundled-full-runtime-package-catalog.json"
     package = read_json(package_path)
     codex_surface = package.get("codex_surface")
     if package.get("package_id") != args.package_id or not isinstance(codex_surface, dict):
@@ -174,19 +173,13 @@ def prepare(args: argparse.Namespace) -> dict[str, Any]:
         )
 
     payload_path = package_path.parent / payload_ref
-    catalog = read_json(catalog_path)
-    packages = catalog.get("packages")
-    entry = packages.get(args.package_id) if isinstance(packages, dict) else None
-    if not isinstance(entry, dict):
-        raise ReleaseError("Framework bundled catalog has no matching Package entry")
-    entry.update(
-        package_version=version,
-        owner_source_commit=source_commit,
-        manifest_sha256=sha256_bytes(package_path.read_bytes()),
-        payload_manifest_ref=f"packages/{payload_ref}",
-        payload_manifest_sha256=sha256_bytes(payload_path.read_bytes()),
-    )
-    write_json(catalog_path, catalog)
+    payload = read_json(payload_path)
+    if (
+        payload.get("package_id") != args.package_id
+        or payload.get("package_version") != version
+        or payload.get("source_commit") != source_commit
+    ):
+        raise ReleaseError("generated Framework payload projection has an invalid identity")
     return {
         "action": "prepare",
         "status": "projection_ready",
@@ -196,7 +189,6 @@ def prepare(args: argparse.Namespace) -> dict[str, Any]:
         "updated_files": [
             str(package_path),
             str(payload_path),
-            str(catalog_path),
         ],
     }
 

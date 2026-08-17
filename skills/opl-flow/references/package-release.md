@@ -28,7 +28,7 @@ python3 <opl-flow-skill>/scripts/package_release.py prepare \
 ```
 
 `prepare` requires a clean owner checkout at fresh `origin/main` and an
-annotated release tag selecting `HEAD`. Review and absorb its three generated
+annotated release tag selecting `HEAD`. Review and absorb its two generated
 Framework files before publication.
 
 ```bash

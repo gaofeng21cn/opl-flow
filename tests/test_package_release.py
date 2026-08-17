@@ -32,6 +32,86 @@ class PackageReleaseTests(unittest.TestCase):
             ):
                 self.assertEqual(release.repo_slug(Path("/fixture")), expected)
 
+    def test_prepare_updates_current_framework_projection_without_legacy_catalog(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary).resolve()
+            owner_root = root / "owner"
+            framework_root = root / "framework"
+            owner_root.mkdir()
+            package_path = (
+                framework_root
+                / "contracts/opl-framework/packages/opl-flow.json"
+            )
+            package_path.parent.mkdir(parents=True)
+            release.write_json(
+                package_path,
+                {
+                    "package_id": "opl-flow",
+                    "version": "0.1.48",
+                    "source_repo": "https://github.com/gaofeng21cn/opl-flow.git",
+                    "codex_surface": {
+                        "plugin_payload_manifest_url": "payloads/opl-flow-0.1.48.json",
+                        "carrier_source_commit": "old-commit",
+                    },
+                },
+            )
+            payload_path = package_path.parent / "payloads/opl-flow-0.1.49.json"
+
+            def generate_payload(
+                argv: list[str], **_: object
+            ) -> subprocess.CompletedProcess[str]:
+                self.assertEqual(Path(argv[1]).name, "first-party-package-payload.mjs")
+                payload_path.parent.mkdir(parents=True)
+                release.write_json(
+                    payload_path,
+                    {
+                        "package_id": "opl-flow",
+                        "package_version": "0.1.49",
+                        "source_commit": "new-commit",
+                    },
+                )
+                return subprocess.CompletedProcess(argv, 0, "", "")
+
+            args = argparse.Namespace(
+                package_id="opl-flow",
+                owner_root=str(owner_root),
+                framework_root=str(framework_root),
+            )
+            owner_manifest = {
+                "package_id": "opl-flow",
+                "version": "0.1.49",
+                "source_repo": "https://github.com/gaofeng21cn/opl-flow.git",
+            }
+            with (
+                patch.object(
+                    release,
+                    "require_owner_release",
+                    return_value=(owner_manifest, "0.1.49", "new-commit"),
+                ),
+                patch.object(release, "repo_slug", return_value="gaofeng21cn/opl-flow"),
+                patch.object(release, "command", side_effect=generate_payload),
+            ):
+                result = release.prepare(args)
+
+            package = release.read_json(package_path)
+            self.assertEqual(package["version"], "0.1.49")
+            self.assertEqual(
+                package["codex_surface"]["plugin_payload_manifest_url"],
+                "payloads/opl-flow-0.1.49.json",
+            )
+            self.assertEqual(
+                package["codex_surface"]["carrier_source_commit"], "new-commit"
+            )
+            self.assertEqual(
+                result["updated_files"], [str(package_path), str(payload_path)]
+            )
+            self.assertFalse(
+                (
+                    framework_root
+                    / "contracts/opl-framework/bundled-full-runtime-package-catalog.json"
+                ).exists()
+            )
+
     def test_latest_stable_absence_is_distinct_from_registry_failure(self) -> None:
         missing = subprocess.CompletedProcess(
             ["oras"], 1, "", "Error response: manifest unknown"
