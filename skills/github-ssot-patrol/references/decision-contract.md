@@ -20,7 +20,9 @@ feature_or_policy_delta=<none or explicit delta>
 canonical_owner=<owner surface>
 user_visible_impact=<observable impact>
 ssot_surfaces_touched=<contracts/source/runtime owners>
-reply_language=en|zh
+artifact_language=en|zh|<explicit language>
+language_basis=explicit_user_choice|repository_rule|item_dominant_language|new_item_request_language
+language_state=consistent|repair_required|not_applicable|unknown
 decision=fix|split|request_evidence|close|no_change
 ```
 
@@ -54,7 +56,8 @@ only uncertainty is patrol-side read failure.
 
 Use the same authority order and record repository, issue number, updated time,
 default SHA, reproduction/breakpoint, canonical owner, impact, labels,
-linked PR/commit, reply language, classification, and decision.
+linked PR/commit, artifact language, language basis, language state,
+classification, and decision.
 
 Classifications mirror PR intake: `actionable_auto`, `actionable_manual`,
 `needs_evidence`, `already_fixed`, `duplicate_or_superseded`, and
@@ -81,9 +84,11 @@ operation_id=<stable id>
 owner_id=<unique owner>
 target=<repo and item/run/ref>
 precondition=<head/base/state/marker/permission readback>
+artifact_language=<resolved language>
+language_precondition=<consistent|repair_required|not_applicable|unknown>
 mutation=<one bounded action>
 result=<returned id/state>
-postcondition=<fresh exact readback>
+postcondition=<fresh exact readback including language consistency>
 ```
 
 Use one evidence-bearing comment, not daily progress comments. For a third-party

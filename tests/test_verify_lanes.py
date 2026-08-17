@@ -138,6 +138,27 @@ class VerifyLaneTests(unittest.TestCase):
             "stop_ladder_then_gate",
         )
 
+    def test_workflow_policy_fixes_external_artifact_language_boundary(self) -> None:
+        policy = json.loads(
+            (REPO_ROOT / "contracts" / "workflow-policy.json").read_text(encoding="utf-8")
+        )
+        language = policy["external_artifact_language_policy"]
+
+        self.assertEqual(
+            language["consistency_scope"],
+            [
+                "agent_created_or_user_authorized_title",
+                "agent_created_or_user_authorized_body",
+                "agent_created_or_user_authorized_reply",
+            ],
+        )
+        self.assertEqual(language["pre_write_gate"], "resolve_and_check_artifact_language")
+        self.assertEqual(language["post_write_gate"], "fresh_readback_language_consistency")
+        self.assertEqual(
+            language["third_party_content"],
+            "preserve_without_explicit_authority",
+        )
+
     def test_workflow_policy_preserves_explicit_ponytail_skills(self) -> None:
         self.assertEqual(check_workflow_policy(REPO_ROOT), [])
 

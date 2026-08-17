@@ -40,15 +40,16 @@ SSOT intake is complete.
    non-empty `read_errors` as unknown evidence, never as a product failure.
 5. For every new or changed PR/issue, read
    [references/decision-contract.md](references/decision-contract.md) and
-   complete its machine-readable intake before testing, commenting, fixing,
-   approving, merging, or closing.
+   complete its machine-readable intake, including `artifact_language`, before
+   testing, commenting, fixing, approving, merging, or closing.
 6. Diagnose current default-branch, release-owner, and PR-head failures from
    their real run/job/log evidence. A later green run only supersedes the same
    workflow and authority surface.
 7. Execute only the decision and mutation class authorized by the intake and
    the caller. Reuse the existing branch/worktree/owner for repairs.
 8. After every GitHub mutation, read back the exact target, actor-visible state,
-   comment or run ID, head/base SHA, and terminal result before advancing.
+   comment or run ID, head/base SHA, language consistency, and terminal result
+   before advancing.
 9. Take a second snapshot after at least the caller-required stability interval
    and run `compare`. Re-enter only the changed surfaces. Do not rescan or
    rewrite unchanged items.
@@ -83,10 +84,18 @@ exit `3` means one or more required reads were incomplete.
   idempotency marker. An unknown mutation result permits readback, not resend.
 - Never turn PR intake into release, install, publication, migration, secret,
   paid-resource, or destructive authority.
-- English items receive English replies; Chinese items receive Chinese
-  replies. Use the contributor-facing dominant language for mixed items and
-  English only when materially ambiguous. Correct a wrong-language comment in
-  place instead of adding a duplicate translation.
+- Resolve `artifact_language` before drafting a GitHub write. An explicit user
+  choice or authoritative repository rule takes precedence. Otherwise, use an
+  existing item's contributor-facing dominant language; use English only when
+  a mixed item is materially ambiguous. For a new or fully rewritten item, use
+  the current user's request language.
+- Within one item, every agent-created or user-authorized title, body, and reply
+  must use `artifact_language`. Product names, code identifiers, API routes,
+  environment variables, and verbatim quotations may remain in their source
+  language. Check the full payload before writing, then verify these surfaces
+  on fresh readback. Correct an owned wrong-language comment in place instead
+  of adding a duplicate translation. Do not translate or rewrite third-party
+  content without explicit authority.
 
 ## Finish
 

@@ -9,6 +9,7 @@
     "package",
     "workflow_generation",
     "task_boundary_policy",
+    "external_artifact_language_policy",
     "provides",
     "requires",
     "experience_baseline",
@@ -39,6 +40,7 @@
     },
     "workflow_generation": { "type": "string", "minLength": 1 },
     "task_boundary_policy": { "$ref": "#/$defs/taskBoundaryPolicy" },
+    "external_artifact_language_policy": { "$ref": "#/$defs/externalArtifactLanguagePolicy" },
     "provides": { "$ref": "#/$defs/providedCapabilities" },
     "requires": { "$ref": "#/$defs/dependencies" },
     "experience_baseline": { "$ref": "#/$defs/dependencies" },
@@ -77,6 +79,46 @@
     "historical_fingerprints": { "type": "object" }
   },
   "$defs": {
+    "externalArtifactLanguagePolicy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "authority_order",
+        "consistency_scope",
+        "source_language_exemptions",
+        "pre_write_gate",
+        "post_write_gate",
+        "third_party_content"
+      ],
+      "properties": {
+        "authority_order": {
+          "const": [
+            "explicit_user_language_or_authoritative_repository_rule",
+            "existing_object_dominant_language",
+            "current_user_request_language_for_new_or_full_rewrite"
+          ]
+        },
+        "consistency_scope": {
+          "const": [
+            "agent_created_or_user_authorized_title",
+            "agent_created_or_user_authorized_body",
+            "agent_created_or_user_authorized_reply"
+          ]
+        },
+        "source_language_exemptions": {
+          "const": [
+            "product_name",
+            "code_identifier",
+            "api_route",
+            "environment_variable",
+            "verbatim_quote"
+          ]
+        },
+        "pre_write_gate": { "const": "resolve_and_check_artifact_language" },
+        "post_write_gate": { "const": "fresh_readback_language_consistency" },
+        "third_party_content": { "const": "preserve_without_explicit_authority" }
+      }
+    },
     "taskBoundaryPolicy": {
       "type": "object",
       "additionalProperties": false,

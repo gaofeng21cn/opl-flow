@@ -155,7 +155,8 @@ def check_workflow_policy(repo_root: Path) -> list[str]:
     if policy.get("package", {}).get("id") != "opl-flow":
         errors.append("workflow policy package id must be opl-flow")
     required_sections = (
-        "task_boundary_policy", "provides", "requires", "experience_baseline", "compatible_optional",
+        "task_boundary_policy", "external_artifact_language_policy", "provides", "requires",
+        "experience_baseline", "compatible_optional",
         "capability_bundles",
         "conflicts", "retires", "ledger_supervisor_policy", "task_owner_migration_policy",
         "codex_app_owner_migration_policy",
@@ -199,6 +200,32 @@ def check_workflow_policy(repo_root: Path) -> list[str]:
     if policy.get("task_boundary_policy") != expected_task_boundary_policy:
         errors.append(
             "workflow policy task boundary policy must keep the Stop Ladder, four task modes, and task-mode-gate handoff fixed"
+        )
+    expected_external_artifact_language_policy = {
+        "authority_order": [
+            "explicit_user_language_or_authoritative_repository_rule",
+            "existing_object_dominant_language",
+            "current_user_request_language_for_new_or_full_rewrite",
+        ],
+        "consistency_scope": [
+            "agent_created_or_user_authorized_title",
+            "agent_created_or_user_authorized_body",
+            "agent_created_or_user_authorized_reply",
+        ],
+        "source_language_exemptions": [
+            "product_name",
+            "code_identifier",
+            "api_route",
+            "environment_variable",
+            "verbatim_quote",
+        ],
+        "pre_write_gate": "resolve_and_check_artifact_language",
+        "post_write_gate": "fresh_readback_language_consistency",
+        "third_party_content": "preserve_without_explicit_authority",
+    }
+    if policy.get("external_artifact_language_policy") != expected_external_artifact_language_policy:
+        errors.append(
+            "workflow policy must resolve one external artifact language and verify owned surfaces after writes"
         )
     capabilities = [
         item
