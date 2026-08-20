@@ -23,6 +23,22 @@ CORE_SKILL_IDS = (
     "task-mode-gate",
 )
 
+SPECIALIST_SKILL_IDS = (
+    "dsh-archive-agent-notes",
+    "dsh-code-review",
+    "dsh-doc-site-sync",
+    "dsh-doc-standards",
+    "dsh-find-simplifications",
+    "dsh-merging-stacked-prs",
+    "dsh-pre-push-checks",
+    "dsh-prose-standard",
+    "dsh-translate-docs",
+    "dsh-trim-cot-leakage",
+    "record-browser-gif",
+)
+
+BUNDLED_SKILL_IDS = CORE_SKILL_IDS + SPECIALIST_SKILL_IDS
+
 REQUIRED_FILES = (
     ".agents/plugins/marketplace.json",
     ".codex-plugin/plugin.json",
@@ -33,6 +49,7 @@ REQUIRED_FILES = (
     "contracts/task-owner-migration.schema.json",
     "contracts/worktree-ownership-ledger.schema.json",
     "LICENSE",
+    "THIRD_PARTY_NOTICES.md",
     "skills/coordinate-concurrent-tasks/SKILL.md",
     "skills/coordinate-concurrent-tasks/agents/openai.yaml",
     "skills/codex-app-owner-migration/SKILL.md",
@@ -62,6 +79,29 @@ REQUIRED_FILES = (
     "skills/recover-codex-tasks/agents/openai.yaml",
     "skills/task-mode-gate/SKILL.md",
     "skills/task-mode-gate/agents/openai.yaml",
+    "skills/dsh-archive-agent-notes/SKILL.md",
+    "skills/dsh-archive-agent-notes/agents/openai.yaml",
+    "skills/dsh-code-review/SKILL.md",
+    "skills/dsh-code-review/agents/openai.yaml",
+    "skills/dsh-doc-site-sync/SKILL.md",
+    "skills/dsh-doc-site-sync/agents/openai.yaml",
+    "skills/dsh-doc-standards/SKILL.md",
+    "skills/dsh-doc-standards/agents/openai.yaml",
+    "skills/dsh-find-simplifications/SKILL.md",
+    "skills/dsh-find-simplifications/agents/openai.yaml",
+    "skills/dsh-merging-stacked-prs/SKILL.md",
+    "skills/dsh-merging-stacked-prs/agents/openai.yaml",
+    "skills/dsh-pre-push-checks/SKILL.md",
+    "skills/dsh-pre-push-checks/agents/openai.yaml",
+    "skills/dsh-prose-standard/SKILL.md",
+    "skills/dsh-prose-standard/agents/openai.yaml",
+    "skills/dsh-translate-docs/SKILL.md",
+    "skills/dsh-translate-docs/agents/openai.yaml",
+    "skills/dsh-trim-cot-leakage/SKILL.md",
+    "skills/dsh-trim-cot-leakage/agents/openai.yaml",
+    "skills/record-browser-gif/SKILL.md",
+    "skills/record-browser-gif/agents/openai.yaml",
+    "skills/record-browser-gif/scripts/encode_gif.py",
     "templates/AGENTS.md",
     "templates/TASTE.md",
     "scripts/worktree_absorption_audit.py",
@@ -96,6 +136,7 @@ CORE_TEST_MODULES = (
     "tests/test_github_ssot_patrol.py",
     "tests/test_package_descriptor.py",
     "tests/test_package_release.py",
+    "tests/test_record_browser_gif.py",
 )
 VERIFY_LANES = ("core", "full")
 
@@ -115,8 +156,8 @@ def check_plugin_json(repo_root: Path) -> list[str]:
         path.name for path in (repo_root / "skills").iterdir()
         if path.is_dir() and (path / "SKILL.md").exists()
     }
-    if discoverable_skills != set(CORE_SKILL_IDS):
-        errors.append("default plugin must expose exactly the nine OPL Flow core skills")
+    if discoverable_skills != set(BUNDLED_SKILL_IDS):
+        errors.append("default plugin must expose the nine core and eleven specialist OPL Flow skills")
     policy = json.loads((repo_root / "contracts" / "workflow-policy.json").read_text(encoding="utf-8"))
     if manifest.get("version") != policy.get("package", {}).get("version"):
         errors.append("plugin version must match contracts/workflow-policy.json package.version")
@@ -257,7 +298,7 @@ def check_workflow_policy(repo_root: Path) -> list[str]:
         )
     expected_provides = {
         ("codex_plugin", "opl-flow"),
-        *(("codex_skill", skill_id) for skill_id in CORE_SKILL_IDS),
+        *(("codex_skill", skill_id) for skill_id in BUNDLED_SKILL_IDS),
     }
     provides = policy.get("provides", [])
     if {(item.get("kind"), item.get("id")) for item in provides} != expected_provides:
@@ -304,6 +345,13 @@ def check_workflow_policy(repo_root: Path) -> list[str]:
             "https://github.com/gaofeng21cn/opl-flow",
             "skills/task-mode-gate",
         ),
+        **{
+            skill_id: (
+                "https://github.com/gaofeng21cn/opl-flow",
+                f"skills/{skill_id}",
+            )
+            for skill_id in SPECIALIST_SKILL_IDS
+        },
     }
     if provided_skill_sources != expected_provided_skill_sources:
         errors.append("workflow policy provided Skills must use their canonical GitHub source and path")

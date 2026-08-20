@@ -7,9 +7,11 @@ import tempfile
 import unittest
 
 from scripts.verify import (
+    BUNDLED_SKILL_IDS,
     CORE_SKILL_IDS,
     CORE_TEST_MODULES,
     REQUIRED_FILES,
+    SPECIALIST_SKILL_IDS,
     check_required_files,
     check_plugin_json,
     check_workflow_policy,
@@ -50,7 +52,7 @@ class VerifyLaneTests(unittest.TestCase):
         self.assertIn("contracts/fleet-workspace-profile.schema.json", required)
         self.assertIn("contracts/task-owner-migration.schema.json", required)
 
-    def test_plugin_exposes_the_nine_bounded_flow_skills(self) -> None:
+    def test_plugin_exposes_core_and_specialist_flow_skills(self) -> None:
         self.assertEqual(check_plugin_json(REPO_ROOT), [])
 
         discoverable = {
@@ -58,7 +60,22 @@ class VerifyLaneTests(unittest.TestCase):
             for path in (REPO_ROOT / "skills").iterdir()
             if path.is_dir() and (path / "SKILL.md").exists()
         }
-        self.assertEqual(discoverable, set(CORE_SKILL_IDS))
+        self.assertEqual(len(CORE_SKILL_IDS), 9)
+        self.assertEqual(len(SPECIALIST_SKILL_IDS), 11)
+        self.assertEqual(discoverable, set(BUNDLED_SKILL_IDS))
+
+        translation_metadata = (
+            REPO_ROOT / "skills/dsh-translate-docs/agents/openai.yaml"
+        ).read_text(encoding="utf-8")
+        self.assertIn("allow_implicit_invocation: false", translation_metadata)
+
+    def test_deepseek_adaptation_preserves_mit_provenance(self) -> None:
+        notice = (REPO_ROOT / "THIRD_PARTY_NOTICES.md").read_text(encoding="utf-8")
+
+        self.assertIn("https://github.com/deepseek-ai/deepseek-harness", notice)
+        self.assertIn("141eb6fef83422698aef7a981029e843e8161534", notice)
+        self.assertIn("Copyright (c) 2026 DeepSeek", notice)
+        self.assertIn("MIT License", notice)
 
     def test_package_declares_apache_2_license_consistently(self) -> None:
         plugin = json.loads(

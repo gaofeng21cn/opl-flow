@@ -12,7 +12,8 @@ installed state, callability, publication, and release qualification.
 OPL Flow is the sole strategy owner for the default Codex working experience.
 The policy covers:
 
-- the user Profile and nine Flow-owned core workflow Skills;
+- the user Profile, nine Flow-owned core workflow Skills, and eleven bundled
+  developer specialists;
 - recommended model and reasoning intent;
 - default Skills and Tools, their source owners, installation intent, and
   degradation behavior;
@@ -29,6 +30,13 @@ OPL App is a consumer. It renders Framework status, starts generic Framework
 actions, and materializes a pinned Full build lock. It does not parse
 `workflow-policy.json`, choose the default capability set, or maintain a second
 recommended-Skill catalog.
+
+The eleven specialists are Package payload, not another recommendation catalog.
+They retain narrow direct invocation and discovery identities while delegating
+shared document semantics to `opl-doc`, shared delivery semantics to
+`develop-and-deliver`, and optional architecture judgment to
+`architect-and-simplify` when installed. DeepSeek Harness remains a provenance
+source, not runtime or policy authority.
 
 This is the lowest-cognition architecture because a default capability change
 has one authoring location and only generated consumers:

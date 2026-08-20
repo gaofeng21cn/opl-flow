@@ -73,8 +73,9 @@ Natural-language examples:
 5. Preserve user and owner boundaries. The user owns the effective
    `AGENTS.md`, model selection, additional instructions, and optional pack
    choices. Flow never generates a hidden base prompt.
-6. Use the Package manifest as the bundled-core Skill authority. Do not keep a
-   second handwritten core list in setup logic or an App contract.
+6. Use the Package manifest as the bundled Skill authority for both core owners
+   and focused specialists. Do not keep a second handwritten install list in
+   setup logic or an App contract.
 7. Use the Framework-compiled Flow strategy for normal install, update, repair,
    status, and Full selection. `system_initialize.recommended_skills` is a
    projection of that strategy, not an App catalog. Repository-local install
@@ -106,6 +107,28 @@ Natural-language examples:
   destructive/public mutation, or validation-to-production transition.
 - Use `$opl-fleet` for machine topology, admission, leases, repository
   currentness, and dispatch.
+
+## Focused Developer Routing
+
+The Package also installs focused specialists adapted from DeepSeek Harness.
+They remain narrow entrypoints and do not replace the core owner Skills:
+
+- `$dsh-code-review` and `$dsh-pre-push-checks` specialize the review and
+  outgoing-evidence parts of `$develop-and-deliver`.
+- `$dsh-archive-agent-notes`, `$dsh-doc-site-sync`, `$dsh-doc-standards`,
+  `$dsh-prose-standard`, and `$dsh-trim-cot-leakage` specialize `$opl-doc`.
+- `$dsh-translate-docs` is available only on explicit invocation for a
+  bilingual documentation pair.
+- `$dsh-find-simplifications` routes to `$architect-and-simplify` when that
+  optional enhancement is installed and otherwise applies the same evidence
+  standard directly.
+- `$dsh-merging-stacked-prs` requires GitHub's official stack capability; it
+  does not emulate a stack with ordinary sequential merges.
+- `$record-browser-gif` records and verifies truthful browser evidence; remote
+  asset publication remains a separate authorized action.
+
+These specialists do not introduce DeepSeek Harness Agent Notes, fixed
+translation triplets, an archive ledger, or another development methodology.
 
 ## Action Contracts
 

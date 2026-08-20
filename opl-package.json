@@ -3,7 +3,7 @@
   "package_id": "opl-flow",
   "display_name": "OPL Flow",
   "publisher": "one-person-lab",
-  "version": "0.1.49",
+  "version": "0.1.50",
   "source": "first_party",
   "source_repo": "https://github.com/gaofeng21cn/opl-flow.git",
   "package_role": "workflow_profile",
@@ -27,7 +27,18 @@
       "opl-fleet",
       "opl-flow",
       "recover-codex-tasks",
-      "task-mode-gate"
+      "task-mode-gate",
+      "dsh-archive-agent-notes",
+      "dsh-code-review",
+      "dsh-doc-site-sync",
+      "dsh-doc-standards",
+      "dsh-find-simplifications",
+      "dsh-merging-stacked-prs",
+      "dsh-pre-push-checks",
+      "dsh-prose-standard",
+      "dsh-translate-docs",
+      "dsh-trim-cot-leakage",
+      "record-browser-gif"
     ]
   },
   "profile_surface": {

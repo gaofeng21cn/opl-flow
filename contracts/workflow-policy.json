@@ -3,7 +3,7 @@
   "schema": "opl_flow_workflow_policy.v4",
   "package": {
     "id": "opl-flow",
-    "version": "0.1.49",
+    "version": "0.1.50",
     "owner": "opl-flow",
     "kind": "workflow_profile"
   },
@@ -156,6 +156,105 @@
       "owner": "opl-flow",
       "source": "https://github.com/gaofeng21cn/opl-flow",
       "source_path": "skills/opl-fleet",
+      "online_install_default": true,
+      "activation": "task_routed"
+    },
+    {
+      "id": "dsh-archive-agent-notes",
+      "kind": "codex_skill",
+      "owner": "opl-flow",
+      "source": "https://github.com/gaofeng21cn/opl-flow",
+      "source_path": "skills/dsh-archive-agent-notes",
+      "online_install_default": true,
+      "activation": "task_routed"
+    },
+    {
+      "id": "dsh-code-review",
+      "kind": "codex_skill",
+      "owner": "opl-flow",
+      "source": "https://github.com/gaofeng21cn/opl-flow",
+      "source_path": "skills/dsh-code-review",
+      "online_install_default": true,
+      "activation": "task_routed"
+    },
+    {
+      "id": "dsh-doc-site-sync",
+      "kind": "codex_skill",
+      "owner": "opl-flow",
+      "source": "https://github.com/gaofeng21cn/opl-flow",
+      "source_path": "skills/dsh-doc-site-sync",
+      "online_install_default": true,
+      "activation": "task_routed"
+    },
+    {
+      "id": "dsh-doc-standards",
+      "kind": "codex_skill",
+      "owner": "opl-flow",
+      "source": "https://github.com/gaofeng21cn/opl-flow",
+      "source_path": "skills/dsh-doc-standards",
+      "online_install_default": true,
+      "activation": "task_routed"
+    },
+    {
+      "id": "dsh-find-simplifications",
+      "kind": "codex_skill",
+      "owner": "opl-flow",
+      "source": "https://github.com/gaofeng21cn/opl-flow",
+      "source_path": "skills/dsh-find-simplifications",
+      "online_install_default": true,
+      "activation": "task_routed"
+    },
+    {
+      "id": "dsh-merging-stacked-prs",
+      "kind": "codex_skill",
+      "owner": "opl-flow",
+      "source": "https://github.com/gaofeng21cn/opl-flow",
+      "source_path": "skills/dsh-merging-stacked-prs",
+      "online_install_default": true,
+      "activation": "task_routed"
+    },
+    {
+      "id": "dsh-pre-push-checks",
+      "kind": "codex_skill",
+      "owner": "opl-flow",
+      "source": "https://github.com/gaofeng21cn/opl-flow",
+      "source_path": "skills/dsh-pre-push-checks",
+      "online_install_default": true,
+      "activation": "task_routed"
+    },
+    {
+      "id": "dsh-prose-standard",
+      "kind": "codex_skill",
+      "owner": "opl-flow",
+      "source": "https://github.com/gaofeng21cn/opl-flow",
+      "source_path": "skills/dsh-prose-standard",
+      "online_install_default": true,
+      "activation": "task_routed"
+    },
+    {
+      "id": "dsh-translate-docs",
+      "kind": "codex_skill",
+      "owner": "opl-flow",
+      "source": "https://github.com/gaofeng21cn/opl-flow",
+      "source_path": "skills/dsh-translate-docs",
+      "online_install_default": true,
+      "activation": "explicit"
+    },
+    {
+      "id": "dsh-trim-cot-leakage",
+      "kind": "codex_skill",
+      "owner": "opl-flow",
+      "source": "https://github.com/gaofeng21cn/opl-flow",
+      "source_path": "skills/dsh-trim-cot-leakage",
+      "online_install_default": true,
+      "activation": "task_routed"
+    },
+    {
+      "id": "record-browser-gif",
+      "kind": "codex_skill",
+      "owner": "opl-flow",
+      "source": "https://github.com/gaofeng21cn/opl-flow",
+      "source_path": "skills/record-browser-gif",
       "online_install_default": true,
       "activation": "task_routed"
     }

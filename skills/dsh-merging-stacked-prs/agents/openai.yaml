@@ -1,0 +1,4 @@
+interface:
+  display_name: "Merge Stacked Pull Requests"
+  short_description: "Land dependent PRs through native stack support"
+  default_prompt: "Use $dsh-merging-stacked-prs to inspect and land this dependent PR stack safely."

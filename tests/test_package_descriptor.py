@@ -61,6 +61,17 @@ class PackageDescriptorTests(unittest.TestCase):
                 "opl-flow",
                 "recover-codex-tasks",
                 "task-mode-gate",
+                "dsh-archive-agent-notes",
+                "dsh-code-review",
+                "dsh-doc-site-sync",
+                "dsh-doc-standards",
+                "dsh-find-simplifications",
+                "dsh-merging-stacked-prs",
+                "dsh-pre-push-checks",
+                "dsh-prose-standard",
+                "dsh-translate-docs",
+                "dsh-trim-cot-leakage",
+                "record-browser-gif",
             ],
         )
         self.assertEqual(profile_surface["existing_profile_policy"], "semantic_merge_required")

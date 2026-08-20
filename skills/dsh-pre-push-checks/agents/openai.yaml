@@ -1,0 +1,4 @@
+interface:
+  display_name: "Pre-Push Evidence"
+  short_description: "Select sufficient checks for outgoing changes"
+  default_prompt: "Use $dsh-pre-push-checks to select and run the evidence needed before this push."

@@ -51,6 +51,28 @@ remove stale text. Preserve history only when it has an actual provenance or
 no-resurrection purpose; do not turn active documentation into a chronological
 execution log.
 
+### Govern Decision Records By Future Value
+
+When the repository has ADRs, RFCs, Agent Notes, design records, postmortems,
+or another decision corpus, use its existing lifecycle and storage layout. Do
+not introduce a fixed note triplet, archive manifest, hash ledger, or parallel
+status system merely to govern retention.
+
+Judge retention by future decision value, never by age, length, word count, or
+an archive quota. Keep a shipped record active while its rationale,
+alternatives, ownership boundary, negative guarantee, durable or wire
+semantics, security rule, or reintroduction condition is likely to guide future
+work. Demote or archive completed history only after current source and
+documentation own the behavior and the remaining record is unlikely to affect
+a future decision. A live proposal remains active or is honestly rejected; a
+rejected record remains only while it prevents a plausible, recurring mistake.
+
+Before deleting or superseding a record, identify the current owner, distinguish
+full from partial supersession, transfer every unique load-bearing proposition
+to that owner, and repair inbound references. Preserve partial supersessions
+when an independently current contract, rationale, alternative, compatibility
+obligation, or reintroduction condition survives.
+
 Write from the repository's current vantage. A reader at the current revision
 must be able to resolve every internal reference and verify every current-state
 claim without a task transcript, review conversation, or uncommitted plan.
@@ -62,6 +84,14 @@ actor and action, condition and ordering, `must`/`may`/`never` modality, negativ
 guarantees and exceptions, ownership, side effects, failure modes, and
 consequences. Shorter prose is an improvement only when those facts remain
 accurate and clear.
+
+Apply the same standard to developer-facing JSDoc, code and test comments,
+prompts, descriptions, diagnostics, and visible technical strings when they are
+inside the requested scope. Keep non-obvious caller contracts, lifecycle and
+ownership rules, failure behavior, security constraints, and maintainer traps;
+remove code restatement, review choreography, disposable derivation, and
+authoring-session narration. Treat model- or user-visible wording as behavior
+and run the owning behavioral check when it changes.
 
 ## Keep Document Semantics Model-Owned
 

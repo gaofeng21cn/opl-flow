@@ -297,9 +297,14 @@ Fleet activates only when a private Instance and an explicit remote resource
 request exist. One Flow installation can therefore serve a single-machine user
 and a multi-machine AI fleet without loading or configuring every backend.
 
-## Core Skills And Optional Enhancements
+## Bundled Skills And Optional Enhancements
 
-OPL Flow `0.1.49` bundles nine core Skills with the Plugin:
+OPL Flow `0.1.50` bundles nine core owner Skills and eleven focused specialist
+Skills with the Plugin. All twenty are part of the managed Package payload and
+become discoverable after installation; specialists load only when their narrow
+trigger applies.
+
+The nine core owners are:
 
 - `opl-flow` as the progressive primary router for `doctor`, `setup`, `tune`,
   `update`, `release-package`, `start`, and `fleet`;
@@ -318,6 +323,26 @@ OPL Flow `0.1.49` bundles nine core Skills with the Plugin:
 - `task-mode-gate` for actual release, deployment, migration, and destructive
   mutation boundaries;
 - `recover-codex-tasks` for evidence-based recovery of interrupted Codex work.
+
+The eleven focused specialists are:
+
+- `dsh-code-review` and `dsh-pre-push-checks` for live-base review and outgoing
+  evidence selection under `develop-and-deliver`;
+- `dsh-archive-agent-notes`, `dsh-doc-site-sync`, `dsh-doc-standards`,
+  `dsh-prose-standard`, and `dsh-trim-cot-leakage` for decision-record,
+  documentation-site, structure, prose, and authoring-leakage work under
+  `opl-doc`;
+- `dsh-translate-docs` for explicitly invoked bilingual documentation pairs;
+- `dsh-find-simplifications` for evidence-backed simplification, routing to the
+  optional `architect-and-simplify` Skill when installed;
+- `dsh-merging-stacked-prs` for GitHub-native stacked pull-request landing;
+- `record-browser-gif` for truthful browser demonstrations with deterministic
+  GIF encoding.
+
+These are adaptations of DeepSeek Harness capabilities, not a second imported
+workflow system. OPL Flow does not adopt its fixed Agent Notes triplets, archive
+ledger, repository paths, or development methodology. Source provenance and
+the upstream MIT notice are recorded in `THIRD_PARTY_NOTICES.md`.
 
 [`gaofeng21cn/opl-skills`](https://github.com/gaofeng21cn/opl-skills) is the
 independently installable public enhancement pack. It supplies optional
