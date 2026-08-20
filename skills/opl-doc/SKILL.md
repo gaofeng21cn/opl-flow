@@ -51,6 +51,18 @@ remove stale text. Preserve history only when it has an actual provenance or
 no-resurrection purpose; do not turn active documentation into a chronological
 execution log.
 
+Write from the repository's current vantage. A reader at the current revision
+must be able to resolve every internal reference and verify every current-state
+claim without a task transcript, review conversation, or uncommitted plan.
+Route durable history to its owning history or provenance surface instead of
+narrating it in current documentation.
+
+When trimming or reconciling prose, preserve every load-bearing proposition:
+actor and action, condition and ordering, `must`/`may`/`never` modality, negative
+guarantees and exceptions, ownership, side effects, failure modes, and
+consequences. Shorter prose is an improvement only when those facts remain
+accurate and clear.
+
 ## Keep Document Semantics Model-Owned
 
 Documentation prose, semantic content, structure, naming, priority, and

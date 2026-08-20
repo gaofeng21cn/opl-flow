@@ -257,11 +257,25 @@ Do not add a separate review or pull request by default. Run one only when the
 user or repository explicitly requires it, without replacing implementation,
 tests, CI, signing, release, deployment, or readback.
 
+When review is required, verify the live base and exact head or worktree state,
+then inspect the complete task-owned change and enough surrounding code to
+understand it. Trace both sides of changed interfaces and the real shipped entry
+path; check ownership, lifecycle, cancellation, failure, and cleanup where they
+can affect behavior. Require evidence that would fail on the claimed regression,
+including a boundary or negative case when a guard changes. Report each defect
+with its location, impact, and evidence, and omit style findings already enforced
+by a passing deterministic gate.
+
 ## Verify And Close
 
 - Scale verification to risk and blast radius: focused checks for narrow edits,
   broader checks for shared contracts, and live readback for runtime or external
   claims.
+- Select checks from the complete task-owned change against the verified current
+  base. Each behavior change needs the narrowest check that would fail for its
+  regression; dynamic loaders, subprocesses, workers, built artifacts, and wire
+  paths require their real entry path. Do not repeat passing evidence solely
+  because a commit or push follows.
 - Do not call a plan, test pass, candidate, dry-run, handoff, or queued action
   complete. Verify the actual terminal surface.
 - When the requested terminal surface is SSOT, verify the remote canonical
