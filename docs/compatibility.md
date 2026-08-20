@@ -30,7 +30,7 @@ executor-neutral 的 Package identity、Profile、偏好和公共 status/actions
 | `skills/opl-doc` | 以 live repo truth 治理开发文档语义、唯一 owner 和 stale surface。 | Consumer repo truth、固定文档布局或第二套工作总账。 |
 | `skills/task-mode-gate` | 约束真实发布、部署、迁移、公共或破坏性 mutation。 | 普通开发方法论或只读任务门禁。 |
 | `skills/recover-codex-tasks` | 基于本机任务数据库和证据恢复中断工作。 | 伪造任务状态、外部 authority 或自动归档。 |
-| 11 个 bundled specialist Skills | 提供代码审查、pre-push、文档站、文档结构、决策记录、prose、显式双语翻译、authoring leakage、简化、stacked PR 和浏览器 GIF 能力。 | 第二套开发方法论、DeepSeek Harness Agent Notes/归档 ledger，或每个任务预加载全部方法。 |
+| 11 个 bundled specialist Skills | 提供代码审查、pre-push、文档站、文档结构、决策记录、prose、显式双语翻译、authoring leakage、简化、stacked PR 和浏览器 GIF 能力；`gh-stack` 与成对的 `ffmpeg`/`ffprobe` 由 Framework baseline 安装管理。 | 第二套开发方法论、DeepSeek Harness Agent Notes/归档 ledger，或每个任务预加载全部方法。 |
 | Ponytail | Retired conflict: hooks 和 broad main persona 不属于最小 Flow Profile。 | 独立显式安装的 audit/review capability。 |
 | OPL App | 可选 GUI；一个 Official Profile 和统一状态展示。 | Flow policy parser、companion list、Package lifecycle 或 installed mirror。 |
 | OPL Base / Framework | 编译 Flow policy，生成 generic materialization/status/build-lock projection，调用 owner adapter，并完成 fresh readback。 | 决定默认能力语义、维护第二份静态 catalog 或让 App profile 反向定义 Flow。 |

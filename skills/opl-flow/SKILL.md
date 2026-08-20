@@ -123,9 +123,11 @@ They remain narrow entrypoints and do not replace the core owner Skills:
   optional enhancement is installed and otherwise applies the same evidence
   standard directly.
 - `$dsh-merging-stacked-prs` requires GitHub's official stack capability; it
-  does not emulate a stack with ordinary sequential merges.
+  does not emulate a stack with ordinary sequential merges. Framework manages
+  its `gh-stack` baseline dependency through the official GitHub CLI extension.
 - `$record-browser-gif` records and verifies truthful browser evidence; remote
-  asset publication remains a separate authorized action.
+  asset publication remains a separate authorized action. Framework treats
+  `ffmpeg` and `ffprobe` as one paired baseline readiness condition.
 
 These specialists do not introduce DeepSeek Harness Agent Notes, fixed
 translation triplets, an archive ledger, or another development methodology.

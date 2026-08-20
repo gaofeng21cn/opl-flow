@@ -405,6 +405,28 @@ def check_workflow_policy(repo_root: Path) -> list[str]:
     if any(not item.get("online_install_default") for item in policy.get("experience_baseline", [])):
         errors.append("workflow policy experience baseline must be repaired by default")
     baseline = policy.get("experience_baseline", [])
+    baseline_cli_sources = {
+        item.get("id"): (item.get("source"), item.get("install_source"), item.get("lifecycle_owner"))
+        for item in baseline
+        if item.get("kind") == "cli"
+    }
+    expected_specialist_tool_sources = {
+        "gh-stack": (
+            "https://github.com/github/gh-stack",
+            "github_cli_extension",
+            "opl-framework",
+        ),
+        "ffmpeg": (
+            "https://ffmpeg.org",
+            "platform_package_manager",
+            "opl-framework",
+        ),
+    }
+    if any(
+        baseline_cli_sources.get(tool_id) != expected_source
+        for tool_id, expected_source in expected_specialist_tool_sources.items()
+    ):
+        errors.append("specialist tool dependencies must use Framework-managed owner adapters")
     baseline_lifecycle_metadata = {
         "bundle_id", "install_source", "lifecycle_owner", "offline_bundle",
         "readiness_adapter", "conflict_policy", "credential_policy",
@@ -740,6 +762,8 @@ def check_workflow_policy(repo_root: Path) -> list[str]:
         "internet-research": "experience_baseline",
         "office-authoring": "experience_baseline",
         "document-extraction": "experience_baseline",
+        "stacked-pr-landing": "experience_baseline",
+        "browser-gif-encoding": "experience_baseline",
         "architecture-enhancement": "compatible_optional",
         "official-codex-office-runtime": "compatible_optional",
         "task-boundary-guard": "compatible_optional",

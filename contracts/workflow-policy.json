@@ -474,6 +474,36 @@
       "conflict_policy": "managed_reconcile",
       "credential_policy": "user_or_provider_owned_not_bundled",
       "source": "https://github.com/opendatalab/MinerU-Ecosystem"
+    },
+    {
+      "id": "gh-stack",
+      "kind": "cli",
+      "owner": "github",
+      "bundle_id": "stacked-pr-landing",
+      "install_source": "github_cli_extension",
+      "lifecycle_owner": "opl-framework",
+      "online_install_default": true,
+      "offline_bundle": "none",
+      "activation": "task_routed",
+      "readiness_adapter": "binary_version",
+      "conflict_policy": "managed_reconcile",
+      "credential_policy": "none",
+      "source": "https://github.com/github/gh-stack"
+    },
+    {
+      "id": "ffmpeg",
+      "kind": "cli",
+      "owner": "ffmpeg",
+      "bundle_id": "browser-gif-encoding",
+      "install_source": "platform_package_manager",
+      "lifecycle_owner": "opl-framework",
+      "online_install_default": true,
+      "offline_bundle": "none",
+      "activation": "task_routed",
+      "readiness_adapter": "binary_version",
+      "conflict_policy": "managed_reconcile",
+      "credential_policy": "none",
+      "source": "https://ffmpeg.org"
     }
   ],
   "compatible_optional": [
@@ -557,6 +587,32 @@
       "label": "Document extraction",
       "relationship": "experience_baseline",
       "member_refs": ["codex_skill:mineru-document-extractor", "cli:mineru-open-api"],
+      "online_materialization": "members_marked_default",
+      "full_distribution": "members_marked_full",
+      "readiness": {
+        "aggregation": "all_members",
+        "absence_effect": "degraded_non_blocking",
+        "repair_policy": "framework_or_owner_adapter"
+      }
+    },
+    {
+      "id": "stacked-pr-landing",
+      "label": "Stacked pull-request landing",
+      "relationship": "experience_baseline",
+      "member_refs": ["cli:gh-stack"],
+      "online_materialization": "members_marked_default",
+      "full_distribution": "members_marked_full",
+      "readiness": {
+        "aggregation": "all_members",
+        "absence_effect": "degraded_non_blocking",
+        "repair_policy": "framework_or_owner_adapter"
+      }
+    },
+    {
+      "id": "browser-gif-encoding",
+      "label": "Browser GIF encoding",
+      "relationship": "experience_baseline",
+      "member_refs": ["cli:ffmpeg"],
       "online_materialization": "members_marked_default",
       "full_distribution": "members_marked_full",
       "readiness": {

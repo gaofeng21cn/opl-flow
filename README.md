@@ -130,9 +130,9 @@ claim that a model missing from the live Codex catalog is usable.
 ### Three Independent Status Planes
 
 - `package_operational`: Flow itself is installed, enabled, and callable.
-- `experience_baseline`: recommended research, Office, and extraction
-  capabilities are current or `degraded`; degradation offers repair but does
-  not block Flow.
+- `experience_baseline`: recommended research, Office, extraction, official
+  `gh-stack`, and paired `ffmpeg`/`ffprobe` capabilities are current or
+  `degraded`; degradation offers repair but does not block Flow.
 - `specialized_capabilities`: optional enhancements are present or absent;
   absence is normal and has no repair requirement.
 
@@ -335,9 +335,10 @@ The eleven focused specialists are:
 - `dsh-translate-docs` for explicitly invoked bilingual documentation pairs;
 - `dsh-find-simplifications` for evidence-backed simplification, routing to the
   optional `architect-and-simplify` Skill when installed;
-- `dsh-merging-stacked-prs` for GitHub-native stacked pull-request landing;
+- `dsh-merging-stacked-prs` for GitHub-native stacked pull-request landing via
+  the Framework-managed official `gh-stack` extension;
 - `record-browser-gif` for truthful browser demonstrations with deterministic
-  GIF encoding.
+  GIF encoding through Framework-paired `ffmpeg`/`ffprobe` readiness.
 
 These are adaptations of DeepSeek Harness capabilities, not a second imported
 workflow system. OPL Flow does not adopt its fixed Agent Notes triplets, archive

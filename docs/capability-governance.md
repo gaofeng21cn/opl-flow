@@ -98,6 +98,8 @@ The three status planes are intentionally independent:
 | Internet research | experience baseline | Agent Reach Skill + CLI | owner-supported install/repair | none |
 | Office authoring | experience baseline | OfficeCLI Skill family + CLI | Framework materialization | OfficeCLI CLI only |
 | Document extraction | experience baseline | MinerU extractor Skill + CLI | Framework materialization | `mineru-open-api` CLI only |
+| Stacked PR landing | experience baseline | official `gh-stack` GitHub CLI extension | Framework owner adapter | none |
+| Browser GIF encoding | experience baseline | paired `ffmpeg` + `ffprobe` readiness | Framework platform-package adapter | none |
 | Architecture enhancement | compatible optional | `architect-and-simplify` | observe only | none |
 | Official Codex Office runtime | compatible optional | OpenAI Office/PDF runtime capability | observe only | none |
 
@@ -105,6 +107,11 @@ The three status planes are intentionally independent:
 Full plan therefore contains exactly `cli:officecli` and
 `cli:mineru-open-api`. App source manifests may provide version or repository
 hints for a selected adapter, but they cannot add an item to this plan.
+
+The stacked-PR and GIF Skills remain Package-carried specialist entrypoints.
+Their external executables are baseline dependencies instead of copied Skill
+payloads: Framework installs and reads back the official `gh-stack` extension,
+and considers `cli:ffmpeg` ready only when both `ffmpeg` and `ffprobe` run.
 
 ## Agent Reach
 

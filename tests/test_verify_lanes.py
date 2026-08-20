@@ -593,6 +593,20 @@ class VerifyLaneTests(unittest.TestCase):
             errors,
         )
 
+    def test_specialist_tools_use_framework_managed_owner_adapters(self) -> None:
+        errors = self.workflow_policy_errors_after(
+            lambda policy: next(
+                item
+                for item in policy["experience_baseline"]
+                if item["kind"] == "cli" and item["id"] == "gh-stack"
+            ).update(lifecycle_owner="github-cli")
+        )
+
+        self.assertIn(
+            "specialist tool dependencies must use Framework-managed owner adapters",
+            errors,
+        )
+
     def test_skill_source_schema_patterns_reject_non_github_and_unsafe_paths(self) -> None:
         schema = json.loads(
             (REPO_ROOT / "contracts" / "workflow-policy.schema.json").read_text(encoding="utf-8")

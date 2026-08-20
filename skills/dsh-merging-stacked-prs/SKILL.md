@@ -14,10 +14,12 @@ mutation.
 
 Confirm the official stack extension or server feature is available before any
 GitHub mutation. If it is unavailable, stop and report the missing capability;
-do not reproduce stack semantics with a sequence of ordinary merges and
-retargets. Require every member to be in the same repository and compare live
-authors, bases, exact heads, state, draft status, approvals, checks, and official
-stack membership.
+when Flow is installed, use the Framework-projected repair action
+(`opl packages repair --package-id opl-flow`) only when installation or repair
+is authorized. Do not install an ad hoc extension or reproduce stack semantics
+with a sequence of ordinary merges and retargets. Require every member to be in
+the same repository and compare live authors, bases, exact heads, state, draft
+status, approvals, checks, and official stack membership.
 
 Establish bottom-to-top order from the live base chain. A partial landing must
 name an explicit boundary and include every layer below it. Existing stacks with

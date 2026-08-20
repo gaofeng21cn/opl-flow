@@ -81,7 +81,8 @@ flowchart LR
 
 - `package_operational`：Flow 自身是否安装、启用并可调用；只有这里失败才阻断
   Flow 专属动作。
-- `experience_baseline`：Agent Reach、OfficeCLI、MinerU、UI/UX 等推荐体验能力；
+- `experience_baseline`：Agent Reach、OfficeCLI、MinerU、`gh-stack` 和
+  `ffmpeg`/`ffprobe` 等推荐体验能力；
   缺失时为 `degraded` 并提供 owner-supported repair，但 Flow 仍可用。
 - `specialized_capabilities`：架构等可选增强；缺失是正常状态，不要求 repair。
 
@@ -137,8 +138,10 @@ Skill，共二十个。安装后都可被 Codex 发现，但 specialist 只在�
 - `dsh-translate-docs`：仅显式调用时处理双语文档对；
 - `dsh-find-simplifications`：做有调用者和 owner 证据的简化审计；已安装
   `architect-and-simplify` 时优先路由给它；
-- `dsh-merging-stacked-prs`：只通过 GitHub 官方 stack 能力落地依赖 PR；
-- `record-browser-gif`：从真实浏览器流程生成并验证确定性的 GIF 证据。
+- `dsh-merging-stacked-prs`：只通过 Framework 管理的 GitHub 官方
+  `gh-stack` 能力落地依赖 PR；
+- `record-browser-gif`：通过 Framework 成对检查的 `ffmpeg`/`ffprobe`
+  从真实浏览器流程生成并验证确定性的 GIF 证据。
 
 这些是对 DeepSeek Harness 专业能力的 OPL 适配，不是把它的整套工作流搬进来。
 OPL Flow 不引入固定 Agent Notes 三文件、archive ledger、仓库专用路径或第二套开发
