@@ -2224,6 +2224,74 @@ class CodexFleetTests(unittest.TestCase):
                 min_memory_gb=32,
             )
 
+    def test_ssh_only_admission_ignores_unrelated_repository_receipt_drift(self) -> None:
+        doctor = {
+            "approved": True,
+            "receipt_state": "UPDATE_REQUIRED",
+            "control_current": True,
+            "inventory_fresh": True,
+            "codex_ready": True,
+            "ssh": {"reachable": True},
+            "tailscale": {"online": True},
+            "scheduling": {
+                "power_ok": True,
+                "storage_ok": True,
+                "thermal_ok": True,
+                "interactive_busy": False,
+                "busy": False,
+            },
+            "work_volume": {"ready": True},
+            "features": ["ssh"],
+            "memory_bytes": 16 * 1024**3,
+            "gpus": [],
+            "admission_ready": False,
+        }
+
+        fleet.assert_lease_admission(
+            doctor,
+            required={"ssh"},
+            min_memory_gb=16,
+        )
+
+    def test_ssh_only_admission_keeps_controller_ssh_and_resource_gates(self) -> None:
+        doctor = {
+            "approved": True,
+            "receipt_state": "UPDATE_REQUIRED",
+            "control_current": True,
+            "inventory_fresh": True,
+            "codex_ready": True,
+            "ssh": {"reachable": True},
+            "tailscale": {"online": True},
+            "scheduling": {
+                "power_ok": True,
+                "storage_ok": True,
+                "thermal_ok": True,
+                "interactive_busy": False,
+                "busy": False,
+            },
+            "work_volume": {"ready": True},
+            "features": ["ssh"],
+            "memory_bytes": 16 * 1024**3,
+            "gpus": [],
+            "admission_ready": False,
+        }
+        failures = (
+            ("control_current", False, "controller-not-current"),
+            ("ssh", {"reachable": False}, "ssh-unreachable"),
+            ("memory_bytes", 15 * 1024**3, "memory"),
+        )
+
+        for field, value, expected in failures:
+            with self.subTest(field=field):
+                candidate = copy.deepcopy(doctor)
+                candidate[field] = value
+                with self.assertRaisesRegex(fleet.FleetError, expected):
+                    fleet.assert_lease_admission(
+                        candidate,
+                        required={"ssh"},
+                        min_memory_gb=16,
+                    )
+
     def test_required_work_volume_is_fail_closed(self) -> None:
         result = fleet.work_volume_status(
             node_id="fictional-macos-node",

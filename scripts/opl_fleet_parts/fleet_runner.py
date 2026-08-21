@@ -531,11 +531,14 @@ def assert_lease_admission(
     if gpu_api not in GPU_APIS or min_gpu_memory_gb < 0:
         raise FleetError("GPU admission requirement is invalid")
     scheduling = doctor.get("scheduling") or {}
+    ssh_only = required == {"ssh"}
     failures: list[str] = []
     if not doctor.get("approved"):
         failures.append("not-approved")
-    if doctor.get("receipt_state") != "CURRENT":
+    if not ssh_only and doctor.get("receipt_state") != "CURRENT":
         failures.append("not-current")
+    if ssh_only and doctor.get("control_current") is not True:
+        failures.append("controller-not-current")
     if not doctor.get("inventory_fresh"):
         failures.append("inventory-stale")
     if not doctor.get("codex_ready"):
@@ -576,7 +579,7 @@ def assert_lease_admission(
     ]
     if (gpu_api != "any" or min_gpu_memory_gb or gpu_model) and not matching:
         failures.append("gpu")
-    if failures or not doctor.get("admission_ready"):
+    if failures or (not ssh_only and not doctor.get("admission_ready")):
         detail = ",".join(dict.fromkeys(failures or ["doctor-not-ready"]))
         raise FleetError(f"lease admission rejected: {detail}")
 
