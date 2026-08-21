@@ -55,6 +55,8 @@ description: Coordinate multiple Codex conversations, agents, repositories, or w
 - `ACTIVE` 标题或总账登记不等于活跃执行。每个 `ACTIVE` objective 必须同时有 live execution owner、可立即执行的 `next_action` 和本轮推进证据。
 - **Active-progress invariant**：只有同时满足以下条件时才可保留 `ACTIVE`：存在唯一 live owner/execution owner；精确 write set 已登记；`next_action` 现在即可执行；当前 worktree/branch/checkpoint 可回读；最近一轮包含真实推进证据（实现、验证、commit、checkpoint、吸收、安装生效、发布回读或清理之一）。标题、spinner、未归档状态、callback、候选 commit 或测试通过都不能单独证明活跃执行。
 - 子任务、callback、测试或一次 operation 结束后，产品总控必须在同一轮验收结果并立即继续、修复首个真实断点或重分配；不得停在回调、候选、失败回执或等待另一个对话自行醒来。
+- **Repair-before-proof invariant**：已知根因且 owner/写集/最小修复路径可达时，executor 的首个生产动作必须是 owner-side 修复或可回退的 delivery bridge；测试只能随后证明修复。测试通过但断点未移动，不算推进；测试失败后先修首个生产断点，不得以补测试或扩大套件代替。
+- 每次测试、检查、回调或等待返回后，产品总控必须在同一轮判断最深断点：断点未移动时选择 `direct_fix`、`delivery_bridge` 或真实 `stop`；断点已移动时进入最窄的 `proof`、`acceptance` 或 `complete`；proof 失败再回到修复或真实 `stop`。“继续等待/监工/再测”不能单独成为 next action。只有用户动作、外部事件、权限或安全边界等不可替代条件才能让 lane 进入 `NEEDS_ACTION`/`BLOCKED`。
 - 一个切片完成后不得因等待冲突而停住：owner 应先完成本地等价门禁，commit 并 push 可恢复 task checkpoint，回读远端 SHA/tree/blob，再把精确 integration boundary 交给唯一 Integrator；冲突只在 fresh main 的 canonical integration 临界区解决。
 - currentness drift 由原 owner 基于 fresh SSOT 做 semantic replay 并继续验证，不以漂移为理由进入等待或遗弃责任。
 - fail-closed 只终止当前 operation，不终止 objective。若没有不可替代的权限、外部输入或安全边界，主控修复断点后发起新的合法 operation，并持续到 `SAFE_TO_ARCHIVE`。
@@ -84,6 +86,7 @@ description: Coordinate multiple Codex conversations, agents, repositories, or w
 - write-set overlap 是集成风险，不是长期锁。允许各自 worktree 继续准备；共享路径在吸收时只有一个最终 mutation owner，其他成果按 fresh SSOT 语义重放。
 - 重构或替换任务默认并行拆为 successor 实现、真实 caller 切换、验收和 legacy 退役；先用最小纵向链路证明 successor 可用并可回退，再切换 caller，随后在新路径上补强并批量删除旧实现。不要把每个旧字段的清理串行化为新模块可用的前置条件，也不要用永久双写或 runtime fallback 维持第二条生产路径。
 - 不用驻留轮询、等待 ACK 或重复监测冒充 `next_action`。若一个对话没有真实可执行工作，立即重分配一个独立剩余切片；没有诚实切片时，报告分工错误并重组 scope，不制造忙碌证据。
+- 若产品断点已知而当前对话只在跑测试、等回调或汇报测试，视为没有有效 next action：立即把生产修复或最小交付桥接切片交回该 owner；不得用 `ACTIVE` 标题、测试数量或 callback 保持“正在推进”的假象。
 - 如果对话没有真实可执行工作，不得继续标记为 `ACTIVE`：需要用户动作则转为 `NEEDS_ACTION`，需要外部事件则转为 `BLOCKED`，长期工作台或监督入口转为 `MONITORING`，成果已被 canonical authority 完整覆盖则转为 `SAFE_TO_ARCHIVE`。若仍有可执行缺口则登记最小切片和第一动作；若只是重复 writer 则改为只读审计或 superseded，不新建第二 writer。
 - 有限执行轮次完成后，长期责任保留在 Bead/Linear 的 `MONITORING`，而不是保留一个空闲执行对话。清空 live `execution_thread`，保存 `last_execution_thread`、下次复核日期和事件触发条件；完成的对话按证据转为 `SAFE_TO_ARCHIVE`，得到用户 fresh 验收后归档。到期或事件发生时，未归档 executor 可恢复，已归档的 `last_execution_thread` 只能作为 provenance，必须新建有限 executor；完成回读后再次解除绑定。
 - currentness 前进后由原对话、原 owner 继续 replay/rebase。不要仅因主线漂移创建等待 successor 或丢弃已有责任。

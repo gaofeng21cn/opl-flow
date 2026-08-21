@@ -85,6 +85,15 @@ Natural-language examples:
 9. Installation deploys capabilities only. Installation never runs `start` or
    creates a Dashboard, Bead, Linear project, or Automation. Only an explicit
    `$opl-flow start` performs formal onboarding.
+10. For a `change` task, once the deepest verifiable breakpoint and its owner,
+    write set, and smallest repair path are known, the first production action
+    is an owner-side repair or a traceable `delivery_bridge`. Tests, checks,
+    callbacks, and waits are proof or recovery signals, not substitutes for
+    repair. After each one returns, if the breakpoint is unchanged choose
+    `direct_fix`, `delivery_bridge`, or a real `stop`; if it moved, continue to
+    the narrowest `proof`, `acceptance`, or `complete` step. A green test with
+    an unmoved breakpoint is not progress, and `ACTIVE` cannot be sustained by
+    waiting, monitoring, or adding tests alone.
 
 ## Core Workflow Routing
 

@@ -81,6 +81,36 @@ after that proof.
 3. Use the repository's existing tools, abstractions, commands, and validation
    lanes. Add a new abstraction only when the current task proves it necessary.
 
+## Repair Before Proof
+
+For a `change` task, once the real failure is reproducible or its deepest
+verifiable breakpoint is known, immediately identify the owner, exact write set,
+and smallest production path that can move that breakpoint. If that path is
+available, the next action is the owner-side repair (`direct_fix`) or a minimal
+traceable `delivery_bridge`; it is not a new test, a broader test suite, a
+callback wait, or passive monitoring.
+
+Tests are evidence about a repair. They do not repair the owner path and cannot
+substitute for it. A green test run with an unchanged production, effective, or
+runtime breakpoint is not progress and must not be reported as such. Run the
+narrowest test that exercises the changed behavior after the first repair, then
+expand only when the changed contract or blast radius requires it.
+
+After every test, check, callback, or wait returns, evaluate the deepest
+breakpoint in the same execution turn. If it did not move, choose `direct_fix`,
+`delivery_bridge`, or a real `stop`; do not label another test or wait as the
+next action. If it moved, proceed to the narrowest `proof`, `acceptance`, or
+`complete` step. If proof fails, return to `direct_fix`, `delivery_bridge`, or a
+real `stop`. `stop` requires an external owner, missing permission, safety
+boundary, or other non-replaceable dependency with a concrete release
+condition. A stale fixture or assertion does not justify reverting a confirmed
+product fix: preserve the fix, update the affected test contract, and continue
+through the real entry path.
+
+Do not keep a task `ACTIVE` when its only next action is “wait”, “monitor”,
+“ask another thread”, or “add more tests”. Convert it to the appropriate
+external state, or assign a production-executable next action before continuing.
+
 ## Model Complex Features Before Coding
 
 Use this sequence only when a change introduces or reshapes several product

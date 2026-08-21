@@ -128,7 +128,8 @@
         "expansion_rule",
         "unsupported_expansion",
         "task_modes",
-        "task_mode_gate_handoff"
+        "task_mode_gate_handoff",
+        "repair_progress_policy"
       ],
       "properties": {
         "authority": { "const": "opl-flow" },
@@ -180,6 +181,53 @@
             "precondition": { "const": "stop_ladder_supported_reason_and_high_risk_mutation" },
             "relationship": { "const": "stop_ladder_then_gate" },
             "gate_authority": { "const": "task-mode-gate" }
+          }
+        },
+        "repair_progress_policy": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "known_breakpoint_next_action",
+            "proof_role",
+            "green_without_breakpoint_movement",
+            "post_event_transition",
+            "wait_only_active",
+            "stale_test_contract"
+          ],
+          "properties": {
+            "known_breakpoint_next_action": {
+              "const": "owner_side_repair_or_delivery_bridge"
+            },
+            "proof_role": { "const": "tests_verify_after_repair" },
+            "green_without_breakpoint_movement": { "const": "not_progress" },
+            "post_event_transition": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "breakpoint_unchanged",
+                "breakpoint_moved",
+                "proof_failed",
+                "external_blocker"
+              ],
+              "properties": {
+                "breakpoint_unchanged": {
+                  "const": ["direct_fix", "delivery_bridge", "stop"]
+                },
+                "breakpoint_moved": {
+                  "const": ["proof", "acceptance", "complete"]
+                },
+                "proof_failed": {
+                  "const": ["direct_fix", "delivery_bridge", "stop"]
+                },
+                "external_blocker": {
+                  "const": ["stop"]
+                }
+              }
+            },
+            "wait_only_active": { "const": false },
+            "stale_test_contract": {
+              "const": "preserve_product_fix_update_test_contract"
+            }
           }
         }
       }

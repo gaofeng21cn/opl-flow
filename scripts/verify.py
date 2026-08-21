@@ -237,6 +237,19 @@ def check_workflow_policy(repo_root: Path) -> list[str]:
             "relationship": "stop_ladder_then_gate",
             "gate_authority": "task-mode-gate",
         },
+        "repair_progress_policy": {
+            "known_breakpoint_next_action": "owner_side_repair_or_delivery_bridge",
+            "proof_role": "tests_verify_after_repair",
+            "green_without_breakpoint_movement": "not_progress",
+            "post_event_transition": {
+                "breakpoint_unchanged": ["direct_fix", "delivery_bridge", "stop"],
+                "breakpoint_moved": ["proof", "acceptance", "complete"],
+                "proof_failed": ["direct_fix", "delivery_bridge", "stop"],
+                "external_blocker": ["stop"],
+            },
+            "wait_only_active": False,
+            "stale_test_contract": "preserve_product_fix_update_test_contract",
+        },
     }
     if policy.get("task_boundary_policy") != expected_task_boundary_policy:
         errors.append(

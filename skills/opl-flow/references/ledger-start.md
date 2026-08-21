@@ -35,10 +35,13 @@ project list. Setup, update, and install never run this route.
 6. For every managed objective and registered interactive longline, use
    `read_thread` and the current owner surface to reconcile real execution,
    canonical Git/public/runtime state, blockers, remaining work, and the task
-   title. Update Beads and Linear from those facts; never use a stale title,
-   spinner, callback, checkpoint, PR, or local branch as proof of canonical
-   completion. The Supervisor may report or route product-SSOT drift, but it
-   never merges, publishes, deploys, or overwrites another owner's authority.
+   title. When a root cause and reachable owner path are already known, route
+   the owner-side repair or delivery bridge before requesting more proof; tests
+   and callbacks are evidence, not the repair. Update Beads and Linear from
+   those facts; never use a stale title, spinner, callback, checkpoint, PR, or
+   local branch as proof of canonical completion. The Supervisor may report or
+   route product-SSOT drift, but it never merges, publishes, deploys, or
+   overwrites another owner's authority.
 7. Each Supervisor run reads ready, in-progress, overdue, and live managed
    tasks, acts on current user intent, and records
    claim/checkpoint/blocker/remaining in Beads. Before remote dispatch, read the Bead's single

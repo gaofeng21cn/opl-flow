@@ -18,9 +18,11 @@ Use an event-driven three-layer control plane:
   exception fallback. A scheduled episode is only a bounded change detector;
   it never becomes a product execution loop.
 - Each product controller owns its objective graph, accepts executor results,
-  fixes the first real blocker, and dispatches the next bounded slice. This is
-  a logical product responsibility, not a requirement for another resident
-  polling conversation.
+  fixes the first real blocker, and dispatches the next bounded slice. When the
+  breakpoint, owner, and write set are already known, its first production
+  action is the owner-side repair or a traceable delivery bridge; tests and
+  callbacks only prove or recover that repair. This is a logical product
+  responsibility, not a requirement for another resident polling conversation.
 - Each executor owns one bounded slice and calls its product controller on a
   recoverable checkpoint, terminal result, or real blocker. The product
   controller handles that callback in the same episode by accepting the
@@ -122,9 +124,11 @@ objective merely because its executor is idle.
 An idle title, spinner, callback, checkpoint, PR, branch, local test, or task
 worktree is not SSOT. Write back the real owner, execution thread, current
 slice, first blocker, next action, remaining JSON array, and authoritative
-readback. When a product truth drift exists, continue the existing owner or
-report it; the Supervisor does not merge, publish, deploy, or overwrite the
-product owner.
+readback. If the deepest breakpoint did not move, the next action must be a
+repair, delivery bridge, or real stop; do not keep the objective active with
+another test or wait. When a product truth drift exists, continue the existing
+owner or report it; the Supervisor does not merge, publish, deploy, or overwrite
+the product owner.
 
 ## 3. Bounded Executors
 
