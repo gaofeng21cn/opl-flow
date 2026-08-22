@@ -3829,7 +3829,12 @@ class CodexFleetTests(unittest.TestCase):
             payload = plistlib.loads(plist_path.read_bytes())
         self.assertEqual(
             payload["ProgramArguments"],
-            [str(home / ".local/bin/opl-fleet"), "reconcile", "--report"],
+            [
+                str(home / ".local/bin/opl-fleet"),
+                "reconcile",
+                "--report",
+                "--install-required",
+            ],
         )
         self.assertEqual(
             payload["EnvironmentVariables"]["PATH"].split(":"),
@@ -3845,6 +3850,15 @@ class CodexFleetTests(unittest.TestCase):
         )
         self.assertEqual(payload["EnvironmentVariables"]["HOME"], str(home))
         self.assertEqual(command.call_count, 2)
+
+    def test_reconcile_installs_required_components_by_default(self) -> None:
+        args = fleet.parse_args(["reconcile", "--report"])
+        self.assertTrue(args.install_required)
+
+        diagnostic_args = fleet.parse_args(
+            ["reconcile", "--report", "--no-install-required"]
+        )
+        self.assertFalse(diagnostic_args.install_required)
 
     def test_wsl_schedule_uses_absolute_windows_launcher(self) -> None:
         def fake_run(command: list[str], **_: object) -> object:
@@ -3865,11 +3879,30 @@ class CodexFleetTests(unittest.TestCase):
             action,
             "C:\\Windows\\System32\\cmd.exe /d /c "
             "C:\\Windows\\System32\\wsl.exe -d Ubuntu -- "
-            f"{Path.home() / '.local/bin/opl-fleet'} reconcile --report "
+            f"{Path.home() / '.local/bin/opl-fleet'} "
+            "reconcile --report --install-required "
             "1>>%TEMP%\\opl-fleet-reconcile.stdout.log "
             "2>>%TEMP%\\opl-fleet-reconcile.stderr.log",
         )
         self.assertLessEqual(len(action), 261)
+
+    def test_linux_schedule_installs_required_components(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            home = Path(temp_dir)
+            with (
+                mock.patch.object(fleet.Path, "home", return_value=home),
+                patch_fleet("run") as command,
+            ):
+                fleet.install_linux_schedule(3, 15)
+            service = (
+                home / ".config/systemd/user/opl-fleet.service"
+            ).read_text(encoding="utf-8")
+        self.assertIn(
+            f"ExecStart={home / '.local/bin/opl-fleet'} "
+            "reconcile --report --install-required\n",
+            service,
+        )
+        self.assertEqual(command.call_count, 2)
 
     def test_wsl_schedule_rejects_unsafe_distro_name(self) -> None:
         with mock.patch.dict(

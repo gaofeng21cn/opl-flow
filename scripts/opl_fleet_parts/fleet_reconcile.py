@@ -1517,7 +1517,7 @@ def install_macos_schedule(
 <key>PATH</key><string>{launchd_path}</string>
 </dict>
 <key>ProgramArguments</key><array>
-<string>{command}</string><string>reconcile</string><string>--report</string>
+<string>{command}</string><string>reconcile</string><string>--report</string><string>--install-required</string>
 </array>
 <key>StartCalendarInterval</key><dict>
 <key>Hour</key><integer>{hour}</integer>
@@ -1556,7 +1556,7 @@ def install_wsl_schedule(hour: int, minute: int) -> None:
     command = (
         f"{windows_cmd} /d /c {windows_wsl} -d {distro} -- "
         f'{Path.home() / ".local/bin/opl-fleet"} '
-        "reconcile --report "
+        "reconcile --report --install-required "
         "1>>%TEMP%\\opl-fleet-reconcile.stdout.log "
         "2>>%TEMP%\\opl-fleet-reconcile.stderr.log"
     )
@@ -1585,7 +1585,7 @@ def install_linux_schedule(hour: int, minute: int) -> None:
     (unit_root / "opl-fleet.service").write_text(
         "[Unit]\nDescription=Reconcile OPL Fleet node\n"
         "[Service]\nType=oneshot\n"
-        f"ExecStart={command} reconcile --report\n",
+        f"ExecStart={command} reconcile --report --install-required\n",
         encoding="utf-8",
     )
     (unit_root / "opl-fleet.timer").write_text(

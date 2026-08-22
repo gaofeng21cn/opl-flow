@@ -327,7 +327,12 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     join_parser.add_argument("--no-schedule", action="store_true")
     reconcile_parser = subparsers.add_parser("reconcile")
     reconcile_parser.add_argument("--report", action="store_true")
-    reconcile_parser.add_argument("--install-required", action="store_true")
+    reconcile_parser.add_argument(
+        "--install-required",
+        action=argparse.BooleanOptionalAction,
+        default=True,
+        help="install missing required components from their declared owners (default)",
+    )
     subparsers.add_parser("status")
     subparsers.add_parser("assets")
     repos_parser = subparsers.add_parser("repos")
