@@ -302,7 +302,7 @@ and a multi-machine AI fleet without loading or configuring every backend.
 
 ## Bundled Skills
 
-OPL Flow `0.1.53` bundles one unified development suite: nine core owner Skills,
+OPL Flow `0.1.54` bundles one unified development suite: nine core owner Skills,
 eleven reusable development methods and architecture/reliability lenses, and
 eleven focused specialists. All thirty-one are installed and updated with the
 Plugin. Fourteen broad routing and development Skills may be discovered by task

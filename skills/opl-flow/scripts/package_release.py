@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import argparse
+import copy
 import difflib
 import hashlib
 import json
@@ -129,8 +130,17 @@ def prepare(args: argparse.Namespace) -> dict[str, Any]:
     )
     package = read_json(package_path)
     codex_surface = package.get("codex_surface")
-    if package.get("package_id") != args.package_id or not isinstance(codex_surface, dict):
+    owner_codex_surface = owner_manifest.get("codex_surface")
+    if (
+        package.get("package_id") != args.package_id
+        or not isinstance(codex_surface, dict)
+        or not isinstance(owner_codex_surface, dict)
+    ):
         raise ReleaseError("Framework package projection has an invalid identity")
+    for field in ("plugin_id", "configured_codex_plugin_carrier", "required_skill_ids"):
+        if field not in owner_codex_surface:
+            raise ReleaseError(f"owner opl-package.json is missing codex_surface.{field}")
+        codex_surface[field] = copy.deepcopy(owner_codex_surface[field])
     payload_ref = f"payloads/{args.package_id}-{version}.json"
     package["version"] = version
     codex_surface["plugin_payload_manifest_url"] = payload_ref

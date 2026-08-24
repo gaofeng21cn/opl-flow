@@ -81,6 +81,17 @@ class PackageReleaseTests(unittest.TestCase):
                 "package_id": "opl-flow",
                 "version": "0.1.49",
                 "source_repo": "https://github.com/gaofeng21cn/opl-flow.git",
+                "codex_surface": {
+                    "plugin_id": "opl-flow",
+                    "configured_codex_plugin_carrier": {
+                        "plugin_selector": "opl-flow@opl-flow",
+                    },
+                    "required_skill_ids": [
+                        "opl-flow",
+                        "develop-and-deliver",
+                        "architect-and-simplify",
+                    ],
+                },
             }
             with (
                 patch.object(
@@ -101,6 +112,14 @@ class PackageReleaseTests(unittest.TestCase):
             )
             self.assertEqual(
                 package["codex_surface"]["carrier_source_commit"], "new-commit"
+            )
+            self.assertEqual(
+                package["codex_surface"]["required_skill_ids"],
+                ["opl-flow", "develop-and-deliver", "architect-and-simplify"],
+            )
+            self.assertEqual(
+                package["codex_surface"]["configured_codex_plugin_carrier"],
+                {"plugin_selector": "opl-flow@opl-flow"},
             )
             self.assertEqual(
                 result["updated_files"], [str(package_path), str(payload_path)]
