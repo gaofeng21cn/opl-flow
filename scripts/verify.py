@@ -23,6 +23,20 @@ CORE_SKILL_IDS = (
     "task-mode-gate",
 )
 
+DEVELOPMENT_SKILL_IDS = (
+    "architect-and-simplify",
+    "zoom-out",
+    "improve-codebase-architecture",
+    "grill-with-docs",
+    "prototype",
+    "book-aposd",
+    "book-clean-architecture",
+    "book-ddia",
+    "book-domain-driven-design",
+    "book-legacy-code",
+    "book-release-it",
+)
+
 SPECIALIST_SKILL_IDS = (
     "dsh-archive-agent-notes",
     "dsh-code-review",
@@ -37,7 +51,7 @@ SPECIALIST_SKILL_IDS = (
     "record-browser-gif",
 )
 
-BUNDLED_SKILL_IDS = CORE_SKILL_IDS + SPECIALIST_SKILL_IDS
+BUNDLED_SKILL_IDS = CORE_SKILL_IDS + DEVELOPMENT_SKILL_IDS + SPECIALIST_SKILL_IDS
 
 REQUIRED_FILES = (
     ".agents/plugins/marketplace.json",
@@ -157,7 +171,7 @@ def check_plugin_json(repo_root: Path) -> list[str]:
         if path.is_dir() and (path / "SKILL.md").exists()
     }
     if discoverable_skills != set(BUNDLED_SKILL_IDS):
-        errors.append("default plugin must expose the nine core and eleven specialist OPL Flow skills")
+        errors.append("default plugin must expose the unified OPL Flow development Skill payload")
     policy = json.loads((repo_root / "contracts" / "workflow-policy.json").read_text(encoding="utf-8"))
     if manifest.get("version") != policy.get("package", {}).get("version"):
         errors.append("plugin version must match contracts/workflow-policy.json package.version")
@@ -338,6 +352,13 @@ def check_workflow_policy(repo_root: Path) -> list[str]:
             "https://github.com/gaofeng21cn/opl-flow",
             "skills/develop-and-deliver",
         ),
+        **{
+            skill_id: (
+                "https://github.com/gaofeng21cn/opl-flow",
+                f"skills/{skill_id}",
+            )
+            for skill_id in DEVELOPMENT_SKILL_IDS
+        },
         "github-ssot-patrol": (
             "https://github.com/gaofeng21cn/opl-flow",
             "skills/github-ssot-patrol",
@@ -777,7 +798,6 @@ def check_workflow_policy(repo_root: Path) -> list[str]:
         "document-extraction": "experience_baseline",
         "stacked-pr-landing": "experience_baseline",
         "browser-gif-encoding": "experience_baseline",
-        "architecture-enhancement": "compatible_optional",
         "official-codex-office-runtime": "compatible_optional",
         "task-boundary-guard": "compatible_optional",
     }
@@ -842,27 +862,6 @@ def check_workflow_policy(repo_root: Path) -> list[str]:
         errors.append("agent-reach baseline must include its owner CLI and doctor readiness")
     if any(item.get("id") == "agent-reach" for item in policy.get("requires", [])):
         errors.append("agent-reach must not make the OPL Flow package operational dependency set")
-    architect = next(
-        (
-            item for item in policy.get("compatible_optional", [])
-            if item.get("kind") == "codex_skill" and item.get("id") == "architect-and-simplify"
-        ),
-        None,
-    )
-    expected_architect = {
-        "id": "architect-and-simplify",
-        "kind": "codex_skill",
-        "owner": "opl-skills",
-        "online_install_default": False,
-        "activation": "task_routed",
-        "source": "https://github.com/gaofeng21cn/opl-skills",
-        "source_path": "skills/architect-and-simplify",
-    }
-    if architect is None or any(
-        architect.get(key) != value
-        for key, value in expected_architect.items()
-    ):
-        errors.append("architect-and-simplify must remain an observed optional OPL Skills capability")
     stop_guard = next(
         (
             item for item in policy.get("compatible_optional", [])
@@ -923,31 +922,6 @@ def check_workflow_policy(repo_root: Path) -> list[str]:
         errors.append("explicit Ponytail audit and review skills must remain outside workflow retirement")
     if any(not isinstance(item.get("config_markers"), list) or not isinstance(item.get("service_ids"), list) for item in migrations):
         errors.append("workflow migrations must declare config_markers and service_ids")
-    core_skill_retirement = next(
-        (
-            item
-            for item in policy.get("retires", [])
-            if item.get("id") == "opl-skills-core-workflow-projections"
-        ),
-        None,
-    )
-    expected_retired_ids = {"develop-and-deliver", "recover-codex-tasks", "task-mode-gate"}
-    expected_skill_paths = {
-        skill_id: f"skills/{skill_id}/SKILL.md" for skill_id in expected_retired_ids
-    }
-    expected_skill_source = {
-        "discovery_root": "agent_skills",
-        "lock_file": "agent_skill_lock",
-        "source": "gaofeng21cn/opl-skills",
-        "source_url": "https://github.com/gaofeng21cn/opl-skills.git",
-        "skill_paths": expected_skill_paths,
-    }
-    if (
-        core_skill_retirement is None
-        or set(core_skill_retirement.get("discovery_ids", [])) != expected_retired_ids
-        or core_skill_retirement.get("skill_source") != expected_skill_source
-    ):
-        errors.append("core Skill retirement must require exact former OPL Skills lock provenance")
     migration_policy = policy.get("migration_policy", {})
     if not migration_policy.get("discovery_root_ids"):
         errors.append("workflow migration policy must declare bounded discovery roots")

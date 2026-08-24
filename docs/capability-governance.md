@@ -12,12 +12,11 @@ installed state, callability, publication, and release qualification.
 OPL Flow is the sole strategy owner for the default Codex working experience.
 The policy covers:
 
-- the user Profile, nine Flow-owned core workflow Skills, and eleven bundled
-  developer specialists;
+- the user Profile and the unified thirty-one-Skill development payload;
 - recommended model and reasoning intent;
 - default Skills and Tools, their source owners, installation intent, and
   degradation behavior;
-- optional enhancement discovery;
+- optional external capability discovery;
 - online repair and Full/offline selection intent;
 - readiness adapters and capability bundles.
 
@@ -31,11 +30,12 @@ actions, and materializes a pinned Full build lock. It does not parse
 `workflow-policy.json`, choose the default capability set, or maintain a second
 recommended-Skill catalog.
 
-The eleven specialists are Package payload, not another recommendation catalog.
+The development methods, lenses, and specialists are Package payload, not
+another recommendation catalog.
 They retain narrow direct invocation and discovery identities while delegating
 shared document semantics to `opl-doc`, shared delivery semantics to
-`develop-and-deliver`, and optional architecture judgment to
-`architect-and-simplify` when installed. DeepSeek Harness remains a provenance
+`develop-and-deliver`, and architecture judgment to `architect-and-simplify`.
+DeepSeek Harness remains a provenance
 source, not runtime or policy authority.
 
 This is the lowest-cognition architecture because a default capability change
@@ -65,7 +65,7 @@ No reverse edge may make App or Framework policy the semantic owner.
 | App Auto model resolution, UI, persistence, explicit user choice, and fallback | OPL App | Installed Flow recommendation is an input, not App-owned policy |
 | Standard/Full product assembly and release evidence | OPL App | Full consumes a Framework-generated lock; it does not select capabilities |
 | Effective `AGENTS.md` and explicit settings | User | Flow proposes safe merge; user overrides win |
-| Optional architecture/reliability/domain methods | OPL Skills or domain package | Absence must not block Flow |
+| Non-development reusable or domain workflows | OPL Skills or domain package | Explicit user-level installation |
 | Private Ledger/Fleet topology and state | OPL Instance | Public Flow supplies reusable engines only |
 
 ## Policy Model
@@ -73,7 +73,7 @@ No reverse edge may make App or Framework policy the semantic owner.
 `contracts/workflow-policy.json` uses `opl_flow_workflow_policy.v4` and separates
 five concerns:
 
-1. `provides`: the Plugin/Profile and nine Flow-owned core Skills.
+1. `provides`: the Plugin/Profile and all thirty-one Flow-owned development Skills.
 2. `requires`: dependencies whose absence can make Flow itself non-operational.
 3. `experience_baseline`: default/recommended capabilities. Absence degrades
    the experience but never disables Flow, Ledger, or core Skills.
@@ -96,11 +96,10 @@ The three status planes are intentionally independent:
 | Bundle | Relationship | Members | Online default | Full seed |
 | --- | --- | --- | --- | --- |
 | Internet research | experience baseline | Agent Reach Skill + CLI | owner-supported install/repair | none |
-| Office authoring | experience baseline | OfficeCLI Skill family + CLI | Framework materialization | OfficeCLI CLI only |
-| Document extraction | experience baseline | MinerU extractor Skill + CLI | Framework materialization | `mineru-open-api` CLI only |
+| Office authoring | experience baseline | OfficeCLI Skill family + CLI | owner-installed Skill and CLI | OfficeCLI CLI only |
+| Document extraction | experience baseline | MinerU extractor Skill + CLI | owner-installed Skill and CLI | `mineru-open-api` CLI only |
 | Stacked PR landing | experience baseline | official `gh-stack` GitHub CLI extension | Framework owner adapter | none |
 | Browser GIF encoding | experience baseline | paired `ffmpeg` + `ffprobe` readiness | Framework platform-package adapter | none |
-| Architecture enhancement | compatible optional | `architect-and-simplify` | observe only | none |
 | Official Codex Office runtime | compatible optional | OpenAI Office/PDF runtime capability | observe only | none |
 
 `offline_bundle=full` is the only Flow-owned Full selection signal. The current
@@ -131,11 +130,10 @@ dependency.
 Credentials and authenticated optional channels remain user/provider owned and
 are never bundled.
 
-## Core Skills And OPL Skills
+## Development Skills And OPL Skills
 
-Skills that define the default Codex work style or Flow's multi-task,
-multi-repository, multi-machine control path belong in OPL Flow. The current
-nine-Skill core set is:
+All OPL-owned Skills whose primary purpose is software development belong in
+OPL Flow and share its Plugin lifecycle. The nine core owners are:
 
 - `opl-flow`;
 - `coordinate-concurrent-tasks`;
@@ -147,22 +145,15 @@ nine-Skill core set is:
 - `task-mode-gate`;
 - `opl-fleet`.
 
-OPL Skills remains an independently installable enhancement pack. Its catalog
-categories are for browsing, not implicit installation defaults. In
-particular, both the `development` methods and the six `architecture-lenses`
-are development-related. Flow therefore does not resolve "development
-enhancements" to only one category.
-
-The named `development-complete` preset is an explicit union of:
+The reusable development set is:
 
 - `architect-and-simplify`, `zoom-out`,
   `improve-codebase-architecture`, `grill-with-docs`, and `prototype`;
-- all six `book-*` architecture lenses.
+- all six `book-*` architecture and reliability lenses.
 
-Flow passes the resolved exact IDs to the OPL Skills owner-supported installer.
-It never uses wildcard installation. `architect-and-simplify` is
-capability-aware: use it when installed; otherwise perform the same judgment
-model-natively and do not block the task.
+These Skills and the eleven focused specialists are bundled in the same Plugin.
+OPL Skills retains only non-development reusable workflows and has no
+development preset or second installation route.
 
 ## Model And Profile
 

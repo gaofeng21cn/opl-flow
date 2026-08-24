@@ -136,6 +136,37 @@ schema, review meeting, or planning phase. Write only enough to make the
 decisions durable. Use a prototype only when a real experiment is needed to
 resolve state, logic, or interaction uncertainty.
 
+## Bounded Disproof Checkpoint
+
+Use this checkpoint only when an implementation decision is both difficult to
+verify directly and materially expensive to get wrong. Typical cases include
+cross-owner boundaries, public contracts, security or data-integrity behavior,
+irreversible operations, and consequential assumptions in unfamiliar code.
+Do not use it for routine edits, reading, or behavior already settled by a
+focused test, reproduction, trace, schema, compiler, or type check. A clear
+user instruction fixes the objective and scope; it does not waive scrutiny of
+a high-impact implementation choice.
+
+1. State the decision and the consequence of being wrong in two or three lines,
+   then resolve the authoritative contract and its owner.
+2. Use the cheapest credible executable disproof first. If material uncertainty
+   remains and isolated context could expose normalized assumptions, use at most
+   one read-only fresh-context reviewer. Reuse that reviewer instead of fanning
+   out more opinions.
+3. Classify each finding as missing review context, a contract gap, an actionable
+   defect, an owner-accepted trade-off, or noise. Correct missing context in the
+   review input. A contract gap belongs to its owner and may be changed only when
+   the current task includes that owner and write set. Reviewer output is
+   evidence, not authority.
+4. Recheck only after the artifact, contract, or review input changes. Stop when
+   substantive findings are resolved, after three cycles, or when the user ends
+   the work; on every stop path, surface unresolved substantive risk.
+
+The user may accept only decisions they own and cannot override a hard boundary.
+This checkpoint creates no checklist, ledger, persistent status, approval state,
+or replacement for implementation, tests, release qualification, or
+authoritative readback.
+
 ## Keep Complexity Proportional
 
 A small feature does not need a bank vault around it. Scope architecture to the

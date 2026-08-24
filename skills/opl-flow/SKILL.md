@@ -67,9 +67,8 @@ Natural-language examples:
    - `specialized_capabilities`: optional capabilities are present or absent.
 3. A degraded experience baseline offers the owner-supported repair action but
    does not make the Flow Plugin, Profile, Ledger, or core Skills unusable.
-4. `architect-and-simplify` is capability-aware: route to it when installed;
-   otherwise perform the same architecture judgment model-natively. Never
-   block architecture work because the optional enhancement is absent.
+4. Route architecture mapping and simplification to the bundled
+   `architect-and-simplify` Skill.
 5. Preserve user and owner boundaries. The user owns the effective
    `AGENTS.md`, model selection, additional instructions, and optional pack
    choices. Flow never generates a hidden base prompt.
@@ -128,9 +127,8 @@ They remain narrow entrypoints and do not replace the core owner Skills:
   `$dsh-prose-standard`, and `$dsh-trim-cot-leakage` specialize `$opl-doc`.
 - `$dsh-translate-docs` is available only on explicit invocation for a
   bilingual documentation pair.
-- `$dsh-find-simplifications` routes to `$architect-and-simplify` when that
-  optional enhancement is installed and otherwise applies the same evidence
-  standard directly.
+- `$dsh-find-simplifications` routes to the bundled
+  `$architect-and-simplify` Skill.
 - `$dsh-merging-stacked-prs` requires GitHub's official stack capability; it
   does not emulate a stack with ordinary sequential merges. Framework manages
   its `gh-stack` baseline dependency through the official GitHub CLI extension.

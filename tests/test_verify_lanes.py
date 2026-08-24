@@ -567,17 +567,19 @@ class VerifyLaneTests(unittest.TestCase):
             errors,
         )
 
-    def test_architect_and_simplify_stays_optional_and_not_auto_repaired(self) -> None:
+    def test_architect_and_simplify_stays_in_the_plugin_payload(self) -> None:
         errors = self.workflow_policy_errors_after(
-            lambda policy: next(
-                item
-                for item in policy["compatible_optional"]
-                if item["kind"] == "codex_skill" and item["id"] == "architect-and-simplify"
-            ).update(online_install_default=True)
+            lambda policy: policy["provides"].remove(
+                next(
+                    item
+                    for item in policy["provides"]
+                    if item["kind"] == "codex_skill" and item["id"] == "architect-and-simplify"
+                )
+            )
         )
 
         self.assertIn(
-            "architect-and-simplify must remain an observed optional OPL Skills capability",
+            "workflow policy provided Plugin and Skills must match the package payload",
             errors,
         )
 
@@ -642,31 +644,6 @@ class VerifyLaneTests(unittest.TestCase):
         for invalid_path in ("../skill", "/skill", r"skills\agent-reach"):
             with self.subTest(schema_source_path=invalid_path):
                 self.assertIsNone(re.fullmatch(path_pattern, invalid_path))
-
-    def test_core_skill_retirement_requires_exact_former_owner_provenance(self) -> None:
-        mutation_cases = (
-            lambda source: source.update(source="other/skills"),
-            lambda source: source.update(source_url="https://github.com/other/skills.git"),
-            lambda source: source["skill_paths"].update(
-                {"develop-and-deliver": "skills/other/SKILL.md"}
-            ),
-        )
-        for mutate in mutation_cases:
-            with self.subTest(mutate=mutate):
-                errors = self.workflow_policy_errors_after(
-                    lambda policy, change=mutate: change(
-                        next(
-                            item
-                            for item in policy["retires"]
-                            if item["id"] == "opl-skills-core-workflow-projections"
-                        )["skill_source"]
-                    )
-                )
-                self.assertIn(
-                    "core Skill retirement must require exact former OPL Skills lock provenance",
-                    errors,
-                )
-
 
 if __name__ == "__main__":
     unittest.main()

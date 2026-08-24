@@ -1,0 +1,6 @@
+interface:
+  display_name: "Book DDIA"
+  short_description: "Data consistency and derived-data rules"
+  default_prompt: "Use $book-ddia to check source-of-truth, consistency, replay, schema, projection, and derived-data behavior."
+policy:
+  allow_implicit_invocation: true

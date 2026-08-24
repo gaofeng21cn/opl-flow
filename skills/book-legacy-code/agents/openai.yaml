@@ -1,0 +1,6 @@
+interface:
+  display_name: "Book Legacy Code"
+  short_description: "Seams and characterization test rules"
+  default_prompt: "Use $book-legacy-code to make a risky weakly tested change through characterization, seams, and dependency breaking."
+policy:
+  allow_implicit_invocation: false

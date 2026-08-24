@@ -629,12 +629,8 @@ class CodexFleetTests(unittest.TestCase):
             patch_fleet("install_runner", return_value="b" * 40) as install_runner,
             patch_fleet(
                 "fetch_skill_reference",
-                return_value={"discovery_roots": [], "protected_discovery_roots": []},
+                return_value={"discovery_roots": []},
             ) as fetch_reference,
-            patch_fleet(
-                "repair_protected_discovery_roots",
-                return_value=[],
-            ) as repair_roots,
             patch_fleet(
                 "reconcile_flow_experience_baseline",
                 return_value={"status": "current"},
@@ -658,22 +654,7 @@ class CodexFleetTests(unittest.TestCase):
             result = fleet.reconcile(report=False, install_required=False)
         install_runner.assert_called_once_with({}, "a" * 40)
         fetch_reference.assert_called_once_with({}, "b" * 40)
-        repair_roots.assert_called_once_with(
-            {"discovery_roots": [], "protected_discovery_roots": []}
-        )
         reconcile_baseline.assert_called_once_with()
-        self.assertIn(
-            mock.call(
-                fleet.STATE_ROOT / "protected-skill-roots.json",
-                {
-                    "surface_kind": "opl_protected_skill_roots_reconcile.v1",
-                    "status": "current",
-                    "protected_roots": [],
-                    "repaired_roots": [],
-                },
-            ),
-            atomic_json.call_args_list,
-        )
         self.assertEqual(result["state"], "UPDATE_REQUIRED")
         self.assertEqual(
             result["drift"],
@@ -3208,9 +3189,9 @@ class CodexFleetTests(unittest.TestCase):
         self.assertEqual(store["schema"], "codex_fleet_leases.v2")
         self.assertEqual(store["leases"], {})
 
-    def test_install_missing_skills_never_mutates_codex_owner(self) -> None:
+    def test_install_missing_skills_reports_owner_actions_without_skills_cli(self) -> None:
         reference = {
-            "discovery_roots": [".agents/skills"],
+            "discovery_roots": [".codex/skills"],
             "packages": {
                 "codex-bundled": {
                     "required": True,
@@ -3222,6 +3203,7 @@ class CodexFleetTests(unittest.TestCase):
                     "required": True,
                     "ownership": "external",
                     "install": {
+                        "kind": "skills-cli",
                         "command": "npx skills add example/skills -g -a codex -s helper -y"
                     },
                     "skills": ["helper"],
@@ -3229,79 +3211,12 @@ class CodexFleetTests(unittest.TestCase):
             },
         }
         with (
-            patch_fleet("skill_present", side_effect=[False, False, True]),
+            patch_fleet("skill_present", side_effect=[False, False]),
             patch_fleet("run") as command,
         ):
             actions = fleet.install_missing_owner_skills(reference)
-        self.assertEqual(actions, ["codex-bundled"])
-        command.assert_called_once()
-        self.assertEqual(command.call_args.args[0][:3], ["npx", "skills", "add"])
-
-    def test_protected_skill_root_symlink_is_recovered_as_physical_directory(self) -> None:
-        with tempfile.TemporaryDirectory() as temp_dir:
-            home = Path(temp_dir)
-            foreign_root = home / ".foreign/skills"
-            skill = foreign_root / "helper"
-            skill.mkdir(parents=True)
-            (skill / "SKILL.md").write_text("# helper\n", encoding="utf-8")
-            protected = home / ".agents/skills"
-            protected.parent.mkdir(parents=True)
-            protected.symlink_to(foreign_root, target_is_directory=True)
-            reference = {
-                "discovery_roots": [".agents/skills"],
-                "protected_discovery_roots": [".agents/skills"],
-                "packages": {},
-            }
-
-            repaired = fleet.repair_protected_discovery_roots(reference, home=home)
-
-            self.assertEqual(repaired, [".agents/skills"])
-            self.assertTrue(protected.is_dir())
-            self.assertFalse(protected.is_symlink())
-            self.assertEqual(
-                (protected / "helper/SKILL.md").read_text(encoding="utf-8"),
-                "# helper\n",
-            )
-            self.assertEqual(
-                (foreign_root / "helper/SKILL.md").read_text(encoding="utf-8"),
-                "# helper\n",
-            )
-
-    def test_protected_skill_root_repair_is_idempotent_and_rejects_unsafe_paths(self) -> None:
-        with tempfile.TemporaryDirectory() as temp_dir:
-            home = Path(temp_dir)
-            protected = home / ".agents/skills"
-            protected.mkdir(parents=True)
-            reference = {
-                "discovery_roots": [".agents/skills"],
-                "protected_discovery_roots": [".agents/skills"],
-                "packages": {},
-            }
-            self.assertEqual(
-                fleet.repair_protected_discovery_roots(reference, home=home),
-                [],
-            )
-            unsafe = {
-                **reference,
-                "protected_discovery_roots": ["../foreign-skills"],
-            }
-            with self.assertRaisesRegex(fleet.FleetError, "unsafe protected skill root"):
-                fleet.repair_protected_discovery_roots(unsafe, home=home)
-
-    def test_protected_skill_root_repair_preserves_non_directory_conflict(self) -> None:
-        with tempfile.TemporaryDirectory() as temp_dir:
-            home = Path(temp_dir)
-            protected = home / ".agents/skills"
-            protected.parent.mkdir(parents=True)
-            protected.write_text("keep\n", encoding="utf-8")
-            reference = {
-                "discovery_roots": [".agents/skills"],
-                "protected_discovery_roots": [".agents/skills"],
-                "packages": {},
-            }
-            with self.assertRaisesRegex(fleet.FleetError, "is not a directory"):
-                fleet.repair_protected_discovery_roots(reference, home=home)
-            self.assertEqual(protected.read_text(encoding="utf-8"), "keep\n")
+        self.assertEqual(actions, ["codex-bundled", "owner-skill"])
+        command.assert_not_called()
 
     def test_flow_experience_baseline_repair_runs_only_when_degraded(self) -> None:
         current = {
@@ -3418,7 +3333,7 @@ class CodexFleetTests(unittest.TestCase):
     def test_fetch_skill_reference_accepts_current_schema(self) -> None:
         payload = {
             "schema": fleet.SKILL_REFERENCE_SCHEMA,
-            "discovery_roots": [".agents/skills"],
+            "discovery_roots": [".codex/skills"],
             "packages": {},
         }
         with tempfile.TemporaryDirectory() as temp_dir:
@@ -3492,7 +3407,7 @@ class CodexFleetTests(unittest.TestCase):
                 installed = fleet.install_runner(
                     {
                         "repository": "example/instance",
-                        "install_command": ["npx", "skills", "add"],
+                        "source_path": "skills/codex-machine-sync",
                     },
                     revision,
                 )
@@ -3523,12 +3438,13 @@ class CodexFleetTests(unittest.TestCase):
 
     def test_install_missing_skills_uses_owner_native_opl_route(self) -> None:
         reference = {
-            "discovery_roots": [".agents/skills"],
+            "discovery_roots": [".codex/skills"],
             "packages": {
                 "opl-flow": {
                     "required": True,
                     "ownership": "external",
                     "install": {
+                        "kind": "opl-package",
                         "command": "opl packages install opl-flow --json",
                     },
                     "skills": ["opl-flow"],
@@ -3780,12 +3696,13 @@ class CodexFleetTests(unittest.TestCase):
 
     def test_owner_native_install_accepts_plugin_managed_skills(self) -> None:
         reference = {
-            "discovery_roots": [".agents/skills"],
+            "discovery_roots": [".codex/skills"],
             "packages": {
                 "opl-flow": {
                     "required": True,
                     "ownership": "external",
                     "install": {
+                        "kind": "opl-package",
                         "command": "opl packages install opl-flow --json",
                     },
                     "skills": ["opl-flow"],

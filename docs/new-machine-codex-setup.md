@@ -70,8 +70,9 @@ Flow dependency intent uses stable identity and three independent status planes:
   and does not require repair.
 
 Ordinary composition does not require an App catalog, Full build lock, or
-shared release cohort. Framework may still use owner/version/readiness metadata
-to materialize and diagnose a baseline capability.
+shared release cohort. Framework may use owner/version/readiness metadata to
+diagnose a baseline capability, but the external owner remains responsible for
+installing and updating its Skill payload.
 
 `contracts/workflow-policy.json` is the default capability strategy SSOT.
 Framework compiles it into online materialization, installed status,

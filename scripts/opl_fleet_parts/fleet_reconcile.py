@@ -32,7 +32,9 @@ def manifest() -> dict[str, Any]:
         raise FleetError("unsupported fleet manifest")
     runner = payload.get("runner")
     schedule = payload.get("schedule")
-    if not isinstance(runner, dict) or not isinstance(runner.get("install_command"), list):
+    if not isinstance(runner, dict) or not isinstance(
+        runner.get("source_path", "skills/codex-machine-sync"), str
+    ):
         raise FleetError("fleet runner definition is incomplete")
     repository_owner = payload.get("repository_owner")
     if not isinstance(repository_owner, str) or not re.fullmatch(
@@ -622,17 +624,32 @@ def validated_control_checkout(repository: str, revision: str) -> Path:
 
 def install_runner(spec: dict[str, Any], revision: str) -> str:
     repository = str(spec["repository"])
-    validated_control_checkout(repository, revision)
+    control_root = validated_control_checkout(repository, revision)
     state_path = STATE_ROOT / "runner.json"
     previous = read_json(state_path) if state_path.is_file() else {}
     if not RUNNER_PATH.is_file() or previous.get("commit") != revision:
-        command = [str(item) for item in spec["install_command"]]
-        if command[:3] != ["npx", "skills", "add"]:
-            raise FleetError("runner install command is not owner-supported")
-        run(command)
+        relative_source = Path(str(spec.get("source_path", "skills/codex-machine-sync")))
+        if (
+            relative_source.is_absolute()
+            or ".." in relative_source.parts
+            or "\\" in str(relative_source)
+        ):
+            raise FleetError("fleet runner source path is unsafe")
+        source = (control_root / relative_source).resolve()
+        try:
+            source.relative_to(control_root.resolve())
+        except ValueError as exc:
+            raise FleetError("fleet runner source escapes the Instance checkout") from exc
+        if not source.is_dir() or not (source / "scripts/codex_machine_sync.py").is_file():
+            raise FleetError("fleet runner source is incomplete")
+        runner_root = RUNNER_PATH.parent.parent
+        if runner_root.is_symlink() or RUNNER_PATH.is_symlink():
+            raise FleetError("fleet runner destination must be a real directory")
+        runner_root.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copytree(source, runner_root, dirs_exist_ok=True)
         help_text = run([sys.executable, str(RUNNER_PATH), "--help"]).stdout
         if "node-status" not in help_text or "node-sync" not in help_text:
-            raise FleetError("installed runner does not expose pull-node commands")
+            raise FleetError("source runner does not expose pull-node commands")
         atomic_json(state_path, {"repository": repository, "commit": revision})
     return revision
 
@@ -649,76 +666,6 @@ def fetch_skill_reference(spec: dict[str, Any], revision: str) -> dict[str, Any]
     if not isinstance(payload, dict) or payload.get("schema") != SKILL_REFERENCE_SCHEMA:
         raise FleetError("owner skill reference is invalid")
     return payload
-
-def protected_discovery_root_paths(
-    reference: dict[str, Any],
-    *,
-    home: Path | None = None,
-) -> tuple[tuple[str, Path], ...]:
-    discovery_roots = reference.get("discovery_roots")
-    protected_roots = reference.get("protected_discovery_roots", [])
-    if not isinstance(discovery_roots, list) or not isinstance(protected_roots, list):
-        raise FleetError("owner skill discovery root policy is invalid")
-    declared = {str(root) for root in discovery_roots}
-    owner_home = home or Path.home()
-    resolved: list[tuple[str, Path]] = []
-    for raw in protected_roots:
-        if not isinstance(raw, str) or not raw:
-            raise FleetError("protected skill root must be a home-relative path")
-        relative = Path(raw)
-        if (
-            raw not in declared
-            or relative.is_absolute()
-            or ".." in relative.parts
-            or "\\" in raw
-        ):
-            raise FleetError(f"unsafe protected skill root: {raw}")
-        resolved.append((raw, owner_home / relative))
-    return tuple(resolved)
-
-def repair_protected_discovery_roots(
-    reference: dict[str, Any],
-    *,
-    home: Path | None = None,
-) -> list[str]:
-    repaired: list[str] = []
-    for relative, root in protected_discovery_root_paths(reference, home=home):
-        root.parent.mkdir(parents=True, exist_ok=True)
-        if root.is_symlink():
-            try:
-                target = root.resolve(strict=True)
-            except OSError as exc:
-                raise FleetError(f"protected skill root target is unavailable: {relative}") from exc
-            if not target.is_dir():
-                raise FleetError(f"protected skill root target is not a directory: {relative}")
-            transaction = Path(tempfile.mkdtemp(
-                prefix=f".{root.name}.opl-root-recovery-",
-                dir=root.parent,
-            ))
-            staged = transaction / "restored"
-            displaced = transaction / "displaced-link"
-            try:
-                shutil.copytree(target, staged, symlinks=True)
-                if not root.is_symlink() or root.resolve(strict=True) != target:
-                    raise FleetError(f"protected skill root changed during recovery: {relative}")
-                root.replace(displaced)
-                try:
-                    staged.replace(root)
-                except Exception:
-                    displaced.replace(root)
-                    raise
-            finally:
-                if root.exists() or root.is_symlink():
-                    shutil.rmtree(transaction, ignore_errors=True)
-            repaired.append(relative)
-            continue
-        if root.exists():
-            if not root.is_dir():
-                raise FleetError(f"protected skill root is not a directory: {relative}")
-            continue
-        root.mkdir(parents=True)
-        repaired.append(relative)
-    return repaired
 
 def _flow_package_status(opl_command: str) -> dict[str, Any] | None:
     result = run(
@@ -1020,6 +967,11 @@ def install_missing_owner_skills(
         if not missing:
             continue
         if entry["ownership"] == "codex":
+            owner_actions.append(str(package))
+            continue
+        # The Skills CLI global route is not the canonical local root. Keep it
+        # as an owner hint only.
+        if entry.get("install", {}).get("kind") == "skills-cli":
             owner_actions.append(str(package))
             continue
         if command[:3] != ["npx", "skills", "add"] and not owner_native_opl:
@@ -1623,16 +1575,6 @@ def reconcile(*, report: bool, install_required: bool) -> dict[str, Any]:
     reconcile_pets(spec)
     runner_revision = install_runner(spec["runner"], control_revision)
     reference = fetch_skill_reference(spec["runner"], runner_revision)
-    repaired_roots = repair_protected_discovery_roots(reference)
-    atomic_json(
-        STATE_ROOT / "protected-skill-roots.json",
-        {
-            "surface_kind": "opl_protected_skill_roots_reconcile.v1",
-            "status": "repaired" if repaired_roots else "current",
-            "protected_roots": list(reference.get("protected_discovery_roots", [])),
-            "repaired_roots": repaired_roots,
-        },
-    )
     baseline_reconcile = reconcile_flow_experience_baseline()
     atomic_json(STATE_ROOT / "flow-experience-baseline.json", baseline_reconcile)
     owner_actions: list[str] = []

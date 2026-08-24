@@ -42,10 +42,10 @@ layer**. It keeps Codex model-native:
 
 | Product term | Target physical owner | Role |
 | --- | --- | --- |
-| **OPL Flow** | `gaofeng21cn/opl-flow` | Single public product, Codex Plugin/Profile, model and experience-baseline policy, six-action router, core workflow Skills, Ledger adapter, Git lifecycle, and Fleet engine |
+| **OPL Flow** | `gaofeng21cn/opl-flow` | Single public product, Codex Plugin/Profile, unified development Skills, model and experience-baseline policy, Ledger adapter, Git lifecycle, and Fleet engine |
 | **OPL Ledger** | OPL Flow module backed by Beads | Dynamic Program, slice, dependency, owner, task, checkpoint, and remaining state |
 | **OPL Fleet** | OPL Flow module | Agent-native distributed execution and task continuity: multi-machine join, compatible workspace currentness, lease/admission, execution adapters, and owner-safe continuation |
-| **OPL Skills** | `gaofeng21cn/opl-skills` | Optional, independently installable public enhancements |
+| **OPL Skills** | `gaofeng21cn/opl-skills` | Independently installable non-development public workflows |
 | **OPL Instance: `<owner>`** | one private repository per owner; for this owner `gaofeng21cn/opl-instance-gaofeng` | Private Ledger data, Fleet nodes/policy, repository governance, Operations Registry, private overlays, personal Skills, and sanitized receipts |
 | **OPL Personal Skills** | `skills/` inside the owner's OPL Instance | Private or personal Skill source; not a separate user-facing product |
 
@@ -119,7 +119,7 @@ Framework and App report three independent planes:
 2. `experience_baseline`: recommended research, Office, and extraction
    capabilities, where missing means `degraded` with a repair action;
 3. `specialized_capabilities`: optional capabilities such as
-   `architect-and-simplify`, where absence is normal.
+   external optional capabilities, where absence is normal.
 
 Only the first plane controls Flow callability. App consumes the generic
 Framework projection and never parses Flow policy or keeps a companion list.
@@ -368,9 +368,9 @@ executor reports the actual work result. The hourly supervisor may inspect and
 continue such work, but it is not a hidden general-purpose job scheduler.
 
 Dynamic composition has two separate meanings. OPL Flow installs one stable
-primary Skill plus bundled specialist Skills; Codex loads the specialist
-instructions only when task semantics route to them. Separately installed OPL
-Skills remain optional enhancements. The private Instance and Fleet runtime are
+primary Skill plus bundled development Skills; Codex loads each Skill's
+instructions only when task semantics route to it. Separately installed OPL
+Skills remain non-development workflows. The private Instance and Fleet runtime are
 consulted only for tasks with explicit remote resource requirements. Thus OPL
 Flow is the common operating layer without making every optional capability or
 machine backend a permanent context dependency.
@@ -460,7 +460,7 @@ controller, inbound SSH, Linear, or Fleet.
   Dolt parity.
 - **Implemented in 0.1.30 source:** the progressive `doctor/setup/tune/update/
   start/fleet` router, workflow policy v4 with three status planes, the sixth
-  bundled `opl-fleet` Skill, and capability-aware optional architecture routing.
+  bundled `opl-fleet` Skill, and bundled architecture routing.
 - **Pilot:** initialize one private Instance ledger and use one Operations
   Program before making Ledger a default onboarding dependency.
 - **Implemented in source:** a two-level qualification planner and receipt
@@ -530,7 +530,7 @@ The maintainer releases:
 
 1. OPL Flow: product code, schemas, migrations, core Skills, bootstrap, doctor,
    and compatibility tests.
-2. OPL Skills: optional enhancements on their own cadence.
+2. OPL Skills: reusable non-development workflows on their own cadence.
 3. OPL Instance: private data, policy, Operations Registry, and personal
    workflow changes, never public product code.
 

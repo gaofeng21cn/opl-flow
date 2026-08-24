@@ -1,0 +1,6 @@
+interface:
+  display_name: "Zoom Out"
+  short_description: "Reframe a problem and map its wider context"
+  default_prompt: "Use $zoom-out to step back, map the relevant system context, and question the current assumptions."
+policy:
+  allow_implicit_invocation: false

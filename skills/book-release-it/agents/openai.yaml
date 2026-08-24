@@ -1,0 +1,6 @@
+interface:
+  display_name: "Book Release It"
+  short_description: "Production reliability and release rules"
+  default_prompt: "Use $book-release-it to harden this runtime, release, CI, job, queue, or integration path."
+policy:
+  allow_implicit_invocation: true

@@ -1,0 +1,6 @@
+interface:
+  display_name: "Book Clean Architecture"
+  short_description: "Policy boundary and adapter rules"
+  default_prompt: "Use $book-clean-architecture to protect business policy from framework, database, UI, queue, and vendor details."
+policy:
+  allow_implicit_invocation: false

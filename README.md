@@ -136,13 +136,16 @@ claim that a model missing from the live Codex catalog is usable.
 - `specialized_capabilities`: optional enhancements are present or absent;
   absence is normal and has no repair requirement.
 
-Framework projects these planes generically. App consumes that projection and
-does not parse `workflow-policy.json` or maintain a second companion list.
+Framework projects these planes generically. For external Skills, that
+projection is read-only status and an owner-supported install hint; Framework
+does not copy or link their payloads into a second global Skill root. App
+consumes the projection and does not parse `workflow-policy.json` or maintain a
+second companion list.
 
 The ownership path is one-way:
 
 ```text
-Flow policy -> Framework compiler -> materialization/status/build lock -> App
+Flow policy -> Framework compiler -> status/owner hint/build lock -> App
 ```
 
 App first-run `recommended_skills` is therefore derived from the installed
@@ -288,21 +291,21 @@ stable identity and callability, not a shared ecosystem version lock. Exact
 commit and digest binding is limited to proving one immutable release candidate.
 
 The `opl-flow` Skill is the stable routing entrypoint, but capabilities are
-progressively loaded. Installing OPL Flow makes its bundled specialist Skills
+progressively loaded. Installing OPL Flow makes its bundled development Skills
 discoverable; it does not place all of their instructions in every task's
 context. The primary Skill routes by task meaning to `develop-and-deliver`,
 `coordinate-concurrent-tasks`, `opl-fleet`, or another specialist only when
-needed. Optional OPL Skills remain independently installed enhancements, and
+needed. Non-development OPL Skills remain independently installed, and
 Fleet activates only when a private Instance and an explicit remote resource
 request exist. One Flow installation can therefore serve a single-machine user
 and a multi-machine AI fleet without loading or configuring every backend.
 
-## Bundled Skills And Optional Enhancements
+## Bundled Skills
 
-OPL Flow `0.1.50` bundles nine core owner Skills and eleven focused specialist
-Skills with the Plugin. All twenty are part of the managed Package payload and
-become discoverable after installation; specialists load only when their narrow
-trigger applies.
+OPL Flow `0.1.52` bundles one unified development suite: nine core owner Skills,
+eleven reusable development methods and architecture/reliability lenses, and
+eleven focused specialists. All thirty-one are installed and updated with the
+Plugin; each loads only when its own trigger applies.
 
 The nine core owners are:
 
@@ -324,6 +327,11 @@ The nine core owners are:
   mutation boundaries;
 - `recover-codex-tasks` for evidence-based recovery of interrupted Codex work.
 
+The eleven reusable development Skills are `architect-and-simplify`,
+`zoom-out`, `improve-codebase-architecture`, `grill-with-docs`, `prototype`,
+and the six `book-*` architecture and reliability lenses. They are no longer a
+separately installed OPL Skills preset.
+
 The eleven focused specialists are:
 
 - `dsh-code-review` and `dsh-pre-push-checks` for live-base review and outgoing
@@ -333,8 +341,8 @@ The eleven focused specialists are:
   documentation-site, structure, prose, and authoring-leakage work under
   `opl-doc`;
 - `dsh-translate-docs` for explicitly invoked bilingual documentation pairs;
-- `dsh-find-simplifications` for evidence-backed simplification, routing to the
-  optional `architect-and-simplify` Skill when installed;
+- `dsh-find-simplifications` for evidence-backed simplification, routing to
+  `architect-and-simplify`;
 - `dsh-merging-stacked-prs` for GitHub-native stacked pull-request landing via
   the Framework-managed official `gh-stack` extension;
 - `record-browser-gif` for truthful browser demonstrations with deterministic
@@ -345,31 +353,12 @@ workflow system. OPL Flow does not adopt its fixed Agent Notes triplets, archive
 ledger, repository paths, or development methodology. Source provenance and
 the upstream MIT notice are recorded in `THIRD_PARTY_NOTICES.md`.
 
-[`gaofeng21cn/opl-skills`](https://github.com/gaofeng21cn/opl-skills) is the
-independently installable public enhancement pack. It supplies optional
-architecture, reliability, learning, and artifact workflows without becoming a
-runtime dependency of OPL Flow. `architect-and-simplify` remains optional: Flow
-routes to it when installed and otherwise lets Codex perform the architecture
-work directly without blocking the task.
-
-During an upgrade, Framework retires the former OPL Skills projections for the
-three moved core Skill IDs only when the Skills CLI lock proves the exact former
-`gaofeng21cn/opl-skills` source and path. A same-name directory with missing or
-different provenance is preserved as a collision and never removed by name.
-
-OPL Skills separates catalog categories from installation presets. Both its
-`development` methods and `architecture-lenses` are development-related, so
-Flow does not treat either category alone as the default enhancement set. Flow
-never uses wildcard installation. The named `development-complete` preset
-resolves to the explicit architecture/development methods
-`architect-and-simplify`, `zoom-out`,
-`improve-codebase-architecture`, `grill-with-docs`, and `prototype`, plus the
-six `book-*` architecture lenses. Setup passes those exact IDs to the
-OPL Skills owner-supported installer.
-
-A private OPL Instance may record the selected enhancement inventory for its
-Fleet. Each node still installs and updates from the component owner; Fleet
-checks capability presence without copying Skill bytes between machines.
+[`gaofeng21cn/opl-skills`](https://github.com/gaofeng21cn/opl-skills) now keeps
+only independently useful non-development workflows such as academic delivery,
+mail adapters, learning intake, and artifact evidence. They remain explicit
+user-level installs under `~/.codex/skills`; they are not part of Flow setup.
+OpenAI and third-party developer Skills continue through their native plugin or
+upstream owner instead of being copied into OPL Flow.
 
 ## Start In One Codex Action
 
@@ -417,11 +406,8 @@ Use $opl-flow doctor to inspect my effective Codex baseline.
 Use $opl-flow tune to optimize my AGENTS.md and model settings.
 ```
 
-To include the optional public enhancement pack in the same guided action:
-
-```text
-Use $opl-flow setup to initialize my development workflow and install the OPL Skills public enhancement pack.
-```
+OPL Skills is not a development pack. Install one of its non-development
+workflows separately, by explicit Skill ID, only when that workflow is needed.
 
 For an existing installation:
 

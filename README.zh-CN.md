@@ -89,7 +89,7 @@ flowchart LR
 默认能力的权威链只有一条：
 
 ```text
-Flow policy -> Framework compiler -> materialization/status/build lock -> App
+Flow policy -> Framework compiler -> status/owner hint/build lock -> App
 ```
 
 因此 App 首次运行的 `recommended_skills` 来自已安装 Flow strategy 的 Framework
@@ -101,15 +101,13 @@ Flow 推荐 `gpt-5.6-sol + max`。显式用户选择优先；OPL App 继续拥�
 模型控件、持久化和 Flow 缺席时的 fallback。Flow 不注入隐藏 prompt，也不会把
 实时 Codex catalog 中不存在的模型说成可用。
 
-## 内置 Skill 与增强包
-
-OPL Flow 和 OPL Skills 不是两套相互竞争的工作流，而是“核心产品 + 可选增强”
-的关系。
+## 内置 Skill
 
 ### OPL Flow 内置 Skill
 
-当前 `0.1.50` 随插件受管安装九个核心 owner Skill 和十一个聚焦的 specialist
-Skill，共二十个。安装后都可被 Codex 发现，但 specialist 只在窄触发条件命中时加载。
+当前 `0.1.52` 把第一方通用开发能力统一为一套插件载荷：九个核心 owner Skill、
+十一个开发方法与架构/可靠性 lens，以及十一个聚焦 specialist，共三十一个。它们随
+OPL Flow 一起安装和更新，但仍只在各自触发条件命中时加载。
 
 九个核心 owner Skill：
 
@@ -128,6 +126,10 @@ Skill，共二十个。安装后都可被 Codex 发现，但 specialist 只在�
 - `task-mode-gate`：真实发布、部署、迁移和破坏性写入边界；
 - `recover-codex-tasks`：基于证据恢复中断或缺失的 Codex 任务。
 
+十一个通用开发 Skill 是 `architect-and-simplify`、`zoom-out`、
+`improve-codebase-architecture`、`grill-with-docs`、`prototype` 和六个
+`book-*` lens；它们不再作为 OPL Skills 的第二套开发安装链。
+
 十一个 specialist Skill：
 
 - `dsh-code-review`、`dsh-pre-push-checks`：在 `develop-and-deliver` 之下完成
@@ -136,8 +138,8 @@ Skill，共二十个。安装后都可被 Codex 发现，但 specialist 只在�
   `dsh-prose-standard`、`dsh-trim-cot-leakage`：在 `opl-doc` 之下处理决策记录、
   文档站投影、文档结构、开发者 prose 和作者会话残留；
 - `dsh-translate-docs`：仅显式调用时处理双语文档对；
-- `dsh-find-simplifications`：做有调用者和 owner 证据的简化审计；已安装
-  `architect-and-simplify` 时优先路由给它；
+- `dsh-find-simplifications`：做有调用者和 owner 证据的简化审计，并路由给
+  `architect-and-simplify`；
 - `dsh-merging-stacked-prs`：只通过 Framework 管理的 GitHub 官方
   `gh-stack` 能力落地依赖 PR；
 - `record-browser-gif`：通过 Framework 成对检查的 `ffmpeg`/`ffprobe`
@@ -147,40 +149,10 @@ Skill，共二十个。安装后都可被 Codex 发现，但 specialist 只在�
 OPL Flow 不引入固定 Agent Notes 三文件、archive ledger、仓库专用路径或第二套开发
 方法论；来源和 MIT 许可证见 `THIRD_PARTY_NOTICES.md`。
 
-### OPL Skills 可选增强包
-
 公开仓库 [`gaofeng21cn/opl-skills`](https://github.com/gaofeng21cn/opl-skills)
-保存可以脱离 OPL Flow 独立使用的增强能力，例如架构简化、生产可靠性、学习和
-文档工作流。它按自己的节奏更新，不与 OPL Flow 绑定版本。
-
-`architect-and-simplify` 继续作为可选增强：已安装时按任务意图路由，未安装时由
-Codex 直接完成同类架构判断，不阻断任务。升级时，Framework 只有在 Skills CLI lock
-精确证明旧目录来自 `gaofeng21cn/opl-skills` 及对应路径时，才移出三个旧核心 Skill
-投影；无锁、来源不同或格式异常都会保留并报告冲突，不按同名目录删除。
-
-两者的联动方式很简单：
-
-1. OPL Flow 插件提供核心工作流；
-2. 用户需要增强能力时，从 OPL Skills 官方仓安装；
-3. Codex 在新会话中发现这些 Skill，并按任务语义自动选用；
-4. 私人 OPL Instance 可以记录个人选择的增强清单；
-5. Fleet 只检查各节点是否具备这些能力，实际安装和升级仍由每个来源自行完成。
-
-OPL Flow 不会在运行时复制 OPL Skills 的源码，也不会把整套增强包变成核心依赖。
-
-OPL Skills 的浏览分类与安装 preset 分离。`development` 方法和六个
-`architecture-lenses` 本质上都属于开发增强，因此 Flow 不会把任一单独分类当成
-默认增强集合，也不使用 wildcard 安装。具名 `development-complete` preset 会精确
-解析为五个开发/架构方法 Skill：
-`architect-and-simplify`、`zoom-out`、`improve-codebase-architecture`、
-`grill-with-docs`、`prototype`，以及六个 `book-*` 架构 lens。安装时由 Flow 将这些
-明确 ID 交给 OPL Skills 的 owner-supported route。
-
-也可以让 Codex 一次完成核心与增强配置：
-
-```text
-使用 $opl-flow setup 初始化我的开发工作流，并安装 OPL Skills 公开增强包。
-```
+只保留学术交付、邮件适配、外部学习和制品证据等非开发工作流，按需安装到
+`~/.codex/skills`。OpenAI 和第三方开发 Skill 继续使用其原生插件或上游安装方式，
+不复制进 OPL Flow。
 
 第一次建立总账与监督任务时，直接说：
 

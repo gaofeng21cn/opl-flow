@@ -5,9 +5,8 @@ description: Use when auditing a codebase for evidence-backed simplification can
 
 # Find Simplifications
 
-Use `$architect-and-simplify` when installed; otherwise apply the same evidence
-standard directly. A review or audit remains read-only unless the user asks to
-implement a selected candidate.
+Use the bundled `$architect-and-simplify` Skill. A review or audit remains
+read-only unless the user asks to implement a selected candidate.
 
 ## Ground The Survey
 

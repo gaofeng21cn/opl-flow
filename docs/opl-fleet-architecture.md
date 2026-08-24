@@ -169,8 +169,9 @@ replaced.
    mechanism.
 5. Nodes install and update components from their current owners. Fleet does
    not copy controller checkouts, credentials, sessions, or Skill trees.
-   Scheduled reconciliation repairs missing manifest-required components through
-   those declared owner install commands before publishing fresh admission state.
+   Scheduled reconciliation observes missing Skills and reports the declared
+   owner action; it does not invoke the Skills CLI's global route or create a
+   second user-level Skill root.
 6. Beads/Dolt owns durable task truth, GitHub owns delivery evidence, and Fleet
    owns admission/capacity. This prevents a second truth source.
 7. Unknown transport outcomes fail closed, and observability products remain

@@ -21,8 +21,8 @@ Read and report these independently:
 2. `experience_baseline`: the policy's default Skills and Tools. Missing or
    drifted items produce `degraded` plus an owner-supported repair route; Flow
    itself remains callable.
-3. `specialized_capabilities`: optional enhancements such as
-   `architect-and-simplify`. Absence is normal and has no repair requirement.
+3. `specialized_capabilities`: external optional capabilities. Absence is
+   normal and has no repair requirement.
 
 Do not infer any plane from another. A present Plugin does not prove companion
 currentness; a missing companion does not prove the Plugin is unusable.
@@ -83,10 +83,8 @@ The experience baseline is intentionally broad enough to establish the OPL App
 usage floor: internet research, Office documents, and document extraction. It
 is not a claim that every task requires those tools.
 
-Specialized development and architecture capabilities remain in OPL Skills.
-When `architect-and-simplify` is discovered, use it for architecture mapping or
-simplification. When absent, perform the same work model-natively and report
-the capability as optional, not degraded.
+Development and architecture capabilities are bundled with OPL Flow. Use
+`architect-and-simplify` for architecture mapping or simplification.
 
 The external `stop-that-shit` Plugin is an explicit optional Guard for covered
 Codex Hook events. Observe it separately from Flow's model-native Stop Ladder;

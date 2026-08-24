@@ -35,22 +35,17 @@ specialized capability absence, Profile state, Ledger state, and Fleet state.
 
 1. Update Flow with `opl packages update opl-flow --json`.
 2. Let Framework perform source-aware legacy migration and baseline repair.
-3. Update Beads, OPL Skills, and Fleet components only through their owners.
+3. Update Beads, non-development OPL Skills, and Fleet components only through
+   their owners when the requested environment uses them.
 4. Pull Dolt before Ledger mutation; push only after a coherent mutation.
 5. Restart or create a new Codex session only when executor discovery requires
    it, then verify the effective Skill IDs.
 
-## OPL Skills Presets
+## OPL Skills
 
-OPL Skills is an independent enhancement pack. Never install it with `-s '*'`.
-Read `gaofeng21cn/opl-skills:contracts/skill-catalog.json`, resolve the requested
-preset to explicit member IDs, and pass those IDs to the owner-supported
-`npx skills add ... -s <ids> -y` route.
-
-Use `development-complete` for the complete development enhancement set. It
-contains architecture workflows, prototype/grilling/zoom-out helpers, and all
-six book lenses. Catalog categories are browsing metadata, not mutually
-exclusive installation profiles.
+OPL Skills contains independently useful non-development workflows. Install
+only explicit requested Skill IDs through its owner route; Flow setup does not
+install it as a development pack.
 
 ## Mutation Boundaries
 

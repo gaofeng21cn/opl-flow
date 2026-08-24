@@ -31,7 +31,7 @@ STATE_ROOT = Path.home() / ".local/state/codex-fleet"
 
 INSTANCE_POINTER_PATH = Path.home() / ".config/opl-flow/instance.json"
 
-RUNNER_PATH = Path.home() / ".agents/skills/codex-machine-sync/scripts/codex_machine_sync.py"
+RUNNER_PATH = Path.home() / ".codex/skills/codex-machine-sync/scripts/codex_machine_sync.py"
 
 NODE_ID_PATTERN = re.compile(r"^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$")
 

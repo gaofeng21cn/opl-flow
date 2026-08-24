@@ -3,7 +3,7 @@
   "schema": "opl_flow_workflow_policy.v4",
   "package": {
     "id": "opl-flow",
-    "version": "0.1.51",
+    "version": "0.1.52",
     "owner": "opl-flow",
     "kind": "workflow_profile"
   },
@@ -124,6 +124,105 @@
       "owner": "opl-flow",
       "source": "https://github.com/gaofeng21cn/opl-flow",
       "source_path": "skills/develop-and-deliver",
+      "online_install_default": true,
+      "activation": "task_routed"
+    },
+    {
+      "id": "architect-and-simplify",
+      "kind": "codex_skill",
+      "owner": "opl-flow",
+      "source": "https://github.com/gaofeng21cn/opl-flow",
+      "source_path": "skills/architect-and-simplify",
+      "online_install_default": true,
+      "activation": "task_routed"
+    },
+    {
+      "id": "zoom-out",
+      "kind": "codex_skill",
+      "owner": "opl-flow",
+      "source": "https://github.com/gaofeng21cn/opl-flow",
+      "source_path": "skills/zoom-out",
+      "online_install_default": true,
+      "activation": "task_routed"
+    },
+    {
+      "id": "improve-codebase-architecture",
+      "kind": "codex_skill",
+      "owner": "opl-flow",
+      "source": "https://github.com/gaofeng21cn/opl-flow",
+      "source_path": "skills/improve-codebase-architecture",
+      "online_install_default": true,
+      "activation": "task_routed"
+    },
+    {
+      "id": "grill-with-docs",
+      "kind": "codex_skill",
+      "owner": "opl-flow",
+      "source": "https://github.com/gaofeng21cn/opl-flow",
+      "source_path": "skills/grill-with-docs",
+      "online_install_default": true,
+      "activation": "explicit"
+    },
+    {
+      "id": "prototype",
+      "kind": "codex_skill",
+      "owner": "opl-flow",
+      "source": "https://github.com/gaofeng21cn/opl-flow",
+      "source_path": "skills/prototype",
+      "online_install_default": true,
+      "activation": "task_routed"
+    },
+    {
+      "id": "book-aposd",
+      "kind": "codex_skill",
+      "owner": "opl-flow",
+      "source": "https://github.com/gaofeng21cn/opl-flow",
+      "source_path": "skills/book-aposd",
+      "online_install_default": true,
+      "activation": "explicit"
+    },
+    {
+      "id": "book-clean-architecture",
+      "kind": "codex_skill",
+      "owner": "opl-flow",
+      "source": "https://github.com/gaofeng21cn/opl-flow",
+      "source_path": "skills/book-clean-architecture",
+      "online_install_default": true,
+      "activation": "explicit"
+    },
+    {
+      "id": "book-ddia",
+      "kind": "codex_skill",
+      "owner": "opl-flow",
+      "source": "https://github.com/gaofeng21cn/opl-flow",
+      "source_path": "skills/book-ddia",
+      "online_install_default": true,
+      "activation": "task_routed"
+    },
+    {
+      "id": "book-domain-driven-design",
+      "kind": "codex_skill",
+      "owner": "opl-flow",
+      "source": "https://github.com/gaofeng21cn/opl-flow",
+      "source_path": "skills/book-domain-driven-design",
+      "online_install_default": true,
+      "activation": "explicit"
+    },
+    {
+      "id": "book-legacy-code",
+      "kind": "codex_skill",
+      "owner": "opl-flow",
+      "source": "https://github.com/gaofeng21cn/opl-flow",
+      "source_path": "skills/book-legacy-code",
+      "online_install_default": true,
+      "activation": "explicit"
+    },
+    {
+      "id": "book-release-it",
+      "kind": "codex_skill",
+      "owner": "opl-flow",
+      "source": "https://github.com/gaofeng21cn/opl-flow",
+      "source_path": "skills/book-release-it",
       "online_install_default": true,
       "activation": "task_routed"
     },
@@ -319,8 +418,8 @@
       "kind": "codex_skill",
       "owner": "iofficeai",
       "bundle_id": "office-authoring",
-      "install_source": "framework_git_projection",
-      "lifecycle_owner": "opl-framework",
+      "install_source": "owner_skills_cli",
+      "lifecycle_owner": "iofficeai",
       "online_install_default": true,
       "offline_bundle": "none",
       "activation": "task_routed",
@@ -335,8 +434,8 @@
       "kind": "codex_skill",
       "owner": "iofficeai",
       "bundle_id": "office-authoring",
-      "install_source": "framework_git_projection",
-      "lifecycle_owner": "opl-framework",
+      "install_source": "owner_skills_cli",
+      "lifecycle_owner": "iofficeai",
       "online_install_default": true,
       "offline_bundle": "none",
       "activation": "task_routed",
@@ -351,8 +450,8 @@
       "kind": "codex_skill",
       "owner": "iofficeai",
       "bundle_id": "office-authoring",
-      "install_source": "framework_git_projection",
-      "lifecycle_owner": "opl-framework",
+      "install_source": "owner_skills_cli",
+      "lifecycle_owner": "iofficeai",
       "online_install_default": true,
       "offline_bundle": "none",
       "activation": "task_routed",
@@ -367,8 +466,8 @@
       "kind": "codex_skill",
       "owner": "iofficeai",
       "bundle_id": "office-authoring",
-      "install_source": "framework_git_projection",
-      "lifecycle_owner": "opl-framework",
+      "install_source": "owner_skills_cli",
+      "lifecycle_owner": "iofficeai",
       "online_install_default": true,
       "offline_bundle": "none",
       "activation": "task_routed",
@@ -383,8 +482,8 @@
       "kind": "codex_skill",
       "owner": "iofficeai",
       "bundle_id": "office-authoring",
-      "install_source": "framework_git_projection",
-      "lifecycle_owner": "opl-framework",
+      "install_source": "owner_skills_cli",
+      "lifecycle_owner": "iofficeai",
       "online_install_default": true,
       "offline_bundle": "none",
       "activation": "task_routed",
@@ -399,8 +498,8 @@
       "kind": "codex_skill",
       "owner": "iofficeai",
       "bundle_id": "office-authoring",
-      "install_source": "framework_git_projection",
-      "lifecycle_owner": "opl-framework",
+      "install_source": "owner_skills_cli",
+      "lifecycle_owner": "iofficeai",
       "online_install_default": true,
       "offline_bundle": "none",
       "activation": "task_routed",
@@ -415,8 +514,8 @@
       "kind": "codex_skill",
       "owner": "iofficeai",
       "bundle_id": "office-authoring",
-      "install_source": "framework_git_projection",
-      "lifecycle_owner": "opl-framework",
+      "install_source": "owner_skills_cli",
+      "lifecycle_owner": "iofficeai",
       "online_install_default": true,
       "offline_bundle": "none",
       "activation": "task_routed",
@@ -431,8 +530,8 @@
       "kind": "codex_skill",
       "owner": "iofficeai",
       "bundle_id": "office-authoring",
-      "install_source": "framework_git_projection",
-      "lifecycle_owner": "opl-framework",
+      "install_source": "owner_skills_cli",
+      "lifecycle_owner": "iofficeai",
       "online_install_default": true,
       "offline_bundle": "none",
       "activation": "task_routed",
@@ -447,8 +546,8 @@
       "kind": "codex_skill",
       "owner": "mineru",
       "bundle_id": "document-extraction",
-      "install_source": "framework_git_projection",
-      "lifecycle_owner": "opl-framework",
+      "install_source": "owner_skills_cli",
+      "lifecycle_owner": "mineru",
       "online_install_default": true,
       "offline_bundle": "none",
       "activation": "task_routed",
@@ -520,18 +619,6 @@
     }
   ],
   "compatible_optional": [
-    {
-      "id": "architect-and-simplify",
-      "kind": "codex_skill",
-      "owner": "opl-skills",
-      "bundle_id": "architecture-enhancement",
-      "online_install_default": false,
-      "offline_bundle": "none",
-      "activation": "task_routed",
-      "readiness_adapter": "codex_skill_payload",
-      "source": "https://github.com/gaofeng21cn/opl-skills",
-      "source_path": "skills/architect-and-simplify"
-    },
     {
       "id": "openai-primary-runtime-office-pdf",
       "kind": "runtime_capability",
@@ -635,19 +722,6 @@
       }
     },
     {
-      "id": "architecture-enhancement",
-      "label": "Architecture enhancement",
-      "relationship": "compatible_optional",
-      "member_refs": ["codex_skill:architect-and-simplify"],
-      "online_materialization": "observe_only",
-      "full_distribution": "none",
-      "readiness": {
-        "aggregation": "observe_members",
-        "absence_effect": "optional_absent",
-        "repair_policy": "none"
-      }
-    },
-    {
       "id": "official-codex-office-runtime",
       "label": "Official Codex Office runtime",
       "relationship": "compatible_optional",
@@ -725,25 +799,6 @@
       "service_ids": [],
       "auto_retire_on_optimize": true,
       "reason": "The repository-local OPL Flow marketplace identity was replaced by the Framework-owned package identity."
-    },
-    {
-      "id": "opl-skills-core-workflow-projections",
-      "discovery_ids": ["develop-and-deliver", "recover-codex-tasks", "task-mode-gate"],
-      "config_markers": [],
-      "service_ids": [],
-      "skill_source": {
-        "discovery_root": "agent_skills",
-        "lock_file": "agent_skill_lock",
-        "source": "gaofeng21cn/opl-skills",
-        "source_url": "https://github.com/gaofeng21cn/opl-skills.git",
-        "skill_paths": {
-          "develop-and-deliver": "skills/develop-and-deliver/SKILL.md",
-          "recover-codex-tasks": "skills/recover-codex-tasks/SKILL.md",
-          "task-mode-gate": "skills/task-mode-gate/SKILL.md"
-        }
-      },
-      "auto_retire_on_optimize": true,
-      "reason": "These core workflow Skills moved from the optional OPL Skills pack into the OPL Flow package; retire only Skills CLI projections whose lock still proves the former owner."
     }
   ],
   "ledger_supervisor_policy": {
@@ -1063,7 +1118,6 @@
     "fresh_discovery_required": true,
     "discovery_root_ids": [
       "codex_skills",
-      "agent_skills",
       "skills_manager_skills",
       "codex_plugin_cache",
       "codex_plugin_staging",

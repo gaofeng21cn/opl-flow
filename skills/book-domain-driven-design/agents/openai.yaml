@@ -1,0 +1,6 @@
+interface:
+  display_name: "Book Domain-Driven Design"
+  short_description: "Domain modeling and bounded-context rules"
+  default_prompt: "Use $book-domain-driven-design to model domain language, owner boundaries, invariants, and cross-context integrations."
+policy:
+  allow_implicit_invocation: false
