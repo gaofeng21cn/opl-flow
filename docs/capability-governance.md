@@ -12,7 +12,7 @@ installed state, callability, publication, and release qualification.
 OPL Flow is the sole strategy owner for the default Codex working experience.
 The policy covers:
 
-- the user Profile and the unified thirty-one-Skill development payload;
+- the user Profile and three-router development payload;
 - recommended model and reasoning intent;
 - default Skills and Tools, their source owners, installation intent, and
   degradation behavior;
@@ -30,13 +30,11 @@ actions, and materializes a pinned Full build lock. It does not parse
 `workflow-policy.json`, choose the default capability set, or maintain a second
 recommended-Skill catalog.
 
-The development methods, lenses, and specialists are Package payload, not
-another recommendation catalog.
-They retain narrow direct invocation and discovery identities while delegating
-shared document semantics to `opl-doc`, shared delivery semantics to
-`develop-and-deliver`, and architecture judgment to `architect-and-simplify`.
-DeepSeek Harness remains a provenance
-source, not runtime or policy authority.
+Development methods, lenses, and specialists are internal Package references,
+not another recommendation catalog or a set of independently discoverable
+Skills. `software-development` loads one focused group only after the task
+matches; `manage-codex-tasks` does the same for coordination and recovery.
+DeepSeek Harness remains a provenance source, not runtime or policy authority.
 
 This is the lowest-cognition architecture because a default capability change
 has one authoring location and only generated consumers:
@@ -73,7 +71,7 @@ No reverse edge may make App or Framework policy the semantic owner.
 `contracts/workflow-policy.json` uses `opl_flow_workflow_policy.v4` and separates
 five concerns:
 
-1. `provides`: the Plugin/Profile and all thirty-one Flow-owned development Skills.
+1. `provides`: the Plugin and exactly three Flow-owned router Skills.
 2. `requires`: dependencies whose absence can make Flow itself non-operational.
 3. `experience_baseline`: default/recommended capabilities. Absence degrades
    the experience but never disables Flow, Ledger, or core Skills.
@@ -107,8 +105,8 @@ Full plan therefore contains exactly `cli:officecli` and
 `cli:mineru-open-api`. App source manifests may provide version or repository
 hints for a selected adapter, but they cannot add an item to this plan.
 
-The stacked-PR and GIF Skills remain Package-carried specialist entrypoints.
-Their external executables are baseline dependencies instead of copied Skill
+Stacked-PR and GIF support remain internal `software-development` references.
+Their external executables are baseline dependencies instead of copied tool
 payloads: Framework installs and reads back the official `gh-stack` extension,
 and considers `cli:ffmpeg` ready only when both `ffmpeg` and `ffprobe` run.
 
@@ -132,28 +130,20 @@ are never bundled.
 
 ## Development Skills And OPL Skills
 
-All OPL-owned Skills whose primary purpose is software development belong in
-OPL Flow and share its Plugin lifecycle. The nine core owners are:
+All OPL-owned software-development capability belongs in OPL Flow and shares
+one Plugin lifecycle. Discovery is deliberately limited to three routers:
 
-- `opl-flow`;
-- `coordinate-concurrent-tasks`;
-- `codex-app-owner-migration`;
-- `develop-and-deliver`;
-- `github-ssot-patrol`;
-- `opl-doc`;
-- `recover-codex-tasks`;
-- `task-mode-gate`;
-- `opl-fleet`.
+- `opl-flow`: Profile, capability baseline, Package, Ledger, and Fleet;
+- `software-development`: delivery, review, architecture and simplification,
+  systems/reliability, docs, GitHub, prototype, browser evidence, and
+  production changes;
+- `manage-codex-tasks`: coordination, integration, recovery, archive-readiness,
+  and execution-owner migration.
 
-The reusable development set is:
-
-- `architect-and-simplify`, `zoom-out`,
-  `improve-codebase-architecture`, `grill-with-docs`, and `prototype`;
-- all six `book-*` architecture and reliability lenses.
-
-These Skills and the eleven focused specialists are bundled in the same Plugin.
-OPL Skills retains only non-development reusable workflows and has no
-development preset or second installation route.
+Former direct-entry Skills are preserved only as focused references and scripts
+under those routers. They have no aliases or independent trigger metadata. OPL
+Skills retains only non-development reusable workflows and has no development
+preset or second installation route.
 
 ## Model And Profile
 
@@ -176,7 +166,7 @@ Flow never injects a hidden base prompt.
 ## Install, Setup, And Start
 
 Package installation, update, and repair deploy capabilities only. They may
-install the Flow Plugin/Profile/core Skills and materialize the current
+install the Flow Plugin/Profile/router Skills and materialize the current
 experience baseline. They must not create a Dashboard, Bead, Linear Project,
 or Automation.
 

@@ -105,48 +105,21 @@ Flow 推荐 `gpt-5.6-sol + max`。显式用户选择优先；OPL App 继续拥�
 
 ### OPL Flow 内置 Skill
 
-当前 `0.1.54` 把第一方通用开发能力统一为一套插件载荷：九个核心 owner Skill、
-十一个开发方法与架构/可靠性 lens，以及十一个聚焦 specialist，共三十一个。它们随
-OPL Flow 一起安装和更新。其中十四个通用路由和开发 Skill 可按任务语义自动发现，
-十七个窄用途或显式工作流只在按名调用时加载，不进入普通任务的自动发现上下文。
+当前 `0.1.55` 把完整能力收敛在同一个插件、三个可发现路由 Skill 下：
 
-九个核心 owner Skill：
+- `opl-flow`：Profile、能力基线、Package、Ledger 和 Fleet 产品操作；
+- `software-development`：按需路由非平凡开发交付、评审、架构与简化、系统与可靠性、
+  开发文档、GitHub/PR、原型、浏览器证据和生产变更；
+- `manage-codex-tasks`：按需路由多任务协调、fresh-main 集成、任务恢复、归档就绪检查
+  和执行 owner 迁移。
 
-- `opl-flow`：渐进加载的主入口，固定路由
-  `doctor/setup/tune/update/release-package/start/fleet`；
-- `coordinate-concurrent-tasks`：多任务、多对话和多 worktree 的并发协调；
-- `codex-app-owner-migration`：通过 Codex App 原生可见任务迁移执行 owner，要求完整
-  workspace 准入、目标任务 readback，并在迁移失败时保持本机 owner 继续执行；
-- `develop-and-deliver`：系统化开发、验证与交付；
-- `github-ssot-patrol`：基于最新 SSOT 的 GitHub CI、open PR 与 open issue
-  巡检，提供确定性的只读快照与收口；
-- `opl-doc`：以 live repo truth 为依据做开发文档语义治理，不强制固定目录，也不建立
-  第二套工作总账；
-- `opl-fleet`：私人 Instance 支撑的 Agent 原生多机 workspace currentness、节点准入、
-  受保护执行、任务连续性和分发；
-- `task-mode-gate`：真实发布、部署、迁移和破坏性写入边界；
-- `recover-codex-tasks`：基于证据恢复中断或缺失的 Codex 任务。
+原来的开发方法、架构/可靠性 lens 和 specialist 能力仍随 OPL Flow 安装和更新，但
+现在是三个路由下的内部 references 与脚本，不再各自暴露 Skill identity、自动触发
+描述或旧名称 alias。普通小改继续由模型直接完成；只有任务命中某个路由后，才加载
+当前模式真正需要的详细指导。因此能力没有缩水，而非开发用户的常驻 discovery 面从
+三十一个入口降为三个。
 
-十一个通用开发 Skill 是 `architect-and-simplify`、`zoom-out`、
-`improve-codebase-architecture`、`grill-with-docs`、`prototype` 和六个
-`book-*` lens；它们不再作为 OPL Skills 的第二套开发安装链。
-
-十一个 specialist Skill：
-
-- `dsh-code-review`、`dsh-pre-push-checks`：在 `develop-and-deliver` 之下完成
-  live base 代码审查和推送前证据选择；
-- `dsh-archive-agent-notes`、`dsh-doc-site-sync`、`dsh-doc-standards`、
-  `dsh-prose-standard`、`dsh-trim-cot-leakage`：在 `opl-doc` 之下处理决策记录、
-  文档站投影、文档结构、开发者 prose 和作者会话残留；
-- `dsh-translate-docs`：仅显式调用时处理双语文档对；
-- `dsh-find-simplifications`：做有调用者和 owner 证据的简化审计，并路由给
-  `architect-and-simplify`；
-- `dsh-merging-stacked-prs`：只通过 Framework 管理的 GitHub 官方
-  `gh-stack` 能力落地依赖 PR；
-- `record-browser-gif`：通过 Framework 成对检查的 `ffmpeg`/`ffprobe`
-  从真实浏览器流程生成并验证确定性的 GIF 证据。
-
-这些是对 DeepSeek Harness 专业能力的 OPL 适配，不是把它的整套工作流搬进来。
+其中部分能力是对 DeepSeek Harness 专业能力的 OPL 适配，不是把它的整套工作流搬进来。
 OPL Flow 不引入固定 Agent Notes 三文件、archive ledger、仓库专用路径或第二套开发
 方法论；来源和 MIT 许可证见 `THIRD_PARTY_NOTICES.md`。
 

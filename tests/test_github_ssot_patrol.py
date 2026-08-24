@@ -9,7 +9,8 @@ from unittest.mock import patch
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 SCRIPT_PATH = (
-    REPO_ROOT / "skills" / "github-ssot-patrol" / "scripts" / "github_patrol.py"
+    REPO_ROOT
+    / "skills/software-development/references/github/patrol/github_patrol.py"
 )
 SPEC = importlib.util.spec_from_file_location("github_patrol", SCRIPT_PATH)
 assert SPEC is not None and SPEC.loader is not None

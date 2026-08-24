@@ -1,4 +1,0 @@
-interface:
-  display_name: "OPL Fleet"
-  short_description: "Coordinate Instance-backed machines"
-  default_prompt: "Use $opl-fleet to inspect my Fleet, verify node admission, and choose the correct execution route."

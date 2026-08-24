@@ -11,56 +11,10 @@ import sys
 from pathlib import Path, PurePosixPath
 
 
-CORE_SKILL_IDS = (
-    "coordinate-concurrent-tasks",
-    "codex-app-owner-migration",
-    "develop-and-deliver",
-    "github-ssot-patrol",
-    "opl-doc",
-    "opl-fleet",
+ROUTER_SKILL_IDS = (
     "opl-flow",
-    "recover-codex-tasks",
-    "task-mode-gate",
-)
-
-DEVELOPMENT_SKILL_IDS = (
-    "architect-and-simplify",
-    "zoom-out",
-    "improve-codebase-architecture",
-    "grill-with-docs",
-    "prototype",
-    "book-aposd",
-    "book-clean-architecture",
-    "book-ddia",
-    "book-domain-driven-design",
-    "book-legacy-code",
-    "book-release-it",
-)
-
-SPECIALIST_SKILL_IDS = (
-    "dsh-archive-agent-notes",
-    "dsh-code-review",
-    "dsh-doc-site-sync",
-    "dsh-doc-standards",
-    "dsh-find-simplifications",
-    "dsh-merging-stacked-prs",
-    "dsh-pre-push-checks",
-    "dsh-prose-standard",
-    "dsh-translate-docs",
-    "dsh-trim-cot-leakage",
-    "record-browser-gif",
-)
-
-BUNDLED_SKILL_IDS = CORE_SKILL_IDS + DEVELOPMENT_SKILL_IDS + SPECIALIST_SKILL_IDS
-
-EXPLICIT_ONLY_SKILL_IDS = (
-    "zoom-out",
-    "grill-with-docs",
-    "book-aposd",
-    "book-clean-architecture",
-    "book-domain-driven-design",
-    "book-legacy-code",
-    *SPECIALIST_SKILL_IDS,
+    "software-development",
+    "manage-codex-tasks",
 )
 
 REQUIRED_FILES = (
@@ -74,20 +28,6 @@ REQUIRED_FILES = (
     "contracts/worktree-ownership-ledger.schema.json",
     "LICENSE",
     "THIRD_PARTY_NOTICES.md",
-    "skills/coordinate-concurrent-tasks/SKILL.md",
-    "skills/coordinate-concurrent-tasks/agents/openai.yaml",
-    "skills/codex-app-owner-migration/SKILL.md",
-    "skills/codex-app-owner-migration/agents/openai.yaml",
-    "skills/develop-and-deliver/SKILL.md",
-    "skills/develop-and-deliver/agents/openai.yaml",
-    "skills/github-ssot-patrol/SKILL.md",
-    "skills/github-ssot-patrol/agents/openai.yaml",
-    "skills/github-ssot-patrol/references/decision-contract.md",
-    "skills/github-ssot-patrol/scripts/github_patrol.py",
-    "skills/opl-doc/SKILL.md",
-    "skills/opl-doc/agents/openai.yaml",
-    "skills/opl-fleet/SKILL.md",
-    "skills/opl-fleet/agents/openai.yaml",
     "skills/opl-flow/SKILL.md",
     "skills/opl-flow/agents/openai.yaml",
     "skills/opl-flow/references/app-integration.md",
@@ -98,34 +38,24 @@ REQUIRED_FILES = (
     "skills/opl-flow/references/package-release.md",
     "skills/opl-flow/references/setup-update.md",
     "skills/opl-flow/references/terminal-readback.md",
+    "skills/opl-flow/references/fleet/guide.md",
     "skills/opl-flow/scripts/package_release.py",
-    "skills/recover-codex-tasks/SKILL.md",
-    "skills/recover-codex-tasks/agents/openai.yaml",
-    "skills/task-mode-gate/SKILL.md",
-    "skills/task-mode-gate/agents/openai.yaml",
-    "skills/dsh-archive-agent-notes/SKILL.md",
-    "skills/dsh-archive-agent-notes/agents/openai.yaml",
-    "skills/dsh-code-review/SKILL.md",
-    "skills/dsh-code-review/agents/openai.yaml",
-    "skills/dsh-doc-site-sync/SKILL.md",
-    "skills/dsh-doc-site-sync/agents/openai.yaml",
-    "skills/dsh-doc-standards/SKILL.md",
-    "skills/dsh-doc-standards/agents/openai.yaml",
-    "skills/dsh-find-simplifications/SKILL.md",
-    "skills/dsh-find-simplifications/agents/openai.yaml",
-    "skills/dsh-merging-stacked-prs/SKILL.md",
-    "skills/dsh-merging-stacked-prs/agents/openai.yaml",
-    "skills/dsh-pre-push-checks/SKILL.md",
-    "skills/dsh-pre-push-checks/agents/openai.yaml",
-    "skills/dsh-prose-standard/SKILL.md",
-    "skills/dsh-prose-standard/agents/openai.yaml",
-    "skills/dsh-translate-docs/SKILL.md",
-    "skills/dsh-translate-docs/agents/openai.yaml",
-    "skills/dsh-trim-cot-leakage/SKILL.md",
-    "skills/dsh-trim-cot-leakage/agents/openai.yaml",
-    "skills/record-browser-gif/SKILL.md",
-    "skills/record-browser-gif/agents/openai.yaml",
-    "skills/record-browser-gif/scripts/encode_gif.py",
+    "skills/software-development/SKILL.md",
+    "skills/software-development/agents/openai.yaml",
+    "skills/software-development/references/delivery/guide.md",
+    "skills/software-development/references/delivery/production-change.md",
+    "skills/software-development/references/architecture/guide.md",
+    "skills/software-development/references/docs/governance.md",
+    "skills/software-development/references/github/patrol/guide.md",
+    "skills/software-development/references/github/patrol/decision-contract.md",
+    "skills/software-development/references/github/patrol/github_patrol.py",
+    "skills/software-development/references/browser-evidence/guide.md",
+    "skills/software-development/references/browser-evidence/encode_gif.py",
+    "skills/manage-codex-tasks/SKILL.md",
+    "skills/manage-codex-tasks/agents/openai.yaml",
+    "skills/manage-codex-tasks/references/coordinate.md",
+    "skills/manage-codex-tasks/references/recover.md",
+    "skills/manage-codex-tasks/references/migrate-owner.md",
     "templates/AGENTS.md",
     "templates/TASTE.md",
     "scripts/worktree_absorption_audit.py",
@@ -176,12 +106,33 @@ def check_plugin_json(repo_root: Path) -> list[str]:
         errors.append("plugin name must be opl-flow")
     if manifest.get("skills") != "./skills/":
         errors.append("plugin skills path must be ./skills/")
-    discoverable_skills = {
-        path.name for path in (repo_root / "skills").iterdir()
-        if path.is_dir() and (path / "SKILL.md").exists()
+    discoverable_skill_paths = {
+        path.relative_to(repo_root).as_posix()
+        for path in (repo_root / "skills").rglob("SKILL.md")
     }
-    if discoverable_skills != set(BUNDLED_SKILL_IDS):
-        errors.append("default plugin must expose the unified OPL Flow development Skill payload")
+    expected_skill_paths = {
+        f"skills/{skill_id}/SKILL.md" for skill_id in ROUTER_SKILL_IDS
+    }
+    if discoverable_skill_paths != expected_skill_paths:
+        errors.append("default plugin must expose exactly the three OPL Flow router Skills")
+    internal_references_with_skill_frontmatter = []
+    for router_id in ROUTER_SKILL_IDS:
+        references_root = repo_root / "skills" / router_id / "references"
+        for path in references_root.rglob("*.md"):
+            content = path.read_text(encoding="utf-8")
+            if re.match(
+                r"\A---\s*\n(?=[\s\S]*?\n---\s*\n)(?=[\s\S]*?^name:\s*)(?=[\s\S]*?^description:\s*)",
+                content,
+                flags=re.MULTILINE,
+            ):
+                internal_references_with_skill_frontmatter.append(
+                    path.relative_to(repo_root).as_posix()
+                )
+    if internal_references_with_skill_frontmatter:
+        errors.append(
+            "internal references must not contain discoverable Skill frontmatter: "
+            + ", ".join(sorted(internal_references_with_skill_frontmatter))
+        )
     marketplace = json.loads(
         (repo_root / ".agents" / "plugins" / "marketplace.json").read_text(encoding="utf-8")
     )
@@ -195,16 +146,6 @@ def check_plugin_json(repo_root: Path) -> list[str]:
     )
     if selector != "opl-flow@opl-flow":
         errors.append("package carrier selector must be opl-flow@opl-flow")
-    explicit_only = {
-        skill_id
-        for skill_id in BUNDLED_SKILL_IDS
-        if (
-            (metadata_path := repo_root / "skills" / skill_id / "agents" / "openai.yaml").exists()
-            and "allow_implicit_invocation: false" in metadata_path.read_text(encoding="utf-8")
-        )
-    }
-    if explicit_only != set(EXPLICIT_ONLY_SKILL_IDS):
-        errors.append("exactly the narrow OPL Flow Skills must be explicit-only")
     policy = json.loads((repo_root / "contracts" / "workflow-policy.json").read_text(encoding="utf-8"))
     if manifest.get("version") != policy.get("package", {}).get("version"):
         errors.append("plugin version must match contracts/workflow-policy.json package.version")
@@ -278,11 +219,11 @@ def check_workflow_policy(repo_root: Path) -> list[str]:
                 "scope": "bounded_observation_and_requested_alerts",
             },
         ],
-        "task_mode_gate_handoff": {
-            "skill_id": "task-mode-gate",
+        "production_change_handoff": {
+            "router_skill_id": "software-development",
+            "reference": "references/delivery/production-change.md",
             "precondition": "stop_ladder_supported_reason_and_high_risk_mutation",
-            "relationship": "stop_ladder_then_gate",
-            "gate_authority": "task-mode-gate",
+            "relationship": "stop_ladder_then_reference",
         },
         "repair_progress_policy": {
             "known_breakpoint_next_action": "owner_side_repair_or_delivery_bridge",
@@ -300,7 +241,7 @@ def check_workflow_policy(repo_root: Path) -> list[str]:
     }
     if policy.get("task_boundary_policy") != expected_task_boundary_policy:
         errors.append(
-            "workflow policy task boundary policy must keep the Stop Ladder, four task modes, and task-mode-gate handoff fixed"
+            "workflow policy task boundary policy must keep the Stop Ladder, four task modes, and production-change handoff fixed"
         )
     expected_external_artifact_language_policy = {
         "authority_order": [
@@ -358,7 +299,7 @@ def check_workflow_policy(repo_root: Path) -> list[str]:
         )
     expected_provides = {
         ("codex_plugin", "opl-flow"),
-        *(("codex_skill", skill_id) for skill_id in BUNDLED_SKILL_IDS),
+        *(("codex_skill", skill_id) for skill_id in ROUTER_SKILL_IDS),
     }
     provides = policy.get("provides", [])
     if {(item.get("kind"), item.get("id")) for item in provides} != expected_provides:
@@ -369,55 +310,12 @@ def check_workflow_policy(repo_root: Path) -> list[str]:
         if item.get("kind") == "codex_skill"
     }
     expected_provided_skill_sources = {
-        "opl-flow": (
-            "https://github.com/gaofeng21cn/opl-flow",
-            "skills/opl-flow",
-        ),
-        "coordinate-concurrent-tasks": (
-            "https://github.com/gaofeng21cn/opl-flow",
-            "skills/coordinate-concurrent-tasks",
-        ),
-        "codex-app-owner-migration": (
-            "https://github.com/gaofeng21cn/opl-flow",
-            "skills/codex-app-owner-migration",
-        ),
-        "develop-and-deliver": (
-            "https://github.com/gaofeng21cn/opl-flow",
-            "skills/develop-and-deliver",
-        ),
         **{
             skill_id: (
                 "https://github.com/gaofeng21cn/opl-flow",
                 f"skills/{skill_id}",
             )
-            for skill_id in DEVELOPMENT_SKILL_IDS
-        },
-        "github-ssot-patrol": (
-            "https://github.com/gaofeng21cn/opl-flow",
-            "skills/github-ssot-patrol",
-        ),
-        "opl-doc": (
-            "https://github.com/gaofeng21cn/opl-flow",
-            "skills/opl-doc",
-        ),
-        "opl-fleet": (
-            "https://github.com/gaofeng21cn/opl-flow",
-            "skills/opl-fleet",
-        ),
-        "recover-codex-tasks": (
-            "https://github.com/gaofeng21cn/opl-flow",
-            "skills/recover-codex-tasks",
-        ),
-        "task-mode-gate": (
-            "https://github.com/gaofeng21cn/opl-flow",
-            "skills/task-mode-gate",
-        ),
-        **{
-            skill_id: (
-                "https://github.com/gaofeng21cn/opl-flow",
-                f"skills/{skill_id}",
-            )
-            for skill_id in SPECIALIST_SKILL_IDS
+            for skill_id in ROUTER_SKILL_IDS
         },
     }
     if provided_skill_sources != expected_provided_skill_sources:

@@ -1,4 +1,4 @@
 interface:
   display_name: "OPL Flow"
-  short_description: "Configure and coordinate Codex work"
+  short_description: "Operate the OPL Flow product surface"
   default_prompt: "Use $opl-flow doctor to check my Codex baseline, or $opl-flow start for idempotent Ledger onboarding."

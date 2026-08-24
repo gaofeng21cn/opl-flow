@@ -290,70 +290,39 @@ OPL Packages and capabilities update independently. Normal dependencies use a
 stable identity and callability, not a shared ecosystem version lock. Exact
 commit and digest binding is limited to proving one immutable release candidate.
 
-The `opl-flow` Skill is the stable routing entrypoint, but capabilities are
-progressively loaded. Installing OPL Flow makes its bundled development Skills
-discoverable; it does not place all of their instructions in every task's
-context. The primary Skill routes by task meaning to `develop-and-deliver`,
-`coordinate-concurrent-tasks`, `opl-fleet`, or another specialist only when
-needed. Non-development OPL Skills remain independently installed, and
-Fleet activates only when a private Instance and an explicit remote resource
-request exist. One Flow installation can therefore serve a single-machine user
-and a multi-machine AI fleet without loading or configuring every backend.
+OPL Flow exposes three stable routing Skills and progressively loads their
+internal references. Installing the Plugin makes only `opl-flow`,
+`software-development`, and `manage-codex-tasks` discoverable; delivery,
+review, architecture, documentation, GitHub, release, Fleet, and recovery
+instructions enter context only after the matching router is selected.
+Non-development OPL Skills remain independently installed, and Fleet activates
+only when a private Instance and an explicit remote-resource request exist. One
+Flow installation can therefore serve non-developers and a multi-machine
+development fleet without advertising every internal method as a separate
+Skill.
 
 ## Bundled Skills
 
-OPL Flow `0.1.54` bundles one unified development suite: nine core owner Skills,
-eleven reusable development methods and architecture/reliability lenses, and
-eleven focused specialists. All thirty-one are installed and updated with the
-Plugin. Fourteen broad routing and development Skills may be discovered by task
-meaning; the seventeen narrow or explicit workflows remain available by name
-without entering ordinary task discovery.
+OPL Flow bundles the full suite behind three discoverable routers:
 
-The nine core owners are:
+- `opl-flow` owns Profile, capability-baseline, Package, Ledger, and Fleet
+  product operations;
+- `software-development` routes non-trivial delivery, review, architecture and
+  simplification, systems/reliability, developer documentation, GitHub patrol
+  and stacked PRs, prototypes, browser evidence, and production changes;
+- `manage-codex-tasks` routes multi-task coordination, fresh-main integration,
+  interrupted-task recovery, archive-readiness review, and execution-owner
+  migration.
 
-- `opl-flow` as the progressive primary router for `doctor`, `setup`, `tune`,
-  `update`, `release-package`, `start`, and `fleet`;
-- `coordinate-concurrent-tasks` for concurrent tasks, conversations, and Git
-  worktrees;
-- `codex-app-owner-migration` for task-level owner migration through a native,
-  user-visible Codex App task, with complete workspace admission and local
-  fallback;
-- `develop-and-deliver` for systematic implementation and delivery;
-- `github-ssot-patrol` for SSOT-first GitHub CI, open PR, and open issue
-  patrols with deterministic read-only snapshots and closeout;
-- `opl-doc` for semantic developer-document governance grounded in live repo
-  truth, without a fixed document layout or a second work ledger;
-- `opl-fleet` for Agent-native multi-machine workspace currentness, node
-  admission, protected execution, task continuity, and dispatch;
-- `task-mode-gate` for actual release, deployment, migration, and destructive
-  mutation boundaries;
-- `recover-codex-tasks` for evidence-based recovery of interrupted Codex work.
-
-The eleven reusable development Skills are `architect-and-simplify`,
-`zoom-out`, `improve-codebase-architecture`, `grill-with-docs`, `prototype`,
-and the six `book-*` architecture and reliability lenses. They are no longer a
-separately installed OPL Skills preset.
-
-The eleven focused specialists are:
-
-- `dsh-code-review` and `dsh-pre-push-checks` for live-base review and outgoing
-  evidence selection under `develop-and-deliver`;
-- `dsh-archive-agent-notes`, `dsh-doc-site-sync`, `dsh-doc-standards`,
-  `dsh-prose-standard`, and `dsh-trim-cot-leakage` for decision-record,
-  documentation-site, structure, prose, and authoring-leakage work under
-  `opl-doc`;
-- `dsh-translate-docs` for explicitly invoked bilingual documentation pairs;
-- `dsh-find-simplifications` for evidence-backed simplification, routing to
-  `architect-and-simplify`;
-- `dsh-merging-stacked-prs` for GitHub-native stacked pull-request landing via
-  the Framework-managed official `gh-stack` extension;
-- `record-browser-gif` for truthful browser demonstrations with deterministic
-  GIF encoding through Framework-paired `ffmpeg`/`ffprobe` readiness.
-
-These are adaptations of DeepSeek Harness capabilities, not a second imported
-workflow system. OPL Flow does not adopt its fixed Agent Notes triplets, archive
-ledger, repository paths, or development methodology. Source provenance and
-the upstream MIT notice are recorded in `THIRD_PARTY_NOTICES.md`.
+The former top-level development and specialist Skills now live as focused
+references and scripts under those routers. Their implementation depth and
+external tool dependencies are preserved, but they no longer have independent
+discovery metadata, implicit triggers, or aliases. DeepSeek Harness remains a
+provenance source for adapted review, documentation, simplification, stacked-PR,
+and browser-evidence methods, not a second workflow system. OPL Flow does not
+adopt its fixed Agent Notes triplets, archive ledger, repository paths, or
+development methodology. Source provenance and the upstream MIT notice are
+recorded in `THIRD_PARTY_NOTICES.md`.
 
 [`gaofeng21cn/opl-skills`](https://github.com/gaofeng21cn/opl-skills) now keeps
 only independently useful non-development workflows such as academic delivery,

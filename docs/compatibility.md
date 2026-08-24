@@ -24,14 +24,10 @@ executor-neutral 的 Package identity、Profile、偏好和公共 status/actions
 | GHCR publication | Flow owner 的官方 Package bytes 和 `latest-stable` source。 | 本机 carrier、install/update/remove 或 installed truth。 |
 | Codex Plugin Manager | 当前正式 Plugin/config/cache carrier adapter。 | Flow identity、完整 Package authority、其他 carrier 或生态 currentness。 |
 | Git/local neutral proof | 验证公共 Package/status/action 合同不需要 Codex 私有字段。 | 第二个正式 carrier、第二 executor 产品或 ordinary currentness。 |
-| `skills/coordinate-concurrent-tasks` | 有界协调现有 owner、fresh-main integration 和 archive-readiness review。 | Git/release/package mutation authority 或自动 archive。 |
-| `skills/develop-and-deliver` | 多步骤软件实现、验证、fresh-main 吸收与真实交付。 | 领域 truth、发布授权或独立 Package lifecycle。 |
-| `skills/github-ssot-patrol` | 基于 fresh SSOT 巡检 GitHub CI、open PR 和 open issue，并确定性收口。 | GitHub mutation 授权、产品 truth 或自动合并。 |
-| `skills/opl-doc` | 以 live repo truth 治理开发文档语义、唯一 owner 和 stale surface。 | Consumer repo truth、固定文档布局或第二套工作总账。 |
-| `skills/task-mode-gate` | 约束真实发布、部署、迁移、公共或破坏性 mutation。 | 普通开发方法论或只读任务门禁。 |
-| `skills/recover-codex-tasks` | 基于本机任务数据库和证据恢复中断工作。 | 伪造任务状态、外部 authority 或自动归档。 |
-| 11 个 bundled development methods/lenses | 提供架构梳理、原型、计划拷问和六个架构/可靠性 lens。 | 第二条用户级开发 Skill 安装链。 |
-| 11 个 bundled specialist Skills | 提供代码审查、pre-push、文档站、文档结构、决策记录、prose、显式双语翻译、authoring leakage、简化、stacked PR 和浏览器 GIF 能力；`gh-stack` 与成对的 `ffmpeg`/`ffprobe` 由 Framework baseline 安装管理。 | 第二套开发方法论、DeepSeek Harness Agent Notes/归档 ledger，或每个任务预加载全部方法。 |
+| `skills/opl-flow` | 路由 Profile、capability baseline、Package、Ledger 和 Fleet 产品操作。 | 普通软件开发、Codex task 管理或 private Instance state。 |
+| `skills/software-development` | 按需加载 delivery、review、architecture、systems、docs、GitHub、prototype、browser evidence 和 production-change references。 | 领域 truth、自动发布授权或每个任务预加载全部方法。 |
+| `skills/manage-codex-tasks` | 路由多任务协调、fresh-main integration、任务恢复、archive-readiness 和 owner migration。 | Git/release/package mutation authority、伪造任务状态或自动 archive。 |
+| 内部 development references | 保留原有架构 lens、审查、pre-push、文档、简化、stacked PR 和浏览器 GIF 深度；`gh-stack` 与成对的 `ffmpeg`/`ffprobe` 仍由 Framework baseline 管理。 | 独立 Skill identity、第二条安装链或普通任务的 discovery metadata。 |
 | Ponytail | Retired conflict: hooks 和 broad main persona 不属于最小 Flow Profile。 | 独立显式安装的 audit/review capability。 |
 | OPL App | 可选 GUI；一个 Official Profile 和统一状态展示。 | Flow policy parser、companion list、Package lifecycle 或 installed mirror。 |
 | OPL Base / Framework | 编译 Flow policy，生成 generic materialization/status/build-lock projection，调用 owner adapter，并完成 fresh readback。 | 决定默认能力语义、维护第二份静态 catalog 或让 App profile 反向定义 Flow。 |
@@ -43,28 +39,8 @@ Flow Package 可以暴露：
 - `~/.codex/AGENTS.md` minimal runtime Profile；
 - `~/.codex/TASTE.md` non-runtime authoring source；
 - `skills/opl-flow`；
-- `skills/codex-app-owner-migration`；
-- `skills/coordinate-concurrent-tasks`；
-- `skills/develop-and-deliver`；
-- `skills/architect-and-simplify`、`skills/zoom-out`、
-  `skills/improve-codebase-architecture`、`skills/grill-with-docs`、
-  `skills/prototype` 与六个 `skills/book-*` lens；
-- `skills/github-ssot-patrol`；
-- `skills/opl-doc`；
-- `skills/task-mode-gate`；
-- `skills/recover-codex-tasks`；
-- `skills/opl-fleet`；
-- `skills/dsh-archive-agent-notes`；
-- `skills/dsh-code-review`；
-- `skills/dsh-doc-site-sync`；
-- `skills/dsh-doc-standards`；
-- `skills/dsh-find-simplifications`；
-- `skills/dsh-merging-stacked-prs`；
-- `skills/dsh-pre-push-checks`；
-- `skills/dsh-prose-standard`；
-- `skills/dsh-translate-docs`；
-- `skills/dsh-trim-cot-leakage`；
-- `skills/record-browser-gif`；
+- `skills/software-development`，其下内聚开发 references 与脚本；
+- `skills/manage-codex-tasks`，其下内聚协调、恢复和迁移 references；
 - model recommendation 和其他 stable capability identities。
 
 这些 capability 不是独立 OPL install objects。App 不解析

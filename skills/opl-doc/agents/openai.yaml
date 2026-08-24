@@ -1,4 +1,0 @@
-interface:
-  display_name: "OPL Doc"
-  short_description: "Keep developer docs aligned with live repo truth"
-  default_prompt: "Use $opl-doc to align this repository documentation with its live sources of truth."

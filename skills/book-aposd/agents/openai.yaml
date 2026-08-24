@@ -1,6 +1,0 @@
-interface:
-  display_name: "Book APoSD"
-  short_description: "Module depth and API design rules"
-  default_prompt: "Use $book-aposd to evaluate module depth, API shape, information hiding, and cognitive load."
-policy:
-  allow_implicit_invocation: false

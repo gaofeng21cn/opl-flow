@@ -88,8 +88,8 @@ class PackageReleaseTests(unittest.TestCase):
                     },
                     "required_skill_ids": [
                         "opl-flow",
-                        "develop-and-deliver",
-                        "architect-and-simplify",
+                        "software-development",
+                        "manage-codex-tasks",
                     ],
                 },
             }
@@ -115,7 +115,7 @@ class PackageReleaseTests(unittest.TestCase):
             )
             self.assertEqual(
                 package["codex_surface"]["required_skill_ids"],
-                ["opl-flow", "develop-and-deliver", "architect-and-simplify"],
+                ["opl-flow", "software-development", "manage-codex-tasks"],
             )
             self.assertEqual(
                 package["codex_surface"]["configured_codex_plugin_carrier"],
@@ -185,7 +185,7 @@ class PackageReleaseTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)
             source = root / "installed"
-            for skill_id in ("opl-flow", "develop-and-deliver"):
+            for skill_id in ("opl-flow", "software-development", "manage-codex-tasks"):
                 path = source / "skills" / skill_id
                 path.mkdir(parents=True)
                 (path / "SKILL.md").write_text(f"# {skill_id}\n", encoding="utf-8")
@@ -197,7 +197,11 @@ class PackageReleaseTests(unittest.TestCase):
                     "package_id": "opl-flow",
                     "version": "0.1.40",
                     "codex_surface": {
-                        "required_skill_ids": ["opl-flow", "develop-and-deliver"],
+                        "required_skill_ids": [
+                            "opl-flow",
+                            "software-development",
+                            "manage-codex-tasks",
+                        ],
                         "configured_codex_plugin_carrier": {
                             "plugin_selector": "opl-flow@opl-flow"
                         },

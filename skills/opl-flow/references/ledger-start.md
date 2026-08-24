@@ -47,7 +47,7 @@ project list. Setup, update, and install never run this route.
    claim/checkpoint/blocker/remaining in Beads. Before remote dispatch, read the Bead's single
    `metadata.opl_execution_requirements` object. If absent, keep execution in
    the current Codex session. If present, validate it against
-   `contracts/execution-requirements.schema.json`, then use `$opl-fleet` for
+   `contracts/execution-requirements.schema.json`, then use `$opl-flow fleet` for
    plan, fresh admission, lease, adapter execution, result readback, and
    release. Record only the dispatch ID and short outcome in the Bead; never
    store lease nonces, private routes, command output, or credentials.

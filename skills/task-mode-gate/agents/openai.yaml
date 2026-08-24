@@ -1,4 +1,0 @@
-interface:
-  display_name: "Task Mode Gate"
-  short_description: "Silently gate production and high-risk mutations"
-  default_prompt: "Apply $task-mode-gate only to an actual release, high-risk mutation, production-gate validation, or unknown public-write reconciliation. Keep its five-field decision internal and surface only a concise blocker, production-transition notice, or unknown-result reconcile notice when user action or expectations change."

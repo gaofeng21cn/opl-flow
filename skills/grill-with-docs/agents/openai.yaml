@@ -1,6 +1,0 @@
-interface:
-  display_name: "Grill With Docs"
-  short_description: "Explicit plan interrogation against repository documents"
-  default_prompt: "Use $grill-with-docs to interrogate this plan against the repository's domain documents and decisions."
-policy:
-  allow_implicit_invocation: false

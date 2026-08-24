@@ -3,7 +3,7 @@
   "schema": "opl_flow_workflow_policy.v4",
   "package": {
     "id": "opl-flow",
-    "version": "0.1.54",
+    "version": "0.1.55",
     "owner": "opl-flow",
     "kind": "workflow_profile"
   },
@@ -40,24 +40,38 @@
         "scope": "bounded_observation_and_requested_alerts"
       }
     ],
-    "task_mode_gate_handoff": {
-      "skill_id": "task-mode-gate",
-      "precondition": "stop_ladder_supported_reason_and_high_risk_mutation",
-      "relationship": "stop_ladder_then_gate",
-      "gate_authority": "task-mode-gate"
-    },
     "repair_progress_policy": {
       "known_breakpoint_next_action": "owner_side_repair_or_delivery_bridge",
       "proof_role": "tests_verify_after_repair",
       "green_without_breakpoint_movement": "not_progress",
       "post_event_transition": {
-        "breakpoint_unchanged": ["direct_fix", "delivery_bridge", "stop"],
-        "breakpoint_moved": ["proof", "acceptance", "complete"],
-        "proof_failed": ["direct_fix", "delivery_bridge", "stop"],
-        "external_blocker": ["stop"]
+        "breakpoint_unchanged": [
+          "direct_fix",
+          "delivery_bridge",
+          "stop"
+        ],
+        "breakpoint_moved": [
+          "proof",
+          "acceptance",
+          "complete"
+        ],
+        "proof_failed": [
+          "direct_fix",
+          "delivery_bridge",
+          "stop"
+        ],
+        "external_blocker": [
+          "stop"
+        ]
       },
       "wait_only_active": false,
       "stale_test_contract": "preserve_product_fix_update_test_contract"
+    },
+    "production_change_handoff": {
+      "router_skill_id": "software-development",
+      "reference": "references/delivery/production-change.md",
+      "precondition": "stop_ladder_supported_reason_and_high_risk_mutation",
+      "relationship": "stop_ladder_then_reference"
     }
   },
   "external_artifact_language_policy": {
@@ -101,272 +115,20 @@
       "activation": "task_routed"
     },
     {
-      "id": "coordinate-concurrent-tasks",
+      "id": "software-development",
       "kind": "codex_skill",
       "owner": "opl-flow",
       "source": "https://github.com/gaofeng21cn/opl-flow",
-      "source_path": "skills/coordinate-concurrent-tasks",
+      "source_path": "skills/software-development",
       "online_install_default": true,
       "activation": "task_routed"
     },
     {
-      "id": "codex-app-owner-migration",
+      "id": "manage-codex-tasks",
       "kind": "codex_skill",
       "owner": "opl-flow",
       "source": "https://github.com/gaofeng21cn/opl-flow",
-      "source_path": "skills/codex-app-owner-migration",
-      "online_install_default": true,
-      "activation": "task_routed"
-    },
-    {
-      "id": "develop-and-deliver",
-      "kind": "codex_skill",
-      "owner": "opl-flow",
-      "source": "https://github.com/gaofeng21cn/opl-flow",
-      "source_path": "skills/develop-and-deliver",
-      "online_install_default": true,
-      "activation": "task_routed"
-    },
-    {
-      "id": "architect-and-simplify",
-      "kind": "codex_skill",
-      "owner": "opl-flow",
-      "source": "https://github.com/gaofeng21cn/opl-flow",
-      "source_path": "skills/architect-and-simplify",
-      "online_install_default": true,
-      "activation": "task_routed"
-    },
-    {
-      "id": "zoom-out",
-      "kind": "codex_skill",
-      "owner": "opl-flow",
-      "source": "https://github.com/gaofeng21cn/opl-flow",
-      "source_path": "skills/zoom-out",
-      "online_install_default": true,
-      "activation": "task_routed"
-    },
-    {
-      "id": "improve-codebase-architecture",
-      "kind": "codex_skill",
-      "owner": "opl-flow",
-      "source": "https://github.com/gaofeng21cn/opl-flow",
-      "source_path": "skills/improve-codebase-architecture",
-      "online_install_default": true,
-      "activation": "task_routed"
-    },
-    {
-      "id": "grill-with-docs",
-      "kind": "codex_skill",
-      "owner": "opl-flow",
-      "source": "https://github.com/gaofeng21cn/opl-flow",
-      "source_path": "skills/grill-with-docs",
-      "online_install_default": true,
-      "activation": "explicit"
-    },
-    {
-      "id": "prototype",
-      "kind": "codex_skill",
-      "owner": "opl-flow",
-      "source": "https://github.com/gaofeng21cn/opl-flow",
-      "source_path": "skills/prototype",
-      "online_install_default": true,
-      "activation": "task_routed"
-    },
-    {
-      "id": "book-aposd",
-      "kind": "codex_skill",
-      "owner": "opl-flow",
-      "source": "https://github.com/gaofeng21cn/opl-flow",
-      "source_path": "skills/book-aposd",
-      "online_install_default": true,
-      "activation": "explicit"
-    },
-    {
-      "id": "book-clean-architecture",
-      "kind": "codex_skill",
-      "owner": "opl-flow",
-      "source": "https://github.com/gaofeng21cn/opl-flow",
-      "source_path": "skills/book-clean-architecture",
-      "online_install_default": true,
-      "activation": "explicit"
-    },
-    {
-      "id": "book-ddia",
-      "kind": "codex_skill",
-      "owner": "opl-flow",
-      "source": "https://github.com/gaofeng21cn/opl-flow",
-      "source_path": "skills/book-ddia",
-      "online_install_default": true,
-      "activation": "task_routed"
-    },
-    {
-      "id": "book-domain-driven-design",
-      "kind": "codex_skill",
-      "owner": "opl-flow",
-      "source": "https://github.com/gaofeng21cn/opl-flow",
-      "source_path": "skills/book-domain-driven-design",
-      "online_install_default": true,
-      "activation": "explicit"
-    },
-    {
-      "id": "book-legacy-code",
-      "kind": "codex_skill",
-      "owner": "opl-flow",
-      "source": "https://github.com/gaofeng21cn/opl-flow",
-      "source_path": "skills/book-legacy-code",
-      "online_install_default": true,
-      "activation": "explicit"
-    },
-    {
-      "id": "book-release-it",
-      "kind": "codex_skill",
-      "owner": "opl-flow",
-      "source": "https://github.com/gaofeng21cn/opl-flow",
-      "source_path": "skills/book-release-it",
-      "online_install_default": true,
-      "activation": "task_routed"
-    },
-    {
-      "id": "github-ssot-patrol",
-      "kind": "codex_skill",
-      "owner": "opl-flow",
-      "source": "https://github.com/gaofeng21cn/opl-flow",
-      "source_path": "skills/github-ssot-patrol",
-      "online_install_default": true,
-      "activation": "task_routed"
-    },
-    {
-      "id": "opl-doc",
-      "kind": "codex_skill",
-      "owner": "opl-flow",
-      "source": "https://github.com/gaofeng21cn/opl-flow",
-      "source_path": "skills/opl-doc",
-      "online_install_default": true,
-      "activation": "task_routed"
-    },
-    {
-      "id": "recover-codex-tasks",
-      "kind": "codex_skill",
-      "owner": "opl-flow",
-      "source": "https://github.com/gaofeng21cn/opl-flow",
-      "source_path": "skills/recover-codex-tasks",
-      "online_install_default": true,
-      "activation": "task_routed"
-    },
-    {
-      "id": "task-mode-gate",
-      "kind": "codex_skill",
-      "owner": "opl-flow",
-      "source": "https://github.com/gaofeng21cn/opl-flow",
-      "source_path": "skills/task-mode-gate",
-      "online_install_default": true,
-      "activation": "task_routed"
-    },
-    {
-      "id": "opl-fleet",
-      "kind": "codex_skill",
-      "owner": "opl-flow",
-      "source": "https://github.com/gaofeng21cn/opl-flow",
-      "source_path": "skills/opl-fleet",
-      "online_install_default": true,
-      "activation": "task_routed"
-    },
-    {
-      "id": "dsh-archive-agent-notes",
-      "kind": "codex_skill",
-      "owner": "opl-flow",
-      "source": "https://github.com/gaofeng21cn/opl-flow",
-      "source_path": "skills/dsh-archive-agent-notes",
-      "online_install_default": true,
-      "activation": "task_routed"
-    },
-    {
-      "id": "dsh-code-review",
-      "kind": "codex_skill",
-      "owner": "opl-flow",
-      "source": "https://github.com/gaofeng21cn/opl-flow",
-      "source_path": "skills/dsh-code-review",
-      "online_install_default": true,
-      "activation": "task_routed"
-    },
-    {
-      "id": "dsh-doc-site-sync",
-      "kind": "codex_skill",
-      "owner": "opl-flow",
-      "source": "https://github.com/gaofeng21cn/opl-flow",
-      "source_path": "skills/dsh-doc-site-sync",
-      "online_install_default": true,
-      "activation": "task_routed"
-    },
-    {
-      "id": "dsh-doc-standards",
-      "kind": "codex_skill",
-      "owner": "opl-flow",
-      "source": "https://github.com/gaofeng21cn/opl-flow",
-      "source_path": "skills/dsh-doc-standards",
-      "online_install_default": true,
-      "activation": "task_routed"
-    },
-    {
-      "id": "dsh-find-simplifications",
-      "kind": "codex_skill",
-      "owner": "opl-flow",
-      "source": "https://github.com/gaofeng21cn/opl-flow",
-      "source_path": "skills/dsh-find-simplifications",
-      "online_install_default": true,
-      "activation": "task_routed"
-    },
-    {
-      "id": "dsh-merging-stacked-prs",
-      "kind": "codex_skill",
-      "owner": "opl-flow",
-      "source": "https://github.com/gaofeng21cn/opl-flow",
-      "source_path": "skills/dsh-merging-stacked-prs",
-      "online_install_default": true,
-      "activation": "task_routed"
-    },
-    {
-      "id": "dsh-pre-push-checks",
-      "kind": "codex_skill",
-      "owner": "opl-flow",
-      "source": "https://github.com/gaofeng21cn/opl-flow",
-      "source_path": "skills/dsh-pre-push-checks",
-      "online_install_default": true,
-      "activation": "task_routed"
-    },
-    {
-      "id": "dsh-prose-standard",
-      "kind": "codex_skill",
-      "owner": "opl-flow",
-      "source": "https://github.com/gaofeng21cn/opl-flow",
-      "source_path": "skills/dsh-prose-standard",
-      "online_install_default": true,
-      "activation": "task_routed"
-    },
-    {
-      "id": "dsh-translate-docs",
-      "kind": "codex_skill",
-      "owner": "opl-flow",
-      "source": "https://github.com/gaofeng21cn/opl-flow",
-      "source_path": "skills/dsh-translate-docs",
-      "online_install_default": true,
-      "activation": "explicit"
-    },
-    {
-      "id": "dsh-trim-cot-leakage",
-      "kind": "codex_skill",
-      "owner": "opl-flow",
-      "source": "https://github.com/gaofeng21cn/opl-flow",
-      "source_path": "skills/dsh-trim-cot-leakage",
-      "online_install_default": true,
-      "activation": "task_routed"
-    },
-    {
-      "id": "record-browser-gif",
-      "kind": "codex_skill",
-      "owner": "opl-flow",
-      "source": "https://github.com/gaofeng21cn/opl-flow",
-      "source_path": "skills/record-browser-gif",
+      "source_path": "skills/manage-codex-tasks",
       "online_install_default": true,
       "activation": "task_routed"
     }
@@ -650,7 +412,10 @@
       "id": "internet-research",
       "label": "Internet research",
       "relationship": "experience_baseline",
-      "member_refs": ["codex_skill:agent-reach", "cli:agent-reach"],
+      "member_refs": [
+        "codex_skill:agent-reach",
+        "cli:agent-reach"
+      ],
       "online_materialization": "members_marked_default",
       "full_distribution": "members_marked_full",
       "readiness": {
@@ -686,7 +451,10 @@
       "id": "document-extraction",
       "label": "Document extraction",
       "relationship": "experience_baseline",
-      "member_refs": ["codex_skill:mineru-document-extractor", "cli:mineru-open-api"],
+      "member_refs": [
+        "codex_skill:mineru-document-extractor",
+        "cli:mineru-open-api"
+      ],
       "online_materialization": "members_marked_default",
       "full_distribution": "members_marked_full",
       "readiness": {
@@ -699,7 +467,9 @@
       "id": "stacked-pr-landing",
       "label": "Stacked pull-request landing",
       "relationship": "experience_baseline",
-      "member_refs": ["cli:gh-stack"],
+      "member_refs": [
+        "cli:gh-stack"
+      ],
       "online_materialization": "members_marked_default",
       "full_distribution": "members_marked_full",
       "readiness": {
@@ -712,7 +482,9 @@
       "id": "browser-gif-encoding",
       "label": "Browser GIF encoding",
       "relationship": "experience_baseline",
-      "member_refs": ["cli:ffmpeg"],
+      "member_refs": [
+        "cli:ffmpeg"
+      ],
       "online_materialization": "members_marked_default",
       "full_distribution": "members_marked_full",
       "readiness": {
@@ -725,7 +497,9 @@
       "id": "official-codex-office-runtime",
       "label": "Official Codex Office runtime",
       "relationship": "compatible_optional",
-      "member_refs": ["runtime_capability:openai-primary-runtime-office-pdf"],
+      "member_refs": [
+        "runtime_capability:openai-primary-runtime-office-pdf"
+      ],
       "online_materialization": "observe_only",
       "full_distribution": "none",
       "readiness": {
@@ -738,7 +512,9 @@
       "id": "task-boundary-guard",
       "label": "Task boundary guard",
       "relationship": "compatible_optional",
-      "member_refs": ["codex_plugin:stop-that-shit"],
+      "member_refs": [
+        "codex_plugin:stop-that-shit"
+      ],
       "online_materialization": "observe_only",
       "full_distribution": "none",
       "readiness": {
@@ -751,26 +527,51 @@
   "conflicts": [
     {
       "id": "upstream-superpowers",
-      "discovery_ids": ["superpowers", "using-superpowers"],
-      "config_markers": ["superpowers"],
+      "discovery_ids": [
+        "superpowers",
+        "using-superpowers"
+      ],
+      "config_markers": [
+        "superpowers"
+      ],
       "service_ids": [],
       "auto_retire_on_optimize": true,
       "reason": "Umbrella development methodology overrides model-native task handling and duplicates Codex orchestration."
     },
     {
       "id": "ponytail",
-      "discovery_ids": ["ponytail", "ponytail-local", "ponytail-ponytail"],
-      "surface_kinds": ["plugin", "config_table", "service", "prompt_or_agent"],
-      "config_markers": ["ponytail"],
+      "discovery_ids": [
+        "ponytail",
+        "ponytail-local",
+        "ponytail-ponytail"
+      ],
+      "surface_kinds": [
+        "plugin",
+        "config_table",
+        "service",
+        "prompt_or_agent"
+      ],
+      "config_markers": [
+        "ponytail"
+      ],
       "service_ids": [],
       "auto_retire_on_optimize": true,
       "reason": "Global persona hooks and mode routing are no longer part of the minimal OPL Flow profile; an explicit task-local Ponytail Skill remains compatible."
     },
     {
       "id": "codexcont-intelligence-enhancement",
-      "discovery_ids": ["codexcont", "intelligence_enhancement"],
-      "config_markers": ["codexcont", "intelligence_enhancement"],
-      "service_ids": ["codexcont", "com.opl.codexcont"],
+      "discovery_ids": [
+        "codexcont",
+        "intelligence_enhancement"
+      ],
+      "config_markers": [
+        "codexcont",
+        "intelligence_enhancement"
+      ],
+      "service_ids": [
+        "codexcont",
+        "com.opl.codexcont"
+      ],
       "auto_retire_on_optimize": true,
       "reason": "The legacy continuation proxy changes provider and service behavior outside the minimal workflow profile."
     }
@@ -778,7 +579,13 @@
   "retires": [
     {
       "id": "superpowers-local-method-profile",
-      "discovery_ids": ["superpowers-lite", "superpowers-local-profile", "systematic-debugging", "test-driven-development", "verification-before-completion"],
+      "discovery_ids": [
+        "superpowers-lite",
+        "superpowers-local-profile",
+        "systematic-debugging",
+        "test-driven-development",
+        "verification-before-completion"
+      ],
       "config_markers": [],
       "service_ids": [],
       "auto_retire_on_optimize": true,
@@ -786,7 +593,12 @@
     },
     {
       "id": "legacy-development-role-prompts",
-      "discovery_ids": ["planner", "executor", "debugger", "verifier"],
+      "discovery_ids": [
+        "planner",
+        "executor",
+        "debugger",
+        "verifier"
+      ],
       "config_markers": [],
       "service_ids": [],
       "auto_retire_on_optimize": true,
@@ -1129,7 +941,10 @@
     }
   },
   "historical_fingerprints": {
-    "plugin_ids": ["superpowers", "ponytail@ponytail"],
+    "plugin_ids": [
+      "superpowers",
+      "ponytail@ponytail"
+    ],
     "skill_ids": [
       "using-superpowers",
       "superpowers-lite",
@@ -1137,9 +952,21 @@
       "test-driven-development",
       "verification-before-completion"
     ],
-    "service_ids": ["codexcont", "com.opl.codexcont"],
-    "config_markers": ["ponytail", "codexcont", "intelligence_enhancement"],
-    "legacy_prompt_ids": ["planner", "executor", "debugger", "verifier"],
+    "service_ids": [
+      "codexcont",
+      "com.opl.codexcont"
+    ],
+    "config_markers": [
+      "ponytail",
+      "codexcont",
+      "intelligence_enhancement"
+    ],
+    "legacy_prompt_ids": [
+      "planner",
+      "executor",
+      "debugger",
+      "verifier"
+    ],
     "agents_marker_pairs": [
       {
         "start": "<!-- OPL_FLOW_MANAGED_START -->",

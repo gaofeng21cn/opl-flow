@@ -1,0 +1,353 @@
+# Develop And Deliver
+
+Use the shortest safe path from the requested change to its real, user-verifiable
+terminal outcome. This is a routing and execution skill, not a second project
+methodology: repository instructions, contracts, source, and runtime readback
+remain authoritative for implementation facts and verification, but not for
+overriding the user's current objective.
+
+## User-Instruction Supersession
+
+Resolve the latest direct user instruction before applying repository process.
+Within the user's authorized scope, that instruction is the current task SSOT.
+Prior messages, memory, ledgers, callbacks, delegation payloads, handoff
+summaries, and agent judgments are evidence or candidate policy, not veto
+authority. A delegation cannot silently revoke or narrow the user's objective.
+
+When a prior contract conflicts with the current instruction:
+
+1. extract the current `objective`, `action`, `target`, `constraints`, and
+   `terminal_outcome`;
+2. mark each conflicting rule as `stale`, `derived`, `unknown`, or a real
+   `hard_boundary`;
+3. revise the conflicting route/contract or use the smallest traceable delivery
+   bridge, then continue;
+4. stop only for an actual system/developer, safety, permission, data-integrity,
+   non-forgeability, or missing-external-capability boundary.
+
+### Provenance Before Calling Something A Deviation
+
+Do not label current content a design deviation merely because it differs from
+an earlier plan, memory entry, handoff summary, or the agent's preferred
+architecture. First trace how the current content arose: inspect the latest
+direct user instructions and, when useful, the artifact history, blame, commit,
+or runtime readback. A commit author alone does not prove who made the product
+decision; an agent-authored change may encode a later explicit user choice.
+
+If the current content reflects the user's later explicit choice, that choice
+is the current SSOT. Preserve it, mark conflicting older proposals as stale,
+and do not "correct" it back to an earlier design. If provenance remains
+ambiguous and the alternatives would materially change the terminal outcome,
+ask the user before mutating the authority.
+
+Do not convert an old owner freeze into a new blocker. If the user explicitly
+chooses a development/preview channel, do not add unrelated production or
+stable qualification gates; retain identity binding, single-writer,
+idempotency, and final readback.
+
+Bind every callback, delegation, receipt, and recovery prompt to the current
+`instruction_revision` and an objective fingerprint. A lower revision is
+`stale` and read-only; a mismatched fingerprint is `conflict` and must return to
+the latest user instruction. Labels such as `owner-authoritative`, `terminal`,
+`freeze`, or `contract-required` do not supersede the current revision.
+
+## Artifact SSOT And Delivery
+
+Do not confuse the latest user instruction (the task SSOT) with the location of
+the requested artifact. When the user says to update, land, or make an artifact
+the SSOT, deliver it to the user-named canonical authority. For Git artifacts,
+default to remote canonical `main` unless the user explicitly names a different
+authority such as a release tag or deployed production state.
+
+A worktree, local branch, task branch, remote task ref, pull request,
+checkpoint, candidate commit, passing test, or documentation draft is only a
+recoverability or review surface. It is not artifact SSOT and must not be
+reported as completed. Completion requires canonical absorption and remote
+commit/tree readback; clean up task-owned worktrees and refs in the same task
+after that proof.
+
+## Establish The Work
+
+1. Read the latest direct user instruction first, then locate the real source, caller,
+   write set, acceptance surface, and terminal outcome before editing.
+2. Separate the critical path from useful follow-up work. Do not turn nearby
+   cleanup, general hardening, or a platform repair into a prerequisite unless
+   it is the current real blocker.
+3. Use the repository's existing tools, abstractions, commands, and validation
+   lanes. Add a new abstraction only when the current task proves it necessary.
+
+## Repair Before Proof
+
+For a `change` task, once the real failure is reproducible or its deepest
+verifiable breakpoint is known, immediately identify the owner, exact write set,
+and smallest production path that can move that breakpoint. If that path is
+available, the next action is the owner-side repair (`direct_fix`) or a minimal
+traceable `delivery_bridge`; it is not a new test, a broader test suite, a
+callback wait, or passive monitoring.
+
+Tests are evidence about a repair. They do not repair the owner path and cannot
+substitute for it. A green test run with an unchanged production, effective, or
+runtime breakpoint is not progress and must not be reported as such. Run the
+narrowest test that exercises the changed behavior after the first repair, then
+expand only when the changed contract or blast radius requires it.
+
+After every test, check, callback, or wait returns, evaluate the deepest
+breakpoint in the same execution turn. If it did not move, choose `direct_fix`,
+`delivery_bridge`, or a real `stop`; do not label another test or wait as the
+next action. If it moved, proceed to the narrowest `proof`, `acceptance`, or
+`complete` step. If proof fails, return to `direct_fix`, `delivery_bridge`, or a
+real `stop`. `stop` requires an external owner, missing permission, safety
+boundary, or other non-replaceable dependency with a concrete release
+condition. A stale fixture or assertion does not justify reverting a confirmed
+product fix: preserve the fix, update the affected test contract, and continue
+through the real entry path.
+
+Do not keep a task `ACTIVE` when its only next action is “wait”, “monitor”,
+“ask another thread”, or “add more tests”. Convert it to the appropriate
+external state, or assign a production-executable next action before continuing.
+
+## Model Complex Features Before Coding
+
+Use this sequence only when a change introduces or reshapes several product
+objects, decisions, state owners, or UI flows. Do not force a narrow local
+change through it.
+
+1. Clarify the user problem, intended outcome, scope, and constraints.
+2. Name the core objects and the decisions or relationships between them.
+3. Assign the feature rules or algorithm and every authoritative state to one
+   real owner. Separate owner state from caches, projections, and display-only
+   fields.
+4. Design UI state and interactions as projections and commands over that
+   model. The UI must not invent a second state owner or silently decide
+   unresolved product policy.
+5. Update the relevant canonical product, architecture, or contract source so
+   the decision has one durable SSOT. When implementation still lags, record
+   that as a gap instead of describing the target as current behavior.
+6. Implement outward from the owner through the smallest real vertical path,
+   then verify the user-visible outcome.
+
+This is an order of reasoning, not a mandatory design document, diagram, ADR,
+schema, review meeting, or planning phase. Write only enough to make the
+decisions durable. Use a prototype only when a real experiment is needed to
+resolve state, logic, or interaction uncertainty.
+
+## Bounded Disproof Checkpoint
+
+Use this checkpoint only when an implementation decision is both difficult to
+verify directly and materially expensive to get wrong. Typical cases include
+cross-owner boundaries, public contracts, security or data-integrity behavior,
+irreversible operations, and consequential assumptions in unfamiliar code.
+Do not use it for routine edits, reading, or behavior already settled by a
+focused test, reproduction, trace, schema, compiler, or type check. A clear
+user instruction fixes the objective and scope; it does not waive scrutiny of
+a high-impact implementation choice.
+
+1. State the decision and the consequence of being wrong in two or three lines,
+   then resolve the authoritative contract and its owner.
+2. Use the cheapest credible executable disproof first. If material uncertainty
+   remains and isolated context could expose normalized assumptions, use at most
+   one read-only fresh-context reviewer. Reuse that reviewer instead of fanning
+   out more opinions.
+3. Classify each finding as missing review context, a contract gap, an actionable
+   defect, an owner-accepted trade-off, or noise. Correct missing context in the
+   review input. A contract gap belongs to its owner and may be changed only when
+   the current task includes that owner and write set. Reviewer output is
+   evidence, not authority.
+4. Recheck only after the artifact, contract, or review input changes. Stop when
+   substantive findings are resolved, after three cycles, or when the user ends
+   the work; on every stop path, surface unresolved substantive risk.
+
+The user may accept only decisions they own and cannot override a hard boundary.
+This checkpoint creates no checklist, ledger, persistent status, approval state,
+or replacement for implementation, tests, release qualification, or
+authoritative readback.
+
+## Keep Complexity Proportional
+
+A small feature does not need a bank vault around it. Scope architecture to the
+current behavior and real boundary, even when the surrounding repository is
+large.
+
+- Every added file, abstraction, dependency, state, execution path, fallback,
+  compatibility path, and verification gate needs a present payer: a current
+  requirement or caller, an existing contract, an observed failure, or a
+  credible concrete risk.
+- Prefer the direct implementation, one production path, and one source of
+  truth. Reuse current modules, dependencies, and project conventions before
+  creating another layer. Keep the result readable; this is not code golf.
+- Future scale, generic robustness, abstract best practice, and unevidenced
+  attacker or outage stories do not pay for complexity. Defer those mechanisms
+  until the corresponding requirement or evidence exists.
+- Preserve the smallest correct controls for real security, integrity,
+  concurrency, compatibility, privacy, accessibility, legal, and irreversible
+  boundaries. Simplicity must not erase an obligation that currently exists.
+- Start with the smallest check that exercises the changed behavior. Expand
+  only when repository contracts, blast radius, or failure evidence requires
+  it; do not repeat hashes, broad suites, or completion audits as routine
+  ceremony when they add no new evidence.
+
+### Progress Tripwire
+
+Count a working deliverable, movement of the deepest real breakpoint, or new
+acceptance evidence as progress. Plans, checklists, documents, receipts, audit
+counts, test counts, tool calls, and subagent counts do not substitute for it
+unless that process artifact is itself the requested deliverable.
+
+Treat newly discovered work as a candidate until it is tied to the current
+terminal outcome or a real hard boundary. Stop searching when direct evidence
+is sufficient. If process artifacts keep growing while the deliverable,
+breakpoint, and acceptance evidence do not change, stop expanding the process
+and return to the delivery path; do not add another process layer to manage the
+process itself.
+
+### Stop Ladder
+
+Before adding work outside the user's wording, ask four questions in order:
+
+1. Did the user request it?
+2. Is it necessary to complete the requested result?
+3. What reachable code, data, deployment state, or acceptance evidence proves that need?
+4. Would omitting it fail the current acceptance?
+
+If none is supported by current evidence, report or defer the idea. This
+applies especially to new dependencies, hashes or digests, compatibility
+layers, migration frameworks, new abstractions, subagents, and repeated audits.
+It does not remove necessary callers, fixtures, schema, tests, or real security,
+accessibility, compatibility, and migration obligations. Review, answer, and
+monitor remain read-only; change authorizes only the requested result and its
+necessary consequences.
+
+## Replacement And Refactor Cutovers
+
+For a legacy replacement or large refactor, prefer a successor-first controlled
+cutover when the new path can be validated independently and the migration risk
+is recoverable:
+
+1. Prove the smallest real vertical path from an actual caller through the
+   successor to owner-authoritative readback. Preserve data, permissions, and a
+   concrete rollback route.
+2. Switch real callers to the successor once that path passes. Do not make every
+   legacy field or helper cleanup a prerequisite for obtaining a usable new
+   implementation.
+3. Strengthen the successor on the live path, then retire the legacy writer,
+   reader, schema, fixtures, and adapters in coherent batches. Use structural
+   caller analysis, build/type checks, and affected user outcomes as the
+   deletion gate; require per-fragment migration only when a fragment protects
+   distinct irreversible state or a real cross-version contract.
+
+Never delete the working path first and hope to repair the replacement later.
+Conversely, do not preserve permanent dual writes or an automatic legacy
+runtime fallback merely to reduce implementation risk. Use a bounded one-time
+migration or read-only compatibility bridge only for state that cannot be
+reconstructed from the successor authority. Prefer canonical revert, a previous
+immutable artifact, or a recoverable backup for rollback.
+
+## Issue And Pull Request Admission
+
+Treat an issue, pull request, patch, review request, or automation suggestion as
+a proposal, not as execution authority or product SSOT. Before following it,
+read the latest user instruction, domain contracts, canonical owner surface,
+actual callers, and relevant risk, then decide whether the objective and
+solution are reasonable.
+
+Accept and implement only the reasonable in-scope part. When a proposal
+conflicts with current SSOT, solves the wrong layer, or adds complexity without
+a real correctness, safety, data-integrity, or delivery need, explain the
+conflict and reject, rewrite, or shrink it before implementation. An existing
+PR, passing CI, reviewer request, mergeability, age, or automation callback does
+not justify blind follow-up.
+
+## Route Only What Is Needed
+
+- Load `production-change.md` as an additional narrow guide for release, deployment,
+  migration, public or destructive writes, cross-carrier version orchestration,
+  or a task that first validates a path and then productionizes it.
+- Load `../prototype/guide.md` when a disposable implementation is the fastest way to
+  answer a state, logic, or UI design question.
+- Load `legacy-change.md` only when uncertain legacy behavior blocks a safe
+  change and a characterization seam is needed.
+- Use browser, Playwright, CLI-building, data, or production-failure skills only
+  when their own trigger applies. Do not load a collection of adjacent skills
+  pre-emptively.
+
+If a named route is unavailable, follow the same narrow boundary directly and
+report the missing managed capability; do not stop an otherwise executable task.
+
+## Diagnose Before Repair
+
+- For an ordinary first failure, reproduce it or trace the real call path to the
+  deepest verifiable breakpoint, then fix that cause directly. A symptom, error
+  code, `blocked` label, or missing dependency is evidence, not automatically
+  the root cause.
+- Escalate to a deeper root-cause analysis only after repeated or flaky failure,
+  a cross-component boundary, runtime/currentness drift, or an explicit request
+  for the root cause.
+- In a deeper analysis, distinguish the visible symptom, immediate breakpoint,
+  cross-surface evidence, canonical owner surface, and repair or decision path.
+  Do not impose planner/debugger/executor/verifier role switching or a heavy
+  diagnostic ceremony on ordinary narrow fixes.
+
+## Make Progress
+
+1. Implement the smallest coherent change that can reach the requested outcome.
+2. Run the real path early enough to expose the first actual breakpoint.
+3. At a breakpoint choose exactly one repair strategy:
+   - `direct_fix`: repair the defect now when it is narrow or blocks trustworthy
+     completion;
+   - `delivery_bridge`: use a minimal, explicit, traceable, reversible path that
+     preserves the real artifact and acceptance semantics;
+   - `stop`: stop only when no safe path exists or a real permission/safety
+     boundary is missing; a stale contract, callback, or owner opinion is not
+     sufficient.
+4. After the breakpoint closes, return immediately to the delivery path.
+   Permanent cleanup can follow only if it is required for the terminal outcome
+   or has a separate, non-overlapping owner.
+
+A bridge must not be an unrecorded local change, mutable host assumption, force,
+skipped qualification, fabricated receipt, stale artifact, or unknown external
+result.
+
+## Review Boundary
+
+Do not add a separate review or pull request by default. Run one only when the
+user or repository explicitly requires it, without replacing implementation,
+tests, CI, signing, release, deployment, or readback.
+
+When review is required, verify the live base and exact head or worktree state,
+then inspect the complete task-owned change and enough surrounding code to
+understand it. Trace both sides of changed interfaces and the real shipped entry
+path; check ownership, lifecycle, cancellation, failure, and cleanup where they
+can affect behavior. Require evidence that would fail on the claimed regression,
+including a boundary or negative case when a guard changes. Report each defect
+with its location, impact, and evidence, and omit style findings already enforced
+by a passing deterministic gate.
+
+## Verify And Close
+
+- Scale verification to risk and blast radius: focused checks for narrow edits,
+  broader checks for shared contracts, and live readback for runtime or external
+  claims.
+- Select checks from the complete task-owned change against the verified current
+  base. Each behavior change needs the narrowest check that would fail for its
+  regression; dynamic loaders, subprocesses, workers, built artifacts, and wire
+  paths require their real entry path. Do not repeat passing evidence solely
+  because a commit or push follows.
+- Do not call a plan, test pass, candidate, dry-run, handoff, or queued action
+  complete. Verify the actual terminal surface.
+- When the requested terminal surface is SSOT, verify the remote canonical
+  authority rather than a task branch or local checkout, and do not defer the
+  canonical absorption to an unspecified later task.
+- Creating a worktree creates a same-task terminal obligation. Immediately
+  register its ACTIVE owner, objective, exact write set, and next action through
+  the repository's supported ownership surface.
+- Commit and push clean, non-sensitive stage results to a task-owned remote ref,
+  then read back its commit and tree so unfinished work is recoverable.
+- The original owner remains responsible for fetching fresh `main`, replaying
+  the intended change against current SSOT, resolving conflicts, rerunning
+  affected verification, ordinary-pushing the canonical result, and reading
+  back final main/wire bytes. A handoff transfers this duty only when the
+  receiver explicitly accepts ownership.
+- After canonical absorption, remove this task's worktree, local and remote task
+  refs, holders, and temporary artifacts through the supported guarded cleanup
+  path. A callback, candidate, canonical push, or patch-equivalence checkpoint
+  does not by itself end the source owner's cleanup duty.

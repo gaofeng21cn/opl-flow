@@ -7,12 +7,9 @@ import tempfile
 import unittest
 
 from scripts.verify import (
-    BUNDLED_SKILL_IDS,
-    CORE_SKILL_IDS,
     CORE_TEST_MODULES,
-    EXPLICIT_ONLY_SKILL_IDS,
     REQUIRED_FILES,
-    SPECIALIST_SKILL_IDS,
+    ROUTER_SKILL_IDS,
     check_required_files,
     check_plugin_json,
     check_workflow_policy,
@@ -53,28 +50,17 @@ class VerifyLaneTests(unittest.TestCase):
         self.assertIn("contracts/fleet-workspace-profile.schema.json", required)
         self.assertIn("contracts/task-owner-migration.schema.json", required)
 
-    def test_plugin_exposes_core_and_specialist_flow_skills(self) -> None:
+    def test_plugin_exposes_only_three_router_skills(self) -> None:
         self.assertEqual(check_plugin_json(REPO_ROOT), [])
 
         discoverable = {
-            path.name
-            for path in (REPO_ROOT / "skills").iterdir()
-            if path.is_dir() and (path / "SKILL.md").exists()
+            path.relative_to(REPO_ROOT).as_posix()
+            for path in (REPO_ROOT / "skills").rglob("SKILL.md")
         }
-        self.assertEqual(len(CORE_SKILL_IDS), 9)
-        self.assertEqual(len(SPECIALIST_SKILL_IDS), 11)
-        self.assertEqual(discoverable, set(BUNDLED_SKILL_IDS))
-
-        explicit_only = {
-            skill_id
-            for skill_id in BUNDLED_SKILL_IDS
-            if (
-                (metadata_path := REPO_ROOT / "skills" / skill_id / "agents" / "openai.yaml").exists()
-                and "allow_implicit_invocation: false" in metadata_path.read_text(encoding="utf-8")
-            )
+        expected = {
+            f"skills/{skill_id}/SKILL.md" for skill_id in ROUTER_SKILL_IDS
         }
-        self.assertEqual(len(explicit_only), 17)
-        self.assertEqual(explicit_only, set(EXPLICIT_ONLY_SKILL_IDS))
+        self.assertEqual(discoverable, expected)
 
     def test_deepseek_adaptation_preserves_mit_provenance(self) -> None:
         notice = (REPO_ROOT / "THIRD_PARTY_NOTICES.md").read_text(encoding="utf-8")
@@ -158,8 +144,13 @@ class VerifyLaneTests(unittest.TestCase):
             ["answer", "review", "change", "monitor"],
         )
         self.assertEqual(
-            boundary["task_mode_gate_handoff"]["relationship"],
-            "stop_ladder_then_gate",
+            boundary["production_change_handoff"],
+            {
+                "router_skill_id": "software-development",
+                "reference": "references/delivery/production-change.md",
+                "precondition": "stop_ladder_supported_reason_and_high_risk_mutation",
+                "relationship": "stop_ladder_then_reference",
+            },
         )
         self.assertEqual(
             boundary["repair_progress_policy"],
@@ -574,13 +565,13 @@ class VerifyLaneTests(unittest.TestCase):
             errors,
         )
 
-    def test_architect_and_simplify_stays_in_the_plugin_payload(self) -> None:
+    def test_software_development_router_stays_in_the_plugin_payload(self) -> None:
         errors = self.workflow_policy_errors_after(
             lambda policy: policy["provides"].remove(
                 next(
                     item
                     for item in policy["provides"]
-                    if item["kind"] == "codex_skill" and item["id"] == "architect-and-simplify"
+                    if item["kind"] == "codex_skill" and item["id"] == "software-development"
                 )
             )
         )

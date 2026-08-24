@@ -1,6 +1,0 @@
-interface:
-  display_name: "Find Simplifications"
-  short_description: "Prove deletion and consolidation candidates"
-  default_prompt: "Use $dsh-find-simplifications to find a few evidence-backed ways to simplify this codebase."
-policy:
-  allow_implicit_invocation: false

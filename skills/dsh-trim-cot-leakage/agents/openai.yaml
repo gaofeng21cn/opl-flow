@@ -1,6 +1,0 @@
-interface:
-  display_name: "Trim Authoring Leakage"
-  short_description: "Restate durable prose from the repository view"
-  default_prompt: "Use $dsh-trim-cot-leakage to remove session narration while preserving every current fact."
-policy:
-  allow_implicit_invocation: false

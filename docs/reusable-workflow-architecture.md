@@ -42,7 +42,7 @@ layer**. It keeps Codex model-native:
 
 | Product term | Target physical owner | Role |
 | --- | --- | --- |
-| **OPL Flow** | `gaofeng21cn/opl-flow` | Single public product, Codex Plugin/Profile, unified development Skills, model and experience-baseline policy, Ledger adapter, Git lifecycle, and Fleet engine |
+| **OPL Flow** | `gaofeng21cn/opl-flow` | Single public product, Codex Plugin/Profile, three routed capability groups, model and experience-baseline policy, Ledger adapter, Git lifecycle, and Fleet engine |
 | **OPL Ledger** | OPL Flow module backed by Beads | Dynamic Program, slice, dependency, owner, task, checkpoint, and remaining state |
 | **OPL Fleet** | OPL Flow module | Agent-native distributed execution and task continuity: multi-machine join, compatible workspace currentness, lease/admission, execution adapters, and owner-safe continuation |
 | **OPL Skills** | `gaofeng21cn/opl-skills` | Independently installable non-development public workflows |
@@ -79,14 +79,8 @@ opl-flow/
 |-- profile/
 |-- skills/
 |   |-- opl-flow/
-|   |-- coordinate-concurrent-tasks/
-|   |-- codex-app-owner-migration/
-|   |-- develop-and-deliver/
-|   |-- github-ssot-patrol/
-|   |-- opl-doc/
-|   |-- opl-fleet/
-|   |-- task-mode-gate/
-|   `-- recover-codex-tasks/
+|   |-- software-development/
+|   `-- manage-codex-tasks/
 |-- scripts/
 |   |-- opl_workflow.py        # small workflow and Ledger entry
 |   `-- opl_fleet.py           # generic Instance-backed Fleet engine
@@ -101,7 +95,7 @@ need.
 
 ## Primary Entry And Status Planes
 
-`$opl-flow` is a progressive router, not a monolithic prompt. It exposes six
+`$opl-flow` is the product router, not a monolithic prompt. It exposes eight
 stable actions and loads only the references required by the selected action:
 
 | Action | Responsibility |
@@ -110,8 +104,15 @@ stable actions and loads only the references required by the selected action:
 | `setup` | Establish or repair the owner-supported Codex baseline and optional private state |
 | `tune` | Optimize `AGENTS.md`, model/reasoning settings, or capability selection without overriding the user |
 | `update` | Update through component owners, perform source-aware migration, and verify effective discovery |
+| `release-package` | Prepare, publish, activate, and read back one first-party OPL Package release |
 | `start` | Idempotently create or reuse the Dashboard, Bead, complete Linear projection, and hourly supervisor |
-| `fleet` | Route node admission, currentness, leases, selection, and dispatch to `$opl-fleet` |
+| `supervise` | Run one bounded episode of an existing Ledger Supervisor |
+| `fleet` | Load the Fleet reference for node admission, currentness, leases, selection, and dispatch |
+
+`$software-development` independently routes non-trivial software work, while
+`$manage-codex-tasks` routes native Codex task coordination, recovery,
+integration, archive-readiness, and owner migration. Their detailed methods are
+internal references rather than additional discoverable Skills.
 
 Framework and App report three independent planes:
 
@@ -272,8 +273,8 @@ python3 scripts/opl_workflow.py fleet --instance <opl-instance> repos sync
 `opl-fleet` is the stable node-local command installed during enrollment. The
 Flow workflow entry remains the public user-facing surface.
 
-`codex-app-owner-migration` is the first-party route for moving a durable task
-owner to a native, user-visible Codex App task. It requires the complete
+`$manage-codex-tasks` mode `migrate-owner` is the first-party route for moving a
+durable task owner to a native, user-visible Codex App task. It requires the complete
 Instance repository allowlist and target App readback; SSH/headless CLI is only
 transport support and never a terminal owner substitute.
 
@@ -458,9 +459,9 @@ controller, inbound SSH, Linear, or Fleet.
   uniqueness/supervision contract, and receipt validation for one Dashboard,
   one Bead, one hourly Heartbeat, complete Linear projection parity, and final
   Dolt parity.
-- **Implemented in 0.1.30 source:** the progressive `doctor/setup/tune/update/
-  start/fleet` router, workflow policy v4 with three status planes, the sixth
-  bundled `opl-fleet` Skill, and bundled architecture routing.
+- **Implemented in source:** three progressive routers, workflow policy v4 with
+  three status planes, internal Fleet and development references, and exactly
+  three discoverable Skill identities.
 - **Pilot:** initialize one private Instance ledger and use one Operations
   Program before making Ledger a default onboarding dependency.
 - **Implemented in source:** a two-level qualification planner and receipt

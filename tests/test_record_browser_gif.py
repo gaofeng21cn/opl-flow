@@ -10,7 +10,10 @@ import unittest
 
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
-ENCODER = REPO_ROOT / "skills/record-browser-gif/scripts/encode_gif.py"
+ENCODER = (
+    REPO_ROOT
+    / "skills/software-development/references/browser-evidence/encode_gif.py"
+)
 
 
 @unittest.skipUnless(

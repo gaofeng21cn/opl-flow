@@ -1,4 +1,0 @@
-interface:
-  display_name: "Recover Codex Tasks"
-  short_description: "Recover tasks with native Codex thread tools"
-  default_prompt: "Use $recover-codex-tasks to recover this task through native Codex task/thread tools while preserving its current owner."

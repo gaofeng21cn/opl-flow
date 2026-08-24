@@ -1,0 +1,4 @@
+interface:
+  display_name: "Software Development"
+  short_description: "Route non-trivial software work to one focused guide"
+  default_prompt: "Use $software-development to select the one development guide needed for this task."

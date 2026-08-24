@@ -1,4 +1,0 @@
-interface:
-  display_name: "Architect and Simplify"
-  short_description: "Map, deepen, and simplify codebase architecture with evidence"
-  default_prompt: "Use $architect-and-simplify to map this codebase and recommend the smallest architecture or simplification change supported by evidence."

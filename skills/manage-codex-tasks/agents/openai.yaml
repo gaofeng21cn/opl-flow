@@ -1,0 +1,4 @@
+interface:
+  display_name: "Manage Codex Tasks"
+  short_description: "Coordinate, recover, integrate, and migrate Codex tasks"
+  default_prompt: "Use $manage-codex-tasks to coordinate, recover, integrate, or migrate native Codex tasks without creating duplicate writers."

@@ -1,6 +1,0 @@
-interface:
-  display_name: "Bilingual Documentation"
-  short_description: "Reconcile explicit documentation language pairs"
-  default_prompt: "Use $dsh-translate-docs to reconcile this explicitly requested bilingual documentation pair."
-policy:
-  allow_implicit_invocation: false

@@ -179,10 +179,10 @@ replaced.
 
 ### Active Architecture Work
 
-The reusable Codex App owner-migration route is provided by the first-party
-`codex-app-owner-migration` Skill. It treats the Codex App task as a replaceable
-visible executor handle while Beads/Dolt remains objective truth. The Skill does
-not claim availability from SSH or a headless CLI process: the target host,
+The reusable Codex App owner-migration route is provided by
+`manage-codex-tasks` mode `migrate-owner`. It treats the Codex App task as a
+replaceable visible executor handle while Beads/Dolt remains objective truth.
+The route does not claim availability from SSH or a headless CLI process: the target host,
 complete profile repository set, and readable target task must be visible in the
 native App before the owner CAS can proceed. Workspace bootstrap/currentness,
 CAS migration, and real cross-machine readback remain fail-closed runtime gates;

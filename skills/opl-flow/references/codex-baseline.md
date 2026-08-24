@@ -84,7 +84,7 @@ usage floor: internet research, Office documents, and document extraction. It
 is not a claim that every task requires those tools.
 
 Development and architecture capabilities are bundled with OPL Flow. Use
-`architect-and-simplify` for architecture mapping or simplification.
+`$software-development` mode `architecture` for mapping or simplification.
 
 The external `stop-that-shit` Plugin is an explicit optional Guard for covered
 Codex Hook events. Observe it separately from Flow's model-native Stop Ladder;

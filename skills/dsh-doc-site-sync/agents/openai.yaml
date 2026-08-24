@@ -1,6 +1,0 @@
-interface:
-  display_name: "Documentation Site Sync"
-  short_description: "Update docs sources and generated site projections"
-  default_prompt: "Use $dsh-doc-site-sync to update this repository's canonical docs source and site projection safely."
-policy:
-  allow_implicit_invocation: false

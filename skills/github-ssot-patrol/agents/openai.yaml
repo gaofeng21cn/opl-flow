@@ -1,4 +1,0 @@
-interface:
-  display_name: "GitHub SSOT Patrol"
-  short_description: "SSOT-first CI, PR, and issue patrol"
-  default_prompt: "Use $github-ssot-patrol to audit GitHub CI, PRs, and issues against current SSOT."

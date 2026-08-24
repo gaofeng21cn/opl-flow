@@ -128,7 +128,7 @@
         "expansion_rule",
         "unsupported_expansion",
         "task_modes",
-        "task_mode_gate_handoff",
+        "production_change_handoff",
         "repair_progress_policy"
       ],
       "properties": {
@@ -167,20 +167,20 @@
             }
           ]
         },
-        "task_mode_gate_handoff": {
+        "production_change_handoff": {
           "type": "object",
           "additionalProperties": false,
           "required": [
-            "skill_id",
+            "router_skill_id",
+            "reference",
             "precondition",
-            "relationship",
-            "gate_authority"
+            "relationship"
           ],
           "properties": {
-            "skill_id": { "const": "task-mode-gate" },
+            "router_skill_id": { "const": "software-development" },
+            "reference": { "const": "references/delivery/production-change.md" },
             "precondition": { "const": "stop_ladder_supported_reason_and_high_risk_mutation" },
-            "relationship": { "const": "stop_ladder_then_gate" },
-            "gate_authority": { "const": "task-mode-gate" }
+            "relationship": { "const": "stop_ladder_then_reference" }
           }
         },
         "repair_progress_policy": {
