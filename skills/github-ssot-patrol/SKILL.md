@@ -1,6 +1,6 @@
 ---
 name: github-ssot-patrol
-description: Use for scheduled or interactive GitHub CI, open pull request, and open issue patrols that must establish fresh account and repository truth, evaluate each item against current SSOT before acting, avoid duplicate writers, and close with deterministic readback.
+description: Use only for a GitHub CI, open-PR, or open-issue patrol that must freeze current scope, decide every item against fresh repository truth, avoid duplicate writers, and close with readback.
 ---
 
 # GitHub SSOT Patrol

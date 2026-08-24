@@ -2,3 +2,5 @@ interface:
   display_name: "Archive Decision Records"
   short_description: "Retain decision records by future value"
   default_prompt: "Use $dsh-archive-agent-notes to audit these decision records without creating a second archive system."
+policy:
+  allow_implicit_invocation: false

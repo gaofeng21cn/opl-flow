@@ -2,3 +2,5 @@ interface:
   display_name: "Evidence-Backed Code Review"
   short_description: "Review complete diffs through real entry paths"
   default_prompt: "Use $dsh-code-review to review this change against its live base and real callers."
+policy:
+  allow_implicit_invocation: false

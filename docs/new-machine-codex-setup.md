@@ -12,7 +12,7 @@ Install the public Codex Plugin from its owner repository:
 
 ```bash
 codex plugin marketplace add gaofeng21cn/opl-flow
-codex plugin add opl-flow@opl-flow-local
+codex plugin add opl-flow@opl-flow
 ```
 
 Start a new Codex task so native Skill discovery refreshes, then give one

@@ -2,3 +2,5 @@ interface:
   display_name: "Documentation Standards"
   short_description: "Structure and audit developer documentation"
   default_prompt: "Use $dsh-doc-standards to place and improve this documentation against the repository's real owners."
+policy:
+  allow_implicit_invocation: false

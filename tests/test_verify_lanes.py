@@ -10,6 +10,7 @@ from scripts.verify import (
     BUNDLED_SKILL_IDS,
     CORE_SKILL_IDS,
     CORE_TEST_MODULES,
+    EXPLICIT_ONLY_SKILL_IDS,
     REQUIRED_FILES,
     SPECIALIST_SKILL_IDS,
     check_required_files,
@@ -64,10 +65,16 @@ class VerifyLaneTests(unittest.TestCase):
         self.assertEqual(len(SPECIALIST_SKILL_IDS), 11)
         self.assertEqual(discoverable, set(BUNDLED_SKILL_IDS))
 
-        translation_metadata = (
-            REPO_ROOT / "skills/dsh-translate-docs/agents/openai.yaml"
-        ).read_text(encoding="utf-8")
-        self.assertIn("allow_implicit_invocation: false", translation_metadata)
+        explicit_only = {
+            skill_id
+            for skill_id in BUNDLED_SKILL_IDS
+            if (
+                (metadata_path := REPO_ROOT / "skills" / skill_id / "agents" / "openai.yaml").exists()
+                and "allow_implicit_invocation: false" in metadata_path.read_text(encoding="utf-8")
+            )
+        }
+        self.assertEqual(len(explicit_only), 17)
+        self.assertEqual(explicit_only, set(EXPLICIT_ONLY_SKILL_IDS))
 
     def test_deepseek_adaptation_preserves_mit_provenance(self) -> None:
         notice = (REPO_ROOT / "THIRD_PARTY_NOTICES.md").read_text(encoding="utf-8")

@@ -105,9 +105,10 @@ Flow 推荐 `gpt-5.6-sol + max`。显式用户选择优先；OPL App 继续拥�
 
 ### OPL Flow 内置 Skill
 
-当前 `0.1.52` 把第一方通用开发能力统一为一套插件载荷：九个核心 owner Skill、
+当前 `0.1.53` 把第一方通用开发能力统一为一套插件载荷：九个核心 owner Skill、
 十一个开发方法与架构/可靠性 lens，以及十一个聚焦 specialist，共三十一个。它们随
-OPL Flow 一起安装和更新，但仍只在各自触发条件命中时加载。
+OPL Flow 一起安装和更新。其中十四个通用路由和开发 Skill 可按任务语义自动发现，
+十七个窄用途或显式工作流只在按名调用时加载，不进入普通任务的自动发现上下文。
 
 九个核心 owner Skill：
 
@@ -243,7 +244,7 @@ Beads/Dolt 仍是执行总账，GitHub 仍是代码和交付证据的权威来�
 
 ```bash
 codex plugin marketplace add gaofeng21cn/opl-flow
-codex plugin add opl-flow@opl-flow-local
+codex plugin add opl-flow@opl-flow
 ```
 
 安装只部署能力，不会创建 Dashboard、Bead、Linear Project 或 Automation。只有显式

@@ -2,3 +2,5 @@ interface:
   display_name: "Developer Prose Standard"
   short_description: "Preserve complete technical contracts in prose"
   default_prompt: "Use $dsh-prose-standard to improve this developer prose without dropping load-bearing facts."
+policy:
+  allow_implicit_invocation: false

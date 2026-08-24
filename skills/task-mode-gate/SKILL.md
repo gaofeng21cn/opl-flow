@@ -1,6 +1,6 @@
 ---
 name: task-mode-gate
-description: Use when, and only when, the current task will execute, authorize, or reconcile a release, deployment, state or data migration, public or destructive mutation, cross-carrier version change, or explicit validation-to-production transition. Do not trigger for read-only plans, reviews, audits, status checks, ordinary local development, tests, or dry-runs unless that production gate itself is being validated.
+description: Use only when the task will perform or reconcile a release, deployment, migration, public or destructive mutation, cross-carrier version change, or validation-to-production transition. Excludes plans, reviews, ordinary development, tests, and dry-runs.
 ---
 
 # Task Mode Gate

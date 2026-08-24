@@ -3477,7 +3477,7 @@ class CodexFleetTests(unittest.TestCase):
                     {
                         "installed": [
                             {
-                                "pluginId": "opl-flow@opl-agent-opl-flow-local",
+                                "pluginId": "opl-flow@opl-flow",
                                 "installed": True,
                                 "enabled": True,
                                 "source": {"path": str(plugin_root)},
@@ -3569,7 +3569,7 @@ class CodexFleetTests(unittest.TestCase):
             )
             (marketplace / ".agents/plugins/marketplace.json").write_text(
                 json.dumps({
-                    "name": "opl-flow-local",
+                    "name": "opl-flow",
                     "plugins": [{
                         "name": "opl-flow",
                         "source": {"source": "local", "path": "./"},
@@ -3580,11 +3580,11 @@ class CodexFleetTests(unittest.TestCase):
             codex_home.mkdir()
             (codex_home / "config.toml").write_text(
                 "\n".join([
-                    "[marketplaces.opl-flow-local]",
+                    "[marketplaces.opl-flow]",
                     'source_type = "local"',
                     f"source = {json.dumps(str(marketplace))}",
                     "",
-                    '[plugins."opl-flow@opl-flow-local"]',
+                    '[plugins."opl-flow@opl-flow"]',
                     "enabled = true",
                     "",
                 ]),

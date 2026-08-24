@@ -302,10 +302,12 @@ and a multi-machine AI fleet without loading or configuring every backend.
 
 ## Bundled Skills
 
-OPL Flow `0.1.52` bundles one unified development suite: nine core owner Skills,
+OPL Flow `0.1.53` bundles one unified development suite: nine core owner Skills,
 eleven reusable development methods and architecture/reliability lenses, and
 eleven focused specialists. All thirty-one are installed and updated with the
-Plugin; each loads only when its own trigger applies.
+Plugin. Fourteen broad routing and development Skills may be discovered by task
+meaning; the seventeen narrow or explicit workflows remain available by name
+without entering ordinary task discovery.
 
 The nine core owners are:
 
@@ -366,7 +368,7 @@ Install the OPL Flow Plugin from its public repository:
 
 ```bash
 codex plugin marketplace add gaofeng21cn/opl-flow
-codex plugin add opl-flow@opl-flow-local
+codex plugin add opl-flow@opl-flow
 ```
 
 Installation deploys capability only. It does not create a Dashboard, Bead,

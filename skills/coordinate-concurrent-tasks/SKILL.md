@@ -1,6 +1,6 @@
 ---
 name: coordinate-concurrent-tasks
-description: Coordinate multiple Codex conversations, agents, repositories, or worktrees so unfinished work stays ACTIVE, independent work proceeds in parallel, multi-machine task branches stay recoverable, conflicts resolve against fresh SSOT at integration, only fully authoritative work becomes SAFE_TO_ARCHIVE, and actual thread archival requires fresh user acceptance. Use when reorganizing active threads, eliminating wait or blocked states, assigning parallel owners or subagents, resolving dependency or write-set overlap, finding unowned task gaps, reviewing archive safety, or accelerating multi-task delivery. 适用于多对话并发、多机远端同步、等待与锁处理、主线吸收、任务缺口审计和需用户验收的安全归档。
+description: Use when coordinating multiple Codex tasks, repositories, worktrees, agents, or machines; assign owners and write sets, parallelize independent work, integrate against fresh canonical state, and assess archive readiness.
 ---
 
 # 并发任务协调

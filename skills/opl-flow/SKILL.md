@@ -1,6 +1,6 @@
 ---
 name: "opl-flow"
-description: "Use when configuring, diagnosing, tuning, updating, releasing, or explaining the OPL Flow Codex experience baseline; starting its durable ledger supervisor; routing multi-machine work; publishing a first-party OPL Package; or when the user explicitly asks to use OPL Flow."
+description: "Use for OPL Flow setup, diagnosis, tuning, update, package release, Ledger onboarding or supervision, Fleet routing, or an explicit request to use OPL Flow."
 ---
 
 # OPL Flow

@@ -1,8 +1,8 @@
 {
   "interface": {
-    "displayName": "OPL Flow Local"
+    "displayName": "OPL Flow"
   },
-  "name": "opl-flow-local",
+  "name": "opl-flow",
   "plugins": [
     {
       "category": "Developer Tools",

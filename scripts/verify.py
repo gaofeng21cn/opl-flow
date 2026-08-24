@@ -53,6 +53,16 @@ SPECIALIST_SKILL_IDS = (
 
 BUNDLED_SKILL_IDS = CORE_SKILL_IDS + DEVELOPMENT_SKILL_IDS + SPECIALIST_SKILL_IDS
 
+EXPLICIT_ONLY_SKILL_IDS = (
+    "zoom-out",
+    "grill-with-docs",
+    "book-aposd",
+    "book-clean-architecture",
+    "book-domain-driven-design",
+    "book-legacy-code",
+    *SPECIALIST_SKILL_IDS,
+)
+
 REQUIRED_FILES = (
     ".agents/plugins/marketplace.json",
     ".codex-plugin/plugin.json",
@@ -172,6 +182,29 @@ def check_plugin_json(repo_root: Path) -> list[str]:
     }
     if discoverable_skills != set(BUNDLED_SKILL_IDS):
         errors.append("default plugin must expose the unified OPL Flow development Skill payload")
+    marketplace = json.loads(
+        (repo_root / ".agents" / "plugins" / "marketplace.json").read_text(encoding="utf-8")
+    )
+    package_manifest = json.loads((repo_root / "opl-package.json").read_text(encoding="utf-8"))
+    if marketplace.get("name") != "opl-flow":
+        errors.append("marketplace name must be opl-flow")
+    selector = (
+        package_manifest.get("codex_surface", {})
+        .get("configured_codex_plugin_carrier", {})
+        .get("plugin_selector")
+    )
+    if selector != "opl-flow@opl-flow":
+        errors.append("package carrier selector must be opl-flow@opl-flow")
+    explicit_only = {
+        skill_id
+        for skill_id in BUNDLED_SKILL_IDS
+        if (
+            (metadata_path := repo_root / "skills" / skill_id / "agents" / "openai.yaml").exists()
+            and "allow_implicit_invocation: false" in metadata_path.read_text(encoding="utf-8")
+        )
+    }
+    if explicit_only != set(EXPLICIT_ONLY_SKILL_IDS):
+        errors.append("exactly the narrow OPL Flow Skills must be explicit-only")
     policy = json.loads((repo_root / "contracts" / "workflow-policy.json").read_text(encoding="utf-8"))
     if manifest.get("version") != policy.get("package", {}).get("version"):
         errors.append("plugin version must match contracts/workflow-policy.json package.version")
@@ -430,8 +463,8 @@ def check_workflow_policy(repo_root: Path) -> list[str]:
         "officecli-financial-model": (officecli_source, "skills/officecli-financial-model"),
         "officecli-pitch-deck": (officecli_source, "skills/officecli-pitch-deck"),
         "mineru-document-extractor": (
-            "https://github.com/opendatalab/MinerU-Ecosystem",
-            "skills",
+            "https://github.com/gaofeng21cn/one-person-lab-app",
+            "assets/companion-skills/mineru-document-extractor",
         ),
     }
     if baseline_skill_sources != expected_skill_sources:

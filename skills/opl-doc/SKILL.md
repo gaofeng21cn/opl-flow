@@ -1,6 +1,6 @@
 ---
 name: "opl-doc"
-description: "Use when aligning developer documentation with live repository truth; choosing one current owner for a semantic topic; consolidating conflicting or duplicate README/docs content; separating current truth, active gaps, support detail, and history; or retiring documentation for removed code and workflows."
+description: "Use when developer documentation must be aligned with live repository truth, duplicate current narratives consolidated, or documentation for removed code and workflows retired."
 ---
 
 # OPL Doc

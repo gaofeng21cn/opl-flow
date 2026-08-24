@@ -3,7 +3,7 @@
   "schema": "opl_flow_workflow_policy.v4",
   "package": {
     "id": "opl-flow",
-    "version": "0.1.52",
+    "version": "0.1.53",
     "owner": "opl-flow",
     "kind": "workflow_profile"
   },
@@ -544,18 +544,18 @@
     {
       "id": "mineru-document-extractor",
       "kind": "codex_skill",
-      "owner": "mineru",
+      "owner": "one-person-lab-app",
       "bundle_id": "document-extraction",
       "install_source": "owner_skills_cli",
-      "lifecycle_owner": "mineru",
+      "lifecycle_owner": "one-person-lab-app",
       "online_install_default": true,
       "offline_bundle": "none",
       "activation": "task_routed",
       "readiness_adapter": "codex_skill_payload",
       "conflict_policy": "managed_reconcile",
       "credential_policy": "user_or_provider_owned_not_bundled",
-      "source": "https://github.com/opendatalab/MinerU-Ecosystem",
-      "source_path": "skills"
+      "source": "https://github.com/gaofeng21cn/one-person-lab-app",
+      "source_path": "assets/companion-skills/mineru-document-extractor"
     },
     {
       "id": "officecli",
@@ -791,14 +791,6 @@
       "service_ids": [],
       "auto_retire_on_optimize": true,
       "reason": "Global role prompts duplicate the current model's native planning, implementation, debugging, and verification behavior."
-    },
-    {
-      "id": "legacy-opl-flow-local-plugin",
-      "discovery_ids": ["opl-flow-local"],
-      "config_markers": [],
-      "service_ids": [],
-      "auto_retire_on_optimize": true,
-      "reason": "The repository-local OPL Flow marketplace identity was replaced by the Framework-owned package identity."
     }
   ],
   "ledger_supervisor_policy": {
@@ -1137,7 +1129,7 @@
     }
   },
   "historical_fingerprints": {
-    "plugin_ids": ["superpowers", "ponytail@ponytail", "opl-flow@opl-flow-local", "opl-flow-local"],
+    "plugin_ids": ["superpowers", "ponytail@ponytail"],
     "skill_ids": [
       "using-superpowers",
       "superpowers-lite",

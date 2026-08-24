@@ -1,7 +1,7 @@
 {
   "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
   "name": "opl-flow",
-  "version": "0.1.52",
+  "version": "0.1.53",
   "description": "OPL Flow establishes the Codex experience baseline and coordinates durable work across tasks, repositories, and machines.",
   "author": {
     "name": "Gaofeng"

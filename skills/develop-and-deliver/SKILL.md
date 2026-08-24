@@ -1,6 +1,6 @@
 ---
 name: develop-and-deliver
-description: Use when a software task needs systematic implementation, technical validation, or delivery orchestration across multiple steps; do not trigger for a tiny self-contained edit, a read-only explanation, or a review-only request.
+description: Use for a multi-step software change that needs implementation, validation, and delivery to a real terminal surface. Do not use for tiny edits, read-only answers, or review-only work.
 ---
 
 # Develop And Deliver

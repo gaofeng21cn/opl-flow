@@ -2,3 +2,5 @@ interface:
   display_name: "Record Browser GIF"
   short_description: "Capture truthful browser interaction evidence"
   default_prompt: "Use $record-browser-gif to record and verify a real browser workflow as a GIF."
+policy:
+  allow_implicit_invocation: false

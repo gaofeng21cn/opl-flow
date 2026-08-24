@@ -1,6 +1,6 @@
 ---
 name: recover-codex-tasks
-description: Use only when a Codex task or thread is actually missing, interrupted, hidden, or unreadable after a restart or thread failure and the user asks to recover it through native task/thread tools. Do not use for ordinary sidebar navigation, listing visible tasks, continuing a visible task, or general conversation history.
+description: Use only when the user asks to recover a Codex task that is missing, interrupted, hidden, or unreadable after a restart or failure. Do not use for visible-task navigation or general history.
 ---
 
 # Recover Codex Tasks

@@ -180,13 +180,13 @@ class PackageReleaseTests(unittest.TestCase):
                     "codex_surface": {
                         "required_skill_ids": ["opl-flow", "develop-and-deliver"],
                         "configured_codex_plugin_carrier": {
-                            "plugin_selector": "opl-flow@opl-flow-local"
+                            "plugin_selector": "opl-flow@opl-flow"
                         },
                     },
                 },
             )
             before = {
-                "pluginId": "opl-flow@opl-flow-local",
+                "pluginId": "opl-flow@opl-flow",
                 "version": "0.1.39",
                 "enabled": True,
                 "source": {"path": str(source)},

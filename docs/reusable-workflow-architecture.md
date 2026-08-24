@@ -381,7 +381,7 @@ The public entry remains the Codex-native carrier:
 
 ```bash
 codex plugin marketplace add gaofeng21cn/opl-flow
-codex plugin add opl-flow@opl-flow-local
+codex plugin add opl-flow@opl-flow
 ```
 
 The primary first-session actions are:
