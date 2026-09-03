@@ -524,6 +524,12 @@ class VerifyLaneTests(unittest.TestCase):
         self.assertIn("blocked`, never `completed`", reference)
         self.assertIn("DONT_NOTIFY` only controls", reference)
 
+        fleet_reference = (
+            REPO_ROOT / "skills" / "opl-flow" / "references" / "fleet" / "guide.md"
+        ).read_text(encoding="utf-8")
+        self.assertIn("turn contains no tool/result items", fleet_reference)
+        self.assertIn("do not advance the Ledger", fleet_reference)
+
     def test_ledger_references_do_not_resurrect_retired_workbench_alias(self) -> None:
         references = "\n".join(
             (

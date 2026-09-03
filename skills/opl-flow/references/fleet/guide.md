@@ -133,6 +133,11 @@ new task; otherwise continue or hand off an existing task on that exact host.
 Wait for the remote task's terminal result, read it back, and only then call
 `dispatch release`. Device connection, lease acquisition, task creation, and
 message acceptance are intermediate states, not workload completion.
+A scheduler fire or native task state of `completed` is also insufficient when
+the turn contains no tool/result items or its final message is empty. Treat
+that attempt as `unavailable`/unknown, retain the current owner and lease,
+report the transport blocker, and do not advance the Ledger, release capacity,
+retry automatically, or create a parallel executor.
 
 `ssh-session` never accepts a joined shell command. It returns bounded
 stdout/stderr and an exit code without storing them in the repository or lease
