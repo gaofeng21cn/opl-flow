@@ -534,6 +534,8 @@ def check_workflow_policy(repo_root: Path) -> list[str]:
         "linear_detection": {
             "issue_delta_source": "list_issues_updated_after_project_waterline",
             "comment_read_scope": "changed_issues_only",
+            "changed_issue_comment_read_rule": "every_changed_issue_requires_linear_list_comments_before_no_new_comment_or_waterline_advance",
+            "no_comment_claim_rule": "forbidden_without_comment_api_read_for_each_changed_issue",
             "newest_comment_order_assumption": "forbidden",
         },
         "external_review": {

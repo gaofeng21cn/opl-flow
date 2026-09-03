@@ -203,6 +203,8 @@ fires. The Bead and Linear issue remain the stable identity throughout.
 
 The Supervisor uses the official `linear_list_comments` route, a per-project
 Linear comment-ID high-watermark, and the comment ID as the idempotency key.
+Every issue returned by the Linear delta receives a comment read before the
+Supervisor may report no new direction or advance the project waterline.
 Native owner-tool preflight keeps `list_threads.limit <= 50` and distinguishes
 invalid arguments, permission denial, unknown timeout, and genuine tool
 unavailability. Its hourly no-change path calls `list_threads` once, batches

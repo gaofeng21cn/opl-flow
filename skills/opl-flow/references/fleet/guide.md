@@ -23,6 +23,9 @@ Fleet does not hard-code product exclusions; the Supervisor's dynamic
 responsibility registry decides whether a discovered item is personal work,
 another owner's work, or still under intake review before any Ledger admission
 or dispatch.
+When a changed Linear issue is an admission or wake-up source, the Supervisor
+must read that issue's comments before Fleet selection; an issue delta alone
+cannot prove that no authorized direction is waiting.
 Deterministic contracts guard identity, scoped permission, time/token/cost and
 resource budgets, leases, checkpoints, and terminal readback; "Agent manages
 Agent" never grants unconstrained autonomy.

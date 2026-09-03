@@ -455,10 +455,12 @@
             "linear_detection": {
               "type": "object",
               "additionalProperties": false,
-              "required": ["issue_delta_source", "comment_read_scope", "newest_comment_order_assumption"],
+              "required": ["issue_delta_source", "comment_read_scope", "changed_issue_comment_read_rule", "no_comment_claim_rule", "newest_comment_order_assumption"],
               "properties": {
                 "issue_delta_source": { "const": "list_issues_updated_after_project_waterline" },
                 "comment_read_scope": { "const": "changed_issues_only" },
+                "changed_issue_comment_read_rule": { "const": "every_changed_issue_requires_linear_list_comments_before_no_new_comment_or_waterline_advance" },
+                "no_comment_claim_rule": { "const": "forbidden_without_comment_api_read_for_each_changed_issue" },
                 "newest_comment_order_assumption": { "const": "forbidden" }
               }
             },

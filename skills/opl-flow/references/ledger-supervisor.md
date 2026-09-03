@@ -86,7 +86,10 @@ runtime owner on every heartbeat.
    exact recovery target. An unchanged callback or thread summary does not
    require `wait_threads` or `read_thread`.
 7. For each registered Linear project, call `list_issues` once with the saved
-   project `updatedAt` waterline. Do not read comments for an unchanged issue.
+   project `updatedAt` waterline. For every issue returned by that delta, call
+   `linear_list_comments` before concluding that no authorized comment exists
+   or advancing the project waterline. Do not read comments for an unchanged
+   issue.
 
 The snapshot is read-only and intentionally excludes full notes, checkpoints,
 logs, credentials, and unrelated internal metadata. It does not replace owner
@@ -211,8 +214,11 @@ batch, then read back the exact project issue count and zero mismatches. Never
 infer `execution_owner` or `execution_thread` from Linear assignee.
 
 For each registered project, use `linear_list_issues(updatedAt=<waterline>)` to
-select changed issues. Call `linear_list_comments` only for those changed
-issues. The Connector does not promise that `limit=1` is the newest comment, so
+select changed issues. Call `linear_list_comments` for every changed issue;
+an issue summary, title, timestamp, saved cursor, or prior projection never
+proves that it has no new comment. Do not claim `no new comment` and do not
+advance the project waterline unless every changed issue received that comment
+API read. The Connector does not promise that `limit=1` is the newest comment, so
 never use a smallest-page ordering assumption as the cursor gate. Page a
 changed issue until the stored comment ID is found or the current changed set
 is exhausted; a missing or ambiguous cursor falls back to the full audit.
