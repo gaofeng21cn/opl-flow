@@ -730,11 +730,15 @@
         "execution_integrity": {
           "type": "object",
           "additionalProperties": false,
-          "required": ["start_gate", "minimum_execution_evidence", "empty_episode_result", "unavailable_execution_result", "notification_semantics"],
+          "required": ["start_gate", "phase_a_order", "minimum_execution_evidence", "excluded_automatic_receipts", "empty_episode_result", "unavailable_execution_result", "notification_semantics"],
           "properties": {
             "start_gate": { "const": "execute_phase_a_before_terminal_decision" },
+            "phase_a_order": { "const": "first_active_action_after_automation_delivery" },
             "minimum_execution_evidence": {
               "const": ["at_least_one_real_tool_or_command_call", "non_empty_terminal_counter_receipt"]
+            },
+            "excluded_automatic_receipts": {
+              "const": ["automation_update_delivery_receipt"]
             },
             "empty_episode_result": { "const": "blocked_not_completed" },
             "unavailable_execution_result": { "const": "blocked_with_explicit_platform_error" },

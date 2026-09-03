@@ -494,6 +494,16 @@ class VerifyLaneTests(unittest.TestCase):
             execution_integrity_errors,
         )
 
+        execution_order_errors = self.workflow_policy_errors_after(
+            lambda policy: policy["ledger_supervisor_policy"]["execution_integrity"].update(
+                phase_a_order="after_terminal_decision",
+            )
+        )
+        self.assertIn(
+            "Ledger Supervisor must reject empty or unavailable episodes as completed",
+            execution_order_errors,
+        )
+
     def test_ledger_supervisor_reference_keeps_incremental_no_change_semantics(self) -> None:
         reference = (
             REPO_ROOT / "skills" / "opl-flow" / "references" / "ledger-supervisor.md"

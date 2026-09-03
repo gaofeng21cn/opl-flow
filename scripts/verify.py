@@ -711,10 +711,12 @@ def check_workflow_policy(repo_root: Path) -> list[str]:
         errors.append("Ledger Supervisor automated replies must carry marker and answer provenance")
     expected_execution_integrity = {
         "start_gate": "execute_phase_a_before_terminal_decision",
+        "phase_a_order": "first_active_action_after_automation_delivery",
         "minimum_execution_evidence": [
             "at_least_one_real_tool_or_command_call",
             "non_empty_terminal_counter_receipt",
         ],
+        "excluded_automatic_receipts": ["automation_update_delivery_receipt"],
         "empty_episode_result": "blocked_not_completed",
         "unavailable_execution_result": "blocked_with_explicit_platform_error",
         "notification_semantics": "DONT_NOTIFY_is_notification_choice_not_execution_success",

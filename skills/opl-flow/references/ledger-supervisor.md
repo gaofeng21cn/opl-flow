@@ -56,9 +56,11 @@ perform no product read, successor dispatch, or semantic write.
 ### Execution integrity gate
 
 The scheduler firing is not evidence that the Supervisor episode executed. The
-episode must first perform Phase A and produce a non-empty terminal counter
-receipt. A run with zero real tool/command calls, an empty final message, or no
-counter receipt is `blocked`, never `completed`. If the Codex runtime or a
+automatic `automation_update` delivery receipt is not execution evidence; it
+must be ignored when counting tool activity. The first active action after the
+delivery receipt must be Phase A. The episode must then produce a non-empty
+terminal counter receipt. A run with zero real tool/command calls, an empty
+final message, or no counter receipt is `blocked`, never `completed`. If the Codex runtime or a
 required owner tool is unavailable, record the explicit platform/transport
 error and stop; do not silently return success. `DONT_NOTIFY` only controls
 whether a successful, fully observed episode sends a user notification; it is
