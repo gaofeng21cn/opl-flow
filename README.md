@@ -369,6 +369,12 @@ the Dashboard/Bead/Automation/Linear/Dolt owners back. The same Supervisor can
 later add more registered Linear projects. Repeated runs do not create a second
 supervision loop, Dashboard Bead, or issue.
 
+Ledger admission follows fresh responsibility evidence rather than product or
+repository names. A generic `continue` or `继续` advances only the current owner
+after that owner is read back; it does not authorize secrets, deployment,
+release, destructive mutation, or owner transfer. If the current owner is
+active, the Supervisor preserves it as the sole writer.
+
 Each heartbeat then uses `$opl-flow supervise`. The Automation stores only its
 private Instance, Dashboard, registered-project, authorized-account, schedule,
 and notification inputs; the versioned Skill owns the reusable supervision

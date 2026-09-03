@@ -23,6 +23,10 @@ Fleet does not hard-code product exclusions; the Supervisor's dynamic
 responsibility registry decides whether a discovered item is personal work,
 another owner's work, or still under intake review before any Ledger admission
 or dispatch.
+Before treating a generic `continue` or `继续` as a dispatch event, fresh-read
+the current owner. It advances only that owner and does not authorize a secret,
+deployment, release, destructive mutation, or owner transfer. An active owner
+remains the sole writer; Fleet must not create a parallel execution attempt.
 When a changed Linear issue is an admission or wake-up source, the Supervisor
 must read that issue's comments before Fleet selection; an issue delta alone
 cannot prove that no authorized direction is waiting.

@@ -20,6 +20,12 @@ Linear, or Dashboard counts; `other_owner` is associated evidence only; unclear
 ownership remains `intake_review` without task creation or projection. Refresh
 the registry every Phase A and whenever user or owner direction changes.
 
+A generic continuation such as `continue` or `继续` advances only the current
+owner after a fresh owner read. It is not new authorization for a secret,
+deployment, release, destructive mutation, or execution-owner transfer. When
+that owner is active, preserve it as the sole writer and do not start a parallel
+action.
+
 ## Control Plane Separation
 
 Use an event-driven three-layer control plane:

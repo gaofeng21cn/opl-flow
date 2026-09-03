@@ -681,6 +681,7 @@
         "admission_rule": "only_personal_responsibility_enters_beads_linear_or_dashboard_counts",
         "other_owner_rule": "retain_as_associated_evidence_only;exclude_from_personal_ledger_counts_and_actions",
         "ambiguous_rule": "retain_intake_review_without_creating_or_projecting_objective",
+        "continuation_authority_rule": "generic_continue_advances_current_owner_only;fresh_read_existing_owner_before_action;does_not_authorize_high_risk_mutation_or_owner_transfer",
         "refresh_trigger": "every_phase_a_and_on_user_or_owner_direction_change"
       },
       "linear_detection": {

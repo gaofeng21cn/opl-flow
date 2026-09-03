@@ -643,5 +643,15 @@ class VerifyLaneTests(unittest.TestCase):
             with self.subTest(schema_source_path=invalid_path):
                 self.assertIsNone(re.fullmatch(path_pattern, invalid_path))
 
+    def test_responsibility_registry_schema_matches_incremental_fast_path_policy(self) -> None:
+        schema = json.loads(
+            (REPO_ROOT / "contracts" / "workflow-policy.schema.json").read_text(encoding="utf-8")
+        )
+        fast_path = schema["$defs"]["ledgerSupervisorPolicy"]["properties"]["incremental_fast_path"]
+
+        self.assertIn("responsibility_registry", fast_path["required"])
+        self.assertIn("responsibility_registry", fast_path["properties"])
+        self.assertNotIn("responsibility_registry", fast_path["properties"]["thread_detection"])
+
 if __name__ == "__main__":
     unittest.main()
