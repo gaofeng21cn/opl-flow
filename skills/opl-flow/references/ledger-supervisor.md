@@ -63,6 +63,11 @@ runtime owner on every heartbeat.
 5. Call `list_threads(limit <= 50)` once. Compare only `updatedAt`, `status`, and
    `hasUnreadTurn` with the saved per-thread observation. Do not use the title as
    an observation signature: it is a Supervisor-maintained projection.
+   For every changed thread that is the registered provenance or execution task
+   of a personal-ledger objective, inspect newly arrived user messages during
+   the same episode. An authorized human message is an immediate event even when
+   the Bead is `waiting_external`/Blocked or its `next_review_at` backoff is not
+   due; it must trigger exact reconciliation and a reply or status projection.
 6. Do not call `wait_threads` merely because a live
    `metadata.execution_thread` exists. Normal progress arrives as an executor
    callback to the product controller. Use `wait_threads(timeoutMs=0)` in
@@ -80,7 +85,8 @@ readback or the official Linear Connector.
 ## 2. Expand Only Changed, Due, Or Ambiguous Objects
 
 Phase B calls `read_thread` only for a new thread, changed summary, changed wait
-cursor, unread turn, due review, or ambiguous owner state. An unchanged managed
+cursor, unread turn, due review, an authorized user message on a registered
+task, or ambiguous owner state. An unchanged managed
 objective or registered interactive longline does not receive an hourly exact
 read. When expansion is selected, corroborate only that objective with canonical
 main/wire, worktree/lifecycle, release, deployment, install, or runtime owner

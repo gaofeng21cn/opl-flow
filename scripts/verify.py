@@ -518,7 +518,9 @@ def check_workflow_policy(repo_root: Path) -> list[str]:
                 "has_unread_turn",
                 "review_due",
                 "ambiguous_owner_state",
+                "new_authorized_user_message_on_registered_task",
             ],
+            "registered_task_user_message_policy": "inspect_new_user_messages_in_changed_registered_objective_threads;authorized_user_message_overrides_review_backoff_and_requires_same_episode_reconcile_reply_or_status_projection",
         },
         "linear_detection": {
             "issue_delta_source": "list_issues_updated_after_project_waterline",

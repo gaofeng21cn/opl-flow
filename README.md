@@ -203,7 +203,10 @@ live executors through zero-wait `wait_threads`, and queries Linear issues only
 after the saved project waterline. Unchanged threads do not receive exact
 `read_thread` calls, unchanged Linear issues do not receive comment reads, and
 blocked or monitoring objectives reuse `next_review_at` instead of hourly owner
-polling. A full audit runs at a lower cadence or on cursor, schema, timeout, or
+polling. A fresh authorized user message in a registered objective's Codex task
+is an immediate event and overrides that backoff: the Supervisor must inspect
+the message in the same episode and reconcile, reply, or project the resulting
+status. A full audit runs at a lower cadence or on cursor, schema, timeout, or
 explicit-user triggers. A timed-out dispatch is reconciled from the destination
 task before at most one retry. Each authorized comment closes delivery, owner-answer
 readback, Linear reply, and reply readback before its cursor advances. Every

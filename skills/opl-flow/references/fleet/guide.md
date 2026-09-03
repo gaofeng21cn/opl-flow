@@ -15,6 +15,10 @@ policy, private assets, sessions, logs, or runtime databases.
 A control Agent may turn natural-language intent into a Ledger-owned dynamic
 task graph and supervise worker Agents through Fleet. Fleet manages versioned
 context references and recovery boundaries, never raw conversation storage.
+For a registered Ledger objective, a fresh authorized user message on its
+provenance or execution task is a dispatch/reconciliation event even when the
+objective is externally blocked or review-backoff is not due; the controller
+must re-read the task and decide whether to reply, repair, or update projection.
 Deterministic contracts guard identity, scoped permission, time/token/cost and
 resource budgets, leases, checkpoints, and terminal readback; "Agent manages
 Agent" never grants unconstrained autonomy.

@@ -413,7 +413,7 @@
             "thread_detection": {
               "type": "object",
               "additionalProperties": false,
-              "required": ["inventory_source", "observation_fields", "excluded_observation_fields", "progress_signal_source", "wait_threads_policy", "wait_timeout_ms", "wait_batch_size", "exact_read_triggers"],
+              "required": ["inventory_source", "observation_fields", "excluded_observation_fields", "progress_signal_source", "wait_threads_policy", "wait_timeout_ms", "wait_batch_size", "exact_read_triggers", "registered_task_user_message_policy"],
               "properties": {
                 "inventory_source": { "const": "list_threads" },
                 "observation_fields": { "const": ["updatedAt", "status", "hasUnreadTurn"] },
@@ -429,8 +429,12 @@
                     "wait_cursor_changed",
                     "has_unread_turn",
                     "review_due",
-                    "ambiguous_owner_state"
+                    "ambiguous_owner_state",
+                    "new_authorized_user_message_on_registered_task"
                   ]
+                },
+                "registered_task_user_message_policy": {
+                  "const": "inspect_new_user_messages_in_changed_registered_objective_threads;authorized_user_message_overrides_review_backoff_and_requires_same_episode_reconcile_reply_or_status_projection"
                 }
               }
             },
