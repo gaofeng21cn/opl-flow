@@ -484,6 +484,16 @@ class VerifyLaneTests(unittest.TestCase):
             marker_errors,
         )
 
+        execution_integrity_errors = self.workflow_policy_errors_after(
+            lambda policy: policy["ledger_supervisor_policy"]["execution_integrity"].update(
+                empty_episode_result="completed",
+            )
+        )
+        self.assertIn(
+            "Ledger Supervisor must reject empty or unavailable episodes as completed",
+            execution_integrity_errors,
+        )
+
     def test_ledger_supervisor_reference_keeps_incremental_no_change_semantics(self) -> None:
         reference = (
             REPO_ROOT / "skills" / "opl-flow" / "references" / "ledger-supervisor.md"
@@ -505,6 +515,14 @@ class VerifyLaneTests(unittest.TestCase):
             "Do not create a duplicate `next_authority_check_at` field.",
             normalized,
         )
+
+    def test_ledger_supervisor_reference_rejects_empty_execution(self) -> None:
+        reference = (
+            REPO_ROOT / "skills" / "opl-flow" / "references" / "ledger-supervisor.md"
+        ).read_text(encoding="utf-8")
+        self.assertIn("zero real tool/command calls", reference)
+        self.assertIn("blocked`, never `completed`", reference)
+        self.assertIn("DONT_NOTIFY` only controls", reference)
 
     def test_ledger_references_do_not_resurrect_retired_workbench_alias(self) -> None:
         references = "\n".join(

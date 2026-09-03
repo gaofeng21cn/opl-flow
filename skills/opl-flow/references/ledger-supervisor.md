@@ -53,6 +53,17 @@ perform no product read, successor dispatch, or semantic write.
 
 ## 1. Run The Bounded Change Detector
 
+### Execution integrity gate
+
+The scheduler firing is not evidence that the Supervisor episode executed. The
+episode must first perform Phase A and produce a non-empty terminal counter
+receipt. A run with zero real tool/command calls, an empty final message, or no
+counter receipt is `blocked`, never `completed`. If the Codex runtime or a
+required owner tool is unavailable, record the explicit platform/transport
+error and stop; do not silently return success. `DONT_NOTIFY` only controls
+whether a successful, fully observed episode sends a user notification; it is
+not an execution result and cannot mask a failed or empty episode.
+
 Phase A establishes enough fresh truth to decide what needs expansion. It does
 not reread every task, worktree, holder, release, deployment, install, or
 runtime owner on every heartbeat.
@@ -313,7 +324,7 @@ remaining, and terminal/readback facts to Beads. Run `bd dolt push` only when
 Beads changed, then pull/read back parity. Narrowly update Linear only when a
 projected field changed.
 
-Emit compact counters for threads listed, summaries changed, wait targets,
+Emit a non-empty terminal receipt with compact counters for threads listed, summaries changed, wait targets,
 wait cursors changed, exact thread reads, Linear projects probed, Linear issues
 changed, comment pages, authority checks, writes, retries, elapsed seconds, and
 any full-audit reason. For a semantic no-change episode, the expected budget is

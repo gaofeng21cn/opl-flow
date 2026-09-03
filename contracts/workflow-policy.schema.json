@@ -342,7 +342,7 @@
     "ledgerSupervisorPolicy": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["event_driven_control_plane", "incremental_fast_path", "linear_assignee_projection", "task_lifecycle_classes", "bounded_executor_policy", "execution_modes", "native_owner_tools", "comment_delivery"],
+      "required": ["event_driven_control_plane", "incremental_fast_path", "linear_assignee_projection", "task_lifecycle_classes", "bounded_executor_policy", "execution_modes", "native_owner_tools", "comment_delivery", "execution_integrity"],
       "properties": {
         "event_driven_control_plane": {
           "type": "object",
@@ -725,6 +725,20 @@
                 "non_user_detection": { "const": "marker_not_linear_author_identity" }
               }
             }
+          }
+        },
+        "execution_integrity": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["start_gate", "minimum_execution_evidence", "empty_episode_result", "unavailable_execution_result", "notification_semantics"],
+          "properties": {
+            "start_gate": { "const": "execute_phase_a_before_terminal_decision" },
+            "minimum_execution_evidence": {
+              "const": ["at_least_one_real_tool_or_command_call", "non_empty_terminal_counter_receipt"]
+            },
+            "empty_episode_result": { "const": "blocked_not_completed" },
+            "unavailable_execution_result": { "const": "blocked_with_explicit_platform_error" },
+            "notification_semantics": { "const": "DONT_NOTIFY_is_notification_choice_not_execution_success" }
           }
         }
       }

@@ -709,6 +709,18 @@ def check_workflow_policy(repo_root: Path) -> list[str]:
     }
     if delivery.get("automated_reply") != expected_reply:
         errors.append("Ledger Supervisor automated replies must carry marker and answer provenance")
+    expected_execution_integrity = {
+        "start_gate": "execute_phase_a_before_terminal_decision",
+        "minimum_execution_evidence": [
+            "at_least_one_real_tool_or_command_call",
+            "non_empty_terminal_counter_receipt",
+        ],
+        "empty_episode_result": "blocked_not_completed",
+        "unavailable_execution_result": "blocked_with_explicit_platform_error",
+        "notification_semantics": "DONT_NOTIFY_is_notification_choice_not_execution_success",
+    }
+    if supervisor.get("execution_integrity") != expected_execution_integrity:
+        errors.append("Ledger Supervisor must reject empty or unavailable episodes as completed")
     full_offline_keys = {
         (item.get("kind"), item.get("id"))
         for item in baseline
