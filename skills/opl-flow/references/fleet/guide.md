@@ -19,6 +19,10 @@ For a registered Ledger objective, a fresh authorized user message on its
 provenance or execution task is a dispatch/reconciliation event even when the
 objective is externally blocked or review-backoff is not due; the controller
 must re-read the task and decide whether to reply, repair, or update projection.
+Fleet does not hard-code product exclusions; the Supervisor's dynamic
+responsibility registry decides whether a discovered item is personal work,
+another owner's work, or still under intake review before any Ledger admission
+or dispatch.
 Deterministic contracts guard identity, scoped permission, time/token/cost and
 resource budgets, leases, checkpoints, and terminal readback; "Agent manages
 Agent" never grants unconstrained autonomy.

@@ -674,6 +674,15 @@
         ],
         "registered_task_user_message_policy": "inspect_new_user_messages_in_changed_registered_objective_threads;authorized_user_message_overrides_review_backoff_and_requires_same_episode_reconcile_reply_or_status_projection"
       },
+      "responsibility_registry": {
+        "state_owner": "private_supervisor_memory_cursor_location",
+        "classification_values": ["personal_responsibility", "other_owner", "intake_review"],
+        "evidence_required": ["source_or_thread_identity", "authority_or_delegation", "current_owner", "write_set_boundary", "last_verified_at"],
+        "admission_rule": "only_personal_responsibility_enters_beads_linear_or_dashboard_counts",
+        "other_owner_rule": "retain_as_associated_evidence_only;exclude_from_personal_ledger_counts_and_actions",
+        "ambiguous_rule": "retain_intake_review_without_creating_or_projecting_objective",
+        "refresh_trigger": "every_phase_a_and_on_user_or_owner_direction_change"
+      },
       "linear_detection": {
         "issue_delta_source": "list_issues_updated_after_project_waterline",
         "comment_read_scope": "changed_issues_only",

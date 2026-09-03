@@ -406,7 +406,7 @@
         "incremental_fast_path": {
           "type": "object",
           "additionalProperties": false,
-          "required": ["phase_order", "state_owner", "thread_detection", "linear_detection", "external_review", "full_audit", "observability_counters", "no_change_budget"],
+            "required": ["phase_order", "state_owner", "thread_detection", "responsibility_registry", "linear_detection", "external_review", "full_audit", "observability_counters", "no_change_budget"],
           "properties": {
             "phase_order": { "const": ["change_detection", "selective_expansion"] },
             "state_owner": { "const": "private_supervisor_memory_cursor_location" },
@@ -435,6 +435,20 @@
                 },
                 "registered_task_user_message_policy": {
                   "const": "inspect_new_user_messages_in_changed_registered_objective_threads;authorized_user_message_overrides_review_backoff_and_requires_same_episode_reconcile_reply_or_status_projection"
+                }
+              },
+              "responsibility_registry": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": ["state_owner", "classification_values", "evidence_required", "admission_rule", "other_owner_rule", "ambiguous_rule", "refresh_trigger"],
+                "properties": {
+                  "state_owner": { "const": "private_supervisor_memory_cursor_location" },
+                  "classification_values": { "const": ["personal_responsibility", "other_owner", "intake_review"] },
+                  "evidence_required": { "const": ["source_or_thread_identity", "authority_or_delegation", "current_owner", "write_set_boundary", "last_verified_at"] },
+                  "admission_rule": { "const": "only_personal_responsibility_enters_beads_linear_or_dashboard_counts" },
+                  "other_owner_rule": { "const": "retain_as_associated_evidence_only;exclude_from_personal_ledger_counts_and_actions" },
+                  "ambiguous_rule": { "const": "retain_intake_review_without_creating_or_projecting_objective" },
+                  "refresh_trigger": { "const": "every_phase_a_and_on_user_or_owner_direction_change" }
                 }
               }
             },

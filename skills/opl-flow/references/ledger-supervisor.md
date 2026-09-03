@@ -10,6 +10,16 @@ owns durable execution facts, Linear is the narrow human portal, GitHub owns
 code and delivery evidence, and Fleet provides capacity only. Never create a
 second heartbeat for another registered project.
 
+Responsibility is dynamic, not a hard-coded repository or product exclusion.
+Maintain a responsibility registry in the private Supervisor memory with one
+entry per observed work item classified as `personal_responsibility`,
+`other_owner`, or `intake_review`. Each entry requires source/thread identity,
+authority or delegation evidence, current owner, write-set boundary, and
+`last_verified_at`. Only `personal_responsibility` entries may enter Beads,
+Linear, or Dashboard counts; `other_owner` is associated evidence only; unclear
+ownership remains `intake_review` without task creation or projection. Refresh
+the registry every Phase A and whenever user or owner direction changes.
+
 ## Control Plane Separation
 
 Use an event-driven three-layer control plane:

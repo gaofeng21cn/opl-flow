@@ -183,6 +183,13 @@ allocated. Both preserve an existing Beads `blocked` lifecycle and otherwise
 preserve `in_progress`; `Monitoring` normalizes to `in_progress`. Only
 genuinely active work is shown as `In Progress`.
 
+Ledger responsibility is dynamic. The private Supervisor memory maintains a
+registry classifying observed work as `personal_responsibility`, `other_owner`,
+or `intake_review` from fresh source/thread, authority/delegation, owner, and
+write-set evidence. Only the first class enters Beads, Linear, or Dashboard
+counts; the second is associated evidence only, and the third never creates or
+projects a task until ownership is clear.
+
 `Monitoring` is a durable Ledger responsibility, not a requirement to keep an
 idle Codex task open. `On Demand` is the explicit record-only state for a
 long-lived responsibility with no current work, external event, or user action:
