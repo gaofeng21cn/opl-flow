@@ -124,7 +124,7 @@ Framework and App report three independent planes:
 
 Only the first plane controls Flow callability. App consumes the generic
 Framework projection and never parses Flow policy or keeps a companion list.
-Flow recommends `gpt-5.6-sol + max`; App owns Auto resolution, UI persistence,
+Flow recommends `gpt-6-astra + max`; App owns Auto resolution, UI persistence,
 explicit user selection, and fallback. `opl_flow_context` is installed-state
 metadata only, never a hidden prompt, and is omitted when Flow is absent.
 

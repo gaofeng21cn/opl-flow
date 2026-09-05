@@ -97,7 +97,7 @@ Flow policy -> Framework compiler -> status/owner hint/build lock -> App
 时只让 internet-research bundle 与 `experience_baseline` 降级，不会禁用 Flow、总账或
 核心 Skill。
 
-Flow 推荐 `gpt-5.6-sol + max`。显式用户选择优先；OPL App 继续拥有 Auto 算法、
+Flow 默认推荐 `gpt-6-astra`，推理强度为 `max`。用户明确选择的模型优先；OPL App 继续负责自动选择算法、
 模型控件、持久化和 Flow 缺席时的 fallback。Flow 不注入隐藏 prompt，也不会把
 实时 Codex catalog 中不存在的模型说成可用。
 

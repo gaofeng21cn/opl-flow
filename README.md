@@ -122,7 +122,7 @@ methodology. It keeps communication preferences, source-first diagnosis,
 critical-path focus, dynamic concurrency, and tool routing concise and
 portable.
 
-Flow recommends `gpt-5.6-sol` with `max` reasoning. Explicit user selection has
+Flow recommends `gpt-6-astra` with `max` reasoning. Explicit user selection has
 priority. OPL App owns Auto resolution, the visible model controls, persistence,
 and fallback when Flow is unavailable; Flow does not inject a hidden prompt or
 claim that a model missing from the live Codex catalog is usable.

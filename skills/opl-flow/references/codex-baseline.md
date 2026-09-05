@@ -50,7 +50,7 @@ explicit user selection
 > App fallback when Flow is unavailable
 ```
 
-Flow recommends `gpt-5.6-sol` and `max`. Do not overwrite a fixed user choice.
+Flow recommends `gpt-6-astra` and `max`. Do not overwrite a fixed user choice.
 In Auto mode, prefer the live catalog/default according to the App contract.
 The recommendation is policy, not proof that the model is currently available.
 

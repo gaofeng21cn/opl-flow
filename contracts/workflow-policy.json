@@ -924,7 +924,7 @@
     "authority": "opl-flow",
     "mode_default": "auto",
     "configured_default": {
-      "model": "gpt-5.6-sol",
+      "model": "gpt-6-astra",
       "reasoning_effort": "max"
     },
     "override_precedence": [
