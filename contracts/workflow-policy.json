@@ -7,7 +7,7 @@
     "owner": "opl-flow",
     "kind": "workflow_profile"
   },
-  "workflow_generation": "model-native-gpt-5.6",
+  "workflow_generation": "model-native-gpt-6-astra",
   "task_boundary_policy": {
     "authority": "opl-flow",
     "stop_ladder": [

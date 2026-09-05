@@ -16,7 +16,7 @@ Choose one product action and load only its named references.
 | --- | --- | --- |
 | `doctor` | Inspect the effective baseline, Profile, Package, model, capabilities, Ledger, or Fleet. | `references/codex-baseline.md`, then `references/terminal-readback.md` |
 | `setup` | Establish or repair the owner-supported baseline on this machine. | `references/setup-update.md`, `references/package-lifecycle.md` |
-| `tune` | Change Profile, model defaults, or capability selection while preserving user ownership. | `references/codex-baseline.md`, `references/app-integration.md` |
+| `tune` | Audit a model upgrade and tune Profile, Skills, model defaults, or capability selection while preserving user ownership. | `references/codex-baseline.md`, `references/app-integration.md` |
 | `update` | Update Flow and configured components through their owners and verify effective discovery. | `references/setup-update.md`, `references/package-lifecycle.md` |
 | `release-package` | Prepare, publish, or locally activate one first-party OPL Package. | `references/package-release.md` |
 | `start` | Bind the owner's Ledger Dashboard, Bead, Linear projection, and Supervisor. | `references/ledger-start.md` |

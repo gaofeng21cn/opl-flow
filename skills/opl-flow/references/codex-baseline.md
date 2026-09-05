@@ -2,6 +2,14 @@
 
 Use this reference for `doctor` and `tune`.
 
+## Local Workflow Before Distribution
+
+For a request to optimize this machine and then synchronize the result into
+Flow, start with the user's effective local instructions, Skills, configuration,
+and actual execution. Validate that local result first; Flow then carries the
+reusable deployment projection for other machines. A package recommendation
+does not override local preferences or prove that local behavior improved.
+
 ## Authority
 
 - Flow owns the recommended profile, model policy, and capability intent.
@@ -53,6 +61,57 @@ explicit user selection
 Flow recommends `gpt-6-astra` and `max`. Do not overwrite a fixed user choice.
 In Auto mode, prefer the live catalog/default according to the App contract.
 The recommendation is policy, not proof that the model is currently available.
+
+### Model Upgrade Audit
+
+When an upgrade includes workflow tuning, use the official documentation for
+the exact requested model before changing prompts. Prefer the available
+`openai-docs` Skill and its official search/fetch tools. Record the inspected
+source and date; do not treat an older bundled guide or a model alias as fresh
+guidance.
+
+1. Inspect the effective model, reasoning effort, provider API route, catalog,
+   global/project instruction chain, selected configuration overlays, and
+   installed Skill sources. Inventory discovery metadata broadly, then read
+   the instructions that can actually affect the requested workflow. Inspect
+   configuration by field and report only credential presence/source.
+2. Audit ambiguous approval language, stale Skill routes, conflicting tool
+   mandates, repeated generic process, writing verbosity, delegation criteria,
+   and excessive verification. Preserve domain and irreversible-action controls;
+   do not rewrite third-party or bundled cache files as local source.
+3. Apply the smallest local changes supported by the evidence. Preserve the
+   user's language, preferences, fixed model/effort, and intentionally tiered
+   automation or fallback choices. A flagship upgrade does not justify moving
+   every workload to the flagship or increasing every reasoning budget.
+4. Verify changed local files and run a fresh executor on a bounded real task.
+   Check actual tool execution, output readback, unnecessary approval pauses,
+   Skill routing, and proportional verification. Do not turn prose into
+   keyword tests or claim behavioral quality from file equality alone. The
+   AGENTS instruction chain is rebuilt for a new run; an existing task may
+   retain its original instructions.
+5. After local validation, synchronize only reusable behavior into Flow's
+   Profile and relevant routed references. Keep personal endpoints, credentials,
+   topology, session state, private rules, and workload overrides local. Use the
+   existing Profile source/template equality check and validate package source.
+   Report source synchronization, publication, installation, and fresh discovery
+   separately, according to the user's requested endpoint.
+
+For GPT-6 Astra, the official guide inspected on 2026-09-06 emphasizes continued
+execution within existing authorization, explicit user/Skill precedence,
+focused clarification, concise prose, intentional delegation, and verification
+proportional to the change. Preserve an existing supported reasoning effort;
+start `none`/`minimal` workloads at `low` when migration is requested. Tool use
+requires Responses; custom `temperature`, `top_p`, and log probabilities are
+unsupported. Async tools and mid-turn steering are harness capabilities: do not
+invent local config switches or redesign the harness solely to mirror an API
+feature list.
+
+Sources:
+- https://developers.openai.com/api/docs/guides/latest-model
+- https://developers.openai.com/codex/guides/agents-md
+
+Refresh the model guide during the next model upgrade rather than assuming this
+dated summary establishes future compatibility.
 
 ## Profile Safety
 
