@@ -28,8 +28,14 @@ python3 <opl-flow-skill>/scripts/package_release.py prepare \
 ```
 
 `prepare` requires a clean owner checkout at fresh `origin/main` and an
-annotated release tag selecting `HEAD`. Review and absorb its two generated
-Framework files before publication.
+annotated release tag selecting `HEAD`. It resolves the canonical owner manifest
+and carrier descriptor through Framework publication refs and the payload
+allowlist, verifies their committed identities, and refreshes owner capability,
+dependency and content-lock fields. A missing owner `source_repo` does not waive
+the binding between origin, Framework projection and payload allowlist. Existing
+same-version payload bytes remain immutable. Review and absorb the generated
+Package and payload files, plus the allowlist when content-lock paths changed,
+before publication.
 
 ```bash
 python3 <opl-flow-skill>/scripts/package_release.py publish \
@@ -50,12 +56,21 @@ python3 <opl-flow-skill>/scripts/package_release.py activate \
   --opl-bin <canonical-framework>/bin/opl
 ```
 
-`activate` delegates marketplace refresh and carrier update to Framework once,
-then reads back the enabled Plugin version, required Skills, single-Package
-status, and default Profile delta as a compact summary. It reports
-`profile_merge_required` and a diff when the default changed; merge user Profile
-content semantically outside the script. Start a fresh Codex executor when
-discovery is required.
+`activate` reads Framework Package status and calls its official install or
+update entrypoint. It requires a real installed carrier descriptor, the expected
+version, available source files and callability; a source-checkout projection
+cannot substitute for installation. Required providers absent from the native
+carrier are installed explicitly, then checked against the fresh consumer
+dependency binding and their installed content locks.
+
+Interactive Plugins remain enabled. Headless capabilities remain disabled in
+Codex's conversational surface and must expose Framework projection callability;
+their exported core Skills and content bytes are checked without enabling them.
+An installed carrier with unresolved overall readiness is reported as
+`installed_with_readiness_debt`. This does not establish overall or domain
+readiness. For a Package with a Profile, report `profile_merge_required` and a
+diff when the default changed; merge user Profile content semantically outside
+the script. Start a fresh Codex executor when discovery is required.
 
 ## Terminal Readback
 
