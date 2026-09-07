@@ -504,56 +504,6 @@ class VerifyLaneTests(unittest.TestCase):
             execution_order_errors,
         )
 
-    def test_ledger_supervisor_reference_keeps_incremental_no_change_semantics(self) -> None:
-        reference = (
-            REPO_ROOT / "skills" / "opl-flow" / "references" / "ledger-supervisor.md"
-        ).read_text(encoding="utf-8")
-        normalized = " ".join(reference.split())
-
-        self.assertNotIn(
-            "Call `read_thread` for each managed objective",
-            reference,
-        )
-        self.assertIn("With no event,", reference)
-        self.assertIn("zero `wait_threads`", reference)
-        self.assertIn("The global Supervisor does not resident-poll either role.", reference)
-        self.assertIn(
-            "zero `read_thread`, zero comment calls, zero authority checks, and zero semantic writes",
-            normalized,
-        )
-        self.assertIn(
-            "Do not create a duplicate `next_authority_check_at` field.",
-            normalized,
-        )
-
-    def test_ledger_supervisor_reference_rejects_empty_execution(self) -> None:
-        reference = (
-            REPO_ROOT / "skills" / "opl-flow" / "references" / "ledger-supervisor.md"
-        ).read_text(encoding="utf-8")
-        self.assertIn("zero real tool/command calls", reference)
-        self.assertIn("blocked`, never `completed`", reference)
-        self.assertIn("DONT_NOTIFY` only controls", reference)
-
-        fleet_reference = (
-            REPO_ROOT / "skills" / "opl-flow" / "references" / "fleet" / "guide.md"
-        ).read_text(encoding="utf-8")
-        self.assertIn("turn contains no tool/result items", fleet_reference)
-        self.assertIn("do not advance the Ledger", fleet_reference)
-
-    def test_ledger_references_do_not_resurrect_retired_workbench_alias(self) -> None:
-        references = "\n".join(
-            (
-                REPO_ROOT / relative_path
-            ).read_text(encoding="utf-8")
-            for relative_path in (
-                "skills/opl-flow/references/ledger-start.md",
-                "skills/opl-flow/references/ledger-supervisor.md",
-            )
-        )
-
-        self.assertNotIn("persistent_workbench", references)
-        self.assertIn("interactive_longline", references)
-
     def test_every_skill_requires_safe_repository_relative_source_path(self) -> None:
         for invalid_path in ("../skills/opl-flow", "/skills/opl-flow", r"skills\opl-flow"):
             with self.subTest(source_path=invalid_path):

@@ -378,7 +378,7 @@ else:
         with tempfile.TemporaryDirectory() as temp:
             root = Path(temp)
             output = root / "fleet.log"
-            fleet = self.executable(root / "codex-fleet", f"#!/bin/sh\nprintf '%s\\n' \"$@\" > {output}\n")
+            fleet = self.executable(root / "opl-fleet", f"#!/bin/sh\nprintf '%s\\n' \"$@\" > {output}\n")
             self.assertEqual(main(["fleet", "--fleet-bin", str(fleet), "repos", "status", "--json"]), 0)
             self.assertEqual(output.read_text(encoding="utf-8").splitlines(), ["repos", "status", "--json"])
 

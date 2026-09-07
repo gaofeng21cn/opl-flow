@@ -89,21 +89,16 @@ The three status planes are intentionally independent:
 `experience_baseline=degraded` must not be translated into
 `package_operational=unavailable`.
 
-## Current Bundles
+## Bundle Selection
 
-| Bundle | Relationship | Members | Online default | Full seed |
-| --- | --- | --- | --- | --- |
-| Internet research | experience baseline | Agent Reach Skill + CLI | owner-supported install/repair | none |
-| Office authoring | experience baseline | OfficeCLI Skill family + CLI | owner-installed Skill and CLI | OfficeCLI CLI only |
-| Document extraction | experience baseline | MinerU extractor Skill + CLI | owner-installed Skill and CLI | `mineru-open-api` CLI only |
-| Stacked PR landing | experience baseline | official `gh-stack` GitHub CLI extension | Framework owner adapter | none |
-| Browser GIF encoding | experience baseline | paired `ffmpeg` + `ffprobe` readiness | Framework platform-package adapter | none |
-| Official Codex Office runtime | compatible optional | OpenAI Office/PDF runtime capability | observe only | none |
+The `capability_bundles`, `experience_baseline`, and `compatible_optional`
+fields in [workflow-policy.json](../contracts/workflow-policy.json) own the
+current membership, install intent, and readiness adapter. This document does
+not maintain another inventory.
 
-`offline_bundle=full` is the only Flow-owned Full selection signal. The current
-Full plan therefore contains exactly `cli:officecli` and
-`cli:mineru-open-api`. App source manifests may provide version or repository
-hints for a selected adapter, but they cannot add an item to this plan.
+`offline_bundle=full` is the only Flow-owned Full selection signal. App source
+manifests may provide version or repository hints for a selected adapter, but
+they cannot add an item to the policy-derived plan.
 
 Stacked-PR and GIF support remain internal `software-development` references.
 Their external executables are baseline dependencies instead of copied tool
@@ -177,6 +172,20 @@ or Automation.
   project projection, and one hourly `OPL Flow Supervisor`.
 
 Installing Flow never implies that `start` has run.
+
+## Carrier And App Profile
+
+Framework resolves ordinary Package publication from the owner's per-Package
+`latest-stable` channel and uses the configured native carrier for installation.
+The shared manifest and Full build lock bind release or offline evidence; they
+are not a second ordinary Package currentness authority.
+
+Standard and Full use one App Official Profile. Profile ensure runs at first
+install or explicit Restore. User removal persists across restart, update, and
+maintenance; background maintenance updates only installed Packages. App reads
+Framework's aggregate state, never a Plugin listing alone. Credentials, OAuth,
+account data, and unknown third-party MCP configuration are not bundled or
+overwritten.
 
 ## Framework Projection Contract
 

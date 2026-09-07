@@ -1,4 +1,4 @@
-# OPL Doc
+# Documentation Governance
 
 Keep developer documentation useful by aligning it with the repository's real
 sources of truth. Treat this as semantic governance, not a prescribed document
@@ -24,6 +24,28 @@ layout, a second project-management system, or an automated truth generator.
 Do not require a fixed set of files such as `docs/project.md`, `status.md`, or
 `architecture.md`. Follow the target repository's existing taxonomy and owner
 boundaries.
+
+## Maintain One Responsibility
+
+Give each active document one durable reader question and one subject owner.
+Use entry documents to route readers, architecture to explain boundaries and
+decisions, references to define lookup contracts, and runbooks to execute a
+workflow. Split competing responsibilities when they need different update or
+acceptance paths; a short contextual summary may link to the owning document.
+
+Reconcile affected documentation in the same change as its source or contract.
+Replace superseded claims in place instead of appending corrections, new phase
+lists, or a second current narrative. Collapse incremental history into the
+present model after transferring unique rationale and unresolved decisions.
+Use an existing index to record navigation; do not invent a document registry
+or require metadata boilerplate in every file.
+
+When retiring a surface, move real callers to the current owner, remove its
+obsolete commands, examples, tests, and incoming links, and verify the remaining
+path. If an actual caller is still unverified, record that concrete gap in the
+owning work item; do not describe a live surface as already removed. Git history
+is the default archive. A retained historical document needs a useful provenance
+purpose and a successor pointer, and must not be routed as current instructions.
 
 ## Govern By Meaning
 

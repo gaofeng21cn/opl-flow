@@ -2,16 +2,16 @@
 
 ## Matt Pocock Skills
 
-The following bundled development Skills are adapted from
+The following bundled development references are adapted from
 [`mattpocock/skills`](https://github.com/mattpocock/skills), licensed under the
 MIT License:
 
-| Local skill | Upstream path | Reference |
+| Current local path under `skills/software-development/references/` | Upstream path | Reference |
 | --- | --- | --- |
-| `grill-with-docs` | `skills/engineering/grill-with-docs` | `ed37663cc5fbef691ddfecd080dff42f7e7e350d` |
-| `improve-codebase-architecture` | `skills/engineering/improve-codebase-architecture` | `ed37663cc5fbef691ddfecd080dff42f7e7e350d` |
-| `prototype` | `skills/engineering/prototype` | `ed37663cc5fbef691ddfecd080dff42f7e7e350d` |
-| `zoom-out` | `skills/engineering/zoom-out` | `221ffca96736afefdc08ca7cf0b3965e9ea83f41` |
+| `architecture/grill/` | `skills/engineering/grill-with-docs` | `ed37663cc5fbef691ddfecd080dff42f7e7e350d` |
+| `architecture/improve/` | `skills/engineering/improve-codebase-architecture` | `ed37663cc5fbef691ddfecd080dff42f7e7e350d` |
+| `prototype/` | `skills/engineering/prototype` | `ed37663cc5fbef691ddfecd080dff42f7e7e350d` |
+| `architecture/map.md` | `skills/engineering/zoom-out` | `221ffca96736afefdc08ca7cf0b3965e9ea83f41` |
 
 The local versions are maintained OPL adaptations for Codex routing and
 repository authority, not automatic upstream overlays.
@@ -24,7 +24,9 @@ derived from DeepSeek Harness:
 - source: `https://github.com/deepseek-ai/deepseek-harness`
 - inspected commit: `141eb6fef83422698aef7a981029e843e8161534`
 - upstream commit date: `2026-08-19`
-- adapted paths: `skills/dsh-*` and `skills/record-browser-gif`
+- current adapted paths under `skills/software-development/references/`:
+  `review.md`, `docs/`, `architecture/simplification-audit.md`,
+  `github/stacked-prs/`, and `browser-evidence/`
 
 The adaptations preserve the focused capabilities while replacing
 DeepSeek-Harness-specific paths, commands, fixed Agent Notes storage, and
@@ -58,13 +60,13 @@ SOFTWARE.
 
 ## Agent Skills: Doubt-Driven Development
 
-`skills/develop-and-deliver/SKILL.md` includes adapted decision-review guidance
+`skills/software-development/references/delivery/guide.md` includes adapted decision-review guidance
 from Addy Osmani's `doubt-driven-development` Skill:
 
 - source: `https://github.com/addyosmani/agent-skills`
 - inspected commit: `91d4d07522de9577caf5d213e5bf1acc38fa3df2`
 - upstream commit date: `2026-08-07`
-- adapted path: `skills/develop-and-deliver/SKILL.md`
+- current adapted path: `skills/software-development/references/delivery/guide.md`
 
 The adaptation keeps bounded disproof for consequential decisions while
 removing Claude-Code-specific personas, mandatory reviewer creation,

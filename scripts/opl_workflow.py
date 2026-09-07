@@ -174,8 +174,8 @@ def fleet_command(instance: Path | None, explicit: str | None) -> tuple[list[str
             [sys.executable, str(bundled), "--instance", str(instance)],
             "opl-flow",
         )
-    fleet = executable("codex-fleet", explicit, "OPL_FLEET_BIN")
-    return ([fleet], "codex-fleet-compatibility")
+    fleet = executable("opl-fleet", explicit, "OPL_FLEET_BIN")
+    return ([fleet], "opl-fleet")
 
 
 def ledger_probe(root: Path, bd: str) -> dict[str, Any] | None:

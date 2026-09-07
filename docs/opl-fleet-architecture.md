@@ -151,12 +151,7 @@ At most one execution owner may mutate a task's write set at a time. A new
 conversation on another machine is a valid execution carrier when it claims the
 same objective and checkpoint through this transaction.
 
-## Current Design Assessment
-
-The existing design is directionally sound and should be deepened rather than
-replaced.
-
-### Strong Existing Decisions
+## Implemented Control Boundary
 
 1. OPL Flow owns the reusable public engine; the private Instance owns topology
    and personal policy.
@@ -177,7 +172,7 @@ replaced.
 7. Unknown transport outcomes fail closed, and observability products remain
    read-only rather than becoming hidden scheduling authorities.
 
-### Active Architecture Work
+### Workspace And Owner Continuity
 
 The reusable Codex App owner-migration route is provided by
 `manage-codex-tasks` mode `migrate-owner`. It treats the Codex App task as a
@@ -188,14 +183,17 @@ native App before the owner CAS can proceed. Workspace bootstrap/currentness,
 CAS migration, and real cross-machine readback remain fail-closed runtime gates;
 when those gates are unavailable, the source owner continues locally.
 
-The target workspace profile is declared by the private Instance and binds
+The workspace profile is declared by the private Instance and binds
 nodes, a workspace root, an environment contract, an explicit repository
 allowlist, and Automation placement. Missing repositories are staged and cloned
 from their canonical owners. Existing repositories admit work only after fresh
 fetch/currentness checks; dirty, ahead, diverged, detached, task-branch,
 remote-mismatch, active-worktree, or stale-control states fail closed.
 
-The target owner migration state machine is:
+The owner migration state machine is implemented by `scripts/opl_task_owner.py`
+and exposed by `scripts/opl_workflow.py ledger owner`. Workspace validation,
+bootstrap, synchronization, and claim preflight are implemented by
+`scripts/opl_fleet_parts/fleet_workspace.py`:
 
 ```text
 source_checkpointed -> target_preflighted -> target_acknowledged
@@ -215,13 +213,15 @@ write. Repository bytes come from canonical Git remotes; private credentials,
 sessions, chat text, worktrees, binaries, caches, logs, and local absolute paths
 are not copied between nodes.
 
-## Optimization And Missing Capabilities
+## Design Gaps
+
+The following are design goals, not claims about shipped or installed behavior.
+Workspace and owner continuity above already have source implementations;
+their per-node availability is established by fresh operation readback.
 
 | Rank | Capability | Why it matters | Smallest owner-correct implementation |
 | --- | --- | --- | --- |
 | Strong | Agent execution-attempt contract | Resource requirements alone do not bind objective revision, checkpoint, write set, expected result, or recovery route | Extend the existing Bead requirements and dispatch receipt with one versioned attempt identity; do not add another database |
-| Strong | Workspace and runtime compatibility | A reachable machine is not ready if its Agent baseline or repositories have drifted | Reconcile an Instance-declared compatible profile, then require fresh Git/currentness readback before claim |
-| Strong | Execution-owner migration and recovery | Task continuity is the core difference from ordinary remote command execution | Use source freeze, checkpoint, target CAS claim, verify, supersede, and fail-closed unknown-state recovery |
 | Strong | Context, artifact, and checkpoint references | Bounded stdout cannot carry context, large task state, or non-code outputs | Use a versioned context manifest and content-addressed references to owner-managed Git/object/relay artifacts; verify digests rather than making Fleet a raw context or blob store |
 | Strong | Permission and budget envelope | Agent work needs bounded authority as well as bounded compute | Bind opaque credential references, capability scopes, time/token/cost/resource limits, and terminal budget use into each attempt without exposing secret values |
 | Strong | Dynamic task groups and fan-out/fan-in | A control Agent must refine and execute several coordinated slices, not only select one node | Let the Ledger own the graph and child objectives; add group dispatch receipts over existing single-node transactions after a real consumer proves the shape |

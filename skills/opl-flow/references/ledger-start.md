@@ -13,8 +13,9 @@ project list. Setup, update, and install never run this route.
    `permission_denied`, `timeout_unknown`, and genuine `unavailable` distinct;
    never relabel one caller-schema failure as owner-tool unavailability. Reuse
    one Dashboard, use `create_thread` only for zero matches, and fail closed on
-   multiple matches. Pin it with `set_thread_pinned`, then `read_thread` the
-   exact project, thread ID, title, and pinned state.
+   multiple matches. Pin it with `move_thread_to_sidebar_section` using
+   `sectionId: "pinned"`, then read back `list_threads.pinnedThreads` and the
+   exact project, thread ID, and title through `read_thread`.
 3. Run `bd dolt pull`, then use the owner `bd` CLI to reuse the one Bead whose
    `external_ref` is exactly `codex://thread/<thread_id>` or create it when
    absent. Multiple matches fail closed; never initialize a second Ledger.
