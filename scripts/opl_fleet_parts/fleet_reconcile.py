@@ -53,7 +53,7 @@ def managed_repository_owner() -> str:
 def node_registry(*, control_root: Path | None = None) -> dict[str, Any]:
     root = control_root or fleet_common.CONTROL_ROOT
     payload = read_json(root / "nodes.json")
-    if set(payload) != {
+    if set(payload) - {"flagship_node_id"} != {
         "schema",
         "nodes",
         "specialized_software",
@@ -80,6 +80,13 @@ def node_registry(*, control_root: Path | None = None) -> dict[str, Any]:
         or not isinstance(desired_unregistered, list)
     ):
         raise FleetError("node registry is incomplete")
+    flagship = payload.get("flagship_node_id")
+    if flagship is not None and (
+        not isinstance(flagship, str)
+        or not isinstance(nodes.get(flagship), dict)
+        or nodes[flagship].get("approved") is not True
+    ):
+        raise FleetError("flagship must name one approved Fleet node")
     for node_id, policy in nodes.items():
         if normalize_node_id(str(node_id)) != node_id or not isinstance(policy, dict):
             raise FleetError(f"invalid node registry entry: {node_id!r}")
@@ -1572,6 +1579,9 @@ def reconcile(*, report: bool, install_required: bool) -> dict[str, Any]:
     restart_after_flow_update(previous_flow_revision, flow_revision)
     control_revision = update_control()
     spec = manifest()
+    from .fleet_workflow import reconcile_workflow
+    workflow = reconcile_workflow()
+    atomic_json(STATE_ROOT / "workflow.json", workflow)
     reconcile_pets(spec)
     runner_revision = install_runner(spec["runner"], control_revision)
     reference = fetch_skill_reference(spec["runner"], runner_revision)
@@ -1591,6 +1601,9 @@ def reconcile(*, report: bool, install_required: bool) -> dict[str, Any]:
         control_revision=control_revision,
         runner_revision=runner_revision,
     )
+    if workflow["state"] not in {"CURRENT", "UNCONFIGURED"}:
+        receipt["drift"].append(f"workflow.{workflow['state'].lower()}")
+        receipt["state"] = "UPDATE_REQUIRED"
     repository_report = reconcile_workspace_repositories(fetch=True, apply=True)
     atomic_json(STATE_ROOT / "repositories.json", repository_report)
     if repository_report["state"] != "CURRENT":

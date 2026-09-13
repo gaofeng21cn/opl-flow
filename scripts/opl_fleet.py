@@ -85,6 +85,10 @@ from opl_fleet_parts.fleet_workspace import (
     workspace_command,
 )
 
+from opl_fleet_parts.fleet_workflow import (
+    workflow_status, reconcile_workflow, set_flagship, record_projection, workflow_command,
+)
+
 from opl_fleet_parts.fleet_features import (
     inventory_is_fresh, inventory_age_seconds, parse_memory_bytes, gpu_profiles, matching_gpus, node_features,
 )

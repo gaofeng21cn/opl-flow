@@ -14,6 +14,7 @@ from .fleet_lease import acquire_lease_record, active_lease_map, lease_lock, pub
 from .fleet_runner import assert_lease_admission, assert_runner_role_node, assert_runner_role_workload, build_admission_receipt, controller_guard, doctor_result, fleet_runner_renew, fleet_runner_start, fleet_runner_status, fleet_runner_stop, verify_lease_record
 from .fleet_dispatch import dispatch_adapter_from_args, fleet_dispatch_acquire, fleet_dispatch_execute, fleet_dispatch_plan, fleet_dispatch_release, fleet_dispatch_verify, run_data_job, validate_execution_argv
 from .fleet_workspace import workspace_command
+from .fleet_workflow import workflow_command, workflow_status, set_flagship
 
 def fleet_status() -> int:
     spec = manifest()
@@ -335,6 +336,19 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     )
     subparsers.add_parser("status")
     subparsers.add_parser("assets")
+    flagship_parser = subparsers.add_parser("flagship", help="inspect or explicitly switch the workflow authoring node")
+    flagship_actions = flagship_parser.add_subparsers(dest="flagship_action", required=True)
+    flagship_actions.add_parser("status")
+    flagship_set = flagship_actions.add_parser("set")
+    flagship_set.add_argument("node_id")
+    flagship_set.add_argument("--expected-current", required=True, help="current node ID, or none for initial selection")
+    workflow_parser = subparsers.add_parser("workflow", help="inspect or receive the reviewed workflow Profile")
+    workflow_actions = workflow_parser.add_subparsers(dest="workflow_action", required=True)
+    workflow_actions.add_parser("status")
+    workflow_actions.add_parser("sync")
+    projection = workflow_actions.add_parser("record-projection", help="record completed semantic review after Flow main publication")
+    projection.add_argument("--flow-commit", required=True)
+    projection.add_argument("--source-sha256", required=True, help="exact flagship AGENTS.md hash reviewed by the authoring task")
     repos_parser = subparsers.add_parser("repos")
     repos_subparsers = repos_parser.add_subparsers(
         dest="repos_action",
@@ -605,6 +619,15 @@ def main(argv: list[str] | None = None) -> int:
         return fleet_status()
     if args.action == "assets":
         return fleet_assets()
+    if args.action == "flagship":
+        result = (set_flagship(args.node_id, expected_current=args.expected_current)
+                  if args.flagship_action == "set" else workflow_status())
+        print(json.dumps(result, indent=2, sort_keys=True))
+        return 0
+    if args.action == "workflow":
+        result = workflow_command(args)
+        print(json.dumps(result, indent=2, sort_keys=True))
+        return 0 if result["state"] in {"CURRENT", "UNCONFIGURED", "PUBLISH_REQUIRED"} else 1
     if args.action == "repos":
         return fleet_repositories(sync=args.repos_action == "sync")
     if args.action == "workspace":

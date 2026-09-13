@@ -6,6 +6,37 @@ State: `active_target_architecture_ssot`
 Machine boundary: Current contracts, source, private Instance policy, and fresh
 node/executor readback own implemented behavior and effective fleet state.
 
+## Workflow Flagship
+
+The private Instance selects one approved `flagship_node_id` in its existing
+node registry. The flagship is the workflow authoring machine and can change
+by explicit user choice. It is independent of execution controllers, runner
+roles, node availability, and durable task ownership.
+
+The direction is validated local improvement → semantic projection into Flow
+main → reviewed receiver delivery. The authoring task completes that projection
+promptly before closing. `fleet.json.workflow_projection` binds the selected
+publisher, reviewed local AGENTS fingerprint and immutable Flow commit; it is
+private review provenance, not package publication or installed currentness.
+The generic engine validates identity and published source ancestry, while the
+authoring Agent judges semantics and removes private content from public rules.
+
+The flagship's global instructions are never replaced by reconciliation.
+Receivers automatically advance only missing files or exact historical Flow
+templates; customized files remain intact and report a semantic-review need.
+Fleet invokes Framework's existing user-instructions action for backup,
+expected-hash checking and atomic writing. The node reconciler observes local
+instructions and continues capability maintenance. All machines retain one
+global `AGENTS.md`; no instruction override layer or additional scheduler is
+introduced. The CLI and scheduled reconcile share this implementation.
+
+`flagship set` uses expected-current selection and the ordinary Instance Git
+publication path. Switching leaves the last reviewed projection available to
+receivers and invalidates the new flagship's authoring readback until review;
+it never migrates task execution or deletes the old flagship's private work.
+Operational commands and completion steps are in the
+[Fleet guide](../skills/opl-flow/references/fleet/guide.md#flagship-and-workflow-delivery).
+
 ## Positioning Decision
 
 OPL Fleet is an open, general Agent-native distributed execution and continuity

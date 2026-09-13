@@ -41,6 +41,7 @@ FLEET_PART_MODULES = (
     "fleet_runner",
     "fleet_dispatch",
     "fleet_workspace",
+    "fleet_workflow",
     "fleet_cli",
 )
 
@@ -626,6 +627,7 @@ class CodexFleetTests(unittest.TestCase):
                 },
             ),
             patch_fleet("reconcile_pets"),
+            patch_fleet("reconcile_workflow", return_value={"state": "CURRENT"}),
             patch_fleet("install_runner", return_value="b" * 40) as install_runner,
             patch_fleet(
                 "fetch_skill_reference",

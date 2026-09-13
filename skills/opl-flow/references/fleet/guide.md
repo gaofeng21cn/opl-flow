@@ -50,6 +50,9 @@ Choose the narrow command family:
 - `nodes`, `inventory`, `assets`: inspect declared/private resources through
   sanitized contracts.
 - `repos status|sync`: verify or reconcile repository currentness.
+- `flagship status|set`: inspect or explicitly change the workflow authoring node.
+- `workflow status|sync|record-projection`: inspect, receive, or record a reviewed
+  Profile projection. See the authoring and delivery boundary below.
 - `select`: choose a node from fresh capabilities and policy.
 - `lease`: acquire, verify, renew, release, or reconcile protected capacity.
 - `dispatch`: plan, acquire, verify, execute, or release one adapter-bound
@@ -62,6 +65,54 @@ Choose the narrow command family:
 
 Read `python3 scripts/opl_fleet.py <command> --help` for exact options rather
 than guessing flags.
+
+## Flagship And Workflow Delivery
+
+The private Instance's `fleet/nodes.json` may select exactly one approved
+`flagship_node_id`. This is the main workflow development machine, independent
+of the controller label, compute selection, runner roles, and task/automation
+execution ownership. There is no automatic election. An Instance without this
+field does not automatically distribute global instructions.
+
+For a local workflow optimization, read `flagship status`. Validate the actual
+local behavior first. In the same authoring task, semantically review the
+improvement and project reusable rules into the Flow Profile source and relevant
+Skills; private paths, accounts, and task-specific authorizations stay local.
+Publish and read back Flow main, then on the selected flagship run:
+
+```bash
+opl-fleet workflow record-projection --flow-commit <exact-published-commit> \
+  --source-sha256 <reviewed-local-AGENTS-sha256>
+```
+
+This records review provenance in the existing `fleet/fleet.json`, not Profile
+bytes or a second package registry. The hash binds the exact local instructions
+reviewed; it does not claim local and reusable instructions are identical or
+that a machine performed semantic review. Commit and ordinary-push that private
+change to Instance main, then run `workflow sync` and read back `CURRENT`.
+Later local edits report `PROJECTION_REQUIRED`; they are never overwritten.
+Do not finish an optimization task with an unrecorded reusable improvement or
+introduce a periodic AI publisher to compensate for incomplete delivery.
+
+The existing scheduled `reconcile` invokes this same workflow sync. Receivers
+read the reviewed immutable Flow commit and only upgrade a missing file or an
+exact historical template in that commit's ancestry. Unknown or customized
+content reports `LOCAL_CHANGES` and is preserved for semantic review. The
+Framework `codex_user_instructions_set` action owns the expected-hash check,
+backup and atomic write to the single global `AGENTS.md`. Fleet does not create
+an override file, a second writer, or a separate schedule. A targeted
+`workflow sync` refreshes Flow/Instance main without running unrelated upgrades.
+The current published projection remains usable while a flagship prepares its
+next improvement; a failed publication never exposes partial authoring bytes.
+
+Switch explicitly with `flagship set <new-node> --expected-current <old-node>`
+(`none` for initial selection), then publish the changed `nodes.json` to Instance
+main. The command reports `PUBLISH_REQUIRED` until Git publication; it does not
+claim a local edit switched other nodes. Preserve any outstanding local work on
+the old flagship and review the new flagship's instructions before recording its
+first projection. The previously published projection remains the receiver
+version during this transition. An old flagship cannot record another projection
+after the selection moves; credentials, sessions and task owners do not move.
 
 Workspace bootstrap/currentness and execution-owner migration are active source
 work, not current public behavior. Do not invent their commands or report them

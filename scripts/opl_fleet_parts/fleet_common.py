@@ -294,7 +294,10 @@ def sha256_file(path: Path) -> str:
             digest.update(chunk)
     return digest.hexdigest()
 
-def atomic_json(path: Path, payload: dict[str, Any], mode: int = 0o600) -> None:
+def atomic_json(
+    path: Path, payload: dict[str, Any], mode: int = 0o600,
+    *, sort_keys: bool = True, ensure_ascii: bool = True,
+) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     with tempfile.NamedTemporaryFile(
         "w",
@@ -303,7 +306,7 @@ def atomic_json(path: Path, payload: dict[str, Any], mode: int = 0o600) -> None:
         prefix=f".{path.name}.",
         delete=False,
     ) as handle:
-        json.dump(payload, handle, indent=2, sort_keys=True)
+        json.dump(payload, handle, indent=2, sort_keys=sort_keys, ensure_ascii=ensure_ascii)
         handle.write("\n")
         handle.flush()
         os.fsync(handle.fileno())
