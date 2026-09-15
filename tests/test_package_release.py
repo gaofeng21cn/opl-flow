@@ -267,6 +267,11 @@ class PackageReleaseTests(unittest.TestCase):
                 argv: list[str], **_: object
             ) -> subprocess.CompletedProcess[str]:
                 self.assertEqual(Path(argv[1]).name, "first-party-package-payload.mjs")
+                # The current Framework CLI is strict and only accepts these inputs.
+                parser = argparse.ArgumentParser()
+                for flag in ("--manifest", "--allowlist", "--repo", "--source-commit"):
+                    parser.add_argument(flag, required=True)
+                parser.parse_args(argv[2:])
                 staged_package = Path(argv[argv.index("--manifest") + 1])
                 staged_payload = staged_package.parent / "payloads/opl-flow-0.1.49.json"
                 staged_payload.parent.mkdir(parents=True)

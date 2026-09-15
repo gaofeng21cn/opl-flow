@@ -292,9 +292,8 @@ def prepare(args: argparse.Namespace) -> dict[str, Any]:
         if isinstance(descriptor_ref, str) and descriptor_ref not in paths:
             allowlist["paths"].append(descriptor_ref)
 
-    with tempfile.TemporaryDirectory(prefix="opl-package-cohort-") as temporary:
+    with tempfile.TemporaryDirectory(prefix="opl-package-projection-") as temporary:
         temporary_root = Path(temporary)
-        cohort_path = temporary_root / "owner-cohort-lock.json"
         staged_package = temporary_root / "packages" / package_path.name
         staged_allowlist = temporary_root / "allowlists" / allowlist_path.name
         staged_package.parent.mkdir()
@@ -307,21 +306,6 @@ def prepare(args: argparse.Namespace) -> dict[str, Any]:
                 raise ReleaseError("immutable payload path must be a regular file")
             staged_payload.parent.mkdir()
             staged_payload.write_bytes(payload_path.read_bytes())
-        write_json(
-            cohort_path,
-            {
-                "surface_kind": "opl_package_owner_cohort_lock.v1",
-                "generated_at": datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
-                "packages": {
-                    args.package_id: {
-                        "package_id": args.package_id,
-                        "repo_name": repo_slug(owner_root).split("/", 1)[1],
-                        "repo_url": expected_repo,
-                        "source_commit": source_commit,
-                    }
-                },
-            },
-        )
         command(
             [
                 "node",
@@ -330,8 +314,6 @@ def prepare(args: argparse.Namespace) -> dict[str, Any]:
                 str(staged_package),
                 "--allowlist",
                 str(staged_allowlist),
-                "--owner-cohort-lock",
-                str(cohort_path),
                 "--repo",
                 str(owner_root),
                 "--source-commit",

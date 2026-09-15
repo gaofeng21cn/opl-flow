@@ -17,6 +17,19 @@ Keep single-writer, immutable-version, predecessor/CAS, receipt, attestation,
 and public readback gates. These protect a public mutation; do not expand them
 into a database, lock service, rollback system, or second receipt.
 
+## Standard Agent Distribution
+
+MAS, MAG, RCA, OMA, OPL Book Forge, and OPL Med Cast use OCI as their sole
+Package publication channel. Do not create or retain separate GitHub Release
+pages or assets for these six Agents. Keep annotated source tags for immutable
+source binding, and publish through the shared Package workflow. Do not create
+a parallel ZIP or wheel publisher in an Agent repository.
+
+READMEs provide the standard `opl packages install <package-id> --json` entry
+and the OCI repository. Changes remain in repository documentation and Git
+history. Domain qualification is separate from Package publication. This rule
+does not apply to App products with independently distributed installers.
+
 ## Three Actions
 
 Resolve `<opl-flow-skill>` to the loaded Skill directory, then run from the
