@@ -357,6 +357,20 @@ class PackageReleaseTests(unittest.TestCase):
             with self.assertRaisesRegex(release.ReleaseError, "cannot read"):
                 release.latest_stable_predecessor("ghcr.io/x/y")
 
+    def test_registry_denial_requires_authenticated_publisher_resolution(self) -> None:
+        denied = subprocess.CompletedProcess(["oras"], 1, "", "denied: requested access to the resource is denied")
+        with patch.object(release, "command", return_value=denied):
+            with self.assertRaisesRegex(release.ReleaseError, "cannot read"):
+                release.latest_stable_predecessor("ghcr.io/owner/new-package")
+            self.assertEqual(
+                release.latest_stable_predecessor("ghcr.io/owner/new-package", resolve_in_publisher=True),
+                "resolve-authenticated",
+            )
+        failed = subprocess.CompletedProcess(["oras"], 1, "", "connection reset")
+        with patch.object(release, "command", return_value=failed):
+            with self.assertRaisesRegex(release.ReleaseError, "cannot read"):
+                release.latest_stable_predecessor("ghcr.io/owner/new-package", resolve_in_publisher=True)
+
     def test_profile_delta_reports_merge_without_writing_user_profile(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
             user_path = Path(temporary) / "AGENTS.md"

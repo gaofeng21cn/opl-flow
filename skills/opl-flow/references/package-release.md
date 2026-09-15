@@ -61,7 +61,10 @@ by request id, formally approves the one exact pending `release-stable`
 deployment through the authenticated GitHub reviewer, verifies the receipt,
 immutable and `latest-stable` digests, and both attestations, then reports
 queue, job, and total seconds. Fail immediately on another pending environment,
-multiple pending deployments, or missing reviewer authority.
+multiple pending deployments, or missing reviewer authority. When the local
+registry read is denied, the same protected workflow resolves the predecessor
+with its authenticated Package credential before any publication. Denial is
+never absence; unresolved authenticated reads stop publication.
 
 ```bash
 python3 <opl-flow-skill>/scripts/package_release.py activate \

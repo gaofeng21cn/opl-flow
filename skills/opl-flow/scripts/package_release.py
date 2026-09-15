@@ -362,7 +362,7 @@ def oci_descriptor(ref: str) -> dict[str, Any]:
     return value
 
 
-def latest_stable_predecessor(image: str) -> str:
+def latest_stable_predecessor(image: str, *, resolve_in_publisher: bool = False) -> str:
     ref = f"{image}:latest-stable"
     result = command(
         ["oras", "manifest", "fetch", "--descriptor", ref],
@@ -381,6 +381,10 @@ def latest_stable_predecessor(image: str) -> str:
     lowered = f"{result.stdout}\n{result.stderr}".lower()
     if any(token in lowered for token in ("manifest unknown", "name unknown", "not found", "404")):
         return "none"
+    if resolve_in_publisher and any(token in lowered for token in ("denied", "unauthorized")):
+        # A protected publisher can read with its Package-scoped credential.
+        # This is an instruction to resolve there, never an absence assertion.
+        return "resolve-authenticated"
     raise ReleaseError(f"cannot read latest-stable predecessor: {ref}")
 
 
@@ -540,7 +544,7 @@ def publish(args: argparse.Namespace) -> dict[str, Any]:
     if not isinstance(publication_ref, str) or not publication_ref.endswith(":latest-stable"):
         raise ReleaseError("Framework Package has no latest-stable publication_ref")
     image = publication_ref.removesuffix(":latest-stable")
-    predecessor = latest_stable_predecessor(image)
+    predecessor = latest_stable_predecessor(image, resolve_in_publisher=True)
     request_id = args.request_id or (
         f"{args.package_id}-{version}-{datetime.now(timezone.utc).strftime('%Y%m%dT%H%M%SZ')}-"
         f"{framework_commit[:10]}"
