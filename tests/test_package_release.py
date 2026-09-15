@@ -371,6 +371,25 @@ class PackageReleaseTests(unittest.TestCase):
             with self.assertRaisesRegex(release.ReleaseError, "cannot read"):
                 release.latest_stable_predecessor("ghcr.io/owner/new-package", resolve_in_publisher=True)
 
+    def test_publication_receipt_requires_resolved_matching_predecessor(self) -> None:
+        digest = "sha256:" + "a" * 64
+        receipt = {
+            "status": "published_and_verified", "publication_request_id": "request",
+            "package": {"package_id": "agent", "version": "1.0.0",
+                        "owner_source_commit": "owner", "framework_source_commit": "framework"},
+            "immutable": {"digest": digest},
+            "latest_stable": {"digest": digest, "predecessor_digest": "none"},
+            "attestations": {"status": "verified"},
+        }
+        args = dict(package_id="agent", version="1.0.0", owner_commit="owner",
+                    framework_commit="framework", request_id="request")
+        self.assertEqual(release.validate_receipt(receipt, expected_predecessor="resolve-authenticated", **args), digest)
+        with self.assertRaisesRegex(release.ReleaseError, "predecessor differs"):
+            release.validate_receipt(receipt, expected_predecessor=digest, **args)
+        receipt["latest_stable"]["predecessor_digest"] = "resolve-authenticated"
+        with self.assertRaisesRegex(release.ReleaseError, "no resolved predecessor"):
+            release.validate_receipt(receipt, expected_predecessor="resolve-authenticated", **args)
+
     def test_profile_delta_reports_merge_without_writing_user_profile(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
             user_path = Path(temporary) / "AGENTS.md"

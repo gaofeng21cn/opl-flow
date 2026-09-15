@@ -490,6 +490,7 @@ def validate_receipt(
     owner_commit: str,
     framework_commit: str,
     request_id: str,
+    expected_predecessor: str | None = None,
 ) -> str:
     package = receipt.get("package")
     immutable = receipt.get("immutable")
@@ -510,6 +511,11 @@ def validate_receipt(
         or attestations.get("status") != "verified"
     ):
         raise ReleaseError("publication receipt does not match the requested release")
+    observed_predecessor = str(latest.get("predecessor_digest") or "")
+    if observed_predecessor != "none" and not re.fullmatch(r"sha256:[0-9a-f]{64}", observed_predecessor):
+        raise ReleaseError("publication receipt has no resolved predecessor")
+    if expected_predecessor not in (None, "resolve-authenticated", observed_predecessor):
+        raise ReleaseError("publication receipt predecessor differs from the requested release")
     digest = str(immutable.get("digest") or "")
     if not re.fullmatch(r"sha256:[0-9a-f]{64}", digest):
         raise ReleaseError("publication receipt has an invalid digest")
@@ -633,6 +639,7 @@ def publish(args: argparse.Namespace) -> dict[str, Any]:
         owner_commit=owner_commit,
         framework_commit=framework_commit,
         request_id=request_id,
+        expected_predecessor=predecessor,
     )
     immutable_ref = str(receipt["immutable"]["ref"])
     latest_ref = str(receipt["latest_stable"]["ref"])
@@ -674,7 +681,7 @@ def publish(args: argparse.Namespace) -> dict[str, Any]:
         "run_id": run_id,
         "run_url": run.get("url"),
         "digest": digest,
-        "latest_stable_predecessor": predecessor,
+        "latest_stable_predecessor": receipt["latest_stable"]["predecessor_digest"],
         "environment_approval": environment_approval,
         "timings": timings,
     }
