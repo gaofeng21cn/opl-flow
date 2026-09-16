@@ -89,6 +89,7 @@ CORE_TEST_MODULES = (
     "tests/test_fleet_workflow.py",
     "tests/test_task_owner_migration.py",
     "tests/test_fleet_inventory.py",
+    "tests/test_fleet_telemetry_protocol.py",
     "tests/test_github_ssot_patrol.py",
     "tests/test_package_descriptor.py",
     "tests/test_package_release.py",
