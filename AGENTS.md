@@ -17,3 +17,5 @@
 <!-- CODEGRAPH_END -->
 
 - GitHub 上自己新建的对外文本用英文书写：commit subject/body、PR 标题与正文、Issue、comment、Release 正文与 Release Notes。产品名、代码标识、路径、命令与原始引用除外。他人写的 Issue、PR 或 comment，无论对方用什么语言，回复沿用对方的语言；历史中已有的非英文 commit 保持原样。
+
+- 本 Package 的唯一发布机制是 OCI：Framework projection 声明的 `publication_ref` 与 `latest-stable`。不要创建 GitHub Release 页面或附件，也不要新增 ZIP、wheel 等平行发布脚本；annotated tag 只用于绑定源码，版本说明写在仓库文档与 Git 历史里。共享规则由 Framework 的 `docs/delivery/artifact-package-lifecycle-boundary.md` 持有。
