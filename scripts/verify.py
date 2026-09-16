@@ -939,6 +939,21 @@ def contract_test_modules(lane: str) -> tuple[str, ...]:
     raise ValueError(f"unknown verification lane: {lane}")
 
 
+def check_all_tests_registered(repo_root: Path) -> list[str]:
+    """Every tests/test_*.py file must run in a lane.
+
+    A suite that is not in CORE_TEST_MODULES is never executed by the only
+    verification entry point in this repository, so it silently stops guarding
+    its contract.
+    """
+    registered = set(CORE_TEST_MODULES)
+    return [
+        f"test suite is not registered in a verification lane: tests/{path.name}"
+        for path in sorted((repo_root / "tests").glob("test_*.py"))
+        if f"tests/{path.name}" not in registered
+    ]
+
+
 def check_contract_tests(repo_root: Path, lane: str) -> list[str]:
     result = subprocess.run(
         [
@@ -974,6 +989,7 @@ def main(argv: list[str] | None = None) -> int:
     errors.extend(check_workflow_policy(repo_root))
     errors.extend(check_profile(repo_root))
     errors.extend(check_retired_skill(repo_root))
+    errors.extend(check_all_tests_registered(repo_root))
     errors.extend(check_contract_tests(repo_root, args.lane))
     if errors:
         for error in errors:
