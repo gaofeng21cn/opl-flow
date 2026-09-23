@@ -19,7 +19,7 @@ into a database, lock service, rollback system, or second receipt.
 
 ## Standard Agent Distribution
 
-MAS, MAG, RCA, OMA, OPL Book Forge, and OPL Med Cast use OCI as their sole
+MAS, MAG, RCA, OMA, OPL Book Forge, and Med Auto Cast use OCI as their sole
 Package publication channel. Do not create or retain separate GitHub Release
 pages or assets for these six Agents. Keep annotated source tags for immutable
 source binding, and publish through the shared Package workflow. Do not create
