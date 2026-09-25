@@ -1,6 +1,6 @@
 ---
 name: software-development
-description: "Use for non-trivial software work: implementation and delivery, code review, architecture or simplification, developer documentation, prototypes, CI or pull-request maintenance, production reliability, or release and deployment. Excludes tiny edits, ordinary explanations, OPL Flow product operations, and Codex task management."
+description: "Use for non-trivial software work: implementation and delivery, code review, architecture or simplification, developer documentation, prototypes, CI or pull-request maintenance, production reliability, release and deployment, or explicitly requested Grok Build delegation. Excludes tiny edits, ordinary explanations, OPL Flow product operations, and Codex task management."
 ---
 
 # Software Development
@@ -18,6 +18,7 @@ sub-guide.
 | Mode | Use when | Load |
 | --- | --- | --- |
 | `delivery` | Implement, refactor, validate, or deliver a software change. | `references/delivery/guide.md` |
+| `grok-build` | The user explicitly requests Grok Build implementation or recovery of an existing Grok session. | `references/grok-build/guide.md` |
 | `review` | Review a PR, branch, commit range, or worktree without editing by default. | `references/review.md` |
 | `architecture` | Map, improve, simplify, or pressure-test a codebase or design. | `references/architecture/guide.md` |
 | `systems` | Distributed-data correctness or production failure semantics materially affect the change. | One file under `references/systems/` |
