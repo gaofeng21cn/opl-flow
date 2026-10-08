@@ -19,6 +19,11 @@ For a registered Ledger objective, a fresh authorized user message on its
 provenance or execution task is a dispatch/reconciliation event even when the
 objective is externally blocked or review-backoff is not due; the controller
 must re-read the task and decide whether to reply, repair, or update projection.
+Obsidian + Bases preserves the full human task archive; Linear projects only
+selected goals for current progression, decision, or acceptance. Fleet consumes
+Beads owner/requirements and never derives capacity or task completion from a
+Linear card count or a historical card disappearing. See
+[Human Archive And Active Projection](../ledger-human-archive.md).
 Fleet does not hard-code product exclusions; the Supervisor's dynamic
 responsibility registry decides whether a discovered item is personal work,
 another owner's work, or still under intake review before any Ledger admission

@@ -3,7 +3,7 @@
   "schema": "opl_flow_workflow_policy.v4",
   "package": {
     "id": "opl-flow",
-    "version": "0.1.61",
+    "version": "0.1.62",
     "owner": "opl-flow",
     "kind": "workflow_profile"
   },
@@ -676,8 +676,18 @@
       },
       "responsibility_registry": {
         "state_owner": "private_supervisor_memory_cursor_location",
-        "classification_values": ["personal_responsibility", "other_owner", "intake_review"],
-        "evidence_required": ["source_or_thread_identity", "authority_or_delegation", "current_owner", "write_set_boundary", "last_verified_at"],
+        "classification_values": [
+          "personal_responsibility",
+          "other_owner",
+          "intake_review"
+        ],
+        "evidence_required": [
+          "source_or_thread_identity",
+          "authority_or_delegation",
+          "current_owner",
+          "write_set_boundary",
+          "last_verified_at"
+        ],
         "admission_rule": "only_personal_responsibility_enters_beads_linear_or_dashboard_counts",
         "other_owner_rule": "retain_as_associated_evidence_only;exclude_from_personal_ledger_counts_and_actions",
         "ambiguous_rule": "retain_intake_review_without_creating_or_projecting_objective",
@@ -858,6 +868,33 @@
       "empty_episode_result": "blocked_not_completed",
       "unavailable_execution_result": "blocked_with_explicit_platform_error",
       "notification_semantics": "DONT_NOTIFY_is_notification_choice_not_execution_success"
+    },
+    "human_projection": {
+      "full_archive": "obsidian_markdown_with_bases_views",
+      "execution_truth": "beads_dolt",
+      "active_projection": "linear_selected_goals",
+      "identity": "one_independently_deliverable_or_decidable_goal",
+      "historical_linear_coverage_required": false,
+      "automatic_card_per_session_or_retry": false,
+      "required_human_fields": [
+        "motivation",
+        "verified_outcome",
+        "remaining_work",
+        "acceptance_boundary",
+        "owner",
+        "evidence_refs"
+      ],
+      "archive_update": "read_before_write_preserve_manual_edits_and_verify_note_and_base",
+      "archive_failure": "retain_pending_event_without_claiming_alignment",
+      "quota_readback": "workspace_actual_usage_separate_from_project_count_and_local_archive",
+      "historical_copy_deletion": "explicit_authorization_after_verified_preservation",
+      "retirement_preserve": [
+        "unfinished_and_frozen_responsibilities",
+        "unhandled_human_intent",
+        "unbacked_attachments",
+        "necessary_relationships"
+      ],
+      "private_location_owner": "instance_local_configuration_not_public_package_or_fleet_payload"
     }
   },
   "task_owner_migration_policy": {

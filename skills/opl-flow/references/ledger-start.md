@@ -3,6 +3,8 @@
 Use this reference only for explicit `$opl-flow start`. `OPL Ledger` is the
 owner Instance's complete human work ledger, not the Supervisor or an OPL-source
 project list. Setup, update, and install never run this route.
+Read [Human Archive And Active Projection](ledger-human-archive.md) for the
+Obsidian + Bases / Linear split and task granularity.
 
 ## Idempotent Onboarding
 
@@ -52,10 +54,13 @@ project list. Setup, update, and install never run this route.
    plan, fresh admission, lease, adapter execution, result readback, and
    release. Record only the dispatch ID and short outcome in the Bead; never
    store lease nonces, private routes, command output, or credentials.
-8. Reconcile every user-ledger Bead to exactly one Linear issue through
+8. Reconcile every currently selected active goal to exactly one Linear issue through
    `mcp__codex_apps__linear_list_issues`, `mcp__codex_apps__linear_get_issue`,
    and `mcp__codex_apps__linear_save_issue`. Read before write and read back
-   after write; preserve hierarchy and the narrow field contract. When exactly
+   after write; preserve necessary relationships and the narrow field contract.
+   Record every enrolled objective in the complete human archive; completed
+   history and unselected goals require no Linear card. Never create a giant
+   parent merely to retain history. When exactly
    one authorized human account is configured, assign every issue in each
    registered project to that account. With multiple accounts, require an
    explicit project mapping instead of guessing. Linear assignee is human
@@ -95,11 +100,14 @@ Do not build a parallel receipt. Complete `start` only when the same run reads:
   registered-project set;
 - `list_threads` plus Dashboard metadata: every newly observed task has one
   stable intake classification; excluded operations/workbenches created no
-  Bead or Linear issue, while managed objectives have one of each;
+  Bead or Linear issue, while managed objectives have a Bead and an archive
+  record, plus a Linear issue only when selected for active projection;
 - `read_thread` plus owner authority readback: managed task facts, aggregate
   counts, and titles match actual execution and canonical state; no task was
   archived automatically;
-- Linear `list_issues`/`get_issue`: one current issue per Bead after write;
+- Obsidian note readback and Bases query: every enrolled objective is readable
+  with motivation, verified result, remaining work, owner, and source identity;
+- Linear `list_issues`/`get_issue`: one current issue per selected goal after write;
   every registered project issue has the configured human assignee and the
   mismatch count is zero;
 - Linear `list_comments` plus the destination task's `read_thread`: every
@@ -120,12 +128,14 @@ conversation:
 
 - `managed_objective`: finite development, delivery, release, research, or
   other project work with an owner and verifiable outcome. Software development
-  belongs here by default and receives one Bead plus one Linear issue. Beads and
+  belongs here by default and receives one Bead and one full human record.
+  Current actionable goals additionally receive one Linear issue. Beads and
   authoritative owner readback manage its lifecycle; only an authoritative
   outcome with `remaining=[]` permits `SAFE_TO_ARCHIVE`.
 - `interactive_longline`: a long-lived mail, persona, network, operations, or
   other interactive task the user intends to revisit over time. It may have one
-  Bead and Linear issue for visibility, current status, comments, and concrete
+  Bead and archive record for visibility; project a Linear issue only for
+  current progression, decision, or acceptance, with comments and concrete
   child work, but the Ledger never decides that the root task is complete. The
   only terminal signal is that the user archived the Codex task. A completed
   canary, bounded operation, canonical closeout, `remaining=[]`, idle turn, or
@@ -143,7 +153,8 @@ conversation:
 
 A durable responsibility is not by itself an `interactive_longline`. When a
 bounded execution episode finishes and only a future due date or event trigger
-remains, keep the durable Bead and Linear issue in `monitoring`, clear the live
+remains, keep the durable Bead and archive record in `monitoring`; retain a
+Linear issue only when it still serves current management. Clear the live
 `metadata.execution_thread`, and retain the completed thread only as
 `metadata.last_execution_thread` provenance. Store a machine-readable due date
 and short trigger set on the Bead. Mark the completed executor
@@ -202,7 +213,8 @@ Every issue in a registered project is managed by local Codex by default.
 Linear reconciliation and authorized user comment intake continue so resumption
 does not lose human intent.
 
-Beads/Dolt is task SSOT. Linear is the complete human-readable projection;
+Beads/Dolt is execution SSOT. Obsidian + Bases is the complete human archive;
+Linear is the selected active-goal projection;
 GitHub carries delivery evidence; Fleet carries capacity and the optional
 Ambient Ops observability extension. Do not use Codex Cloud or Cloud delegate
 for this route and do not archive without fresh user approval.

@@ -342,8 +342,80 @@
     "ledgerSupervisorPolicy": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["event_driven_control_plane", "incremental_fast_path", "linear_assignee_projection", "task_lifecycle_classes", "bounded_executor_policy", "execution_modes", "native_owner_tools", "comment_delivery", "execution_integrity"],
+      "required": ["event_driven_control_plane", "incremental_fast_path", "linear_assignee_projection", "task_lifecycle_classes", "bounded_executor_policy", "execution_modes", "native_owner_tools", "comment_delivery", "execution_integrity", "human_projection"],
       "properties": {
+        "human_projection": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "full_archive",
+            "execution_truth",
+            "active_projection",
+            "identity",
+            "historical_linear_coverage_required",
+            "automatic_card_per_session_or_retry",
+            "required_human_fields",
+            "archive_update",
+            "archive_failure",
+            "quota_readback",
+            "historical_copy_deletion",
+            "retirement_preserve",
+            "private_location_owner"
+          ],
+          "properties": {
+            "full_archive": {
+              "const": "obsidian_markdown_with_bases_views"
+            },
+            "execution_truth": {
+              "const": "beads_dolt"
+            },
+            "active_projection": {
+              "const": "linear_selected_goals"
+            },
+            "identity": {
+              "const": "one_independently_deliverable_or_decidable_goal"
+            },
+            "historical_linear_coverage_required": {
+              "const": false
+            },
+            "automatic_card_per_session_or_retry": {
+              "const": false
+            },
+            "required_human_fields": {
+              "const": [
+                "motivation",
+                "verified_outcome",
+                "remaining_work",
+                "acceptance_boundary",
+                "owner",
+                "evidence_refs"
+              ]
+            },
+            "archive_update": {
+              "const": "read_before_write_preserve_manual_edits_and_verify_note_and_base"
+            },
+            "archive_failure": {
+              "const": "retain_pending_event_without_claiming_alignment"
+            },
+            "quota_readback": {
+              "const": "workspace_actual_usage_separate_from_project_count_and_local_archive"
+            },
+            "historical_copy_deletion": {
+              "const": "explicit_authorization_after_verified_preservation"
+            },
+            "retirement_preserve": {
+              "const": [
+                "unfinished_and_frozen_responsibilities",
+                "unhandled_human_intent",
+                "unbacked_attachments",
+                "necessary_relationships"
+              ]
+            },
+            "private_location_owner": {
+              "const": "instance_local_configuration_not_public_package_or_fleet_payload"
+            }
+          }
+        },
         "event_driven_control_plane": {
           "type": "object",
           "additionalProperties": false,

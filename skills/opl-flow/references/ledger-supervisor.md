@@ -6,9 +6,12 @@ registered Linear projects, authorized human accounts, memory/cursor location,
 and notification policy. This reference owns the reusable workflow.
 
 The Supervisor is a wake-up and coordination entry, not the Ledger. Beads/Dolt
-owns durable execution facts, Linear is the narrow human portal, GitHub owns
+owns durable execution facts, Obsidian + Bases is the complete human archive,
+Linear is the selected active-goal portal, GitHub owns
 code and delivery evidence, and Fleet provides capacity only. Never create a
-second heartbeat for another registered project.
+second heartbeat for another registered project. Read
+[Human Archive And Active Projection](ledger-human-archive.md) when enrolling,
+updating, or retiring a human record; the same Supervisor owns reconciliation.
 
 Responsibility is dynamic, not a hard-coded repository or product exclusion.
 Maintain a responsibility registry in the private Supervisor memory with one
@@ -146,7 +149,8 @@ Record one stable class and a short reason:
 
 - `managed_objective`: finite development, delivery, release, research, or
   project work with an authoritative terminal outcome. Development defaults to
-  this class. Enroll exactly one Bead and one Linear issue.
+  this class. Enroll one Bead and one full archive record; only a goal selected
+  for current progression, decision, or acceptance requires a Linear issue.
 - `interactive_longline`: a user-returning network, operations, mail, persona,
   or other persistent workbench. It may be registered for visibility, but only
   the user archiving its Codex task is terminal.
@@ -210,14 +214,19 @@ external-blocker record.
 Use only the official Linear Connector. Do not use `bd linear sync` in routine
 supervision and do not require a Personal API Key.
 
-For every registered project, prove one-to-one coverage between user-ledger
-Beads and Linear issues. Deduplicate by the stored
+For every registered project, prove one-to-one coverage between selected
+active goals and Linear issues, plus full human archive coverage for all
+enrolled goals. History without a Linear issue is valid and must not be
+recreated. An unfinished unprojected goal retains its owner, remaining work,
+and an explicit projection decision; absence from Linear never means Done.
+Deduplicate by the stored
 `metadata.linear_issue_identifier`/URL and the Bead ID embedded in the issue
 description. Never match by title. Repair a missing mapping only when identity
 is exact; duplicates or ambiguous identity fail closed.
 
 Project only: Bead ID, Chinese title, parent/child hierarchy, status, priority,
-due date, short blocker/result, and GitHub/delivery links. Never project local
+due date, concise motivation, verified outcome, remaining/acceptance boundary,
+short blocker, owner accountability, and archive/GitHub/delivery links. Never project local
 paths, credentials, logs, full notes, checkpoints, or internal metadata.
 
 Project assignee is a human-accountability projection, not execution truth.
@@ -324,7 +333,11 @@ archive a Codex task; explicit user approval is required.
 Write owner, execution thread, current slice, first blocker, next action,
 remaining, and terminal/readback facts to Beads. Run `bd dolt push` only when
 Beads changed, then pull/read back parity. Narrowly update Linear only when a
-projected field changed.
+projected field changed. Synchronize changed facts to the corresponding
+Obsidian record with read-before-write, preserved manual additions, and exact
+note/Bases readback. On failure retain that pending archive update; do not
+consume its event or claim full alignment. Completed history is archived in
+Obsidian before any separately authorized Linear-copy retirement.
 
 Emit a non-empty terminal receipt with compact counters for threads listed, summaries changed, wait targets,
 wait cursors changed, exact thread reads, Linear projects probed, Linear issues
@@ -339,5 +352,7 @@ heartbeat ran.
 Notify only for new intake, a processed user comment, direction correction,
 first blocker, material ETA change, completion, or required user action.
 Otherwise return `no_change`/`DONT_NOTIFY`. A completed episode with future due
-or event-triggered work leaves the stable Bead/Linear identity in Monitoring or
-On Demand and has no resident executor.
+or event-triggered work leaves the durable Bead/archive identity in Monitoring
+or On Demand and has no resident executor. The Linear identity is retained
+only while selected for current management; absence of a historical card is
+not an invitation to recreate it.

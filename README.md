@@ -64,7 +64,8 @@ catalog. Flow does not inject a hidden prompt.
 | OPL Flow | Profile and capability intent, workflow methods, Ledger adapter, Git lifecycle, and reusable Fleet engine |
 | OPL Framework and native carrier | Package lifecycle, Profile materialization, capability projections, and installed readback |
 | OPL Ledger / Beads | Durable objectives, dependencies, current execution owner, checkpoints, and remaining work |
-| Linear | Optional complete human projection of the Ledger with narrowly scoped fields |
+| Obsidian + Bases | Complete human task archive with motivation, outcomes, remaining work, and evidence |
+| Linear | Optional active-goal projection with narrowly scoped fields |
 | GitHub and artifact owners | Canonical source and delivery evidence |
 | OPL Fleet | Fresh node/workspace admission, capacity leases, and execution continuity |
 | Private OPL Instance | Private Ledger, topology, policy, operations, and personal overlays |
@@ -77,6 +78,11 @@ work in the [Fleet architecture](docs/opl-fleet-architecture.md).
 Credentials, sessions, conversation contents, logs, caches, private paths, and
 lease secrets are not public package content or node-to-node synchronization
 payloads.
+
+The [human archive and active projection](skills/opl-flow/references/ledger-human-archive.md)
+keep completed history readable without requiring a Linear card for every
+session or historical Bead. Archive readback and actual workspace quota are
+separate acceptance surfaces.
 
 ## Develop
 

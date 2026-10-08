@@ -13,7 +13,8 @@ owns distributed execution. Operational procedures belong to the
 | OPL Flow | User Profile and capability intent, reusable methods, Ledger adapter, Git lifecycle, Fleet engine | Domain truth, App state, carrier currentness |
 | Codex | Reasoning, task decomposition, native execution and coordination | A substitute durable Ledger |
 | OPL Ledger / Beads and Dolt | Objectives, dependency graph, owner, checkpoints, remaining work | Agent wakeups, machine mutation, release acceptance |
-| Linear | Complete narrow-field human projection and authorized human intent | Execution truth, task storage, scheduling |
+| Obsidian + Bases | Complete human archive and task navigation | Execution ownership or scheduling |
+| Linear | Active-goal projection and authorized human intent | Full history, execution truth, scheduling |
 | GitHub and artifact owners | Canonical source, recoverable checkpoints, CI and release evidence | Fleet capacity or Ledger execution ownership |
 | Private OPL Instance | Private Ledger, topology, policy, Operations Registry and personal Skills | Public engine code or platform live state |
 
@@ -33,12 +34,27 @@ The Ledger covers the owner's complete work inventory, including non-software
 responsibilities. Beads owns the durable graph and lifecycle; a Codex task is
 an execution handle that can be replaced without replacing the objective.
 
-When Linear is enabled, every user-ledger Bead has one issue with preserved
-parent/child hierarchy. Linear owns human intent, priority, due, pause, and
-cancel input. Beads owns execution state, blocker, and result. The official
-Linear Connector performs reconciliation; `bd linear sync` is not this route.
-Credentials, private paths, logs, full notes, internal metadata, and checkpoints
-do not enter the projection.
+Obsidian + Bases stores the complete human task archive: motivation, verified
+outcomes, remaining work, owners, source links, and historical records. Bases
+indexes those notes; it is not a second task database or execution controller.
+Beads/Dolt remains execution truth. Each independently deliverable or decidable
+goal has one durable identity; sessions, retries, fixes, and versions are
+evidence or progress within that goal, not automatic new cards.
+
+When Linear is enabled, only goals selected for current progression, decision,
+or acceptance require one mapped issue. Frozen responsibilities remain visible
+without dispatch; completed history and idle workbench roots need no permanent
+Linear card. Missing historical cards are not coverage errors and must not be
+recreated. Linear owns human intent, priority, due, pause, and cancel input.
+The official Linear Connector performs reconciliation; `bd linear sync` is not
+this route. Credentials, private paths, logs, full notes, internal metadata,
+and checkpoints do not enter the Linear projection.
+
+The [human archive contract](../skills/opl-flow/references/ledger-human-archive.md)
+owns archive readback, non-destructive synchronization, goal granularity, and
+quota reporting. Saving elsewhere or removing a project association does not
+prove platform archival or quota recovery. Historical-copy deletion is a
+separate explicitly authorized action after preservation checks.
 
 One `OPL Flow Supervisor` serves all registered projects. The native Automation
 wakes a bounded episode; Beads does not wake or dispatch Agents. The Dashboard

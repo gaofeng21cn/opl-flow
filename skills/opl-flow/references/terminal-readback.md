@@ -16,7 +16,8 @@ After any Flow mutation, read the owner-authoritative surfaces that apply:
    `bd show --json` proves the exact `codex://thread/` Bead link;
    `automation_update` view proves one active hourly `OPL Flow Supervisor` for
    the objective fingerprint and complete registered-project set; Linear
-   `list_issues`/`get_issue` proves one narrow-field issue per Bead; Linear
+   `list_issues`/`get_issue` proves one narrow-field issue per selected active
+   goal, while Obsidian note/Bases readback proves full human coverage; Linear
    `list_comments`, destination `read_thread`, the marked automated reply and
    its Linear readback, and the Beads cursor together prove handled comments
    without duplicate delivery or premature cursor advancement; and a post-push
