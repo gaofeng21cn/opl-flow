@@ -76,6 +76,13 @@ after that proof.
 3. Use the repository's existing tools, abstractions, commands, and validation
    lanes. Add a new abstraction only when the current task proves it necessary.
 
+Before the first selected verification gate, check its declared tool versions,
+installed dependencies and isolated state/database prerequisites. Do not discover
+missing prerequisites by repeatedly restarting an aggregate lane. After a failure,
+resume at the affected gate and retain passed evidence whose inputs and execution
+conditions remain valid. A Go entrypoint with no tests needs its owner's existing
+behavior suite; compilation alone is not behavior evidence.
+
 ## Repair Before Proof
 
 For a `change` task, once the real failure is reproducible or its deepest

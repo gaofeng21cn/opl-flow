@@ -110,6 +110,12 @@
 7. 只清理本任务拥有的 worktree、branch、process、cache 和临时文件。
 8. 原 owner 必须持续负责到 `scripts/worktree_lifecycle.py close` 成功；handoff、callback、candidate、canonical push 或冲突本身都不解除 cleanup 义务。冲突由该 owner 基于 fresh SSOT 语义重放后解决。
 
+### 全仓干净开发基线
+
+用户要求全仓收敛时，核对本地与远端开发分支及全部已登记 worktree，不能只清理当前任务分支。当前 owner 的有效成果须语义吸收到 canonical `main`；已被新主线明确替代的旧试验和临时交付桥直接清理，不重新合入旧实现，也不为普通过时内容另造保留分支或标签。未知或未交付成果先保全再判断。
+
+清理前回读 live writer；用户指定保留的活跃开发面作为精确例外，不能删掉其 worktree 或改动。发布和状态 owner 的专用分支与上游、归档仓库分别判定，不把它们误当开发遗留。终态逐仓回读 canonical ref/tree、本地 `main`、分支、worktree 和 dirty 状态，并报告全部例外。
+
 ## 归档判定
 
 仅在以下适用条件全部成立时标记 `SAFE_TO_ARCHIVE`：
