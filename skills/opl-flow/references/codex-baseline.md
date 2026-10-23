@@ -116,8 +116,13 @@ dated summary establishes future compatibility.
 ### Keep Instructions At Their Narrowest Useful Scope
 
 Keep global instructions for durable preferences, authority and completion
-boundaries, and short routes that must remain discoverable across tasks. Put
-repository facts and commands in that repository, repeated specialist workflows
+boundaries, and short routes that must remain discoverable across tasks. Express
+lessons as affirmative, reusable guidance about how to work. A correction to
+one artifact belongs with that task or domain; promote its general principle
+only when it applies across tasks. Keep actual authorization and safety
+conditions explicit.
+
+Put repository facts and commands in that repository, repeated specialist workflows
 in the existing Skill, and personal authorization in a user-owned local file
 with an explicit trigger in the local Profile. Do not publish personal grants
 in Flow or treat moving a grant as permission to expand it. Preserve native
