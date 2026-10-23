@@ -116,11 +116,11 @@ dated summary establishes future compatibility.
 ### Keep Instructions At Their Narrowest Useful Scope
 
 Keep global instructions for durable preferences, authority and completion
-boundaries, and short routes that must remain discoverable across tasks. Express
-lessons as affirmative, reusable guidance about how to work. A correction to
-one artifact belongs with that task or domain; promote its general principle
-only when it applies across tasks. Keep actual authorization and safety
-conditions explicit.
+boundaries, and short routes that must remain discoverable across tasks. State
+clear, reusable requirements, including constraints on recurring model behavior.
+A correction to one artifact belongs with that task or domain; promote its
+general principle only when it applies across tasks. Keep actual authorization
+and safety conditions explicit.
 
 Put repository facts and commands in that repository, repeated specialist workflows
 in the existing Skill, and personal authorization in a user-owned local file
