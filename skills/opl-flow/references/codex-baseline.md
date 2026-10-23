@@ -96,7 +96,7 @@ guidance.
    Report source synchronization, publication, installation, and fresh discovery
    separately, according to the user's requested endpoint.
 
-For GPT-6 Astra, the official guide inspected on 2026-09-06 emphasizes continued
+For GPT-6 Astra, the official family guide inspected on 2026-10-23 emphasizes continued
 execution within existing authorization, explicit user/Skill precedence,
 focused clarification, concise prose, intentional delegation, and verification
 proportional to the change. Preserve an existing supported reasoning effort;
@@ -112,6 +112,55 @@ Sources:
 
 Refresh the model guide during the next model upgrade rather than assuming this
 dated summary establishes future compatibility.
+
+### Keep Instructions At Their Narrowest Useful Scope
+
+Keep global instructions for durable preferences, authority and completion
+boundaries, and short routes that must remain discoverable across tasks. Put
+repository facts and commands in that repository, repeated specialist workflows
+in the existing Skill, and personal authorization in a user-owned local file
+with an explicit trigger in the local Profile. Do not publish personal grants
+in Flow or treat moving a grant as permission to expand it. Preserve native
+scheduler/run association checks when removing a task-specific global duplicate.
+
+Before trimming, identify each rule's actor, scope, conditions, exceptions,
+owner, and acceptance evidence. Merge repetition; move specialist detail only
+after verifying the destination and its entry route. For task archives and
+historical-copy retirement, use [ledger-human-archive.md](ledger-human-archive.md).
+Keep the trigger in the Profile: merely moving text into an unreferenced Skill
+does not preserve discoverability. Keep unknown local changes for semantic review.
+
+For Skills, descriptions identify when to load them; the body holds essential
+constraints and routes to longer references. Use one current specialist owner
+instead of stacking adjacent Skills by keyword. When adapting a third-party
+Skill, retain the upstream source/revision, compare upstream changes with local
+adaptations, preserve new capabilities, and verify referenced resources and
+the actual tool version. Keep adaptations to routing and necessary behavior;
+do not edit installed caches as authoring sources.
+
+Use the existing source/template equality check for projection integrity, then
+fresh-executor checks for behavior. A useful bounded check combines a small
+reversible edit with read-only authorization cases: verify execution without
+redundant approval, artifact language versus reply language, proportional tests,
+and retrieval of moved instructions. Inspect the actual tool trace and result;
+neither byte equality nor a word-count reduction proves general equivalence.
+Do not add prose keyword tests or a permanent evaluation framework for a one-off
+Profile edit. Keep a recoverable original and report the scope actually checked.
+
+Evidence reviewed on 2026-10-23:
+
+- [OpenAI GPT-6 guidance](https://developers.openai.com/api/docs/guides/latest-model#prompting-best-practices)
+  calls for auditing instruction conflicts and calibrating autonomy, style, and
+  verification to the workload.
+- [Codex instruction discovery](https://developers.openai.com/codex/guides/agents-md)
+  defines global/project layering and reconstruction for a fresh run.
+- [Vercel's Next.js evaluation](https://vercel.com/blog/agents-md-outperforms-skills-in-our-agent-evals)
+  supports retaining a concise documentation index; its framework-specific
+  results do not establish a universal advantage over Skills.
+- [The February 2026 context-file study](https://arxiv.org/html/2602.11988v1)
+  found extra exploration and cost from unnecessary instructions in its tested
+  agents. It did not evaluate this GPT-6 Profile; use it to motivate scoped
+  instructions, not to claim a measured GPT-6 performance improvement.
 
 ## Profile Safety
 
