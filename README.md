@@ -38,6 +38,23 @@ non-development workflows live in
 [OPL Skills](https://github.com/gaofeng21cn/opl-skills). Third-party capabilities
 use their own installation and update channels.
 
+## Coordination model
+
+OPL Flow uses the routers as the attention boundary for work. The selected
+Router sends an event to the current Ledger owner; a Worker performs one
+bounded slice; Fleet supplies continuity and capacity when another executor or
+machine is needed; the Ledger keeps the single durable task truth. A Worker,
+Session, or machine can be replaced without creating a second objective.
+
+```text
+event -> Router -> Ledger owner -> Fleet capacity -> Worker
+      -> checkpoint/result/blocker -> Ledger readback
+```
+
+This is the direction for the whole workflow, not a claim that every handoff is
+already automated. The implementation grows from real use and preserves the
+existing owner and write-set boundaries.
+
 ## Get Started
 
 Follow [new machine setup](docs/new-machine-codex-setup.md) to install through

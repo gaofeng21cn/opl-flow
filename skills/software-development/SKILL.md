@@ -10,6 +10,20 @@ small edits, and repository-local decisions model-native. Repository
 instructions, contracts, source, callers, tests, and runtime readback remain
 authoritative.
 
+## Cross-router handoff
+
+This router owns implementation, review, architecture, and delivery decisions.
+The execution carrier is replaceable: a Worker may run in the current task or
+through OPL Fleet while the Ledger objective and current owner remain stable.
+
+- Use `$opl-flow fleet` when the slice needs fresh node admission, workspace
+  continuity, protected capacity, or cross-machine continuation.
+- Use `$manage-codex-tasks` when the work needs native task coordination,
+  recovery, integration, or execution-owner migration.
+- Return the checkpoint, result, or blocker to the current Ledger owner before
+  starting another slice. Do not create a second task record to represent a
+  retry or a machine change.
+
 ## Choose One Mode
 
 Load only the reference named by the selected mode and any explicitly required

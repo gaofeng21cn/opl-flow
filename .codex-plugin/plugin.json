@@ -1,6 +1,6 @@
 {
   "name": "opl-flow",
-  "version": "0.1.63",
+  "version": "0.1.64",
   "description": "OPL Flow establishes the Codex experience baseline and coordinates durable work across tasks, repositories, and machines.",
   "author": {
     "name": "Gaofeng"
@@ -9,7 +9,7 @@
   "interface": {
     "displayName": "OPL Flow",
     "shortDescription": "Route OPL operations, software work, and Codex tasks",
-    "longDescription": "OPL Flow exposes three focused routers for OPL product operations, non-trivial software development, and native Codex task management. Specialized guides remain bundled and load only through the selected router. Framework and Codex own installation and Profile materialization; explicit $opl-flow start idempotently binds the Ledger through native owner APIs and fresh readback.",
+    "longDescription": "OPL Flow exposes three focused routers for OPL product operations, non-trivial software development, and native Codex task management. Routers manage attention, Workers carry bounded execution, Fleet provides continuity and capacity, and the Ledger remains the single durable task truth. Specialized guides remain bundled and load only through the selected router. Framework and Codex own installation and Profile materialization; explicit $opl-flow start idempotently binds the Ledger through native owner APIs and fresh readback.",
     "developerName": "Gaofeng",
     "category": "Developer Tools",
     "capabilities": [

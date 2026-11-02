@@ -43,6 +43,13 @@ OPL Fleet is an open, general Agent-native distributed execution and continuity
 control plane, initially optimized for a person's or small team's heterogeneous
 machines.
 
+Its practical operating model is deliberately smaller: Router manages
+attention, Worker performs a bounded execution slice, Fleet supplies continuity
+and capacity, and the Ledger keeps the one durable task truth. A Worker, Session,
+or machine is an execution carrier, not the identity of the objective. This is
+the direction that guides incremental implementation; source and runtime
+readback must still distinguish current behavior from target behavior.
+
 It turns independently managed computers into one evidence-bound execution
 fleet for Agent work. A task can be admitted, executed, checkpointed, recovered,
 or moved to another machine without making one conversation, checkout, or host

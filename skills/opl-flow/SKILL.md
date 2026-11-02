@@ -10,6 +10,41 @@ Profile, capability intent, Ledger routes, and generic Fleet engine. Framework
 owns installation and effective projections; App owns product UI and user
 choices; a private OPL Instance owns personal Ledger and Fleet state.
 
+## Coordination model
+
+The three router Skills are the user-facing entrypoints for the OPL workflow.
+They select the responsibility that should handle a request; they do not create
+parallel task truth or make Fleet a second task controller.
+
+- **Router** manages attention: it identifies the right product, development,
+  or native-task responsibility and hands the request to its owner.
+- **Worker** carries one bounded execution slice in the current task or through
+  a Fleet adapter. A Worker can stop at a checkpoint, result, or blocker and be
+  replaced without changing the Ledger objective.
+- **Fleet** provides workspace admission, execution continuity, and protected
+  capacity when the slice needs another machine or an explicit executor.
+- **Ledger** remains the only durable task truth: objective, dependencies,
+  current owner, checkpoint, remaining work, and terminal result.
+
+Use the routers as a handoff chain when the request crosses these boundaries:
+
+```text
+user intent
+  -> selected Router
+  -> Ledger owner and next slice
+  -> Fleet admission when capacity or continuity is needed
+  -> Worker execution
+  -> owner result and next Router decision
+```
+
+`$software-development` owns implementation and delivery decisions, and hands
+off to `$opl-flow fleet` for Fleet admission, workspace continuity, or protected
+capacity. `$manage-codex-tasks` owns native task coordination and owner
+migration, and uses `$opl-flow fleet` only when the task needs a managed node or
+capacity. `$opl-flow` owns the product-level Ledger and Fleet routes. A handoff
+keeps the existing owner and write set; it is not permission to start a second
+executor.
+
 Choose one product action and load only its named references.
 
 | Action | Use when | Load |

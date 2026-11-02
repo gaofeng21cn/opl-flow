@@ -23,6 +23,26 @@ Ledger, Linear, or Fleet. The three discoverable Skills independently route
 Flow product operations, software development, and Codex task management.
 Ordinary reasoning does not need a method loaded in advance.
 
+## Router, Worker, Fleet, And Ledger
+
+The routers are the attention boundary for the workflow. A selected Router
+hands each request to the responsible owner instead of asking every component
+to interpret the same event. The Worker performs one bounded execution slice;
+it may run in the current task or through a Fleet adapter and may be replaced
+without changing the objective. Fleet supplies node/workspace continuity and
+protected capacity. The Ledger remains the only durable task truth.
+
+```text
+event -> Router -> Ledger owner/next slice -> Fleet capacity -> Worker
+      -> checkpoint/result/blocker -> Ledger readback
+```
+
+This is an operating principle, not a claim that every handoff is already
+automated. Add a mechanism only when a real workflow exposes a missing handoff,
+recovery boundary, or capacity decision. Do not create a second task database,
+copy a conversation between nodes, or turn the global Supervisor into a
+resident execution loop.
+
 Public product code lives in `gaofeng21cn/opl-flow`. Independent
 non-development workflows live in `gaofeng21cn/opl-skills`. Each owner keeps
 private configuration in its own `opl-instance-<owner>`; private repository

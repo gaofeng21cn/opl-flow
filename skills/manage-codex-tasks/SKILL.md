@@ -26,3 +26,17 @@ those other surfaces.
 Use `$opl-flow fleet` only when cross-machine admission, workspace currentness,
 or protected capacity is actually required. Never archive a task without fresh
 user approval.
+
+## Cross-router handoff
+
+This router owns native Codex task identity, coordination, recovery, and
+execution-owner migration. It does not replace the Ledger or implement a second
+capacity scheduler.
+
+- Use `$opl-flow fleet` to admit a managed node, preserve workspace continuity,
+  or hold protected capacity for the current task owner.
+- Keep the Ledger objective and current owner stable when a Worker, Session,
+  worktree, or machine changes.
+- Return a checkpoint, result, or blocker to the current owner before creating
+  or migrating another executor. A new task is not a recovery mechanism when the
+  existing owner can continue.

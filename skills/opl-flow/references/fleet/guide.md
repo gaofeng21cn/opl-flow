@@ -39,6 +39,27 @@ Deterministic contracts guard identity, scoped permission, time/token/cost and
 resource budgets, leases, checkpoints, and terminal readback; "Agent manages
 Agent" never grants unconstrained autonomy.
 
+## Operating model
+
+Fleet is the continuity and capacity layer in a Router-led workflow. The
+Router decides which responsibility should receive an event, the Ledger names
+the current owner and next slice, and Fleet supplies an admitted executor only
+when the slice needs managed capacity or cross-machine continuation. A Worker
+may be replaced or moved; the objective remains the same Ledger record.
+
+Normal progress is therefore event-led:
+
+```text
+event -> Router -> current Ledger owner -> Fleet admission -> Worker slice
+      -> checkpoint/result/blocker -> Ledger readback -> next decision
+```
+
+Do not use Fleet as a second task database, a global polling loop, or a general
+queue before a real workload requires one. When a Worker is waiting for a human
+or an external system, preserve its owner and checkpoint while releasing
+capacity where the adapter permits it. When the execution result is unknown,
+reconcile it before retrying or releasing capacity.
+
 ## Route
 
 Use the package-root engine directly or through `opl_workflow.py`:

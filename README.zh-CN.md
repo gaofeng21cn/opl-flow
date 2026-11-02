@@ -34,6 +34,21 @@ Flow 是可选组件。缺少 Flow 不阻断 Codex、OPL Base、App、其他 Pac
 独立非开发工作流由 [OPL Skills](https://github.com/gaofeng21cn/opl-skills)
 维护。第三方能力使用各自的安装与更新渠道。
 
+## 协同模型
+
+OPL Flow 以三个 Router 作为工作的注意力入口。Router 将事件交给 Ledger
+中的当前负责人；Worker 执行一个有限切片；需要更换执行器或机器时，由 Fleet
+提供连续性和容量；Ledger 始终保存唯一的持久任务真相。Worker、Session 或机器
+可以被替换，但不会因此创建第二个目标。
+
+```text
+事件 → Router → Ledger 当前负责人 → Fleet 容量 → Worker
+     → 检查点/结果/阻塞 → Ledger 回读
+```
+
+这是整个工作流的演进方向，并不把尚未自动化的交接描述成现成能力。实现应由
+真实使用中的摩擦推动，并保留现有负责人和写集边界。
+
 ## 开始使用
 
 按[新机器安装](docs/new-machine-codex-setup.md)通过当前载体安装，并在新的 Codex
