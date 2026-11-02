@@ -55,6 +55,12 @@ This is the direction for the whole workflow, not a claim that every handoff is
 already automated. The implementation grows from real use and preserves the
 existing owner and write-set boundaries.
 
+The OPL Flow whitepaper explains how consistent task intake, automated
+delivery, and recoverable execution turn Agent capabilities into continuous
+work: [read online (Chinese)](https://gaofeng21cn.github.io/one-person-lab/latest/whitepapers/opl-flow-whitepaper.html),
+[PDF](https://gaofeng21cn.github.io/one-person-lab/latest/whitepapers/opl-flow-whitepaper.pdf),
+or [source](docs/whitepapers/opl-flow-whitepaper.md).
+
 ## Get Started
 
 Follow [new machine setup](docs/new-machine-codex-setup.md) to install through

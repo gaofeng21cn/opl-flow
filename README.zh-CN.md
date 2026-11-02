@@ -49,6 +49,11 @@ OPL Flow 以三个 Router 作为工作的注意力入口。Router 将事件交�
 这是整个工作流的演进方向，并不把尚未自动化的交接描述成现成能力。实现应由
 真实使用中的摩擦推动，并保留现有负责人和写集边界。
 
+OPL Flow 白皮书说明一致的任务接收、自动投递和可恢复执行，如何将智能体能力
+组织成持续工作的体系：[在线阅读](https://gaofeng21cn.github.io/one-person-lab/latest/whitepapers/opl-flow-whitepaper.html)、
+[PDF](https://gaofeng21cn.github.io/one-person-lab/latest/whitepapers/opl-flow-whitepaper.pdf)、
+[正文源文件](docs/whitepapers/opl-flow-whitepaper.md)。
+
 ## 开始使用
 
 按[新机器安装](docs/new-machine-codex-setup.md)通过当前载体安装，并在新的 Codex
@@ -73,7 +78,8 @@ Flow 不注入隐藏提示词。
 | OPL Flow | Profile 与能力意图、工作方法、总账适配、Git 生命周期和通用 Fleet 引擎 |
 | OPL Framework 与原生载体 | Package 生命周期、Profile 物化、能力投影与安装回读 |
 | OPL 总账 / Beads | 持久目标、依赖、当前执行负责人、检查点与剩余工作 |
-| Linear | 可选的完整总账人读投影，字段范围受限 |
+| Obsidian + Bases | 包含动机、成果、剩余工作和证据的完整人读任务档案 |
+| Linear | 可选的活跃目标投影，字段范围受限 |
 | GitHub 与制品 owner | 当前源码与交付证据 |
 | OPL Fleet | 实时节点与 workspace 准入、容量租约和执行连续性 |
 | 私人 OPL Instance | 私人总账、拓扑、策略、运营记录和个人配置 |
@@ -84,6 +90,10 @@ Package 仍须独立回读。[Fleet 架构](docs/opl-fleet-architecture.md)明�
 
 凭据、会话、对话内容、日志、缓存、私人路径和租约密钥不进入公开包，也不作为
 节点间同步内容。
+
+[人读档案与活跃投影](skills/opl-flow/references/ledger-human-archive.md)保留可读的
+完成历史，无需为每次会话或每条历史 Bead 保留 Linear 卡片。档案回读和平台实际
+额度分别验收。
 
 ## 开发
 

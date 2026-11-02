@@ -10,6 +10,7 @@ documentation explains those authorities.
 | --- | --- |
 | [README](../README.md) / [中文](../README.zh-CN.md) | Paired product introduction and entry points |
 | [Workflow architecture](reusable-workflow-architecture.md) | Flow, Ledger, private Instance, and external owner boundaries |
+| [OPL Flow whitepaper (Chinese)](whitepapers/opl-flow-whitepaper.md) | Product philosophy and the Router, Worker, Fleet, and Ledger coordination model |
 | [Capability governance](capability-governance.md) | Profile and capability policy composition through Framework and App |
 | [Executor compatibility](compatibility.md) | Supported executor scope and neutral-contract boundary |
 | [New machine setup](new-machine-codex-setup.md) | Install, initialize, update, and verify a machine |
@@ -35,6 +36,21 @@ projected into `templates/AGENTS.md`; edit the source and matching projection
 together. `THIRD_PARTY_NOTICES.md` owns upstream provenance and license notices.
 
 ## Maintenance
+
+The Chinese whitepaper source and its `contracts/whitepaper_profile.json`
+belong to Flow. Framework's public whitepaper registry, shared renderer, and
+family publication workflow produce the canonical HTML and PDF together with
+the other OPL whitepapers. Preview from a workspace with a Framework checkout:
+
+```bash
+node ../one-person-lab/scripts/run-domain-whitepaper.ts \
+  --repo-root . --profile contracts/whitepaper_profile.json
+```
+
+Generated pages and PDFs under `docs/site/latest/` and rendering files under
+`tmp/` are ignored. The whitepaper uses the shared cover, contents, typography,
+and artifact verification; publication goes through Framework's
+`npm run docs:publish` and public readback.
 
 For each document change, identify its reader question and existing subject
 owner. Update that owner in place; other documents link to it rather than copy

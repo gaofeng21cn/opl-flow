@@ -1,0 +1,12 @@
+{
+  "sourceMarkdown": "docs/whitepapers/opl-flow-whitepaper.md",
+  "outputName": "opl-flow-whitepaper",
+  "status": "whitepaper_artifact_verified",
+  "owner": "OPL Flow",
+  "coverLine": "Router / Worker / Fleet / Ledger",
+  "headerTitle": "OPL Flow Whitepaper",
+  "minPdfPages": 6,
+  "maxPdfPages": 12,
+  "publicHtmlUrl": "https://gaofeng21cn.github.io/one-person-lab/latest/whitepapers/opl-flow-whitepaper.html",
+  "publicPdfUrl": "https://gaofeng21cn.github.io/one-person-lab/latest/whitepapers/opl-flow-whitepaper.pdf"
+}
