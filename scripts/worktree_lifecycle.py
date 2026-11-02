@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Register, amend, checkpoint, inspect, and safely close task-owned Git worktrees."""
+"""Manage Git worktree custody and task references, never Ledger task ownership."""
 
 from __future__ import annotations
 
@@ -25,7 +25,7 @@ except ModuleNotFoundError:
     import worktree_fleet_audit
 
 
-SCHEMA = "opl_flow_worktree_ownership_ledger.v1"
+SCHEMA = worktree_fleet_audit.LEDGER_SCHEMA
 DEFAULT_LEDGER = Path("~/.local/state/opl-flow/worktree-ownership-ledger.json")
 
 
@@ -43,6 +43,7 @@ def now() -> str:
 def empty_ledger() -> dict[str, Any]:
     return {
         "schema": SCHEMA,
+        "authority": "worktree_custody",
         "machine": socket.gethostname().split(".", 1)[0],
         "recorded_at": now(),
         "entries": [],
@@ -53,14 +54,15 @@ def read_ledger(path: Path) -> dict[str, Any]:
     path = path.expanduser().resolve()
     if not path.exists():
         return empty_ledger()
-    worktree_fleet_audit.load_ledger(path)
     try:
-        return json.loads(path.read_text(encoding="utf-8"))
-    except (OSError, json.JSONDecodeError) as exc:
+        return worktree_fleet_audit.read_ledger_payload(path)
+    except worktree_fleet_audit.FleetAuditError as exc:
         raise LifecycleError(f"cannot read ownership ledger {path}: {exc}") from exc
 
 
 def write_ledger(path: Path, payload: dict[str, Any]) -> None:
+    # Normalize once at the writer. Never persist legacy task-like identity fields.
+    payload = worktree_fleet_audit.normalize_ledger(payload)
     path = path.expanduser().resolve()
     path.parent.mkdir(parents=True, exist_ok=True)
     prune_orphaned_integration_overlaps(payload)
@@ -177,13 +179,13 @@ def integration_overlaps(
             overlaps.append(
                 {
                     "worktree": str(other),
-                    "thread_id": item["thread_id"],
-                    "objective_id": item["objective_id"],
-                    "owner": item["owner"],
+                    "custody_thread_id": item["custody_thread_id"],
+                    "objective_ref": item["objective_ref"],
+                    "custody_owner": item["custody_owner"],
                     "paths": paths,
                 }
             )
-    return sorted(overlaps, key=lambda item: (item["worktree"], item["owner"]))
+    return sorted(overlaps, key=lambda item: (item["worktree"], item["custody_owner"]))
 
 
 def register(
@@ -198,13 +200,14 @@ def register(
     next_action: str,
     write_set: list[str],
 ) -> dict[str, Any]:
+    """Register local custody; legacy argument names are CLI/API aliases only."""
     root, lane = resolve_repo(worktree, repo_root)
     desired_paths = normalize_write_set(write_set)
     identity = {
-        "thread_id": thread_id,
-        "objective_id": objective_id,
-        "owner": owner,
-        "execution_owner": execution_owner,
+        "custody_thread_id": thread_id,
+        "objective_ref": objective_id,
+        "custody_owner": owner,
+        "custody_executor": execution_owner,
     }
     if any(not value.strip() for value in (*identity.values(), next_action)):
         raise LifecycleError("owner identity and next-action must be non-empty")
@@ -223,7 +226,7 @@ def register(
             existing.update(
                 repo_root=str(root),
                 status="ACTIVE",
-                next_action=next_action,
+                custody_next_action=next_action,
                 write_set=desired_paths,
                 integration_overlaps=overlaps,
             )
@@ -234,7 +237,7 @@ def register(
                 "repo_root": str(root),
                 **identity,
                 "status": "ACTIVE",
-                "next_action": next_action,
+                "custody_next_action": next_action,
                 "write_set": desired_paths,
                 "integration_overlaps": overlaps,
                 "remote_recovery": None,
@@ -259,19 +262,19 @@ def transfer_owner(
     next_action: str,
     reason: str,
 ) -> dict[str, Any]:
-    """CAS-transfer one ACTIVE receipt without changing its source obligation."""
+    """CAS-transfer local custody; the referenced Ledger owner is untouched."""
     _, lane = resolve_repo(worktree, repo_root)
     expected_identity = {
-        "thread_id": expected_thread_id,
-        "objective_id": expected_objective_id,
-        "owner": expected_owner,
-        "execution_owner": expected_execution_owner,
+        "custody_thread_id": expected_thread_id,
+        "objective_ref": expected_objective_id,
+        "custody_owner": expected_owner,
+        "custody_executor": expected_execution_owner,
     }
     new_identity = {
-        "thread_id": new_thread_id,
-        "objective_id": expected_objective_id,
-        "owner": new_owner,
-        "execution_owner": new_execution_owner,
+        "custody_thread_id": new_thread_id,
+        "objective_ref": expected_objective_id,
+        "custody_owner": new_owner,
+        "custody_executor": new_execution_owner,
     }
     required = (*expected_identity.values(), *new_identity.values(), next_action, reason)
     if any(not value.strip() for value in required):
@@ -292,7 +295,7 @@ def transfer_owner(
         if current_identity != expected_identity:
             raise LifecycleError(f"owner transfer identity changed for {lane}")
 
-        history = entry.setdefault("ownership_transfers", [])
+        history = entry.setdefault("custody_transfers", [])
         if not isinstance(history, list):
             raise LifecycleError(f"ownership transfer history is invalid for {lane}")
         transferred_at = now()
@@ -302,19 +305,19 @@ def transfer_owner(
                 "reason": reason.strip(),
                 "from": {
                     **expected_identity,
-                    "next_action": entry["next_action"],
+                    "custody_next_action": entry["custody_next_action"],
                 },
                 "to": {
                     **new_identity,
-                    "next_action": next_action,
+                    "custody_next_action": next_action,
                 },
             }
         )
         entry.update(
-            thread_id=new_thread_id,
-            owner=new_owner,
-            execution_owner=new_execution_owner,
-            next_action=next_action,
+            custody_thread_id=new_thread_id,
+            custody_owner=new_owner,
+            custody_executor=new_execution_owner,
+            custody_next_action=next_action,
         )
 
         for other in payload["entries"]:
@@ -327,9 +330,9 @@ def transfer_owner(
                 if overlap.get("worktree") != lane_key:
                     continue
                 overlap.update(
-                    thread_id=new_thread_id,
-                    objective_id=expected_objective_id,
-                    owner=new_owner,
+                    custody_thread_id=new_thread_id,
+                    objective_ref=expected_objective_id,
+                    custody_owner=new_owner,
                 )
         write_ledger(ledger_path, payload)
     return entry
@@ -348,13 +351,13 @@ def amend_objective(
     next_action: str,
     reason: str,
 ) -> dict[str, Any]:
-    """CAS-amend one ACTIVE receipt without changing its source custody."""
+    """CAS-rebind a task reference without mutating that task or source custody."""
     _, lane = resolve_repo(worktree, repo_root)
     expected_identity = {
-        "thread_id": expected_thread_id,
-        "objective_id": expected_objective_id,
-        "owner": expected_owner,
-        "execution_owner": expected_execution_owner,
+        "custody_thread_id": expected_thread_id,
+        "objective_ref": expected_objective_id,
+        "custody_owner": expected_owner,
+        "custody_executor": expected_execution_owner,
     }
     required = (*expected_identity.values(), new_objective_id, next_action, reason)
     if any(not value.strip() for value in required):
@@ -378,7 +381,7 @@ def amend_objective(
         if current_identity != expected_identity:
             raise LifecycleError(f"objective amendment identity changed for {lane}")
 
-        history = entry.setdefault("objective_amendments", [])
+        history = entry.setdefault("objective_rebindings", [])
         if not isinstance(history, list):
             raise LifecycleError(f"objective amendment history is invalid for {lane}")
         amended_at = now()
@@ -387,23 +390,23 @@ def amend_objective(
                 "recorded_at": amended_at,
                 "reason": reason.strip(),
                 "actor": {
-                    "thread_id": expected_thread_id,
-                    "owner": expected_owner,
-                    "execution_owner": expected_execution_owner,
+                    "custody_thread_id": expected_thread_id,
+                    "custody_owner": expected_owner,
+                    "custody_executor": expected_execution_owner,
                 },
                 "from": {
-                    "objective_id": expected_objective_id,
-                    "next_action": entry["next_action"],
+                    "objective_ref": expected_objective_id,
+                    "custody_next_action": entry["custody_next_action"],
                 },
                 "to": {
-                    "objective_id": new_objective_id,
-                    "next_action": next_action,
+                    "objective_ref": new_objective_id,
+                    "custody_next_action": next_action,
                 },
             }
         )
         entry.update(
-            objective_id=new_objective_id,
-            next_action=next_action,
+            objective_ref=new_objective_id,
+            custody_next_action=next_action,
             updated_at=amended_at,
         )
 
@@ -417,7 +420,7 @@ def amend_objective(
                 if not isinstance(overlap, dict):
                     continue
                 if overlap.get("worktree") == lane_key:
-                    overlap["objective_id"] = new_objective_id
+                    overlap["objective_ref"] = new_objective_id
         write_ledger(ledger_path, payload)
     return entry
 
@@ -458,7 +461,7 @@ def checkpoint(
             raise LifecycleError("remote checkpoint readback does not match local HEAD")
         entry["remote_recovery"] = {"branch": branch, "commit": commit, "tree": tree}
         if next_action:
-            entry["next_action"] = next_action
+            entry["custody_next_action"] = next_action
         write_ledger(ledger_path, payload)
     return entry["remote_recovery"]
 
@@ -1148,9 +1151,9 @@ def close_superseded(
         expected_identity = {
             "repo_root": repo_key,
             "worktree": lane_key,
-            "thread_id": thread_id,
-            "objective_id": objective_id,
-            "owner": owner,
+            "custody_thread_id": thread_id,
+            "objective_ref": objective_id,
+            "custody_owner": owner,
         }
         drift = [
             key for key, expected in expected_identity.items() if entry.get(key) != expected
@@ -1291,13 +1294,13 @@ def close_superseded(
 
     classification = "superseded_archived" if recovery is not None else "superseded_no_recovery"
     return {
-        "schema": "opl_flow_worktree_superseded_close_receipt.v1",
+        "schema": "opl_flow_worktree_superseded_close_receipt.v2",
         "worktree": lane_key,
         "repo_root": repo_key,
         "branch": branch,
-        "thread_id": thread_id,
-        "objective_id": objective_id,
-        "owner": owner,
+        "custody_thread_id": thread_id,
+        "objective_ref": objective_id,
+        "custody_owner": owner,
         "classification": classification,
         "reason": reason,
         "canonical_target": canonical_target,
@@ -1373,9 +1376,9 @@ def close_stale(
             raise LifecycleError(f"unique ACTIVE receipt not found for {lane}")
         entry = matches[0]
         expected_identity = {
-            "thread_id": thread_id,
-            "objective_id": objective_id,
-            "owner": owner,
+            "custody_thread_id": thread_id,
+            "objective_ref": objective_id,
+            "custody_owner": owner,
         }
         drift = [
             key
@@ -1578,12 +1581,12 @@ def close_stale(
             raise LifecycleError("stale lifecycle receipt remained after close")
 
     return {
-        "schema": "opl_flow_worktree_stale_close_receipt.v1",
+        "schema": "opl_flow_worktree_stale_close_receipt.v2",
         "worktree": lane_key,
         "branch": branch,
-        "thread_id": thread_id,
-        "objective_id": objective_id,
-        "owner": owner,
+        "custody_thread_id": thread_id,
+        "objective_ref": objective_id,
+        "custody_owner": owner,
         "classification": "stale_receipt_only",
         "recovery_absorption": recovery_absorption,
         "recovery_absorption_proof": recovery_absorption_proof,
@@ -1613,44 +1616,47 @@ def parser() -> argparse.ArgumentParser:
     register_parser = commands.add_parser("register")
     register_parser.add_argument("--repo-root", required=True, type=Path)
     register_parser.add_argument("--worktree", required=True, type=Path)
-    register_parser.add_argument("--thread-id", required=True)
-    register_parser.add_argument("--objective-id", required=True)
-    register_parser.add_argument("--owner", required=True)
-    register_parser.add_argument("--execution-owner")
-    register_parser.add_argument("--next-action", required=True)
+    register_parser.add_argument("--thread-id", "--custody-thread-id", required=True)
+    register_parser.add_argument("--objective-id", "--objective-ref", required=True)
+    register_parser.add_argument("--owner", "--custody-owner", required=True)
+    register_parser.add_argument("--execution-owner", "--custody-executor")
+    register_parser.add_argument("--next-action", "--custody-next-action", required=True)
     register_parser.add_argument("--write-set", action="append", required=True)
 
-    transfer_parser = commands.add_parser("transfer-owner")
+    transfer_parser = commands.add_parser(
+        "transfer-owner", aliases=["transfer-custody"],
+        help="Transfer worktree custody only; Ledger ownership is unchanged.",
+    )
     transfer_parser.add_argument("--repo-root", required=True, type=Path)
     transfer_parser.add_argument("--worktree", required=True, type=Path)
-    transfer_parser.add_argument("--expected-thread-id", required=True)
-    transfer_parser.add_argument("--expected-objective-id", required=True)
-    transfer_parser.add_argument("--expected-owner", required=True)
-    transfer_parser.add_argument("--expected-execution-owner", required=True)
-    transfer_parser.add_argument("--new-thread-id", required=True)
-    transfer_parser.add_argument("--new-owner", required=True)
-    transfer_parser.add_argument("--new-execution-owner")
-    transfer_parser.add_argument("--next-action", required=True)
+    transfer_parser.add_argument("--expected-thread-id", "--expected-custody-thread-id", required=True)
+    transfer_parser.add_argument("--expected-objective-id", "--expected-objective-ref", required=True)
+    transfer_parser.add_argument("--expected-owner", "--expected-custody-owner", required=True)
+    transfer_parser.add_argument("--expected-execution-owner", "--expected-custody-executor", required=True)
+    transfer_parser.add_argument("--new-thread-id", "--new-custody-thread-id", required=True)
+    transfer_parser.add_argument("--new-owner", "--new-custody-owner", required=True)
+    transfer_parser.add_argument("--new-execution-owner", "--new-custody-executor")
+    transfer_parser.add_argument("--next-action", "--custody-next-action", required=True)
     transfer_parser.add_argument("--reason", required=True)
 
     amend_parser = commands.add_parser(
-        "amend-objective",
+        "amend-objective", aliases=["rebind-objective"],
         help="CAS-amend one ACTIVE receipt while preserving its source custody.",
     )
     amend_parser.add_argument("--repo-root", required=True, type=Path)
     amend_parser.add_argument("--worktree", required=True, type=Path)
-    amend_parser.add_argument("--expected-thread-id", required=True)
-    amend_parser.add_argument("--expected-objective-id", required=True)
-    amend_parser.add_argument("--expected-owner", required=True)
-    amend_parser.add_argument("--expected-execution-owner", required=True)
-    amend_parser.add_argument("--new-objective-id", required=True)
-    amend_parser.add_argument("--next-action", required=True)
+    amend_parser.add_argument("--expected-thread-id", "--expected-custody-thread-id", required=True)
+    amend_parser.add_argument("--expected-objective-id", "--expected-objective-ref", required=True)
+    amend_parser.add_argument("--expected-owner", "--expected-custody-owner", required=True)
+    amend_parser.add_argument("--expected-execution-owner", "--expected-custody-executor", required=True)
+    amend_parser.add_argument("--new-objective-id", "--new-objective-ref", required=True)
+    amend_parser.add_argument("--next-action", "--custody-next-action", required=True)
     amend_parser.add_argument("--reason", required=True)
 
     checkpoint_parser = commands.add_parser("checkpoint")
     checkpoint_parser.add_argument("--worktree", required=True, type=Path)
     checkpoint_parser.add_argument("--remote", default="origin")
-    checkpoint_parser.add_argument("--next-action")
+    checkpoint_parser.add_argument("--next-action", "--custody-next-action")
 
     status_parser = commands.add_parser("status")
     status_parser.add_argument("--repo-root", action="append", type=Path)
@@ -1667,9 +1673,9 @@ def parser() -> argparse.ArgumentParser:
     close_stale_parser = commands.add_parser("close-stale")
     close_stale_parser.add_argument("--repo-root", required=True, type=Path)
     close_stale_parser.add_argument("--worktree", required=True, type=Path)
-    close_stale_parser.add_argument("--thread-id", required=True)
-    close_stale_parser.add_argument("--objective-id", required=True)
-    close_stale_parser.add_argument("--owner", required=True)
+    close_stale_parser.add_argument("--thread-id", "--custody-thread-id", required=True)
+    close_stale_parser.add_argument("--objective-id", "--objective-ref", required=True)
+    close_stale_parser.add_argument("--owner", "--custody-owner", required=True)
     close_stale_parser.add_argument("--branch", required=True)
 
     close_superseded_parser = commands.add_parser(
@@ -1678,9 +1684,9 @@ def parser() -> argparse.ArgumentParser:
     )
     close_superseded_parser.add_argument("--repo-root", required=True, type=Path)
     close_superseded_parser.add_argument("--worktree", required=True, type=Path)
-    close_superseded_parser.add_argument("--thread-id", required=True)
-    close_superseded_parser.add_argument("--objective-id", required=True)
-    close_superseded_parser.add_argument("--owner", required=True)
+    close_superseded_parser.add_argument("--thread-id", "--custody-thread-id", required=True)
+    close_superseded_parser.add_argument("--objective-id", "--objective-ref", required=True)
+    close_superseded_parser.add_argument("--owner", "--custody-owner", required=True)
     close_superseded_parser.add_argument("--reason", required=True)
     close_superseded_parser.add_argument("--target")
     close_superseded_parser.add_argument("--archive-bundle", type=Path)
@@ -1704,7 +1710,7 @@ def main() -> int:
                 next_action=args.next_action,
                 write_set=args.write_set,
             )
-        elif args.command == "transfer-owner":
+        elif args.command in {"transfer-owner", "transfer-custody"}:
             result = transfer_owner(
                 ledger_path,
                 repo_root=args.repo_root,
@@ -1719,7 +1725,7 @@ def main() -> int:
                 next_action=args.next_action,
                 reason=args.reason,
             )
-        elif args.command == "amend-objective":
+        elif args.command in {"amend-objective", "rebind-objective"}:
             result = amend_objective(
                 ledger_path,
                 repo_root=args.repo_root,

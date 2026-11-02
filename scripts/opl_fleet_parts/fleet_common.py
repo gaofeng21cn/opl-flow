@@ -190,7 +190,7 @@ LEASE_FIELDS = {
 
 LEASE_REQUIRED_FIELDS = LEASE_FIELDS
 
-LEASE_OPTIONAL_FIELDS = {"dispatch_adapter"}
+LEASE_OPTIONAL_FIELDS = {"dispatch_adapter", "worker_binding"}
 
 RECEIPT_FIELDS = {
     "schema",
@@ -217,17 +217,42 @@ _INSTANCE_OWNER = object()
 class FleetError(RuntimeError):
     pass
 
+def instance_pointer() -> Path | None:
+    """Read the node's single Instance binding without mutating local state."""
+    if not INSTANCE_POINTER_PATH.exists() and not INSTANCE_POINTER_PATH.is_symlink():
+        return None
+    if INSTANCE_POINTER_PATH.is_symlink() or not INSTANCE_POINTER_PATH.is_file():
+        raise FleetError("OPL Instance pointer must be a regular file")
+    if INSTANCE_POINTER_PATH.stat().st_mode & 0o077:
+        raise FleetError("OPL Instance pointer must have mode 0600")
+    pointer = read_json(INSTANCE_POINTER_PATH)
+    if (
+        set(pointer) != {"schema", "path"}
+        or pointer.get("schema") != "opl_flow_instance_pointer.v1"
+        or not isinstance(pointer.get("path"), str)
+        or not Path(pointer["path"]).expanduser().is_absolute()
+    ):
+        raise FleetError("OPL Instance pointer is invalid")
+    return Path(pointer["path"]).expanduser().resolve()
+
+
+def assert_instance_binding(instance: Path, bound: Path | None) -> None:
+    """The existing node config, routes and state directory form one namespace."""
+    if bound is not None and instance != bound:
+        raise FleetError(
+            "Fleet node state is bound to another OPL Instance; "
+            "use a separate OS user or explicitly migrate the existing node binding"
+        )
+    if CONFIG_PATH.is_file():
+        enrolled = read_json(CONFIG_PATH).get("repository")
+        requested = read_json(instance / "fleet/fleet.json").get("repository")
+        if enrolled and enrolled != requested:
+            raise FleetError("Fleet node enrollment belongs to another Instance repository")
+
+
 def configure_instance(value: str | Path | None) -> Path:
-    configured = value or os.environ.get("OPL_INSTANCE")
-    if not configured and INSTANCE_POINTER_PATH.is_file():
-        if INSTANCE_POINTER_PATH.stat().st_mode & 0o077:
-            raise FleetError("OPL Instance pointer must have mode 0600")
-        pointer = read_json(INSTANCE_POINTER_PATH)
-        if set(pointer) != {"schema", "path"} or pointer.get("schema") != (
-            "opl_flow_instance_pointer.v1"
-        ):
-            raise FleetError("OPL Instance pointer is invalid")
-        configured = pointer.get("path")
+    bound = instance_pointer()
+    configured = value or os.environ.get("OPL_INSTANCE") or bound
     if not configured:
         raise FleetError("pass --instance or set OPL_INSTANCE")
     instance = Path(configured).expanduser().resolve()
@@ -236,6 +261,7 @@ def configure_instance(value: str | Path | None) -> Path:
         fleet_root / "nodes.json"
     ).is_file():
         raise FleetError(f"OPL Instance has no Fleet configuration: {instance}")
+    assert_instance_binding(instance, bound)
     global CONTROL_ROOT
     CONTROL_ROOT = fleet_root
     return instance
@@ -252,11 +278,26 @@ def install_fleet_command() -> Path:
     return destination
 
 def write_instance_pointer(instance: Path) -> Path:
-    atomic_json(
-        INSTANCE_POINTER_PATH,
-        {"schema": "opl_flow_instance_pointer.v1", "path": str(instance)},
-        mode=0o600,
-    )
+    """Bind once; concurrent enrollment cannot silently replace another Instance."""
+    instance = instance.expanduser().resolve()
+    assert_instance_binding(instance, instance_pointer())
+    INSTANCE_POINTER_PATH.parent.mkdir(parents=True, exist_ok=True)
+    # Serialize through a private sibling lock because atomic replace alone
+    # would still permit two first-time join operations to overwrite each other.
+    import fcntl
+    lock_path = INSTANCE_POINTER_PATH.with_suffix(".lock")
+    descriptor = os.open(lock_path, os.O_RDWR | os.O_CREAT, 0o600)
+    try:
+        os.fchmod(descriptor, 0o600)
+        fcntl.flock(descriptor, fcntl.LOCK_EX)
+        assert_instance_binding(instance, instance_pointer())
+        atomic_json(
+            INSTANCE_POINTER_PATH,
+            {"schema": "opl_flow_instance_pointer.v1", "path": str(instance)},
+            mode=0o600,
+        )
+    finally:
+        os.close(descriptor)
     return INSTANCE_POINTER_PATH
 
 def run(

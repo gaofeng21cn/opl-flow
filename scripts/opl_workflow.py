@@ -13,6 +13,8 @@ from pathlib import Path
 from typing import Any, Iterable
 
 try:
+    from . import opl_ledger, opl_execution
+    from .opl_fleet_parts import fleet_execution
     from .opl_task_owner import (
         TaskOwnerError,
         claim as claim_owner_migration,
@@ -24,6 +26,8 @@ try:
         verify_target as verify_owner_migration,
     )
 except ImportError:  # Direct script execution.
+    import opl_ledger, opl_execution
+    from opl_fleet_parts import fleet_execution
     from opl_task_owner import (
         TaskOwnerError,
         claim as claim_owner_migration,
@@ -179,67 +183,27 @@ def fleet_command(instance: Path | None, explicit: str | None) -> tuple[list[str
 
 
 def ledger_probe(root: Path, bd: str) -> dict[str, Any] | None:
-    result = run([bd, "status", "--no-activity", "--json"], root, check=False)
-    assert isinstance(result, subprocess.CompletedProcess)
-    if result.returncode:
-        detail = (result.stderr or result.stdout).strip()
-        if "no beads project found" in detail.lower():
-            return None
-        raise WorkflowError(f"bd status failed: {detail}")
     try:
-        payload = json.loads(result.stdout)
-    except json.JSONDecodeError as exc:
-        raise WorkflowError("bd status returned invalid JSON") from exc
-    if not isinstance(payload, dict):
-        raise WorkflowError("bd status returned an invalid payload")
-    return payload
+        return opl_ledger.probe(root, bd, runner=run)
+    except opl_ledger.LedgerError as exc:
+        raise WorkflowError(str(exc)) from exc
 
 
 def linear_adapter_probe(root: Path, bd: str) -> dict[str, Any]:
-    result = run([bd, "linear", "status", "--json"], root, check=False)
-    assert isinstance(result, subprocess.CompletedProcess)
-    if result.returncode:
-        return {"state": "error", "error": (result.stderr or result.stdout).strip()}
     try:
-        payload = json.loads(result.stdout)
-    except json.JSONDecodeError:
-        return {"state": "error", "error": "bd linear status returned invalid JSON"}
-    if not isinstance(payload, dict):
-        return {"state": "error", "error": "bd linear status returned an invalid payload"}
-    allowed = (
-        "auth_mode",
-        "configured",
-        "has_api_key",
-        "has_oauth",
-        "last_sync",
-        "pending_push",
-        "team_id",
-        "team_ids",
-        "total_issues",
-        "with_linear_ref",
-    )
-    return {"state": "current", **{key: payload.get(key) for key in allowed}}
+        payload = opl_ledger.legacy_linear_status(root, bd, runner=run)
+    except (opl_ledger.LedgerError, WorkflowError) as exc:
+        return {"state": "error", "error": str(exc)}
+    return {"state": "current", **payload}
 
 
 def linear_projection_probe(root: Path, bd: str) -> dict[str, Any]:
-    result = run(
-        [bd, "list", "--all", "--limit", "0", "--skip-labels", "--json"],
-        root,
-        check=False,
-    )
-    assert isinstance(result, subprocess.CompletedProcess)
-    if result.returncode:
-        return {"state": "error", "error": (result.stderr or result.stdout).strip()}
     try:
-        payload = json.loads(result.stdout)
-    except json.JSONDecodeError:
-        return {"state": "error", "error": "bd list returned invalid JSON"}
-    if isinstance(payload, dict):
-        issues = payload.get("issues")
-    else:
-        issues = payload
-    if not isinstance(issues, list) or any(not isinstance(item, dict) for item in issues):
-        return {"state": "error", "error": "bd list returned an invalid payload"}
+        issues = opl_ledger.list_issues(root, bd, skip_labels=True, runner=run)
+    except (opl_ledger.LedgerError, WorkflowError) as exc:
+        return {"state": "error", "error": str(exc)}
+    if any(not isinstance(item, dict) for item in issues):
+        return {"state": "error", "error": "Ledger issue list contains an invalid entry"}
 
     managed = 0
     identifiers = 0
@@ -301,70 +265,32 @@ def linear_probe(root: Path, bd: str) -> dict[str, Any]:
 
 def secure_ledger_dir(root: Path) -> None:
     try:
-        os.chmod(root / ".beads", 0o700)
-    except OSError as exc:
-        raise WorkflowError(f"cannot secure {root / '.beads'}: {exc}") from exc
+        opl_ledger.secure(root)
+    except opl_ledger.LedgerError as exc:
+        raise WorkflowError(str(exc)) from exc
 
 
 def bead_issue(root: Path, bd: str, issue_id: str) -> dict[str, Any]:
-    payload = run([bd, "show", issue_id, "--json"], root, json_output=True)
-    if isinstance(payload, list) and len(payload) == 1:
-        payload = payload[0]
-    if not isinstance(payload, dict) or payload.get("id") != issue_id:
-        raise WorkflowError(f"bd show returned an invalid issue: {issue_id}")
-    metadata = payload.get("metadata")
-    if metadata is not None and not isinstance(metadata, dict):
-        raise WorkflowError(f"Bead metadata is invalid: {issue_id}")
-    return payload
+    try:
+        return opl_ledger.read_issue(root, bd, issue_id, runner=run)
+    except opl_ledger.LedgerError as exc:
+        raise WorkflowError(str(exc)) from exc
 
 
 def dolt_pull(root: Path, bd: str) -> None:
-    result = run([bd, "dolt", "pull"], root, check=False)
-    assert isinstance(result, subprocess.CompletedProcess)
-    if result.returncode:
-        raise WorkflowError(f"bd dolt pull failed: {(result.stderr or result.stdout).strip()}")
+    try:
+        opl_ledger.pull(root, bd, runner=run)
+    except opl_ledger.LedgerError as exc:
+        raise WorkflowError(str(exc)) from exc
 
 
 def apply_bead_metadata(
-    root: Path,
-    bd: str,
-    issue: dict[str, Any],
-    metadata: dict[str, Any],
+    root: Path, bd: str, issue: dict[str, Any], metadata: dict[str, Any],
 ) -> dict[str, Any]:
-    issue_id = str(issue["id"])
-    if issue.get("metadata") == metadata:
-        return issue
-    run(
-        [
-            bd,
-            "update",
-            issue_id,
-            "--metadata",
-            json.dumps(metadata, ensure_ascii=False, sort_keys=True),
-            "--json",
-        ],
-        root,
-    )
-    local = bead_issue(root, bd, issue_id)
-    if local.get("metadata") != metadata:
-        raise WorkflowError("Bead metadata write readback did not match")
-    pushed = run([bd, "dolt", "push"], root, check=False)
-    assert isinstance(pushed, subprocess.CompletedProcess)
-    if pushed.returncode:
-        # A failed push is unknown until the shared Dolt authority is read.
-        pulled = run([bd, "dolt", "pull"], root, check=False)
-        assert isinstance(pulled, subprocess.CompletedProcess)
-        if pulled.returncode:
-            raise WorkflowError("owner migration push result is unknown; read-only reconcile required")
-        reconciled = bead_issue(root, bd, issue_id)
-        if reconciled.get("metadata") != metadata:
-            raise WorkflowError("owner migration lost the Dolt CAS; winner readback required")
-        return reconciled
-    dolt_pull(root, bd)
-    canonical = bead_issue(root, bd, issue_id)
-    if canonical.get("metadata") != metadata:
-        raise WorkflowError("owner migration Dolt parity did not match")
-    return canonical
+    try:
+        return opl_ledger.apply_metadata(root, bd, issue, metadata, runner=run)
+    except opl_ledger.LedgerError as exc:
+        raise WorkflowError(str(exc)) from exc
 
 
 def read_json_argument(value: str, label: str) -> dict[str, Any]:
@@ -384,6 +310,17 @@ def owner_migration_command(root: Path, bd: str, args: argparse.Namespace) -> di
     action = args.owner_action
     if action == "status":
         return owner_migration_status(issue)
+    # Translate carrier receipts at the coordination boundary, before pure Ledger transitions.
+    def admission_inputs():
+        workspace = read_json_argument(args.workspace_readback_json, "workspace readback")
+        node = read_json_argument(args.node_readback_json, "node readback")
+        migration = (issue.get("metadata") or {}).get("opl_owner_migration") or {}
+        target = migration.get("target") or {}
+        if workspace.get("schema") == "opl_fleet_workspace_readback.v1":
+            workspace = fleet_execution.workspace_evidence(workspace, node_id=target.get("node_id", ""))
+        if node.get("schema") == "codex_fleet_doctor.v1":
+            node = fleet_execution.node_evidence(node, objective_id=str(issue["id"]))
+        return {"workspace_readback": workspace, "node_readback": node}
     try:
         if action == "prepare":
             metadata = prepare_owner_migration(
@@ -404,12 +341,7 @@ def owner_migration_command(root: Path, bd: str, args: argparse.Namespace) -> di
             metadata = preflight_owner_migration(
                 issue,
                 migration_id=args.migration_id,
-                workspace_readback=read_json_argument(
-                    args.workspace_readback_json, "workspace readback"
-                ),
-                node_readback=read_json_argument(
-                    args.node_readback_json, "node readback"
-                ),
+                **admission_inputs(),
                 actor=args.actor,
             )
         elif action == "claim":
@@ -419,12 +351,7 @@ def owner_migration_command(root: Path, bd: str, args: argparse.Namespace) -> di
                 target_executor_handle=args.target_executor,
                 expected_instruction_revision=args.instruction_revision,
                 expected_instruction_fingerprint=args.instruction_fingerprint,
-                workspace_readback=read_json_argument(
-                    args.workspace_readback_json, "workspace readback"
-                ),
-                node_readback=read_json_argument(
-                    args.node_readback_json, "node readback"
-                ),
+                **admission_inputs(),
                 actor=args.actor,
             )
         elif action == "verify":
@@ -432,12 +359,7 @@ def owner_migration_command(root: Path, bd: str, args: argparse.Namespace) -> di
                 issue,
                 migration_id=args.migration_id,
                 target_executor_handle=args.target_executor,
-                workspace_readback=read_json_argument(
-                    args.workspace_readback_json, "workspace readback"
-                ),
-                node_readback=read_json_argument(
-                    args.node_readback_json, "node readback"
-                ),
+                **admission_inputs(),
                 actor=args.actor,
             )
         elif action == "release":
@@ -459,36 +381,10 @@ def owner_migration_command(root: Path, bd: str, args: argparse.Namespace) -> di
 
 
 def init_ledger(root: Path, bd: str, prefix: str) -> dict[str, str]:
-    if ledger_probe(root, bd) is not None:
-        secure_ledger_dir(root)
-        return {"state": "already_initialized", "instance": str(root)}
-    git_dir = str(run(["git", "rev-parse", "--git-dir"], root).stdout).strip()
-    common_dir = str(run(["git", "rev-parse", "--git-common-dir"], root).stdout).strip()
-
-    def git_path(value: str) -> Path:
-        path = Path(value)
-        return path.resolve() if path.is_absolute() else (root / path).resolve()
-
-    if git_path(git_dir) != git_path(common_dir):
-        raise WorkflowError("first bd init requires a primary checkout or standalone clone")
-    if str(run(["git", "status", "--porcelain", "--untracked-files=all"], root).stdout).strip():
-        raise WorkflowError("bd init creates a commit and requires a clean Git checkout")
-    run(
-        [
-            bd,
-            "init",
-            "--prefix",
-            prefix,
-            "--skip-agents",
-            "--skip-hooks",
-            "--non-interactive",
-        ],
-        root,
-    )
-    if ledger_probe(root, bd) is None:
-        raise WorkflowError("bd init completed without a readable ledger")
-    secure_ledger_dir(root)
-    return {"state": "initialized", "instance": str(root), "prefix": prefix}
+    try:
+        return opl_ledger.init(root, bd, prefix, runner=run, probe_fn=lambda: ledger_probe(root, bd))
+    except opl_ledger.LedgerError as exc:
+        raise WorkflowError(str(exc)) from exc
 
 
 def registry_items(registry_path: Path) -> Iterable[dict[str, str]]:
@@ -538,31 +434,14 @@ def create_bead(
     due: str | None = None,
     parent: str | None = None,
 ) -> dict[str, Any]:
-    argv = [
-        bd,
-        "create",
-        title,
-        "--type",
-        issue_type,
-        "--priority",
-        "P2",
-        "--external-ref",
-        external_ref,
-        "--labels",
-        labels,
-        "--description",
-        description,
-        "--metadata",
-        json.dumps(metadata, ensure_ascii=False, sort_keys=True),
-    ]
-    if due:
-        argv += ["--defer", due, "--due", due]
-    if parent:
-        argv += ["--parent", parent]
-    payload = run([*argv, "--json"], root, json_output=True)
-    if not isinstance(payload, dict) or not isinstance(payload.get("id"), str):
-        raise WorkflowError("bd create returned an invalid payload")
-    return payload
+    try:
+        return opl_ledger.create_issue(
+            root, bd, title=title, issue_type=issue_type, external_ref=external_ref,
+            labels=labels, description=description, metadata=metadata,
+            due=due, parent=parent, runner=run,
+        )
+    except opl_ledger.LedgerError as exc:
+        raise WorkflowError(str(exc)) from exc
 
 
 def reconcile_operations(
@@ -588,9 +467,10 @@ def reconcile_operations(
                 "unchanged": 0,
             },
         }
-    listed = run([bd, "list", "--all", "--limit", "0", "--json"], root, json_output=True)
-    if not isinstance(listed, list):
-        raise WorkflowError("bd list returned an invalid payload")
+    try:
+        listed = opl_ledger.list_issues(root, bd, runner=run)
+    except opl_ledger.LedgerError as exc:
+        raise WorkflowError(str(exc)) from exc
     existing = {
         item["external_ref"]: item
         for item in listed
@@ -601,7 +481,7 @@ def reconcile_operations(
     program = existing.get(PROGRAM_REF)
     program_id = str(program["id"]) if program else None
     if program and program.get("status") == "open" and not dry_run:
-        run([bd, "update", program_id, "--status", "in_progress", "--json"], root)
+        opl_ledger.update_status(root, bd, program_id, "in_progress", runner=run)
     if not program_id:
         created.append({"kind": "program", "external_ref": PROGRAM_REF})
         if not dry_run:
@@ -616,7 +496,7 @@ def reconcile_operations(
                 metadata={"source": "operations/registry.json"},
             )
             program_id = str(program["id"])
-            run([bd, "update", program_id, "--status", "in_progress", "--json"], root)
+            opl_ledger.update_status(root, bd, program_id, "in_progress", runner=run)
 
     for item in items:
         external_ref = f"opl://operations/{item['kind']}/{item['asset_id']}/review/{item['review_on']}"
@@ -665,30 +545,15 @@ def reconcile_operations(
 def supervisor_snapshot(root: Path, bd: str, git_arg: str | None = None) -> dict[str, Any]:
     """Collect a compact, read-only Ledger input for one supervisor episode."""
 
-    status = run([bd, "status", "--no-activity", "--json"], root, json_output=True)
-    ready = run([bd, "ready", "--limit", "0", "--json"], root, json_output=True)
-    issues = run(
-        [
-            bd,
-            "list",
-            "--status",
-            "open,in_progress,blocked,deferred",
-            "--limit",
-            "0",
-            "--json",
-        ],
-        root,
-        json_output=True,
-    )
-    dolt = run([bd, "dolt", "status", "--json"], root, json_output=True)
-    if not isinstance(status, dict):
-        raise WorkflowError("bd status returned an invalid payload")
-    if not isinstance(ready, list):
-        raise WorkflowError("bd ready returned an invalid payload")
-    if not isinstance(issues, list):
-        raise WorkflowError("bd list returned an invalid payload")
-    if not isinstance(dolt, dict):
-        raise WorkflowError("bd dolt status returned an invalid payload")
+    try:
+        status = opl_ledger.status(root, bd, runner=run)
+        ready = opl_ledger.ready(root, bd, runner=run)
+        issues = opl_ledger.list_issues(
+            root, bd, statuses=("open", "in_progress", "blocked", "deferred"), runner=run,
+        )
+        dolt = opl_ledger.dolt_status(root, bd, runner=run)
+    except opl_ledger.LedgerError as exc:
+        raise WorkflowError(str(exc)) from exc
 
     ready_ids = {
         str(item["id"])
@@ -852,9 +717,8 @@ def workflow_status(
     payload["codex"] = cli_probe("codex", cwd, codex_arg)
     try:
         bd = executable("bd", bd_arg)
-        version = run([bd, "version"], cwd)
-        assert isinstance(version, subprocess.CompletedProcess)
-        payload["beads"] = {"available": True, "path": str(Path(bd).resolve()), "version": version.stdout.strip()}
+        version = opl_ledger.version(cwd, bd, runner=run)
+        payload["beads"] = {"available": True, "path": str(Path(bd).resolve()), "version": version}
     except WorkflowError as exc:
         payload["beads"] = {"available": False, "error": str(exc)}
         payload["ledger"] = {"state": "unknown" if instance else "not_configured"}
@@ -892,6 +756,10 @@ def parser() -> argparse.ArgumentParser:
     status.add_argument("--git-bin")
     status.add_argument("--gh-bin")
     status.add_argument("--codex-bin")
+    worker = commands.add_parser("worker", help="validate a carrier-neutral handoff or result")
+    worker.add_argument("worker_action", choices=("handoff", "result"))
+    worker.add_argument("--handoff-json", required=True)
+    worker.add_argument("--result-json")
     ledger = commands.add_parser("ledger")
     ledger_commands = ledger.add_subparsers(dest="ledger_command", required=True)
     init = ledger_commands.add_parser("init")
@@ -965,6 +833,16 @@ def parser() -> argparse.ArgumentParser:
 def main(argv: list[str] | None = None) -> int:
     args = parser().parse_args(argv)
     try:
+        if args.command == "worker":
+            handoff = opl_execution.validate_handoff(read_json_argument(args.handoff_json, "worker handoff"))
+            if args.worker_action == "result":
+                if not args.result_json:
+                    raise WorkflowError("worker result requires --result-json")
+                result = opl_execution.validate_result(read_json_argument(args.result_json, "worker result"), handoff)
+            else:
+                result = {"handoff": handoff, "binding": opl_execution.handoff_binding(handoff)}
+            print(json.dumps(result, ensure_ascii=False, indent=2, sort_keys=True))
+            return 0
         if args.command == "status":
             print(
                 json.dumps(
@@ -1007,7 +885,7 @@ def main(argv: list[str] | None = None) -> int:
         if args.ledger_command == "supervisor-snapshot" and result["validation_errors"]:
             return 3
         return 0
-    except WorkflowError as exc:
+    except (WorkflowError, opl_execution.ExecutionError) as exc:
         print(f"ERROR: {exc}", file=sys.stderr)
         return 1
 

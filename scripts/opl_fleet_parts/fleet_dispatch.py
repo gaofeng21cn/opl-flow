@@ -12,8 +12,10 @@ import shutil
 import subprocess
 import tempfile
 import uuid
+import opl_execution
 from .fleet_common import EXECUTION_REQUIREMENTS_SCHEMA, FleetError, GPU_APIS, LEASE_PHASES, LEASE_WORKLOAD_CLASSES, MAX_EXECUTION_OUTPUT_BYTES, MAX_EXECUTION_REQUIREMENTS_BYTES, PREEMPTIBLE_WORKLOAD_CLASSES, REMOTE_EXECUTION_TIMEOUT_SECONDS, REMOTE_EXECUTOR, dispatch_adapter, normalize_node_id, parse_requirements, parse_utc, run, utc_now
-from .fleet_reconcile import control_commit, manifest, node_registry, remote_asset_catalog
+from .fleet_control import control_commit, manifest, node_registry
+from .fleet_reconcile import remote_asset_catalog
 from .fleet_lease import acquire_lease_record, active_lease_map, lease_lock, public_lease, read_lease_store, release_lease_record, select_nodes, validate_owner_id, validate_role, validate_ttl
 from .fleet_runner import assert_lease_admission, assert_runner_role_node, assert_runner_role_workload, build_admission_receipt, controller_guard, data_job_admission, doctor_result, read_routes, runner_role_nodes, verify_lease_record
 
@@ -138,7 +140,26 @@ def dispatch_adapter_from_args(args: argparse.Namespace) -> str:
     explicit = getattr(args, "adapter", None)
     return str(explicit if explicit is not None else requirements["adapter"])
 
+def worker_handoff(args: argparse.Namespace) -> dict[str, Any] | None:
+    source = getattr(args, "handoff_json", None)
+    if not source:
+        return None
+    try:
+        if source.startswith("@"):
+            path = Path(source[1:]).expanduser()
+            if path.stat().st_size > 32768:
+                raise FleetError("worker handoff exceeds size limit")
+            source = path.read_text(encoding="utf-8")
+        handoff = opl_execution.validate_handoff(json.loads(source))
+        if getattr(args, "owner_task", None) not in (None, handoff["objective_id"]):
+            raise FleetError("dispatch owner task does not match worker handoff")
+        return handoff
+    except (ValueError, OSError) as exc:
+        raise FleetError(str(exc)) from exc
+
+
 def dispatch_request(args: argparse.Namespace) -> dict[str, Any]:
+    handoff = worker_handoff(args)
     requirements = read_execution_requirements(getattr(args, "requirements_json", None))
     adapter = str(request_value(args, requirements, "adapter", "lease-only"))
     metadata = dispatch_adapter(adapter)
@@ -202,6 +223,7 @@ def dispatch_request(args: argparse.Namespace) -> dict[str, Any]:
         raise FleetError("local-codex does not accept a Fleet node")
     return {
         "adapter": adapter,
+        **({"worker_binding": opl_execution.handoff_binding(handoff)} if handoff else {}),
         "adapter_status": metadata["status"],
         "requires_fleet": metadata["requires_fleet"],
         "execution": metadata["execution"],
@@ -451,6 +473,7 @@ def fleet_dispatch_acquire(args: argparse.Namespace) -> int:
         preempt_generation=args.preempt_generation,
         preempt_nonce=args.preempt_nonce,
         dispatch_adapter_name=str(request["adapter"]),
+        **({"worker_binding": request["worker_binding"]} if "worker_binding" in request else {}),
     )
     dispatch_id = lease["lease_id"]
     print(
@@ -516,6 +539,7 @@ def fleet_dispatch_verify(args: argparse.Namespace) -> int:
             {
                 "schema": "codex_fleet_dispatch_readback.v1",
                 "action": "verify",
+                **({"worker_binding": lease["worker_binding"]} if "worker_binding" in lease else {}),
                 "dispatch_id": lease["lease_id"],
                 "verification": result,
             },
@@ -771,6 +795,7 @@ def run_data_job(
     return payload
 
 def fleet_dispatch_execute(args: argparse.Namespace) -> int:
+    handoff = worker_handoff(args)
     controller_guard()
     lease = dispatch_lease(args.dispatch_id)
     if lease["dispatch_adapter"] != "ssh-session":
@@ -783,6 +808,10 @@ def fleet_dispatch_execute(args: argparse.Namespace) -> int:
     for field, expected in expected_owners.items():
         if lease[field] != expected:
             raise FleetError(f"dispatch {field.replace('_', ' ')} mismatch")
+    binding = lease.get("worker_binding")
+    supplied = opl_execution.handoff_binding(handoff) if handoff else None
+    if binding != supplied:
+        raise FleetError("execution handoff does not match the acquired lease")
     minimum_ttl = max(int(args.min_ttl_seconds), int(args.timeout_seconds) + 30)
     admission = lease["admission"]
     verification = verify_lease_record(
@@ -821,6 +850,7 @@ def fleet_dispatch_execute(args: argparse.Namespace) -> int:
             "schema": "codex_fleet_dispatch_readback.v1",
             "action": "execute",
             "status": "unknown",
+            **({"worker_binding": lease["worker_binding"]} if "worker_binding" in lease else {}),
             "dispatch_id": lease["lease_id"],
             "node_id": lease["node_id"],
             "verification": verification,
@@ -836,6 +866,7 @@ def fleet_dispatch_execute(args: argparse.Namespace) -> int:
         "schema": "codex_fleet_dispatch_readback.v1",
         "action": "execute",
         "status": "timed-out" if result["timed_out"] else "completed",
+        **({"worker_binding": lease["worker_binding"]} if "worker_binding" in lease else {}),
         "dispatch_id": lease["lease_id"],
         "node_id": lease["node_id"],
         "verification": verification,
@@ -864,6 +895,7 @@ def fleet_dispatch_release(args: argparse.Namespace) -> int:
                 "schema": "codex_fleet_dispatch_readback.v1",
                 "action": "release",
                 "status": "released",
+                **({"worker_binding": lease["worker_binding"]} if "worker_binding" in lease else {}),
                 "dispatch_id": lease["lease_id"],
                 "released": public_lease(released, now=utc_now()),
             },

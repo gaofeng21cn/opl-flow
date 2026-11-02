@@ -51,12 +51,12 @@ class WorktreeFleetAuditTests(unittest.TestCase):
         return {
             str(self.lane.resolve()): {
                 "worktree": str(self.lane.resolve()),
-                "thread_id": "thread-1",
-                "objective_id": "objective-1",
-                "owner": "owner-1",
-                "execution_owner": "owner-1",
+                "custody_thread_id": "thread-1",
+                "objective_ref": "objective-1",
+                "custody_owner": "owner-1",
+                "custody_executor": "owner-1",
                 "status": "ACTIVE",
-                "next_action": "continue focused verification",
+                "custody_next_action": "continue focused verification",
                 "write_set": ["lane.txt"],
                 "remote_recovery": None,
             }
@@ -248,12 +248,12 @@ class WorktreeFleetAuditTests(unittest.TestCase):
         receipts = self.active_receipt()
         receipts[str(other_lane.resolve())] = {
             "worktree": str(other_lane.resolve()),
-            "thread_id": "thread-2",
-            "objective_id": "objective-2",
-            "owner": "owner-2",
-            "execution_owner": "owner-2",
+            "custody_thread_id": "thread-2",
+            "objective_ref": "objective-2",
+            "custody_owner": "owner-2",
+            "custody_executor": "owner-2",
             "status": "ACTIVE",
-            "next_action": "continue focused verification",
+            "custody_next_action": "continue focused verification",
             "write_set": ["lane.txt"],
             "remote_recovery": {
                 "branch": "other-lane",
@@ -271,11 +271,11 @@ class WorktreeFleetAuditTests(unittest.TestCase):
         self.assertTrue(result["ok"])
         self.assertEqual(lanes[str(self.lane.resolve())]["action"], "retain_active")
         self.assertEqual(
-            lanes[str(self.lane.resolve())]["integration_overlaps"][0]["owner"],
+            lanes[str(self.lane.resolve())]["integration_overlaps"][0]["custody_owner"],
             "owner-2",
         )
         self.assertEqual(
-            lanes[str(other_lane.resolve())]["integration_overlaps"][0]["owner"],
+            lanes[str(other_lane.resolve())]["integration_overlaps"][0]["custody_owner"],
             "owner-1",
         )
 
@@ -749,18 +749,19 @@ class WorktreeFleetAuditTests(unittest.TestCase):
         path.write_text(
             json.dumps(
                 {
-                    "schema": "opl_flow_worktree_ownership_ledger.v1",
+                    "schema": worktree_fleet_audit.LEDGER_SCHEMA,
+                    "authority": "worktree_custody",
                     "machine": "test",
                     "recorded_at": "2026-07-25T00:00:00Z",
                     "entries": [
                         {
                             "worktree": str(self.lane),
-                            "thread_id": "thread-1",
-                            "objective_id": "objective-1",
-                            "owner": "owner-1",
-                            "execution_owner": "owner-1",
+                            "custody_thread_id": "thread-1",
+                            "objective_ref": "objective-1",
+                            "custody_owner": "owner-1",
+                            "custody_executor": "owner-1",
                             "status": "ACTIVE",
-                            "next_action": "",
+                            "custody_next_action": "",
                             "write_set": [],
                             "remote_recovery": None,
                         }
@@ -772,9 +773,42 @@ class WorktreeFleetAuditTests(unittest.TestCase):
 
         with self.assertRaisesRegex(
             worktree_fleet_audit.FleetAuditError,
-            "next_action",
+            "custody_next_action",
         ):
             worktree_fleet_audit.load_ledger(path)
+
+    def test_legacy_history_is_normalized_without_mutating_input(self) -> None:
+        entry = next(iter(self.active_receipt().values()))
+        legacy = {
+            old: entry[new]
+            for old, new in worktree_fleet_audit.CUSTODY_FIELDS.items()
+            if new in entry
+        }
+        legacy.update({key: value for key, value in entry.items() if key not in worktree_fleet_audit.CUSTODY_FIELDS.values()})
+        legacy["ownership_transfers"] = [{
+            "recorded_at": "2026-07-30T00:00:00Z", "reason": "handoff",
+            "from": {"owner": "old-custodian", "objective_id": "objective-1"},
+            "to": {"owner": "owner-1", "objective_id": "objective-1"},
+        }]
+        before = json.dumps(legacy, sort_keys=True)
+        result = worktree_fleet_audit.normalize_custody_record(legacy, legacy=True)
+        self.assertEqual(json.dumps(legacy, sort_keys=True), before)
+        self.assertEqual(result["custody_transfers"][0]["from"]["custody_owner"], "old-custodian")
+        self.assertEqual(result["objective_ref"], "objective-1")
+        self.assertNotIn("ownership_transfers", result)
+
+    def test_custody_reader_rejects_ambiguous_or_task_authority_fields(self) -> None:
+        entry = next(iter(self.active_receipt().values()))
+        for legacy in (False, True):
+            with self.subTest(legacy=legacy), self.assertRaisesRegex(worktree_fleet_audit.FleetAuditError, "ambiguous custody"):
+                worktree_fleet_audit.normalize_custody_record({**entry, "owner": "conflicting-owner"}, legacy=legacy)
+        payload = {
+            "schema": worktree_fleet_audit.LEDGER_SCHEMA,
+            "authority": "task_ledger", "machine": "test",
+            "recorded_at": "2026-07-30T00:00:00Z", "entries": [entry],
+        }
+        with self.assertRaisesRegex(worktree_fleet_audit.FleetAuditError, "worktree_custody"):
+            worktree_fleet_audit.normalize_ledger(payload)
 
     def test_load_ledger_rejects_relative_repo_root(self) -> None:
         path = Path(self.temp.name) / "ledger.json"
@@ -782,7 +816,8 @@ class WorktreeFleetAuditTests(unittest.TestCase):
         path.write_text(
             json.dumps(
                 {
-                    "schema": "opl_flow_worktree_ownership_ledger.v1",
+                    "schema": worktree_fleet_audit.LEDGER_SCHEMA,
+                    "authority": "worktree_custody",
                     "machine": "test",
                     "recorded_at": "2026-07-30T00:00:00Z",
                     "entries": [{**entry, "repo_root": "relative/repo"}],

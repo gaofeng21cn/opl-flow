@@ -1,0 +1,132 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "additionalProperties": false,
+  "title": "Worker slice result for owner acceptance",
+  "required": [
+    "schema",
+    "binding",
+    "outcome",
+    "artifact_refs",
+    "checkpoint_refs",
+    "remaining",
+    "next_action"
+  ],
+  "properties": {
+    "schema": {
+      "const": "opl_worker_result.v1"
+    },
+    "binding": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "attempt_id",
+        "objective_id",
+        "owner_id",
+        "handoff_sha256"
+      ],
+      "properties": {
+        "attempt_id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 512,
+          "pattern": "^[^\\u0000\\r\\n]+$"
+        },
+        "objective_id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 512,
+          "pattern": "^[^\\u0000\\r\\n]+$"
+        },
+        "owner_id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 512,
+          "pattern": "^[^\\u0000\\r\\n]+$"
+        },
+        "handoff_sha256": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        }
+      }
+    },
+    "outcome": {
+      "enum": [
+        "checkpoint",
+        "completed",
+        "blocked",
+        "unknown"
+      ]
+    },
+    "artifact_refs": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 512,
+        "pattern": "^[^\\u0000\\r\\n]+$"
+      }
+    },
+    "checkpoint_refs": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 512,
+        "pattern": "^[^\\u0000\\r\\n]+$"
+      }
+    },
+    "remaining": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 512,
+        "pattern": "^[^\\u0000\\r\\n]+$"
+      }
+    },
+    "next_action": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 512,
+      "pattern": "^[^\\u0000\\r\\n]+$"
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "outcome": {
+            "const": "checkpoint"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "checkpoint_refs": {
+            "minItems": 1
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "outcome": {
+            "const": "completed"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "remaining": {
+            "maxItems": 0
+          },
+          "artifact_refs": {
+            "minItems": 1
+          }
+        }
+      }
+    }
+  ]
+}

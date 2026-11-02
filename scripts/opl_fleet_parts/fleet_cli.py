@@ -9,7 +9,8 @@ import json
 import re
 from fleet_inventory import collect_inventory
 from .fleet_common import DISPATCH_ADAPTERS, FleetError, GPU_APIS, LEASE_PHASES, LEASE_WORKLOAD_CLASSES, configure_instance, install_fleet_command, node_identity, normalize_node_id, parse_requirements, run, utc_now, write_instance_pointer
-from .fleet_reconcile import control_commit, fetch_state_file, fleet_repositories, join, manifest, node_registry, reconcile, record_receipt, remote_asset_catalog
+from .fleet_control import control_commit, manifest, node_registry
+from .fleet_reconcile import fetch_state_file, fleet_repositories, join, reconcile, record_receipt, remote_asset_catalog
 from .fleet_lease import acquire_lease_record, active_lease_map, lease_lock, public_lease, read_lease_store, reap_expired_leases, release_lease_record, renew_lease_record, select_nodes, write_lease_store
 from .fleet_runner import assert_lease_admission, assert_runner_role_node, assert_runner_role_workload, build_admission_receipt, controller_guard, doctor_result, fleet_runner_renew, fleet_runner_start, fleet_runner_status, fleet_runner_stop, verify_lease_record
 from .fleet_dispatch import dispatch_adapter_from_args, fleet_dispatch_acquire, fleet_dispatch_execute, fleet_dispatch_plan, fleet_dispatch_release, fleet_dispatch_verify, run_data_job, validate_execution_argv
@@ -417,6 +418,7 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         owner: bool,
     ) -> None:
         command.add_argument("--requirements-json")
+        command.add_argument("--handoff-json", help="carrier-neutral Worker handoff JSON or @file")
         command.add_argument(
             "--adapter",
             choices=sorted(DISPATCH_ADAPTERS),
@@ -475,6 +477,7 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     dispatch_execute_parser.add_argument("--owner-thread")
     dispatch_execute_parser.add_argument("--owner-run")
     dispatch_execute_parser.add_argument("--argv-json", required=True)
+    dispatch_execute_parser.add_argument("--handoff-json")
     dispatch_execute_parser.add_argument("--cwd")
     dispatch_execute_parser.add_argument("--timeout-seconds", type=int, default=900)
     dispatch_execute_parser.add_argument("--min-ttl-seconds", type=int, default=60)
@@ -598,6 +601,23 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     record_parser.add_argument("--payload-b64", required=True)
     return parser.parse_args(argv)
 
+def writes_instance_state(args: argparse.Namespace) -> bool:
+    """Bind the shared node namespace before its first write, even without join."""
+    mutations = {
+        "workflow": ("workflow_action", {"sync", "record-projection"}),
+        "flagship": ("flagship_action", {"set"}),
+        "repos": ("repos_action", {"sync"}),
+        "workspace": ("workspace_action", {"bootstrap", "sync", "claim-check"}),
+        "dispatch": ("dispatch_action", {"acquire", "execute", "release"}),
+        "lease": ("lease_action", {"acquire", "renew", "release", "reap"}),
+        "runner": ("runner_action", {"start", "stop", "renew"}),
+    }
+    if args.action in {"join", "reconcile", "record", "data-job"}:
+        return True
+    field, actions = mutations.get(args.action, ("", set()))
+    return getattr(args, field, None) in actions
+
+
 def main(argv: list[str] | None = None) -> int:
     args = parse_args(argv)
     local_dispatch = (
@@ -606,8 +626,9 @@ def main(argv: list[str] | None = None) -> int:
         and dispatch_adapter_from_args(args) == "local-codex"
     )
     instance = None if local_dispatch else configure_instance(args.instance)
-    if args.action in {"join", "reconcile"}:
+    if instance is not None and writes_instance_state(args):
         write_instance_pointer(instance)
+    if args.action in {"join", "reconcile"}:
         install_fleet_command()
     if args.action == "join":
         return join(args)

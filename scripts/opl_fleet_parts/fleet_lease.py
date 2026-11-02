@@ -104,6 +104,13 @@ def validate_lease(payload: dict[str, Any]) -> dict[str, Any]:
         or set(payload) - LEASE_REQUIRED_FIELDS - LEASE_OPTIONAL_FIELDS
     ):
         raise FleetError("lease fields are invalid")
+    if "worker_binding" in payload:
+        binding = payload["worker_binding"]
+        if (not isinstance(binding, dict) or set(binding) != {"attempt_id", "objective_id", "owner_id", "handoff_sha256"}
+                or binding.get("objective_id") != payload.get("owner_task")
+                or any(not isinstance(binding.get(k), str) or not binding[k].strip() for k in ("attempt_id", "objective_id", "owner_id"))
+                or not re.fullmatch(r"[0-9a-f]{64}", str(binding.get("handoff_sha256", "")))):
+            raise FleetError("lease worker binding is invalid")
     payload.setdefault("dispatch_adapter", "lease-only")
     dispatch_adapter(str(payload["dispatch_adapter"]))
     try:
@@ -325,6 +332,7 @@ def build_lease(
     admission: dict[str, Any],
     now: dt.datetime,
     dispatch_adapter_name: str = "lease-only",
+    worker_binding: dict[str, str] | None = None,
 ) -> dict[str, Any]:
     lease = {
         "lease_id": str(uuid.uuid4()),
@@ -346,6 +354,7 @@ def build_lease(
         "control_commit": control_revision,
         "admission": admission,
         "dispatch_adapter": dispatch_adapter_name,
+        **({"worker_binding": dict(worker_binding)} if worker_binding else {}),
     }
     return validate_lease(lease)
 
@@ -369,6 +378,7 @@ def acquire_lease_record(
     state_root: Path | None = None,
     now: dt.datetime | None = None,
     dispatch_adapter_name: str = "lease-only",
+    worker_binding: dict[str, str] | None = None,
 ) -> dict[str, Any]:
     observed = now or utc_now()
     node_id = normalize_node_id(node_id)
@@ -427,6 +437,7 @@ def acquire_lease_record(
             admission=admission,
             now=observed,
             dispatch_adapter_name=dispatch_adapter_name,
+            worker_binding=worker_binding,
         )
         store["leases"][node_id] = lease
         audit_lease(

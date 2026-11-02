@@ -35,6 +35,7 @@ SPEC.loader.exec_module(fleet)
 
 FLEET_PART_MODULES = (
     "fleet_common",
+    "fleet_control",
     "fleet_features",
     "fleet_lease",
     "fleet_reconcile",
@@ -1096,9 +1097,10 @@ class CodexFleetTests(unittest.TestCase):
             )
             (control / "fleet.json").write_text("{}\n", encoding="utf-8")
             try:
-                fleet.configure_instance(instance)
-                registry = fleet.node_registry()
-                self.assertEqual(fleet.CONTROL_ROOT, control.resolve())
+                with patch_fleet("INSTANCE_POINTER_PATH", instance / "pointer.json"), patch_fleet("CONFIG_PATH", instance / "node.json"):
+                    fleet.configure_instance(instance)
+                    registry = fleet.node_registry()
+                    self.assertEqual(fleet.CONTROL_ROOT, control.resolve())
             finally:
                 set_fleet("CONTROL_ROOT", previous)
         self.assertEqual(registry["schema"], "codex_fleet_nodes.v1")
@@ -1137,6 +1139,7 @@ class CodexFleetTests(unittest.TestCase):
                 with (
                     mock.patch.dict(fleet.os.environ, {}, clear=True),
                     patch_fleet("INSTANCE_POINTER_PATH", pointer),
+                    patch_fleet("CONFIG_PATH", root / "node.json"),
                 ):
                     self.assertEqual(fleet.configure_instance(None), instance.resolve())
             finally:
@@ -3917,96 +3920,33 @@ class WorkspaceProfileTests(unittest.TestCase):
         with self.assertRaisesRegex(fleet.FleetError, "workspace ledger is invalid"):
             fleet.validate_workspace_profiles(payload)
 
-    def test_ledger_readback_requires_role_permissions_pull_and_readability(self) -> None:
+    def test_ledger_readback_delegates_and_preserves_public_fields(self) -> None:
         profile = self.profile_catalog()["profiles"]["test-profile"]
         workspace_module = sys.modules["opl_fleet_parts"].fleet_workspace
-        with tempfile.TemporaryDirectory() as temp_dir:
-            root = Path(temp_dir)
-            repository = root / "project"
-            beads = repository / ".beads"
-            beads.mkdir(parents=True)
-            beads.chmod(0o700)
-            fleet.run(["git", "init", str(repository)])
-            git(repository, "config", "beads.role", "maintainer")
-            pull = subprocess.CompletedProcess(["bd", "dolt", "pull"], 0, "", "")
-            readable = subprocess.CompletedProcess(["bd", "list"], 0, "[]", "")
-            with (
-                mock.patch.object(workspace_module.shutil, "which", return_value="/usr/bin/bd"),
-                mock.patch.object(workspace_module, "run", side_effect=[pull, readable]),
-            ):
-                result = fleet.ledger_readback(
-                    profile,
-                    root=root,
-                    fresh_pull=True,
-                )
+        root = Path("/unused/workspace")
+        expected = {"role": "maintainer", "state": "CURRENT", "fresh_pull": True, "readable": True}
+        with mock.patch.object(workspace_module.opl_ledger, "workspace_readback", return_value=expected) as read:
+            result = fleet.ledger_readback(profile, root=root, fresh_pull=True)
+        read.assert_called_once_with(root / "project", "maintainer", fresh_pull=True)
+        self.assertEqual(result, {"repository_directory": "project", **expected})
 
-        self.assertEqual(result["state"], "CURRENT")
-        self.assertTrue(result["fresh_pull"])
-        self.assertTrue(result["readable"])
-
-    def test_workspace_sync_reuses_an_initialized_ledger(self) -> None:
+    def test_workspace_sync_delegates_storage_to_ledger(self) -> None:
         profile = self.profile_catalog()["profiles"]["test-profile"]
         workspace_module = sys.modules["opl_fleet_parts"].fleet_workspace
-        with tempfile.TemporaryDirectory() as temp_dir:
-            root = Path(temp_dir)
-            repository = root / "project"
-            (repository / ".beads").mkdir(parents=True)
-            fleet.run(["git", "init", str(repository)])
-            pull = subprocess.CompletedProcess(["bd", "dolt", "pull"], 0, "", "")
-            with (
-                mock.patch.object(workspace_module.shutil, "which", return_value="/usr/bin/bd"),
-                mock.patch.object(
-                    workspace_module,
-                    "ledger_readback",
-                    return_value={"state": "CURRENT"},
-                ) as readback,
-                mock.patch.object(workspace_module, "run", return_value=pull) as run,
-            ):
-                fleet.sync_ledger(profile, root=root)
+        root = Path("/unused/workspace")
+        with mock.patch.object(workspace_module.opl_ledger, "sync_workspace_ledger") as sync:
+            fleet.sync_ledger(profile, root=root)
+        sync.assert_called_once_with(root / "project", "maintainer")
 
-        readback.assert_called_once_with(profile, root=root, fresh_pull=False)
-        run.assert_called_once_with(
-            ["/usr/bin/bd", "-C", str(repository), "dolt", "pull"],
-            check=False,
-        )
-
-    def test_workspace_sync_bootstraps_an_uninitialized_ledger(self) -> None:
+    def test_workspace_sync_preserves_ledger_failure(self) -> None:
         profile = self.profile_catalog()["profiles"]["test-profile"]
         workspace_module = sys.modules["opl_fleet_parts"].fleet_workspace
-        with tempfile.TemporaryDirectory() as temp_dir:
-            root = Path(temp_dir)
-            repository = root / "project"
-            (repository / ".beads").mkdir(parents=True)
-            fleet.run(["git", "init", str(repository)])
-            success = subprocess.CompletedProcess(["bd"], 0, "", "")
-            with (
-                mock.patch.object(workspace_module.shutil, "which", return_value="/usr/bin/bd"),
-                mock.patch.object(
-                    workspace_module,
-                    "ledger_readback",
-                    return_value={"state": "UNREADABLE"},
-                ),
-                mock.patch.object(
-                    workspace_module,
-                    "run",
-                    side_effect=[success, success],
-                ) as run,
-            ):
-                fleet.sync_ledger(profile, root=root)
-
-        self.assertEqual(
-            run.call_args_list,
-            [
-                mock.call(
-                    ["/usr/bin/bd", "-C", str(repository), "bootstrap", "--yes"],
-                    check=False,
-                ),
-                mock.call(
-                    ["/usr/bin/bd", "-C", str(repository), "dolt", "pull"],
-                    check=False,
-                ),
-            ],
-        )
+        with mock.patch.object(
+            workspace_module.opl_ledger, "sync_workspace_ledger",
+            side_effect=workspace_module.opl_ledger.LedgerError("workspace ledger pull failed"),
+        ):
+            with self.assertRaisesRegex(fleet.FleetError, "workspace ledger pull failed"):
+                fleet.sync_ledger(profile, root=Path("/unused/workspace"))
 
     def test_workspace_sync_is_all_or_nothing_on_preflight_blocker(self) -> None:
         profile = self.profile_catalog()["profiles"]["test-profile"]

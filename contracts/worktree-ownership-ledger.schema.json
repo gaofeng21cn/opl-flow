@@ -1,5 +1,5 @@
 {
-  "$id": "https://one-person-lab.dev/schemas/opl-flow/worktree-ownership-ledger.v1.json",
+  "$id": "https://one-person-lab.dev/schemas/opl-flow/worktree-ownership-ledger.v2.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": false,
   "properties": {
@@ -7,19 +7,20 @@
       "items": {
         "additionalProperties": false,
         "properties": {
-          "execution_owner": {
+          "custody_executor": {
             "minLength": 1,
-            "type": "string"
+            "type": "string",
+            "description": "Executor holding the local custody obligation, independent of the task Ledger execution owner."
           },
           "integration_overlaps": {
             "items": {
               "additionalProperties": false,
               "properties": {
-                "objective_id": {
+                "objective_ref": {
                   "minLength": 1,
                   "type": "string"
                 },
-                "owner": {
+                "custody_owner": {
                   "minLength": 1,
                   "type": "string"
                 },
@@ -32,7 +33,7 @@
                   "type": "array",
                   "uniqueItems": true
                 },
-                "thread_id": {
+                "custody_thread_id": {
                   "minLength": 1,
                   "type": "string"
                 },
@@ -43,16 +44,16 @@
               },
               "required": [
                 "worktree",
-                "thread_id",
-                "objective_id",
-                "owner",
+                "custody_thread_id",
+                "objective_ref",
+                "custody_owner",
                 "paths"
               ],
               "type": "object"
             },
             "type": "array"
           },
-          "next_action": {
+          "custody_next_action": {
             "minLength": 1,
             "type": "string"
           },
@@ -64,42 +65,77 @@
             "format": "date-time",
             "type": "string"
           },
-          "ownership_transfers": {
+          "custody_transfers": {
             "type": "array",
             "items": {
               "type": "object",
               "additionalProperties": false,
-              "required": ["recorded_at", "reason", "from", "to"],
+              "required": [
+                "recorded_at",
+                "reason",
+                "from",
+                "to"
+              ],
               "properties": {
-                "recorded_at": {"type": "string", "format": "date-time"},
-                "reason": {"type": "string", "minLength": 1},
-                "from": {"$ref": "#/$defs/ownerTransition"},
-                "to": {"$ref": "#/$defs/ownerTransition"}
+                "recorded_at": {
+                  "type": "string",
+                  "format": "date-time"
+                },
+                "reason": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "from": {
+                  "$ref": "#/$defs/custodyTransition"
+                },
+                "to": {
+                  "$ref": "#/$defs/custodyTransition"
+                }
               }
             }
           },
-          "objective_amendments": {
+          "objective_rebindings": {
             "type": "array",
             "items": {
               "type": "object",
               "additionalProperties": false,
-              "required": ["recorded_at", "reason", "actor", "from", "to"],
+              "required": [
+                "recorded_at",
+                "reason",
+                "actor",
+                "from",
+                "to"
+              ],
               "properties": {
-                "recorded_at": {"type": "string", "format": "date-time"},
-                "reason": {"type": "string", "minLength": 1},
-                "actor": {"$ref": "#/$defs/ownerActor"},
-                "from": {"$ref": "#/$defs/objectiveTransition"},
-                "to": {"$ref": "#/$defs/objectiveTransition"}
+                "recorded_at": {
+                  "type": "string",
+                  "format": "date-time"
+                },
+                "reason": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "actor": {
+                  "$ref": "#/$defs/custodyActor"
+                },
+                "from": {
+                  "$ref": "#/$defs/objectiveReferenceTransition"
+                },
+                "to": {
+                  "$ref": "#/$defs/objectiveReferenceTransition"
+                }
               }
             }
           },
-          "objective_id": {
+          "objective_ref": {
             "minLength": 1,
-            "type": "string"
+            "type": "string",
+            "description": "Opaque task reference; rebinding it does not edit the referenced task."
           },
-          "owner": {
+          "custody_owner": {
             "minLength": 1,
-            "type": "string"
+            "type": "string",
+            "description": "Responsible for source preservation, integration, and cleanup of this worktree."
           },
           "remote_recovery": {
             "anyOf": [
@@ -137,7 +173,7 @@
               "SAFE_TO_ARCHIVE"
             ]
           },
-          "thread_id": {
+          "custody_thread_id": {
             "minLength": 1,
             "type": "string"
           },
@@ -152,16 +188,41 @@
             },
             "type": "array",
             "uniqueItems": true
+          },
+          "canonical_commit": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{40}$",
+            "description": "Source delivery evidence, not task completion."
+          },
+          "production_data_commit": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{40}$",
+            "description": "Source delivery evidence, not task completion."
+          },
+          "cleanup_reason": {
+            "type": "string",
+            "description": "Local source lifecycle evidence, not task execution state."
+          },
+          "cleanup_status": {
+            "type": "string",
+            "description": "Local source lifecycle evidence, not task execution state."
+          },
+          "delivery_status": {
+            "type": "string",
+            "description": "Local source lifecycle evidence, not task execution state."
+          },
+          "final_receipt": {
+            "description": "Preserved owner-produced source lifecycle evidence."
           }
         },
         "required": [
           "worktree",
-          "thread_id",
-          "objective_id",
-          "owner",
-          "execution_owner",
+          "custody_thread_id",
+          "objective_ref",
+          "custody_owner",
+          "custody_executor",
           "status",
-          "next_action",
+          "custody_next_action",
           "write_set",
           "remote_recovery"
         ],
@@ -178,48 +239,96 @@
       "type": "string"
     },
     "schema": {
-      "const": "opl_flow_worktree_ownership_ledger.v1"
+      "const": "opl_flow_worktree_ownership_ledger.v2"
+    },
+    "authority": {
+      "const": "worktree_custody"
     }
   },
   "required": [
     "schema",
+    "authority",
     "machine",
     "recorded_at",
     "entries"
   ],
   "$defs": {
-    "ownerActor": {
+    "custodyActor": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["thread_id", "owner", "execution_owner"],
+      "required": [
+        "custody_thread_id",
+        "custody_owner",
+        "custody_executor"
+      ],
       "properties": {
-        "thread_id": {"type": "string", "minLength": 1},
-        "owner": {"type": "string", "minLength": 1},
-        "execution_owner": {"type": "string", "minLength": 1}
+        "custody_thread_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "custody_owner": {
+          "type": "string",
+          "minLength": 1
+        },
+        "custody_executor": {
+          "type": "string",
+          "minLength": 1
+        }
       }
     },
-    "ownerTransition": {
+    "custodyTransition": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["thread_id", "objective_id", "owner", "execution_owner", "next_action"],
+      "required": [
+        "custody_thread_id",
+        "objective_ref",
+        "custody_owner",
+        "custody_executor",
+        "custody_next_action"
+      ],
       "properties": {
-        "thread_id": {"type": "string", "minLength": 1},
-        "objective_id": {"type": "string", "minLength": 1},
-        "owner": {"type": "string", "minLength": 1},
-        "execution_owner": {"type": "string", "minLength": 1},
-        "next_action": {"type": "string", "minLength": 1}
+        "custody_thread_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "objective_ref": {
+          "type": "string",
+          "minLength": 1
+        },
+        "custody_owner": {
+          "type": "string",
+          "minLength": 1
+        },
+        "custody_executor": {
+          "type": "string",
+          "minLength": 1
+        },
+        "custody_next_action": {
+          "type": "string",
+          "minLength": 1
+        }
       }
     },
-    "objectiveTransition": {
+    "objectiveReferenceTransition": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["objective_id", "next_action"],
+      "required": [
+        "objective_ref",
+        "custody_next_action"
+      ],
       "properties": {
-        "objective_id": {"type": "string", "minLength": 1},
-        "next_action": {"type": "string", "minLength": 1}
+        "objective_ref": {
+          "type": "string",
+          "minLength": 1
+        },
+        "custody_next_action": {
+          "type": "string",
+          "minLength": 1
+        }
       }
     }
   },
-  "title": "OPL Flow worktree ownership ledger",
-  "type": "object"
+  "title": "OPL Flow worktree custody ledger",
+  "type": "object",
+  "description": "Local source custody and recovery obligations. objective_ref references a task; only the task Ledger owns its execution owner and completion."
 }

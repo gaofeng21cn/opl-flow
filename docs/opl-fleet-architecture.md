@@ -259,8 +259,8 @@ their per-node availability is established by fresh operation readback.
 
 | Rank | Capability | Why it matters | Smallest owner-correct implementation |
 | --- | --- | --- | --- |
-| Strong | Agent execution-attempt contract | Resource requirements alone do not bind objective revision, checkpoint, write set, expected result, or recovery route | Extend the existing Bead requirements and dispatch receipt with one versioned attempt identity; do not add another database |
-| Strong | Context, artifact, and checkpoint references | Bounded stdout cannot carry context, large task state, or non-code outputs | Use a versioned context manifest and content-addressed references to owner-managed Git/object/relay artifacts; verify digests rather than making Fleet a raw context or blob store |
+| Extension | Richer execution admission | Shared Worker handoff/result contracts and lease bindings now cover identity, scope and context references; objective revision and fine-grained write permissions are not yet part of resource admission | Extend the existing handoff only when a real executor needs those fields |
+| Extension | Context and artifact restoration | Handoffs and results carry owner-managed references; automatic restoration and per-artifact digest verification remain adapter-specific | Add restoration to the relevant executor without making Fleet a blob store |
 | Strong | Permission and budget envelope | Agent work needs bounded authority as well as bounded compute | Bind opaque credential references, capability scopes, time/token/cost/resource limits, and terminal budget use into each attempt without exposing secret values |
 | Strong | Dynamic task groups and fan-out/fan-in | A control Agent must refine and execute several coordinated slices, not only select one node | Let the Ledger own the graph and child objectives; add group dispatch receipts over existing single-node transactions after a real consumer proves the shape |
 | Worth exploring | Resumability and preemption contract | A lease can expire without proving whether an Agent task can resume safely | Declare checkpointability, heartbeat, interruption phase, resume command, and maximum stale interval per attempt |
@@ -304,3 +304,19 @@ The positioning is real only when these behaviors are demonstrated:
 
 Until those surfaces have fresh source and runtime evidence, documentation must
 label them as active work or roadmap rather than implemented capability.
+
+## Module And Storage Boundaries
+
+Fleet configuration/Git primitives live in `fleet_control.py`; reconciliation
+and Profile delivery depend on that base without circular imports. Ledger
+bootstrap and sync delegate to `opl_ledger.py`. Fleet receipt translation lives
+in `fleet_execution.py`, leaving task-owner transitions carrier-neutral.
+
+Dispatch can bind a shared Worker handoff through `--handoff-json`. Only the
+attempt/objective/owner identifiers and digest enter the lease store. Execution
+results remain transport evidence until accepted by the Ledger owner. See
+[Worker exchange](reusable-workflow-architecture.md#worker-handoff-and-return).
+
+Local node identity, routes, leases and receipts share one Instance binding.
+The existing private Instance pointer is checked even for explicit Instance
+arguments; a conflicting Instance fails before it can use that node's state.

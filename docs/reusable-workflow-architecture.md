@@ -159,3 +159,56 @@ Each node installs from current component owners and uses compatible versions.
 There is no controller-version lockstep or node-to-node payload copier.
 Superseded repository names and finished migration phases remain in Git
 history; the current architecture has no compatibility identity catalog.
+
+## Implemented Module Boundaries
+
+The three Skill routers select the method and current owner. They compose
+Ledger, Worker and Fleet operations; the Ledger does not dispatch work.
+
+- `scripts/opl_ledger.py` owns Beads/Dolt storage operations, initialization,
+  permissions, synchronization and metadata write/readback. Workflow and Fleet
+  workspace commands delegate through this adapter; Fleet never implements a
+  second Beads writer.
+- `scripts/opl_execution.py` owns carrier-neutral handoff/result validation and
+  admission evidence. It performs no I/O. `opl_task_owner.py` consumes those
+  neutral records; the Workflow entry translates existing Fleet receipts through
+  `fleet_execution.py` before calling the owner transitions.
+- Fleet configuration and Git primitives live in `fleet_control.py`, below
+  reconciliation and Profile delivery. These modules have no reverse import.
+- Worktree custody records identify the local custodian, executor, task reference
+  and cleanup state. They never assign the Ledger execution owner or declare a
+  task complete. Version 1 records are read into the explicit version 2 custody
+  representation; the next normal write saves only version 2. Existing CLI
+  arguments remain aliases for the custody fields.
+
+The physical owners remain unchanged: Beads/Dolt in the private Instance,
+Fleet node configuration and state in the existing per-user directories,
+Codex-owned sessions, and owner-managed project artifacts. Fleet's existing
+Instance pointer binds the local node namespace to one Instance. An explicit
+`--instance` cannot silently reuse another Instance's node state; another local
+Instance needs a separate OS user or a deliberate node migration.
+
+### Worker Handoff And Return
+
+A handoff contains `attempt_id`, `objective_id`, `owner_id`, `scope`, input and
+checkpoint references, and `expected_result`. It refers to owner-managed data;
+raw conversations and credentials stay with their owners. A result binds the
+same handoff and reports `checkpoint`, `completed`, `blocked` or `unknown`,
+artifact/checkpoint references, remaining work and the next action. `completed`
+means this execution slice returned evidence; the current Ledger owner still
+accepts the objective result.
+
+```bash
+python3 scripts/opl_workflow.py worker handoff --handoff-json handoff.json
+python3 scripts/opl_workflow.py worker result \
+  --handoff-json handoff.json --result-json result.json
+python3 scripts/opl_fleet.py dispatch acquire --adapter local-codex \
+  --owner-task <objective-id> --handoff-json @handoff.json
+```
+
+Managed dispatch accepts the same `--handoff-json`. The lease stores only the
+attempt/objective/owner binding and handoff digest. SSH execution must present
+that exact handoff; changing scope after admission fails before transport. A
+native Codex Worker receives the handoff through its native task tools and
+returns the same result structure. Existing capacity-only CLI calls remain
+available without introducing task state into Fleet.

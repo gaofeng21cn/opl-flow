@@ -6,12 +6,7 @@ import unittest
 from pathlib import Path
 
 
-SCRIPT = Path(__file__).resolve().parents[1] / "scripts/opl_task_owner.py"
-SPEC = importlib.util.spec_from_file_location("opl_task_owner", SCRIPT)
-assert SPEC and SPEC.loader
-owner = importlib.util.module_from_spec(SPEC)
-SPEC.loader.exec_module(owner)
-
+from scripts import opl_task_owner as owner
 
 class TaskOwnerMigrationTests(unittest.TestCase):
     def issue(self) -> dict[str, object]:
@@ -66,28 +61,30 @@ class TaskOwnerMigrationTests(unittest.TestCase):
 
     def workspace(self) -> dict[str, object]:
         return {
-            "schema": "opl_fleet_workspace_readback.v1",
+            "schema": "opl_execution_workspace.v1",
             "profile_id": "target-profile",
-            "node_ids": ["target-node"],
-            "observed_at": "2026-08-04T00:00:00Z",
+            "node_id": "target-node",
+            "checked_at": "2026-08-04T00:00:00Z",
             "state": "CURRENT",
-            "claim_ready": True,
+            "ready": True,
             "fresh_fetch": True,
             "fresh_github": True,
-            "profile_fingerprint": "1" * 64,
+            "workspace_fingerprint": "1" * 64,
             "environment_fingerprint": "2" * 64,
             "repository_fingerprint": "3" * 64,
         }
 
     def node(self) -> dict[str, object]:
         return {
-            "schema": "codex_fleet_doctor.v1",
+            "schema": "opl_execution_admission.v1",
+            "objective_id": "opl-1",
+            "ready": True,
             "node_id": "target-node",
             "checked_at": "2026-08-04T00:00:00Z",
             "ready_for_dispatch": True,
             "admission_ready": True,
             "receipt_state": "CURRENT",
-            "current_control_commit": "c" * 40,
+            "control_commit": "c" * 40,
             "control_current": True,
             "lease": None,
         }
@@ -157,7 +154,7 @@ class TaskOwnerMigrationTests(unittest.TestCase):
     def test_preflight_rejects_nonfresh_workspace(self) -> None:
         issue, migration_id, _ = self.prepared()
         workspace = self.workspace()
-        workspace["fresh_github"] = False
+        workspace["ready"] = False
         with self.assertRaisesRegex(owner.TaskOwnerError, "not claim-ready"):
             owner.preflight(
                 issue,
@@ -171,8 +168,7 @@ class TaskOwnerMigrationTests(unittest.TestCase):
         issue, migration_id, _ = self.prepared()
         node = self.node()
         node["control_current"] = False
-        node["ready_for_dispatch"] = False
-        node["admission_ready"] = False
+        node["ready"] = False
         with self.assertRaisesRegex(owner.TaskOwnerError, "not admitted"):
             owner.preflight(
                 issue,

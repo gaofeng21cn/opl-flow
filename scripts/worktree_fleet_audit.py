@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import argparse
+from copy import deepcopy
 import json
 import os
 import shlex
@@ -18,8 +19,18 @@ except ModuleNotFoundError:
     from worktree_absorption_audit import AuditError, audit as absorption_audit
 
 
-SCHEMA = "opl_flow_worktree_fleet_audit.v1"
-LEDGER_SCHEMA = "opl_flow_worktree_ownership_ledger.v1"
+SCHEMA = "opl_flow_worktree_fleet_audit.v2"
+LEDGER_SCHEMA = "opl_flow_worktree_ownership_ledger.v2"
+LEGACY_LEDGER_SCHEMA = "opl_flow_worktree_ownership_ledger.v1"
+CUSTODY_FIELDS = {
+    "thread_id": "custody_thread_id",
+    "objective_id": "objective_ref",
+    "owner": "custody_owner",
+    "execution_owner": "custody_executor",
+    "next_action": "custody_next_action",
+    "ownership_transfers": "custody_transfers",
+    "objective_amendments": "objective_rebindings",
+}
 ACTIVE = "ACTIVE"
 ARCHIVE_READY = "SAFE_TO_ARCHIVE"
 REMOTE_PROBE_TIMEOUT_SECONDS = 10.0
@@ -110,15 +121,46 @@ def git(cwd: Path, *args: str, check: bool = True) -> subprocess.CompletedProces
     raise AssertionError("remote probe retry loop exhausted without a result")
 
 
-def load_ledger(path: Path | None) -> dict[str, dict[str, Any]]:
-    if path is None:
-        return {}
-    try:
-        payload = json.loads(path.expanduser().read_text(encoding="utf-8"))
-    except (OSError, json.JSONDecodeError) as exc:
-        raise FleetAuditError(f"cannot read ownership ledger {path}: {exc}") from exc
-    if not isinstance(payload, dict) or payload.get("schema") != LEDGER_SCHEMA:
+def normalize_custody_record(value: Any, *, legacy: bool) -> dict[str, Any]:
+    """Read old local custody identities without creating task-owner authority."""
+    if not isinstance(value, dict):
+        raise FleetAuditError("ownership ledger entries must be objects")
+    result = deepcopy(value)
+    for old, new in CUSTODY_FIELDS.items():
+        if old not in result:
+            continue
+        if not legacy or new in result:
+            raise FleetAuditError(f"ambiguous custody field: {old}/{new}")
+        result[new] = result.pop(old)
+    for collection in ("integration_overlaps", "custody_transfers", "objective_rebindings"):
+        if collection not in result:
+            continue
+        if not isinstance(result[collection], list):
+            raise FleetAuditError(f"custody {collection} history is invalid: expected a list")
+        result[collection] = [
+            normalize_custody_record(item, legacy=legacy)
+            for item in result[collection]
+        ]
+    for transition in ("from", "to", "actor"):
+        if transition in result:
+            result[transition] = normalize_custody_record(result[transition], legacy=legacy)
+    return result
+
+
+def normalize_ledger(payload: Any) -> dict[str, Any]:
+    """Return one v2 shape; reads never rewrite the on-disk v1 receipt."""
+    if not isinstance(payload, dict) or payload.get("schema") not in {
+        LEDGER_SCHEMA, LEGACY_LEDGER_SCHEMA,
+    }:
         raise FleetAuditError(f"ownership ledger must use {LEDGER_SCHEMA}")
+    legacy = payload["schema"] == LEGACY_LEDGER_SCHEMA
+    if (not legacy and payload.get("authority") != "worktree_custody") or (
+        legacy and payload.get("authority", "worktree_custody") != "worktree_custody"
+    ):
+        raise FleetAuditError("ownership ledger authority must be worktree_custody")
+    payload = deepcopy(payload)
+    payload["schema"] = LEDGER_SCHEMA
+    payload["authority"] = "worktree_custody"
     if not isinstance(payload.get("machine"), str) or not payload["machine"].strip():
         raise FleetAuditError("ownership ledger machine is required")
     if not isinstance(payload.get("recorded_at"), str) or not payload["recorded_at"].strip():
@@ -127,17 +169,18 @@ def load_ledger(path: Path | None) -> dict[str, dict[str, Any]]:
     if not isinstance(entries, list):
         raise FleetAuditError("ownership ledger entries must be a list")
 
+    payload["entries"] = [normalize_custody_record(entry, legacy=legacy) for entry in entries]
     indexed: dict[str, dict[str, Any]] = {}
     required_strings = (
         "worktree",
-        "thread_id",
-        "objective_id",
-        "owner",
-        "execution_owner",
+        "custody_thread_id",
+        "objective_ref",
+        "custody_owner",
+        "custody_executor",
         "status",
-        "next_action",
+        "custody_next_action",
     )
-    for entry in entries:
+    for entry in payload["entries"]:
         if not isinstance(entry, dict):
             raise FleetAuditError("ownership ledger entries must be objects")
         for field in required_strings:
@@ -163,7 +206,25 @@ def load_ledger(path: Path | None) -> dict[str, dict[str, Any]]:
         if worktree in indexed:
             raise FleetAuditError(f"duplicate ownership receipt for {worktree}")
         indexed[worktree] = entry
-    return indexed
+    return payload
+
+
+def read_ledger_payload(path: Path) -> dict[str, Any]:
+    try:
+        payload = json.loads(path.expanduser().read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as exc:
+        raise FleetAuditError(f"cannot read ownership ledger {path}: {exc}") from exc
+    return normalize_ledger(payload)
+
+
+def load_ledger(path: Path | None) -> dict[str, dict[str, Any]]:
+    if path is None:
+        return {}
+    payload = read_ledger_payload(path)
+    return {
+        str(Path(entry["worktree"]).expanduser().resolve()): entry
+        for entry in payload["entries"]
+    }
 
 
 def list_worktrees(repo_root: Path) -> list[dict[str, str | bool]]:
@@ -715,11 +776,11 @@ def audit_repo(
                 "holders": path_holders,
                 "holder_classification": holder_classification,
                 "receipt_status": receipt_status,
-                "thread_id": receipt.get("thread_id") if receipt else None,
-                "objective_id": receipt.get("objective_id") if receipt else None,
-                "owner": receipt.get("owner") if receipt else None,
-                "execution_owner": receipt.get("execution_owner") if receipt else None,
-                "next_action": receipt.get("next_action") if receipt else None,
+                "custody_thread_id": receipt.get("custody_thread_id") if receipt else None,
+                "objective_ref": receipt.get("objective_ref") if receipt else None,
+                "custody_owner": receipt.get("custody_owner") if receipt else None,
+                "custody_executor": receipt.get("custody_executor") if receipt else None,
+                "custody_next_action": receipt.get("custody_next_action") if receipt else None,
                 "write_set": receipt.get("write_set") if receipt else None,
                 "integration_overlaps": [],
                 "remote_branch_head": remote_branch_head,
@@ -743,14 +804,14 @@ def audit_repo(
                 lane["integration_overlaps"].append(
                     {
                         "worktree": other["worktree"],
-                        "thread_id": other["thread_id"],
-                        "objective_id": other["objective_id"],
-                        "owner": other["owner"],
+                        "custody_thread_id": other["custody_thread_id"],
+                        "objective_ref": other["objective_ref"],
+                        "custody_owner": other["custody_owner"],
                         "paths": overlap_paths,
                     }
                 )
         lane["integration_overlaps"].sort(
-            key=lambda item: (item["worktree"], item["owner"])
+            key=lambda item: (item["worktree"], item["custody_owner"])
         )
 
     unresolved = [
@@ -800,6 +861,12 @@ def audit_fleet(
     holders: dict[str, list[dict[str, Any]]] | None = None,
     holder_scan_available: bool | None = None,
 ) -> dict[str, Any]:
+    receipts = {
+        path: normalize_custody_record(
+            entry, legacy=bool(set(entry).intersection(CUSTODY_FIELDS))
+        )
+        for path, entry in receipts.items()
+    }
     if holders is None:
         worktree_paths = [
             Path(str(record["worktree"]))

@@ -16,7 +16,8 @@ import uuid
 from fleet_inventory import collect_inventory, validate_inventory
 from .fleet_common import COMMIT_PATTERN, FleetError, GPU_APIS, LEASE_PHASES, LEASE_WORKLOAD_CLASSES, PREEMPTIBLE_WORKLOAD_CLASSES, ROUTES_PATH, STATE_ROOT, atomic_json, dispatch_adapter, node_identity, normalize_node_id, parse_utc, read_json, run, utc_now
 from .fleet_features import gpu_profiles, inventory_age_seconds, node_features
-from .fleet_reconcile import control_commit, manifest, node_registry, remote_asset_catalog
+from .fleet_control import control_commit, manifest, node_registry
+from .fleet_reconcile import remote_asset_catalog
 from .fleet_lease import acquire_lease_record, active_lease_map, public_lease, release_lease_record, renew_lease_record, validate_admission, validate_lease, validate_owner_id, validate_role, validate_ttl
 
 def validate_work_volume_route(value: Any) -> dict[str, Any]:

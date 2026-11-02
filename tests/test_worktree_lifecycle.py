@@ -66,6 +66,67 @@ class WorktreeLifecycleTests(unittest.TestCase):
         git(self.lane, "add", "lane.txt")
         git(self.lane, "commit", "-m", "lane change")
 
+    def test_legacy_receipt_read_is_unchanged_then_write_has_one_custody_shape(self) -> None:
+        self.register()
+        payload = json.loads(self.ledger.read_text())
+        payload["schema"] = "opl_flow_worktree_ownership_ledger.v1"
+        payload.pop("authority")
+        entry = payload["entries"][0]
+        for old, new in worktree_lifecycle.worktree_fleet_audit.CUSTODY_FIELDS.items():
+            if new in entry:
+                entry[old] = entry.pop(new)
+        self.ledger.write_text(json.dumps(payload))
+        before = self.ledger.read_bytes()
+        readback = worktree_lifecycle.read_ledger(self.ledger)
+        self.assertEqual(self.ledger.read_bytes(), before)
+        self.assertEqual(readback["entries"][0]["objective_ref"], "objective-1")
+
+        receipt = self.register()
+        saved = json.loads(self.ledger.read_text())
+        self.assertEqual(saved["schema"], worktree_lifecycle.SCHEMA)
+        self.assertEqual(saved["authority"], "worktree_custody")
+        self.assertEqual(saved["entries"][0], receipt)
+        self.assertFalse(set(receipt).intersection(worktree_lifecycle.worktree_fleet_audit.CUSTODY_FIELDS))
+
+    def test_custody_transfer_never_touches_task_database(self) -> None:
+        self.register()
+        beads = self.repo / ".beads"
+        beads.mkdir()
+        task_database = beads / "task-owner.json"
+        task_database.write_text('{"execution_owner":"task-owner-authority"}\n')
+        before = task_database.read_bytes()
+        actual_git = worktree_lifecycle.git
+
+        def git_only(cwd, *args, **kwargs):
+            self.assertTrue(set(args).isdisjoint({"bd", "update", "dolt"}))
+            return actual_git(cwd, *args, **kwargs)
+
+        with patch.object(worktree_lifecycle, "git", side_effect=git_only):
+            receipt = worktree_lifecycle.transfer_owner(
+                self.ledger, repo_root=self.repo, worktree=self.lane,
+                expected_thread_id="thread-1", expected_objective_id="objective-1",
+                expected_owner="owner-1", expected_execution_owner="owner-1",
+                new_thread_id="thread-2", new_owner="custodian-2",
+                new_execution_owner="executor-2", next_action="preserve and integrate source",
+                reason="new source custodian",
+            )
+        self.assertEqual(task_database.read_bytes(), before)
+        self.assertEqual(receipt["objective_ref"], "objective-1")
+        self.assertEqual(receipt["custody_owner"], "custodian-2")
+        self.assertNotIn("execution_owner", receipt)
+
+    def test_cli_custody_aliases_preserve_argument_compatibility(self) -> None:
+        arguments = worktree_lifecycle.parser().parse_args([
+            "transfer-custody", "--repo-root", str(self.repo), "--worktree", str(self.lane),
+            "--expected-custody-thread-id", "thread-1", "--expected-objective-ref", "objective-1",
+            "--expected-custody-owner", "owner-1", "--expected-custody-executor", "owner-1",
+            "--new-custody-thread-id", "thread-2", "--new-custody-owner", "owner-2",
+            "--custody-next-action", "integrate source", "--reason", "custody handoff",
+        ])
+        self.assertEqual(arguments.command, "transfer-custody")
+        self.assertEqual(arguments.expected_objective_id, "objective-1")
+        self.assertEqual(arguments.new_owner, "owner-2")
+
     def absorb_lane(self) -> None:
         self.commit_lane()
         worktree_lifecycle.checkpoint(self.ledger, worktree=self.lane, remote="origin")
@@ -201,7 +262,7 @@ class WorktreeLifecycleTests(unittest.TestCase):
             write_set=["lane.txt"],
         )
         self.assertEqual(first["integration_overlaps"], [])
-        self.assertEqual(second["integration_overlaps"][0]["owner"], "owner-1")
+        self.assertEqual(second["integration_overlaps"][0]["custody_owner"], "owner-1")
         self.assertEqual(second["integration_overlaps"][0]["paths"], ["lane.txt"])
         entries = json.loads(self.ledger.read_text())["entries"]
         self.assertEqual(len(entries), 2)
@@ -264,21 +325,21 @@ class WorktreeLifecycleTests(unittest.TestCase):
             reason="original execution owner is no longer reachable",
         )
 
-        self.assertEqual(receipt["thread_id"], "thread-recovery")
-        self.assertEqual(receipt["objective_id"], "objective-1")
-        self.assertEqual(receipt["owner"], "owner-recovery")
-        self.assertEqual(receipt["execution_owner"], "executor-recovery")
+        self.assertEqual(receipt["custody_thread_id"], "thread-recovery")
+        self.assertEqual(receipt["objective_ref"], "objective-1")
+        self.assertEqual(receipt["custody_owner"], "owner-recovery")
+        self.assertEqual(receipt["custody_executor"], "executor-recovery")
         self.assertEqual(receipt["write_set"], ["lane.txt"])
         self.assertEqual(receipt["remote_recovery"], recovery)
-        transfer = receipt["ownership_transfers"][0]
-        self.assertEqual(transfer["from"]["thread_id"], "thread-1")
-        self.assertEqual(transfer["to"]["thread_id"], "thread-recovery")
+        transfer = receipt["custody_transfers"][0]
+        self.assertEqual(transfer["from"]["custody_thread_id"], "thread-1")
+        self.assertEqual(transfer["to"]["custody_thread_id"], "thread-recovery")
         entries = json.loads(self.ledger.read_text())["entries"]
         other = next(
             item for item in entries if item["worktree"] == str(self.other_lane.resolve())
         )
-        self.assertEqual(other["integration_overlaps"][0]["thread_id"], "thread-recovery")
-        self.assertEqual(other["integration_overlaps"][0]["owner"], "owner-recovery")
+        self.assertEqual(other["integration_overlaps"][0]["custody_thread_id"], "thread-recovery")
+        self.assertEqual(other["integration_overlaps"][0]["custody_owner"], "owner-recovery")
 
     def test_transfer_owner_fails_closed_on_identity_drift(self) -> None:
         self.register()
@@ -353,12 +414,12 @@ class WorktreeLifecycleTests(unittest.TestCase):
                 reason="  user replaced the objective  ",
             )
 
-        self.assertEqual(receipt["objective_id"], "objective-current")
-        self.assertEqual(receipt["next_action"], "continue under current objective")
+        self.assertEqual(receipt["objective_ref"], "objective-current")
+        self.assertEqual(receipt["custody_next_action"], "continue under current objective")
         self.assertEqual(receipt["updated_at"], "2026-07-31T01:02:03Z")
-        self.assertEqual(receipt["thread_id"], before["thread_id"])
-        self.assertEqual(receipt["owner"], before["owner"])
-        self.assertEqual(receipt["execution_owner"], before["execution_owner"])
+        self.assertEqual(receipt["custody_thread_id"], before["custody_thread_id"])
+        self.assertEqual(receipt["custody_owner"], before["custody_owner"])
+        self.assertEqual(receipt["custody_executor"], before["custody_executor"])
         self.assertEqual(receipt["worktree"], before["worktree"])
         self.assertEqual(receipt["repo_root"], before["repo_root"])
         self.assertEqual(receipt["status"], before["status"])
@@ -367,31 +428,31 @@ class WorktreeLifecycleTests(unittest.TestCase):
         self.assertEqual(receipt["remote_recovery"], recovery)
         self.assertEqual(
             set(receipt) - set(before),
-            {"objective_amendments", "updated_at"},
+            {"objective_rebindings", "updated_at"},
         )
-        amendment = receipt["objective_amendments"][0]
+        amendment = receipt["objective_rebindings"][0]
         self.assertEqual(amendment["recorded_at"], "2026-07-31T01:02:03Z")
         self.assertEqual(amendment["reason"], "user replaced the objective")
         self.assertEqual(
             amendment["actor"],
             {
-                "thread_id": "thread-1",
-                "owner": "owner-1",
-                "execution_owner": "owner-1",
+                "custody_thread_id": "thread-1",
+                "custody_owner": "owner-1",
+                "custody_executor": "owner-1",
             },
         )
         self.assertEqual(
             amendment["from"],
             {
-                "objective_id": "objective-1",
-                "next_action": "continue",
+                "objective_ref": "objective-1",
+                "custody_next_action": "continue",
             },
         )
         self.assertEqual(
             amendment["to"],
             {
-                "objective_id": "objective-current",
-                "next_action": "continue under current objective",
+                "objective_ref": "objective-current",
+                "custody_next_action": "continue under current objective",
             },
         )
         entries = json.loads(self.ledger.read_text(encoding="utf-8"))["entries"]
@@ -399,7 +460,7 @@ class WorktreeLifecycleTests(unittest.TestCase):
             item for item in entries if item["worktree"] == str(self.other_lane.resolve())
         )
         self.assertEqual(
-            other["integration_overlaps"][0]["objective_id"],
+            other["integration_overlaps"][0]["objective_ref"],
             "objective-current",
         )
         self.assertEqual(git(self.lane, "rev-parse", "HEAD"), source_head)
@@ -448,11 +509,11 @@ class WorktreeLifecycleTests(unittest.TestCase):
             [
                 (
                     item["recorded_at"],
-                    item["from"]["objective_id"],
-                    item["to"]["objective_id"],
+                    item["from"]["objective_ref"],
+                    item["to"]["objective_ref"],
                     item["reason"],
                 )
-                for item in receipt["objective_amendments"]
+                for item in receipt["objective_rebindings"]
             ],
             [
                 (
@@ -541,7 +602,7 @@ class WorktreeLifecycleTests(unittest.TestCase):
     def test_amend_objective_rejects_invalid_history_without_mutation(self) -> None:
         self.register()
         payload = json.loads(self.ledger.read_text(encoding="utf-8"))
-        payload["entries"][0]["objective_amendments"] = {}
+        payload["entries"][0]["objective_rebindings"] = {}
         self.ledger.write_text(json.dumps(payload), encoding="utf-8")
         before = self.ledger.read_bytes()
 
@@ -668,9 +729,9 @@ class WorktreeLifecycleTests(unittest.TestCase):
 
         self.assertEqual(completed.returncode, 0, completed.stderr)
         receipt = json.loads(completed.stdout)
-        self.assertEqual(receipt["objective_id"], "objective-current")
+        self.assertEqual(receipt["objective_ref"], "objective-current")
         self.assertEqual(
-            receipt["objective_amendments"][0]["reason"],
+            receipt["objective_rebindings"][0]["reason"],
             "user replaced the objective",
         )
 

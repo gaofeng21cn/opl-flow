@@ -11,8 +11,10 @@ import shutil
 import tempfile
 
 from . import fleet_common
+import opl_ledger
 from .fleet_common import FleetError, atomic_json, read_json, run, sha256_file, utc_now
-from .fleet_reconcile import git_value, github_head, github_repository_from_remote, reconcile_repository
+from .fleet_control import git_value, github_head, github_repository_from_remote
+from .fleet_reconcile import reconcile_repository
 
 
 PROFILE_SCHEMA = "opl_fleet_workspace_profiles.v1"
@@ -315,80 +317,27 @@ def _repository_fingerprint(entries: list[dict[str, Any]]) -> str:
 
 
 def ledger_readback(
-    profile: dict[str, Any],
-    *,
-    root: Path,
-    fresh_pull: bool,
+    profile: dict[str, Any], *, root: Path, fresh_pull: bool,
 ) -> dict[str, Any]:
     ledger = profile["ledger"]
     directory = str(ledger["repository_directory"])
-    repository = root / directory
-    result = {
-        "repository_directory": directory,
-        "role": ledger["role"],
-        "fresh_pull": False,
-        "readable": False,
-        "state": "ATTENTION",
-    }
-    beads = repository / ".beads"
-    if not repository.is_dir() or not beads.is_dir() or beads.is_symlink():
-        return result
-    if beads.stat().st_mode & 0o077:
-        return {**result, "state": "PERMISSIONS"}
-    role = git_value(repository, ["config", "--get", "beads.role"], check=False)
-    if role.returncode or role.stdout.strip() != ledger["role"]:
-        return {**result, "state": "ROLE_MISMATCH"}
-    bd = shutil.which("bd")
-    if not bd:
-        return {**result, "state": "TOOL_MISSING"}
-    if fresh_pull:
-        pulled = run([bd, "-C", str(repository), "dolt", "pull"], check=False)
-        if pulled.returncode:
-            return {**result, "state": "PULL_FAILED"}
-        result["fresh_pull"] = True
-    readable = run(
-        [bd, "--readonly", "-C", str(repository), "list", "--limit", "1", "--json"],
-        check=False,
-    )
-    if readable.returncode:
-        return {**result, "state": "UNREADABLE"}
     try:
-        payload = json.loads(readable.stdout)
-    except json.JSONDecodeError:
-        return {**result, "state": "UNREADABLE"}
-    if not isinstance(payload, list):
-        return {**result, "state": "UNREADABLE"}
-    return {**result, "readable": True, "state": "CURRENT"}
+        result = opl_ledger.workspace_readback(
+            root / directory, str(ledger["role"]), fresh_pull=fresh_pull,
+        )
+    except opl_ledger.LedgerError as exc:
+        raise FleetError(str(exc)) from exc
+    return {"repository_directory": directory, **result}
 
 
 def sync_ledger(profile: dict[str, Any], *, root: Path) -> None:
     ledger = profile["ledger"]
-    repository = root / str(ledger["repository_directory"])
-    beads = repository / ".beads"
-    if not repository.is_dir() or not beads.is_dir() or beads.is_symlink():
-        raise FleetError("workspace ledger repository is missing or unsafe")
-    beads.chmod(0o700)
-    configured = git_value(
-        repository,
-        ["config", "beads.role", str(ledger["role"])],
-        check=False,
-    )
-    if configured.returncode:
-        raise FleetError("workspace ledger role configuration failed")
-    bd = shutil.which("bd")
-    if not bd:
-        raise FleetError("workspace ledger requires bd")
-    existing = ledger_readback(profile, root=root, fresh_pull=False)
-    if existing["state"] != "CURRENT":
-        bootstrapped = run(
-            [bd, "-C", str(repository), "bootstrap", "--yes"],
-            check=False,
+    try:
+        opl_ledger.sync_workspace_ledger(
+            root / str(ledger["repository_directory"]), str(ledger["role"]),
         )
-        if bootstrapped.returncode:
-            raise FleetError("workspace ledger bootstrap failed")
-    pulled = run([bd, "-C", str(repository), "dolt", "pull"], check=False)
-    if pulled.returncode:
-        raise FleetError("workspace ledger pull failed")
+    except opl_ledger.LedgerError as exc:
+        raise FleetError(str(exc)) from exc
 
 
 def workspace_readback(

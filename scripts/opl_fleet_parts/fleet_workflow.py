@@ -18,7 +18,7 @@ import subprocess
 from typing import Any
 
 from . import fleet_common as common
-from . import fleet_reconcile as reconcile
+from . import fleet_control as control
 
 PROFILE_PATH = "templates/AGENTS.md"
 PROJECTION_FIELDS = {"flagship_node_id", "source_agents_sha256", "flow_commit"}
@@ -27,7 +27,7 @@ PROJECTION_FIELDS = {"flagship_node_id", "source_agents_sha256", "flow_commit"}
 @contextlib.contextmanager
 def control_lock():
     root = common.CONTROL_ROOT
-    directory = Path(reconcile.git_value(root, ["rev-parse", "--git-common-dir"]).stdout.strip())
+    directory = Path(control.git_value(root, ["rev-parse", "--git-common-dir"]).stdout.strip())
     if not directory.is_absolute():
         directory = root / directory
     with (directory / "opl-fleet-workflow.lock").open("a") as handle:
@@ -36,7 +36,7 @@ def control_lock():
 
 
 def workflow_projection() -> dict[str, str] | None:
-    projection = reconcile.manifest().get("workflow_projection")
+    projection = control.manifest().get("workflow_projection")
     if projection is None:
         return None
     if (
@@ -56,19 +56,19 @@ def workflow_projection() -> dict[str, str] | None:
 def published_profile(commit: str) -> str:
     # A private review receipt may pin an older version, never an unpublished
     # branch or uncommitted worktree. Read immutable Git bytes, not the checkout.
-    ancestor = reconcile.git_value(
+    ancestor = control.git_value(
         common.FLOW_ROOT, ["merge-base", "--is-ancestor", commit, "origin/main"], check=False,
     )
     if ancestor.returncode:
         raise common.FleetError("workflow projection is not published on Flow main")
-    content = reconcile.git_value(common.FLOW_ROOT, ["show", f"{commit}:{PROFILE_PATH}"]).stdout
+    content = control.git_value(common.FLOW_ROOT, ["show", f"{commit}:{PROFILE_PATH}"]).stdout
     if not content.strip() or "\0" in content or not content.endswith("\n"):
         raise common.FleetError("published workflow Profile is invalid")
     return content
 
 
 def workflow_status() -> dict[str, Any]:
-    registry = reconcile.node_registry()
+    registry = control.node_registry()
     node = common.node_identity()
     flagship = registry.get("flagship_node_id")
     projection = workflow_projection()
@@ -107,8 +107,8 @@ def workflow_status() -> dict[str, Any]:
         return {**result, "state": "UPDATE_AVAILABLE"}
     # Only exact, unmodified historical templates can be replaced automatically.
     # Git history is the baseline; no additional managed-file registry/cache.
-    blob = reconcile.git_value(common.FLOW_ROOT, ["hash-object", str(target)]).stdout.strip()
-    objects = reconcile.git_value(
+    blob = control.git_value(common.FLOW_ROOT, ["hash-object", str(target)]).stdout.strip()
+    objects = control.git_value(
         common.FLOW_ROOT,
         ["rev-list", "--objects", projection["flow_commit"], "--", PROFILE_PATH],
     ).stdout.splitlines()
@@ -119,7 +119,7 @@ def workflow_status() -> dict[str, Any]:
 def assert_published_control() -> None:
     # An unpushed selection/review is a proposal, not fleet-wide authority.
     for name in ("nodes.json", "fleet.json"):
-        published = reconcile.git_value(
+        published = control.git_value(
             common.CONTROL_ROOT, ["show", f"origin/main:fleet/{name}"],
         ).stdout
         if common.read_json(common.CONTROL_ROOT / name) != json.loads(published):
@@ -161,7 +161,7 @@ def apply_profile(content: str, expected_sha256: str | None) -> bool:
 
 def set_flagship(node_id: str, *, expected_current: str) -> dict[str, Any]:
     with control_lock():
-        registry = reconcile.node_registry()
+        registry = control.node_registry()
         previous = registry.get("flagship_node_id")
         if (previous or "none") != expected_current:
             raise common.FleetError("flagship changed; reload before switching")
@@ -175,17 +175,17 @@ def set_flagship(node_id: str, *, expected_current: str) -> dict[str, Any]:
 
 def record_projection(commit: str, *, source_sha256: str) -> dict[str, Any]:
     with control_lock():
-        registry = reconcile.node_registry()
+        registry = control.node_registry()
         node = common.node_identity()
         if registry.get("flagship_node_id") != node:
             raise common.FleetError("only the selected flagship can record a workflow projection")
-        reconcile.git_value(common.CONTROL_ROOT, ["fetch", "origin", "main"])
-        published = json.loads(reconcile.git_value(
+        control.git_value(common.CONTROL_ROOT, ["fetch", "origin", "main"])
+        published = json.loads(control.git_value(
             common.CONTROL_ROOT, ["show", "origin/main:fleet/nodes.json"],
         ).stdout)
         if published.get("flagship_node_id") != node:
             raise common.FleetError("flagship selection is not current on Instance main")
-        reconcile.git_value(common.FLOW_ROOT, ["fetch", "origin", "main"])
+        control.git_value(common.FLOW_ROOT, ["fetch", "origin", "main"])
         if not re.fullmatch(r"[0-9a-f]{40}", commit):
             raise common.FleetError("an exact Flow commit is required")
         published_profile(commit)
@@ -193,7 +193,7 @@ def record_projection(commit: str, *, source_sha256: str) -> dict[str, Any]:
         if (target.is_symlink() or not target.is_file() or not target.read_bytes().strip()
                 or common.sha256_file(target) != source_sha256):
             raise common.FleetError("flagship instructions changed since semantic review")
-        spec = reconcile.manifest()
+        spec = control.manifest()
         spec["workflow_projection"] = {
             "flagship_node_id": node, "source_agents_sha256": source_sha256, "flow_commit": commit,
         }
@@ -206,10 +206,10 @@ def workflow_command(args) -> dict[str, Any]:
     if args.workflow_action == "record-projection":
         return record_projection(args.flow_commit, source_sha256=args.source_sha256)
     if args.workflow_action == "sync":
-        previous = reconcile.checkout_commit(common.FLOW_ROOT)
-        revision = reconcile.update_flow()
-        reconcile.restart_after_flow_update(previous, revision)
-        reconcile.update_control()
+        previous = control.checkout_commit(common.FLOW_ROOT)
+        revision = control.update_flow()
+        control.restart_after_flow_update(previous, revision)
+        control.update_control()
         result = reconcile_workflow()
         common.atomic_json(common.STATE_ROOT / "workflow.json", result)
         return result

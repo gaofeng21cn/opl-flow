@@ -11,6 +11,11 @@ import json
 import re
 import uuid
 
+try:
+    from . import opl_execution as execution
+except ImportError:
+    import opl_execution as execution
+
 
 MIGRATION_SCHEMA = "opl_task_owner_migration.v1"
 MIGRATION_STATES = {
@@ -151,52 +156,17 @@ def validate_checkpoint(value: Any) -> dict[str, Any]:
 
 
 def validate_workspace_preflight(value: Any, *, profile_id: str, node_id: str) -> dict[str, str]:
-    if (
-        not isinstance(value, dict)
-        or value.get("schema") != "opl_fleet_workspace_readback.v1"
-        or value.get("profile_id") != profile_id
-        or node_id not in value.get("node_ids", [])
-        or value.get("state") != "CURRENT"
-        or value.get("claim_ready") is not True
-        or value.get("fresh_fetch") is not True
-        or value.get("fresh_github") is not True
-    ):
-        raise TaskOwnerError("target workspace is not claim-ready")
-    fingerprints = {
-        "workspace_fingerprint": value.get("profile_fingerprint"),
-        "environment_fingerprint": value.get("environment_fingerprint"),
-        "repository_fingerprint": value.get("repository_fingerprint"),
-    }
-    if any(not isinstance(item, str) or not SHA256.fullmatch(item) for item in fingerprints.values()):
-        raise TaskOwnerError("target workspace fingerprints are invalid")
-    return {"checked_at": str(value.get("observed_at") or now()), **fingerprints}
+    try:
+        return execution.workspace_evidence(value, profile_id=profile_id, node_id=node_id)
+    except execution.ExecutionError as exc:
+        raise TaskOwnerError(str(exc)) from exc
 
 
-def validate_node_admission(
-    value: Any,
-    *,
-    node_id: str,
-    bead_id: str,
-) -> dict[str, str]:
-    lease = value.get("lease") if isinstance(value, dict) else None
-    capacity_owned = isinstance(lease, dict) and lease.get("owner_task") == bead_id
-    if (
-        not isinstance(value, dict)
-        or value.get("schema") != "codex_fleet_doctor.v1"
-        or value.get("node_id") != node_id
-        or value.get("admission_ready") is not True
-        or (value.get("ready_for_dispatch") is not True and not capacity_owned)
-        or value.get("receipt_state") != "CURRENT"
-        or value.get("control_current") is not True
-    ):
-        raise TaskOwnerError("target node is not admitted for owner migration")
-    control_commit = value.get("current_control_commit")
-    if not isinstance(control_commit, str) or not SHA40.fullmatch(control_commit):
-        raise TaskOwnerError("target node control revision is invalid")
-    return {
-        "node_checked_at": str(value.get("checked_at") or now()),
-        "control_commit": control_commit,
-    }
+def validate_node_admission(value: Any, *, node_id: str, bead_id: str) -> dict[str, str]:
+    try:
+        return execution.node_evidence(value, node_id=node_id, objective_id=bead_id)
+    except execution.ExecutionError as exc:
+        raise TaskOwnerError(str(exc)) from exc
 
 
 def _transition(receipt: dict[str, Any], state: str, actor: str) -> None:

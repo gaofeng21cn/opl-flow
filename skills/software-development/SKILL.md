@@ -63,3 +63,14 @@ grilling, or named lens reference.
 Verify in proportion to the changed behavior and report the real requested
 terminal surface. A plan, test pass, local commit, task branch, or queued action
 is evidence only for its own layer.
+
+## Worker exchange
+
+For a delegated or resumed slice, use the shared handoff and result contracts
+in `contracts/worker-handoff.schema.json` and `contracts/worker-result.schema.json`
+at the Package root. Validate them with `scripts/opl_workflow.py worker handoff`
+or `worker result`. Pass the handoff to the native executor; managed Fleet
+acquire/execute accepts `--handoff-json @file` and binds the same attempt.
+Return evidence to the current Ledger owner for acceptance. Capacity receipts,
+Worker completion, and worktree custody cannot change the objective's owner or
+terminal status by themselves. Simple current-session work needs no extra file.
