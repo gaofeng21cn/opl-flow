@@ -42,6 +42,7 @@ The baseline is grouped as:
 | Internet research | Agent Reach Skill + CLI/doctor | degraded, owner repair offered |
 | Office authoring | OfficeCLI Skill family + CLI | degraded, Framework repair offered |
 | Document extraction | MinerU extractor Skill + CLI | degraded, Framework repair offered |
+| Interface design | Impeccable Skill + owner-managed engine | degraded, owner repair offered |
 
 App first-run does not own this table. Read `system_initialize.recommended_skills`
 from the installed Framework projection. When Flow is absent, that Flow-derived
@@ -193,8 +194,32 @@ The carrier must not overwrite an unknown existing Profile.
 ## Capability Routing
 
 The experience baseline is intentionally broad enough to establish the OPL App
-usage floor: internet research, Office documents, and document extraction. It
+usage floor: internet research, Office documents, document extraction, and
+interface design. It
 is not a claim that every task requires those tools.
+
+Impeccable owns interface design and refinement guidance. Load only the
+playbook relevant to the requested surface, using existing product and design
+contracts as context. Its critique and detector findings inform AI judgment;
+they do not replace rendered browser/native interaction checks or create a
+mandatory redesign, approval, or product-documentation step for a scoped fix.
+For a new surface, clarify material product/design decisions before building.
+
+Install through the upstream owner:
+
+```bash
+npx impeccable install --providers=codex --scope=global --no-hooks
+npx impeccable update
+```
+
+The official
+installer owns the Skill and version-pinned engine. Framework observes the
+original GitHub Skill payload and reports a missing capability as degraded;
+it does not fetch or update these external bytes. Keep one physical Skill
+source, with any compatibility entrypoint pointing to it. Hooks are a separate
+opt-in; without a hook, run the detector once after a meaningful UI change and
+interpret findings in product context. Preserve user hook and project choices.
+This online capability is not an offline Full payload.
 
 Development and architecture capabilities are bundled with OPL Flow. Use
 `$software-development` mode `architecture` for mapping or simplification.

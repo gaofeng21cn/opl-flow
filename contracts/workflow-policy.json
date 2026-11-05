@@ -145,6 +145,22 @@
   ],
   "experience_baseline": [
     {
+      "id": "impeccable",
+      "kind": "codex_skill",
+      "owner": "pbakaus",
+      "bundle_id": "interface-design",
+      "install_source": "owner_skills_cli",
+      "lifecycle_owner": "impeccable",
+      "online_install_default": true,
+      "offline_bundle": "none",
+      "activation": "task_routed",
+      "readiness_adapter": "codex_skill_payload",
+      "conflict_policy": "preserve_user_surface",
+      "credential_policy": "none",
+      "source": "https://github.com/pbakaus/impeccable",
+      "source_path": ".agents/skills/impeccable"
+    },
+    {
       "id": "agent-reach",
       "kind": "codex_skill",
       "owner": "agent-reach",
@@ -408,6 +424,21 @@
     }
   ],
   "capability_bundles": [
+    {
+      "id": "interface-design",
+      "label": "Interface design and refinement",
+      "relationship": "experience_baseline",
+      "member_refs": [
+        "codex_skill:impeccable"
+      ],
+      "online_materialization": "members_marked_default",
+      "full_distribution": "members_marked_full",
+      "readiness": {
+        "aggregation": "all_members",
+        "absence_effect": "degraded_non_blocking",
+        "repair_policy": "framework_or_owner_adapter"
+      }
+    },
     {
       "id": "internet-research",
       "label": "Internet research",

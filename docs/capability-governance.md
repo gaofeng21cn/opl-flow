@@ -125,6 +125,16 @@ are never bundled.
 
 ## Development Skills And OPL Skills
 
+Impeccable is an external interface-design experience-baseline capability,
+declared in the policy rather than copied into the three-router payload. Its
+upstream installer/update command owns its Skill and engine. Framework observes
+the original Skill payload and exposes missing readiness with the owner repair
+route; Flow's Profile and development router select its relevant design,
+critique, audit, polish, or adaptation playbook when useful. Browser/native
+tools retain rendered and interaction verification. Design-detector findings
+remain evidence for contextual judgment. Hooks are opt-in, and offline Full
+distribution is not selected for this capability.
+
 All OPL-owned software-development capability belongs in OPL Flow and shares
 one Plugin lifecycle. Discovery is deliberately limited to three routers:
 

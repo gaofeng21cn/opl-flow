@@ -345,6 +345,7 @@ def check_workflow_policy(repo_root: Path) -> list[str]:
         if item.get("kind") == "codex_skill"
     }
     expected = {
+        "impeccable",
         "agent-reach",
         "officecli", "officecli-docx", "officecli-pptx", "officecli-xlsx",
         "officecli-academic-paper", "officecli-data-dashboard",
@@ -360,6 +361,10 @@ def check_workflow_policy(repo_root: Path) -> list[str]:
     }
     officecli_source = "https://github.com/iOfficeAI/OfficeCLI"
     expected_skill_sources = {
+        "impeccable": (
+            "https://github.com/pbakaus/impeccable",
+            ".agents/skills/impeccable",
+        ),
         "agent-reach": (
             "https://github.com/Panniantong/Agent-Reach",
             "agent_reach/skill",
@@ -764,6 +769,7 @@ def check_workflow_policy(repo_root: Path) -> list[str]:
             if bundle_members.get(member_ref) != bundle.get("id"):
                 errors.append(f"workflow capability {member_ref} must point back to bundle {bundle.get('id')}")
     expected_bundle_relationships = {
+        "interface-design": "experience_baseline",
         "internet-research": "experience_baseline",
         "office-authoring": "experience_baseline",
         "document-extraction": "experience_baseline",

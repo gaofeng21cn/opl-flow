@@ -53,6 +53,10 @@ grilling, or named lens reference.
 - Use `$opl-flow` for OPL Flow Profile, Package, Ledger, or Fleet operations.
 - Use platform or domain Skills for their actual implementation domain; this
   router owns the development path, not every technology manual.
+- Use `impeccable` for interface design, UX critique, accessibility review, or
+  visual refinement when that work benefits the task. Preserve the product's
+  existing design authority; use the platform/browser tools for rendered and
+  interaction evidence.
 - A release, deployment, migration, public write, or destructive mutation loads
   `references/delivery/production-change.md` before the first real mutation.
 - Do not load neighboring guides pre-emptively or turn this router into a
