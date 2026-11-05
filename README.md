@@ -11,7 +11,7 @@
 <p align="center"><strong>The Codex baseline and durable work-coordination layer</strong></p>
 
 <p align="center">
-  <img src="assets/branding/opl-flow-ai-fleet-v3.png" alt="OPL Ledger objectives connect through Flow and Fleet to independently managed execution nodes" width="100%" />
+  <img src="assets/branding/opl-flow-coordination.png" alt="OPL Flow routes goals and events through Router and Worker to outcomes, with Ledger preserving ongoing work and Fleet providing execution support when needed" width="100%" />
 </p>
 
 OPL Flow provides a concise user Profile, model recommendation, capability
@@ -40,20 +40,27 @@ use their own installation and update channels.
 
 ## Coordination model
 
-OPL Flow uses the routers as the attention boundary for work. The selected
-Router sends an event to the current Ledger owner; a Worker performs one
-bounded slice; Fleet supplies continuity and capacity when another executor or
-machine is needed; the Ledger keeps the single durable task truth. A Worker,
-Session, or machine can be replaced without creating a second objective.
+OPL Flow coordinates four responsibilities. Router chooses the method and finds
+the current owner; Worker advances the work, verifies artifacts, and returns
+results or checkpoints. For ongoing work, Ledger preserves the objective, owner, and
+progress across execution attempts. Fleet supplies environment, capacity, and
+handoff support when needed. Work can start in the current local task and add
+persistence or execution resources as its needs grow.
 
 ```text
-event -> Router -> Ledger owner -> Fleet capacity -> Worker
-      -> checkpoint/result/blocker -> Ledger readback
+goals/events -> Router -> current owner / Worker -> artifacts + evidence
+                 ^                  |
+                 +----- Ledger <----+  (ongoing work)
+Fleet -- when needed --> Worker environment, capacity, and handoff
 ```
 
-This is the direction for the whole workflow, not a claim that every handoff is
-already automated. The implementation grows from real use and preserves the
-existing owner and write-set boundaries.
+Ledger keeps the single durable task truth and links it to owner-managed
+artifacts and evidence. Obsidian + Bases provides the complete human archive;
+Linear optionally projects active goals. Replacing a Worker, session, or machine
+preserves the same objective.
+The [workflow architecture](docs/reusable-workflow-architecture.md) details this
+coordination model; its automated handoffs evolve through real use while
+preserving owner and write-set boundaries.
 
 The OPL Flow whitepaper explains how consistent task intake, automated
 delivery, and recoverable execution turn Agent capabilities into continuous

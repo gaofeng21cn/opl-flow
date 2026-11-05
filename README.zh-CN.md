@@ -11,7 +11,7 @@
 <p align="center"><strong>Codex 基线与持久工作协同层</strong></p>
 
 <p align="center">
-  <img src="assets/branding/opl-flow-ai-fleet-v3.png" alt="OPL 总账目标通过 Flow 和 Fleet 连接到独立维护的执行节点" width="100%" />
+  <img src="assets/branding/opl-flow-coordination.png" alt="OPL Flow 由 Router 接收目标与事件，交给 Worker 形成成果；Ledger 保存持续工作的进展，Fleet 按需提供执行支持" width="100%" />
 </p>
 
 OPL Flow 为 Codex 提供精简用户 Profile、模型建议、能力策略和可复用 Skill。
@@ -36,18 +36,22 @@ Flow 是可选组件。缺少 Flow 不阻断 Codex、OPL Base、App、其他 Pac
 
 ## 协同模型
 
-OPL Flow 以三个 Router 作为工作的注意力入口。Router 将事件交给 Ledger
-中的当前负责人；Worker 执行一个有限切片；需要更换执行器或机器时，由 Fleet
-提供连续性和容量；Ledger 始终保存唯一的持久任务真相。Worker、Session 或机器
-可以被替换，但不会因此创建第二个目标。
+OPL Flow 协调四种责任：Router 选择工作方法并找到当前负责人；Worker 自主推进工作、
+验证成果，并交回结果或检查点；持续工作由 Ledger 跨执行尝试保存目标、负责人和
+进展；需要时由 Fleet 提供环境、容量与接力支持。工作可以从当前本机任务开始，
+再随需要增加持久记录或执行资源。
 
 ```text
-事件 → Router → Ledger 当前负责人 → Fleet 容量 → Worker
-     → 检查点/结果/阻塞 → Ledger 回读
+目标/事件 → Router → 当前负责人 / Worker → 成果与证据
+              ↑                 |
+              └──── Ledger ←────┘（持续工作）
+Fleet ── 按需 ──→ Worker 的环境、容量与接力
 ```
 
-这是整个工作流的演进方向，并不把尚未自动化的交接描述成现成能力。实现应由
-真实使用中的摩擦推动，并保留现有负责人和写集边界。
+Ledger 是持久任务状态的唯一权威，连接各自 owner 保存的成果和证据。
+Obsidian + Bases 提供完整人读档案，Linear 可选地投影活跃目标。更换 Worker、会话或机器后仍继续同一
+目标。[工作流架构](docs/reusable-workflow-architecture.md)说明这套协同模型；
+自动化交接随真实使用逐步完善，并保留负责人和写集边界。
 
 OPL Flow 白皮书说明一致的任务接收、自动投递和可恢复执行，如何将智能体能力
 组织成持续工作的体系：[在线阅读](https://gaofeng21cn.github.io/one-person-lab/latest/whitepapers/opl-flow-whitepaper.html)、

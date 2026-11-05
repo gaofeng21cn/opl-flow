@@ -129,19 +129,26 @@ adapters. Fleet should not reimplement their strongest primitives.
 ## Authority Model
 
 ```mermaid
-flowchart LR
-    U["Natural-language intent"] --> C["Control Agent: judgment and graph refinement"]
-    C --> L["OPL Ledger: objective and graph truth"]
-    L --> F["OPL Fleet Controller: attempt and capacity control"]
+flowchart TB
+    U["Goals and events"] --> C["Router and current owner: judgment and graph refinement"]
+    C <-->|"objective and execution state"| L["OPL Ledger: objective and graph truth"]
+    C -->|"when Fleet is needed"| F["OPL Fleet Controller: attempt and capacity control"]
     I["Private OPL Instance: nodes, policy, private routes"] --> F
     F --> D["Fresh doctor and admission"]
     D --> X["Execution adapter"]
-    X --> N["Managed node and worker Agent runtime"]
+    X --> N["Managed node and Worker runtime"]
     N --> R["Checkpoint, result, and sanitized receipt"]
     R --> F
     R --> L
+    R -->|"meaningful changes"| C
     G["GitHub and artifact owners"] <--> N
 ```
+
+This diagram details the Fleet-assisted execution path. Local work can run in
+the current task without Fleet. Router and the current owner request execution;
+Ledger stores objective and execution state. Worker results return to that
+same objective, and meaningful changes reach the responsible owner for the
+next decision.
 
 The boundaries are strict:
 

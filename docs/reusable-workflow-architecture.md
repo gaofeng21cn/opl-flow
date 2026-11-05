@@ -26,22 +26,32 @@ Ordinary reasoning does not need a method loaded in advance.
 ## Router, Worker, Fleet, And Ledger
 
 The routers are the attention boundary for the workflow. A selected Router
-hands each request to the responsible owner instead of asking every component
-to interpret the same event. The Worker performs one bounded execution slice;
-it may run in the current task or through a Fleet adapter and may be replaced
-without changing the objective. Fleet supplies node/workspace continuity and
-protected capacity. The Ledger remains the only durable task truth.
+hands each event to the current responsible owner and method. Worker advances
+the work to a useful result or checkpoint, using the current task or another
+execution carrier. Simple local work can complete directly. Ongoing work uses
+Ledger to preserve its objective, owner, checkpoints, and remaining work;
+Fleet supplies environment, protected capacity, and handoff support when needed.
 
-```text
-event -> Router -> Ledger owner/next slice -> Fleet capacity -> Worker
-      -> checkpoint/result/blocker -> Ledger readback
+```mermaid
+flowchart TB
+    E["Goals and events"] --> R["Router: method, current owner, next action"]
+    R --> W["Worker: execute, verify, checkpoint"]
+    W --> A["Artifacts and evidence: respective owners"]
+    W -->|"ongoing work: results and checkpoints"| L["Ledger: durable objective, owner, progress"]
+    L -->|"current state and recovery context"| R
+    F["Fleet: environment, capacity, handoff"] -.->|"when needed"| W
+    L -.-> O["Obsidian + Bases: complete human archive"]
+    L -.-> P["Linear: optional active-goal projection"]
 ```
 
-This is an operating principle, not a claim that every handoff is already
-automated. Add a mechanism only when a real workflow exposes a missing handoff,
-recovery boundary, or capacity decision. Do not create a second task database,
-copy a conversation between nodes, or turn the global Supervisor into a
-resident execution loop.
+The [Flow whitepaper](whitepapers/opl-flow-whitepaper.md) explains this
+coordination model. Ledger remains the only durable task truth; replacing a
+Worker, session, or machine preserves the same objective. Its human views
+reference the same work, while artifact owners retain source and delivery
+evidence. Automated handoffs evolve through real use. Add a mechanism only when
+a workflow exposes a missing handoff, recovery boundary, or capacity decision.
+Do not create a second task database, copy a conversation between nodes, or
+turn the global Supervisor into a resident execution loop.
 
 Public product code lives in `gaofeng21cn/opl-flow`. Independent
 non-development workflows live in `gaofeng21cn/opl-skills`. Each owner keeps
