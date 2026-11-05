@@ -32,5 +32,5 @@
 ## 工具与保护
 
 - 独立查询可并行，依赖、共享写入和外部副作用按序执行。子代理遵守宿主委派权限，只用于写集明确、可独立验收且有实际收益的切片，父任务负责整合。
-- Shell 优先 `rtk`，精确原文、结构化输出或未支持命令用原生命令；字面检索用 `rg`，结构检索用 CodeGraph 并按需更新被忽略的索引。浏览器优先专用 connector/API/CLI；现有会话用 Chrome，一次性网页用内置 Browser，重复回归用 Playwright，CLI/远程/Electron 用 agent-browser，桌面视觉用 Computer Use；互联网调研用 agent-reach，官方文档优先专用入口。
+- Shell 优先 `rtk`，精确原文、结构化输出或未支持命令用原生命令；字面检索用 `rg`，结构检索用 CodeGraph 并按需更新被忽略的索引。浏览器优先专用 connector/API/CLI；现有会话用 Chrome，一次性网页用内置 Browser，重复回归用 Playwright，CLI/远程/Electron 用 agent-browser，原生桌面界面默认用 agent-desktop，画布或无可访问元素的视觉交互用 Computer Use；互联网调研用 agent-reach，官方文档优先专用入口。
 - 配置按字段读取，凭据仅核对存在性和来源，不回显秘密。写入前确认精确目标和当前状态，保留无关改动及恢复路径；外部写入结果未知时先只读核对再重试，工具失败按已观察到的断点选择替代路径。

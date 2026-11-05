@@ -23,9 +23,10 @@ Machine boundary: 本文只定义默认选路与降级纪律；当前可用 conn
 | 有专用 connector/API/CLI 的语义操作 | connector/API/CLI | UI 仅处理缺失的交互 | 任意浏览器自动化 |
 | 用户说“操作我现在打开的 Chrome”、要求当前标签页、扩展或已有登录态 | `chrome:control-chrome` | 用户明确同意后改用内置 Browser；若只是 API 任务则回到 connector/API/CLI | Playwright、agent-browser |
 | 用户明确要求 Codex 内置 Browser，或没有指定浏览器的一次性网页交互 | `browser:control-in-app-browser` | 未指定浏览器且内置 Browser 不可用时，按 Browser skill 的运行时选择 Chrome；明确指定内置 Browser 时不可擅自替换 | Playwright、agent-browser |
-| 重复执行、批量表单、回归验证、网页应用开发调试 | Playwright | 页面只支持 CLI/远程 Chromium 时用 agent-browser；需要真实桌面交互时用 Computer Use | Chrome 当前会话、内置 Browser临时操作 |
+| 重复执行、批量表单、回归验证、网页应用开发调试 | Playwright | 页面只支持 CLI/远程 Chromium 时用 agent-browser；原生界面用 agent-desktop，视觉交互用 Computer Use | Chrome 当前会话、内置 Browser临时操作 |
 | agent-browser 专项能力：CLI 会话、远程 Chromium、Electron、其内置 dogfood/derive-client 等 | `agent-browser` | 回到 Playwright 仅在需要 Playwright 生态或测试产物时 | 把它当作所有网页任务的默认入口 |
-| 原生桌面应用、系统文件选择器、拖放、富文本/画布等 DOM 无法可靠表达的交互 | `computer-use:computer-use` | 先回到专用 API/CLI；网页 DOM 稳定后回到主浏览器工具 | 用 Computer Use 代替普通表单自动化 |
+| 原生桌面应用、系统文件选择器等具有可访问元素的界面 | `agent-desktop` | 先检查专用 API/CLI；可访问元素缺失或已确认存在原生接口缺口时用 Computer Use | 用截图和坐标代替可用的语义元素 |
+| 画布、拖放或无可访问元素的视觉交互 | Computer Use | `agent-desktop` 已暴露合适语义元素时回到该入口；网页 DOM 稳定后回到主浏览器工具 | 用视觉操作代替普通表单自动化 |
 | 互联网调研、网页阅读、社交平台或 GitHub 检索 | `agent-reach` 或对应专用 connector/API/CLI | 只有需要视觉确认或登录后 UI 操作时才启用 Browser | 用完整浏览器自动化做纯检索 |
 
 ## 表单与杂志编辑
@@ -34,7 +35,7 @@ Machine boundary: 本文只定义默认选路与降级纪律；当前可用 conn
 
 - 用户要求继续当前页面、复用已有编辑登录态或当前 Chrome 标签页：使用 `chrome:control-chrome`。
 - 用户没有指定浏览器，也没有现成登录态要求：使用 Codex 内置 Browser，保持会话隔离。
-- 表单包含文件上传、富文本编辑器、拖放或系统对话框时，仍先在选定浏览器中完成；只有 DOM/浏览器 API 无法可靠完成时，才切到 Computer Use（且仅限其支持的本机桌面）。
+- 表单包含文件上传、富文本编辑器、拖放或系统对话框时，仍先在选定浏览器中完成；DOM/浏览器 API 无法完成的原生界面使用 `agent-desktop`，画布、拖放或无可访问元素的视觉交互使用 Computer Use。
 - 发送、提交、发布、上传前检查目标、内容和授权；工具切换不能绕过确认要求。
 
 ### 重复或可测试的编辑流程
@@ -51,7 +52,8 @@ Machine boundary: 本文只定义默认选路与降级纪律；当前可用 conn
   -> 明确的 Chrome / Codex 内置 Browser
   -> Playwright（重复、回归、可测试流程）
   -> agent-browser（CLI/远程 Chromium/Electron 专项）
-  -> Computer Use（原生桌面或视觉交互）
+  -> agent-desktop（原生桌面可访问元素）
+  -> Computer Use（画布、拖放或无可访问元素的视觉交互）
 ```
 
 这不是无条件的线性重试链：
@@ -59,6 +61,8 @@ Machine boundary: 本文只定义默认选路与降级纪律；当前可用 conn
 - 用户明确指定浏览器时，保持该选择；认证失败应要求用户在该浏览器完成登录，不能擅自换浏览器。
 - 未指定浏览器时，Browser runtime 可以按可用性选择内置 Browser 或 Chrome；这不等于后续可以随机切换。
 - Playwright 的 selector 失败先重新获取页面状态；agent-browser 的 accessibility ref 失效先重新 snapshot；两者都不能用来掩盖页面或权限根因。
+- `agent-desktop` 首次使用读取 `skills get desktop` 和 `skills get platform`，以当前 CLI 的指南为准。动作后独立回读目标界面；交付结果不明时先观察，只有 `disposition.retry` 为 `safe` 才重试。
+- 目标节点尚未安装时，通过官方 `npm install -g agent-desktop` 和上游 `agent-desktop` Skill 安装入口配置，再回读 `status`、权限及真实界面。路由声明不代表其他节点已经安装或获得系统权限。
 - Computer Use 不作为远程 Windows/WSL 浏览器的通用补救工具；远程节点应优先使用目标节点可用的 Browser/Playwright/agent-browser 能力，并报告环境缺口。
 - 登录态、上传能力、视觉能力或目标平台不可用时，报告具体 blocker，而不是声称流程完成。
 
@@ -70,7 +74,8 @@ Machine boundary: 本文只定义默认选路与降级纪律；当前可用 conn
 一次性网页交互且未指定浏览器？      -> browser:control-in-app-browser
 需要重复、批量、回归或测试产物？     -> Playwright
 目标是远程 Chromium/CLI/Electron？   -> agent-browser
-需要原生桌面、文件对话框或视觉坐标？ -> Computer Use
+需要原生桌面、文件对话框可访问元素？ -> agent-desktop
+需要画布、拖放或无可访问元素的视觉？ -> Computer Use
 只是互联网搜索/阅读/调研？          -> agent-reach 或专用检索工具
 ```
 
