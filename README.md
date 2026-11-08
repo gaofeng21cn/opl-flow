@@ -121,6 +121,12 @@ scripts/verify.sh
 scripts/verify.sh full
 ```
 
+Package content-lock encoding comes from Framework's generated portable helper,
+`skills/opl-flow/scripts/_opl_package_content_lock.py`. Regenerate it with
+Framework's `scripts/materialize-python-support.mjs --module package_content_lock
+--target /path/to/opl-flow/skills/opl-flow/scripts/_opl_package_content_lock.py`;
+`scripts/verify.sh full --framework-root /path/to/one-person-lab` checks byte parity.
+
 These checks validate source contracts; they do not install, publish, or certify
 a user's machine. [The documentation index](docs/README.md) routes architecture,
 installation, protocol, and maintainer guidance to their owning documents.

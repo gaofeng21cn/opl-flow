@@ -5,6 +5,7 @@ import copy
 import hashlib
 import importlib.util
 import subprocess
+import sys
 import tempfile
 import unittest
 from pathlib import Path
@@ -16,7 +17,8 @@ SCRIPT_PATH = REPO_ROOT / "skills" / "opl-flow" / "scripts" / "package_release.p
 SPEC = importlib.util.spec_from_file_location("package_release", SCRIPT_PATH)
 assert SPEC and SPEC.loader
 release = importlib.util.module_from_spec(SPEC)
-SPEC.loader.exec_module(release)
+with patch.object(sys, "path", [str(SCRIPT_PATH.parent), *sys.path]):
+    SPEC.loader.exec_module(release)
 
 
 class PackageReleaseTests(unittest.TestCase):
@@ -596,7 +598,7 @@ class PackageReleaseTests(unittest.TestCase):
             plugin.assert_not_called()
 
     def test_activate_rejects_projection_only_uncallable_or_modified_headless_install(self) -> None:
-        for fault in ("projection", "disabled", "visible", "bytes"):
+        for fault in ("projection", "disabled", "visible", "bytes", "path_type"):
             with self.subTest(fault=fault), tempfile.TemporaryDirectory() as temporary:
                 args, package, status, skill = self.installed_fixture(Path(temporary))
                 if fault == "projection":
@@ -605,6 +607,9 @@ class PackageReleaseTests(unittest.TestCase):
                     status["installed_readiness"]["projection_callability"] = "disabled"
                 elif fault == "visible":
                     status["configured_carrier"]["enabled"] = True
+                elif fault == "path_type":
+                    package["content_lock"]["paths"] = [42]
+                    release.write_json(skill.parents[2] / "opl-package.json", package)
                 else:
                     skill.write_bytes(b"tampered\n")
                 with self.assertRaises(release.ReleaseError):

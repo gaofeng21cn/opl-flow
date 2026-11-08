@@ -40,6 +40,7 @@ REQUIRED_FILES = (
     "skills/opl-flow/references/terminal-readback.md",
     "skills/opl-flow/references/fleet/guide.md",
     "skills/opl-flow/scripts/package_release.py",
+    "skills/opl-flow/scripts/_opl_package_content_lock.py",
     "skills/software-development/SKILL.md",
     "skills/software-development/agents/openai.yaml",
     "skills/software-development/references/delivery/guide.md",
@@ -992,6 +993,7 @@ def check_contract_tests(repo_root: Path, lane: str) -> list[str]:
 def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("lane", nargs="?", choices=VERIFY_LANES, default="core")
+    parser.add_argument("--framework-root", type=Path, help="Verify generated Framework support byte parity")
     return parser.parse_args(argv)
 
 
@@ -999,6 +1001,12 @@ def main(argv: list[str] | None = None) -> int:
     args = parse_args(argv)
     repo_root = Path(__file__).resolve().parents[1]
     errors: list[str] = []
+    if args.framework_root:
+        subprocess.run([
+            "node", str(args.framework_root / "scripts/materialize-python-support.mjs"),
+            "--module", "package_content_lock", "--target",
+            str(repo_root / "skills/opl-flow/scripts/_opl_package_content_lock.py"), "--check",
+        ], check=True)
     errors.extend(check_required_files(repo_root))
     errors.extend(check_plugin_json(repo_root))
     errors.extend(check_workflow_policy(repo_root))

@@ -13,4 +13,5 @@ case "$lane" in
     ;;
 esac
 
-python3 scripts/verify.py "$lane"
+if [[ $# -gt 0 ]]; then shift; fi
+python3 scripts/verify.py "$lane" "$@"

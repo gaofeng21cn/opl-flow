@@ -18,6 +18,8 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Sequence
 
+from _opl_package_content_lock import content_digest as package_content_digest
+
 
 class ReleaseError(RuntimeError):
     pass
@@ -801,20 +803,15 @@ def installed_package_evidence(
             or not isinstance(content_lock.get("paths"), list)
         ):
             raise ReleaseError(f"installed Package content lock differs: {package_id}")
-        digest = hashlib.sha256()
-        for relative in content_lock["paths"]:
+        def read_content(relative: str) -> bytes:
             if not isinstance(relative, str) or not (root / relative).resolve().is_relative_to(root):
                 raise ReleaseError(f"installed Package content path is invalid: {package_id}")
             try:
-                data = (root / relative).read_bytes()
+                return (root / relative).read_bytes()
             except OSError as exc:
                 raise ReleaseError(f"installed Package content is unavailable: {relative}") from exc
-            encoded = relative.encode("utf-8")
-            digest.update(len(encoded).to_bytes(8, "big"))
-            digest.update(encoded)
-            digest.update(len(data).to_bytes(8, "big"))
-            digest.update(data)
-        content_digest = f"sha256:{digest.hexdigest()}"
+
+        content_digest = package_content_digest(content_lock["paths"], read_content)
         if content_digest != content_lock.get("digest"):
             raise ReleaseError(f"installed Package content bytes differ from its lock: {package_id}")
     return {
