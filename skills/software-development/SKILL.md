@@ -46,6 +46,13 @@ Within `delivery`, load `legacy-change.md`, `pre-push.md`, or
 `architecture`, load only the requested map, improvement, simplification,
 grilling, or named lens reference.
 
+For an OPL Agent App or generated Agent, use the Framework-owned
+[Agent App standard](https://github.com/gaofeng21cn/one-person-lab/blob/main/docs/policies/agent-native-app-policy.md)
+and [development guide](https://github.com/gaofeng21cn/one-person-lab/blob/main/docs/mcp-apps/development.md)
+in the selected delivery or architecture mode. The delivery guide's
+[OPL Agent Apps section](references/delivery/guide.md#opl-agent-apps) connects those sources to the existing Blueprint and
+evaluation path; Flow does not define another app format.
+
 ## Boundaries
 
 - Use `$manage-codex-tasks` when the work requires multiple Codex tasks,

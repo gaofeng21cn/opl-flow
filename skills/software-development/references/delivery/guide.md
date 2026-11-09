@@ -83,6 +83,27 @@ resume at the affected gate and retain passed evidence whose inputs and executio
 conditions remain valid. A Go entrypoint with no tests needs its owner's existing
 behavior suite; compilation alone is not behavior evidence.
 
+## OPL Agent Apps
+
+When creating or extending an OPL Agent App, start from Framework's
+[development guide](https://github.com/gaofeng21cn/one-person-lab/blob/main/docs/mcp-apps/development.md)
+and the actual owner contracts. Record connection capabilities, required and
+optional knowledge sources, the human intervention point, and the smallest UI
+choice in the existing product design or OMA `AgentBlueprint`. Use its current
+schema and `EvalSpec`; OMA owns design semantics and Framework Foundry owns
+materialization and evaluation. Reuse the existing Package, official MCP Apps
+SDK, Connect, knowledge sources, and task runtime; do not create parallel
+versions of these facilities for MiniApps.
+
+Verify one representative path from discovery and Agent invocation to the same
+owner's result. When human interaction is needed, carry the exact object and
+revision into a shared view, dedicated MCP App, or professional application,
+then read the decision back through that owner. Exercise applicable stale,
+revoked, unknown-outcome, reopen, and no-UI cases in the owner's existing tests.
+Report source tests, real Host interaction, installed carrier, and domain
+acceptance separately; use a second real consumer to establish that shared
+connection, knowledge, or view code is reusable before extracting a new layer.
+
 ## Repair Before Proof
 
 For a `change` task, once the real failure is reproducible or its deepest
