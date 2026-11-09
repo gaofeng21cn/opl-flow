@@ -6,8 +6,10 @@ no Git commit, tag, or Profile write.
 
 ## Authorities
 
-- Owner canonical `main` and annotated `v<version>` select the source bytes.
-- Framework canonical `main` selects the generated Package projection.
+- Owner canonical `main` selects source bytes; a published release additionally
+  requires an annotated `v<version>` tag.
+- Framework canonical `main` selects the release Package projection; an explicit
+  external projection selects a local source installation.
 - The protected `publish-package.yml` workflow owns immutable OCI publication
   and `latest-stable` advancement.
 - Codex Plugin Manager owns installed carrier bytes. The user's
@@ -30,7 +32,59 @@ and the OCI repository. Changes remain in repository documentation and Git
 history. Domain qualification is separate from Package publication. This rule
 does not apply to App products with independently distributed installers.
 
-## Three Actions
+## Local Source Preparation
+
+Use `prepare-source` to prepare a local source installation before publication.
+Both the owner and Framework checkouts must be clean, with each `HEAD` equal to
+its fresh `origin/main`. The command rechecks their cleanliness and exact commits
+after generation. It keeps the owner's Package and Plugin identities and binds
+the exact source commit and content locks through the existing projection and
+payload generators. It does not require or create a tag, publish an OCI artifact,
+or advance `latest-stable`.
+
+Resolve `<opl-flow-skill>` to the loaded Skill directory and supply absolute
+roots:
+
+```bash
+python3 <opl-flow-skill>/scripts/package_release.py prepare-source \
+  --package-id <id> --owner-root <owner> --framework-root <framework> \
+  --output-root <new-external-output-root>
+```
+
+The output root must not exist and must be outside both source trees. The command
+exports the committed Framework projection baseline for dependency resolution,
+updates only the selected Package, and atomically creates `packages/` and `allowlists/` below
+that root. Each invocation produces a complete independent set. For several
+Packages, choose a separate new root for each, such as `<output-parent>/<id>`;
+do not accumulate preparations in one output directory.
+
+The result reports `package_projection_dir`, `payload_sha256`,
+`owner_source_commit`, `framework_source_commit`, and the native selector, with
+publication and native mutation both false. Preparation alone does not install the Package. Preserve
+this output for the intended installation and its readback; the Framework
+release projection remains unchanged.
+
+For an authorized native installation, set `OPL_PACKAGE_PROJECTION_DIR` to the
+returned `package_projection_dir` (`<output-root>/packages`), select
+`OPL_MODULE_SOURCE_MODE=git_checkout`, and provide the exact owner checkout using
+`OPL_MODULE_PATH_<PACKAGE_ID>` with punctuation removed and letters uppercase.
+For example, update an installed OPL Book Forge carrier with:
+
+```bash
+OPL_PACKAGE_PROJECTION_DIR=<output-root>/packages \
+OPL_MODULE_SOURCE_MODE=git_checkout \
+OPL_MODULE_PATH_OBF=<owner> \
+<framework>/bin/opl packages update obf --json
+```
+
+Use `packages install obf` if the Package is absent. The native lifecycle keeps
+the declared Package/Plugin identity and verifies the selected source bytes
+against the prepared payload; it owns carrier writes and fresh installed
+readback. Local activation is evidence of that source installation, not a
+published release. Keep the same projection and source selection for subsequent
+readback of this installation.
+
+## Three Release Actions
 
 Resolve `<opl-flow-skill>` to the loaded Skill directory, then run from the
 Package owner repository with absolute roots:

@@ -12,6 +12,7 @@ import os
 import re
 import subprocess
 import sys
+import tarfile
 import tempfile
 import time
 from datetime import datetime, timezone
@@ -113,18 +114,23 @@ def committed_json(root: Path, commit: str, relative: str) -> dict[str, Any]:
     return value
 
 
-def require_owner_release(
+def require_canonical_checkout(root: Path, label: str) -> str:
+    if git_value(root, "status", "--porcelain"):
+        raise ReleaseError(f"{label} checkout must be clean before projection")
+    command(["git", "fetch", "origin", "main", "--tags", "--quiet"], cwd=root)
+    source_commit = git_value(root, "rev-parse", "HEAD")
+    if source_commit != git_value(root, "rev-parse", "origin/main"):
+        raise ReleaseError(f"{label} HEAD must equal fresh origin/main")
+    return source_commit
+
+
+def require_owner_source(
     owner_root: Path, package_id: str, *, owner_manifest_ref: str,
-    source_root: str, workflow_profile: bool = False,
+    source_root: str, workflow_profile: bool = False, require_tag: bool = False,
 ) -> tuple[dict[str, Any], str, str]:
     safe_owner_ref(owner_manifest_ref, "owner manifest ref")
     safe_owner_ref(source_root, "payload source root")
-    if git_value(owner_root, "status", "--porcelain"):
-        raise ReleaseError("owner checkout must be clean before projection")
-    command(["git", "fetch", "origin", "main", "--tags", "--quiet"], cwd=owner_root)
-    source_commit = git_value(owner_root, "rev-parse", "HEAD")
-    if source_commit != git_value(owner_root, "rev-parse", "origin/main"):
-        raise ReleaseError("owner HEAD must equal fresh origin/main")
+    source_commit = require_canonical_checkout(owner_root, "owner")
     canonical = committed_json(owner_root, source_commit, owner_manifest_ref)
     descriptor_ref = (Path(source_root) / "opl-package.json").as_posix()
     descriptor = committed_json(owner_root, source_commit, descriptor_ref)
@@ -132,11 +138,12 @@ def require_owner_release(
     version = str(manifest.get("version") or "")
     if manifest.get("package_id") != package_id or not re.fullmatch(r"\d+\.\d+\.\d+", version):
         raise ReleaseError("owner opl-package.json has an invalid package id or stable SemVer")
-    tag = f"v{version}"
-    if git_value(owner_root, "cat-file", "-t", f"refs/tags/{tag}") != "tag":
-        raise ReleaseError(f"owner release tag must be annotated: {tag}")
-    if git_value(owner_root, "rev-parse", f"{tag}^{{}}") != source_commit:
-        raise ReleaseError(f"owner release tag does not select HEAD: {tag}")
+    if require_tag:
+        tag = f"v{version}"
+        if git_value(owner_root, "cat-file", "-t", f"refs/tags/{tag}") != "tag":
+            raise ReleaseError(f"owner release tag must be annotated: {tag}")
+        if git_value(owner_root, "rev-parse", f"{tag}^{{}}") != source_commit:
+            raise ReleaseError(f"owner release tag does not select HEAD: {tag}")
     owner_identity = canonical.get("package") if workflow_profile else canonical
     if not isinstance(owner_identity, dict) or (
         owner_identity.get("package_id", owner_identity.get("id")) != package_id
@@ -163,6 +170,16 @@ def require_owner_release(
         if plugin.get("name") != surface.get("plugin_id") or plugin.get("version") != version:
             raise ReleaseError("committed carrier plugin identity or version differs from owner")
     return manifest, version, source_commit
+
+
+def require_owner_release(
+    owner_root: Path, package_id: str, *, owner_manifest_ref: str,
+    source_root: str, workflow_profile: bool = False,
+) -> tuple[dict[str, Any], str, str]:
+    return require_owner_source(
+        owner_root, package_id, owner_manifest_ref=owner_manifest_ref,
+        source_root=source_root, workflow_profile=workflow_profile, require_tag=True,
+    )
 
 
 def package_skill_ids(package: dict[str, Any]) -> list[str]:
@@ -236,21 +253,22 @@ def owner_projection(
     return projected
 
 
-def prepare(args: argparse.Namespace) -> dict[str, Any]:
+def prepare(
+    args: argparse.Namespace, *, source_only: bool = False, projection_root: Path | None = None,
+) -> dict[str, Any]:
     owner_root = Path(args.owner_root).resolve()
     framework_root = Path(args.framework_root).resolve()
-    package_path = framework_root / "contracts/opl-framework/packages" / f"{args.package_id}.json"
-    allowlist_path = (
-        framework_root
-        / "contracts/opl-framework/package-payload-allowlists"
-        / f"{args.package_id}.json"
-    )
+    package_directory = projection_root / "packages" if projection_root else framework_root / "contracts/opl-framework/packages"
+    allowlist_directory = projection_root / "allowlists" if projection_root else framework_root / "contracts/opl-framework/package-payload-allowlists"
+    package_path = package_directory / f"{args.package_id}.json"
+    allowlist_path = allowlist_directory / f"{args.package_id}.json"
     previous = read_json(package_path)
     allowlist = read_json(allowlist_path)
     publication_source = previous.get("publication_source")
     if not isinstance(publication_source, dict):
         raise ReleaseError("Framework projection has no owner publication source")
-    owner_manifest, version, source_commit = require_owner_release(
+    source_reader = require_owner_source if source_only else require_owner_release
+    owner_manifest, version, source_commit = source_reader(
         owner_root, args.package_id,
         owner_manifest_ref=publication_source.get("owner_package_manifest_ref"),
         source_root=allowlist.get("source_root"),
@@ -353,7 +371,78 @@ def prepare(args: argparse.Namespace) -> dict[str, Any]:
         "package_id": args.package_id,
         "version": version,
         "owner_source_commit": source_commit,
+        "payload_sha256": sha256_bytes(payload_bytes),
         "updated_files": updated_files,
+    }
+
+
+def prepare_source(args: argparse.Namespace) -> dict[str, Any]:
+    """Prepare exact canonical source for the existing developer carrier transport."""
+    owner_root = Path(args.owner_root).resolve()
+    framework_root = Path(args.framework_root).resolve()
+    requested_output = Path(args.output_root).expanduser()
+    output_root = requested_output.resolve()
+    if any(output_root.is_relative_to(root) or root.is_relative_to(output_root)
+           for root in (owner_root, framework_root)):
+        raise ReleaseError("source output must be independent of owner and Framework checkouts")
+    if requested_output.is_symlink() or output_root.exists():
+        raise ReleaseError("source output root must not already exist")
+    framework_commit = require_canonical_checkout(framework_root, "Framework")
+    output_root.parent.mkdir(parents=True, exist_ok=True)
+    with tempfile.TemporaryDirectory(prefix=".opl-source-projection-", dir=output_root.parent) as temporary:
+        staging = Path(temporary) / "projection"
+        # Preserve dependency discovery in the existing projection mechanism.
+        source_directories = {
+            "contracts/opl-framework/packages": "packages",
+            "contracts/opl-framework/package-payload-allowlists": "allowlists",
+        }
+        archive = Path(temporary) / "framework-projection.tar"
+        command(["git", "archive", "--format=tar", f"--output={archive}", framework_commit,
+                 *source_directories], cwd=framework_root)
+        with tarfile.open(archive) as snapshot:
+            for member in snapshot:
+                if member.isdir():
+                    continue
+                prefix = next((name for name in source_directories if member.name.startswith(f"{name}/")), None)
+                if not prefix or not member.isfile():
+                    raise ReleaseError("Framework projection snapshot must contain regular files only")
+                relative = safe_owner_ref(member.name[len(prefix) + 1:], "Framework projection snapshot path")
+                target = staging / source_directories[prefix] / relative
+                target.parent.mkdir(parents=True, exist_ok=True)
+                stream = snapshot.extractfile(member)
+                if stream is None:
+                    raise ReleaseError("Framework projection snapshot file is unreadable")
+                target.write_bytes(stream.read())
+        result = prepare(args, source_only=True, projection_root=staging)
+        if (git_value(owner_root, "status", "--porcelain")
+                or git_value(owner_root, "rev-parse", "HEAD") != result["owner_source_commit"]):
+            raise ReleaseError("owner checkout changed during source preparation")
+        if (git_value(framework_root, "status", "--porcelain")
+                or git_value(framework_root, "rev-parse", "HEAD") != framework_commit):
+            raise ReleaseError("Framework checkout changed during source preparation")
+        package_path = staging / "packages" / f"{args.package_id}.json"
+        package = read_json(package_path)
+        carrier = package["codex_surface"].get("configured_codex_plugin_carrier", {})
+        selector = carrier.get("plugin_selector")
+        if not isinstance(selector, str) or selector.count("@") != 1:
+            raise ReleaseError("source Package must retain its declared native plugin identity")
+        updated_files = [str(output_root / Path(filename).relative_to(staging)) for filename in result["updated_files"]]
+        if output_root.exists():
+            raise ReleaseError("source output root was created during preparation")
+        staging.rename(output_root)
+    projection_directory = output_root / "packages"
+    return {
+        **result, "action": "prepare-source", "status": "source_projection_ready",
+        "updated_files": updated_files, "package_projection_dir": str(projection_directory),
+        "framework_source_commit": framework_commit,
+        "plugin_selector": selector,
+        "source_mode": "git_checkout", "publication_performed": False,
+        "native_carrier_mutation": False,
+        "installation_environment": {
+            "OPL_PACKAGE_PROJECTION_DIR": str(projection_directory),
+            "OPL_MODULE_SOURCE_MODE": "git_checkout",
+            f"OPL_MODULE_PATH_{re.sub(r'[^A-Za-z0-9]', '', args.package_id).upper()}": str(owner_root),
+        },
     }
 
 
@@ -953,6 +1042,12 @@ def parser() -> argparse.ArgumentParser:
     prepare_parser.add_argument("--owner-root", required=True)
     prepare_parser.add_argument("--framework-root", required=True)
 
+    source_parser = commands.add_parser("prepare-source", help="prepare isolated canonical source projections without publication")
+    source_parser.add_argument("--package-id", required=True)
+    source_parser.add_argument("--owner-root", required=True)
+    source_parser.add_argument("--framework-root", required=True)
+    source_parser.add_argument("--output-root", required=True)
+
     publish_parser = commands.add_parser("publish", help="publish and verify immutable OCI bytes")
     publish_parser.add_argument("--package-id", required=True)
     publish_parser.add_argument("--framework-root", required=True)
@@ -971,7 +1066,7 @@ def parser() -> argparse.ArgumentParser:
 def main(argv: Sequence[str] | None = None) -> int:
     args = parser().parse_args(argv)
     try:
-        result = {"prepare": prepare, "publish": publish, "activate": activate}[args.action](args)
+        result = {"prepare": prepare, "prepare-source": prepare_source, "publish": publish, "activate": activate}[args.action](args)
     except ReleaseError as exc:
         print(json.dumps({"status": "failed", "action": args.action, "error": str(exc)}))
         return 1
