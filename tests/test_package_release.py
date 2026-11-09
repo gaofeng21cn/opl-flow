@@ -96,6 +96,19 @@ class PackageReleaseTests(unittest.TestCase):
         })
         return subprocess.CompletedProcess(argv, 0, "", "")
 
+    def initialize_framework_snapshot(self, args):
+        root = Path(args.framework_root)
+        for argv in (["init", "-q"], ["config", "user.name", "Fixture"],
+                     ["config", "user.email", "fixture@example.com"], ["add", "."],
+                     ["commit", "-qm", "Framework projection fixture"]):
+            subprocess.run(["git", *argv], cwd=root, check=True, capture_output=True)
+        return subprocess.check_output(["git", "rev-parse", "HEAD"], cwd=root, text=True).strip()
+
+    def source_payload_command(self, argv, **kwargs):
+        if argv[:2] == ["git", "archive"]:
+            return subprocess.run(argv, **kwargs, check=True, capture_output=True, text=True)
+        return self.payload_command(argv, **kwargs)
+
     def test_prepare_refreshes_owner_agent_and_headless_capability_fields(self) -> None:
         for capability in (False, True):
             with self.subTest(capability=capability), tempfile.TemporaryDirectory() as temporary:
@@ -161,6 +174,96 @@ class PackageReleaseTests(unittest.TestCase):
             self.assertEqual(actual["runtime_domain_id"], "new-runtime")
             self.assertEqual(actual["explicit_aliases"], ["new-alias"])
             self.assertEqual(actual["interface_source_ref"], "interface.json#/interface")
+
+    def test_prepare_source_isolated_output_preserves_identity_and_dependencies(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary).resolve()
+            args, owner, package_path, allowlist_path = self.prepare_fixture(root)
+            args.output_root = str(root / "source-projection")
+            baseline = package_path.read_bytes(), allowlist_path.read_bytes()
+            dependency = package_path.parent / "provider.json"
+            dependency.write_text('{"package_id":"provider","version":"2.0.0"}')
+            framework_commit = self.initialize_framework_snapshot(args)
+            ignored = package_path.parent / "ignored-extra.json"
+            ignored.write_text('{"package_id":"ignored-extra","version":"9.9.9"}')
+            (Path(args.framework_root) / ".git/info/exclude").write_text("ignored-extra.json\n")
+            with (
+                patch.object(release, "require_canonical_checkout", return_value=framework_commit),
+                patch.object(release, "require_owner_source", return_value=(owner, "1.2.3", "a" * 40)),
+                patch.object(release, "require_owner_release", side_effect=AssertionError("release gate is not a source gate")),
+                patch.object(release, "repo_slug", return_value=f"owner/{args.package_id}"),
+                patch.object(release, "command", side_effect=self.source_payload_command),
+                patch.object(release, "git_value", side_effect=lambda repo, *argv: "" if argv[0] == "status" else "a" * 40 if repo == Path(args.owner_root) else framework_commit),
+            ):
+                result = release.prepare_source(args)
+            output = Path(args.output_root)
+            payload = output / "packages/payloads/research-agent-1.2.3.json"
+            self.assertEqual(result["status"], "source_projection_ready")
+            self.assertEqual(result["payload_sha256"], release.sha256_bytes(payload.read_bytes()))
+            self.assertEqual(result["owner_source_commit"], "a" * 40)
+            self.assertEqual(result["framework_source_commit"], framework_commit)
+            self.assertEqual(result["plugin_selector"], "research-agent@market")
+            self.assertFalse(result["publication_performed"])
+            self.assertFalse(result["native_carrier_mutation"])
+            self.assertEqual(result["installation_environment"]["OPL_MODULE_PATH_RESEARCHAGENT"], args.owner_root)
+            self.assertEqual(result["package_projection_dir"], str(output / "packages"))
+            self.assertEqual((output / "packages/provider.json").read_bytes(), dependency.read_bytes())
+            self.assertFalse((output / "packages/ignored-extra.json").exists())
+            self.assertEqual(baseline, (package_path.read_bytes(), allowlist_path.read_bytes()))
+            self.assertTrue(all(Path(filename).is_file() for filename in result["updated_files"]))
+            with self.assertRaisesRegex(release.ReleaseError, "must not already exist"):
+                release.prepare_source(args)
+
+    def test_prepare_source_rejects_checkout_output_and_keeps_failures_unpublished(self) -> None:
+        for failure in ("owner-output", "framework-output", "generator", "source-drift", "framework-drift"):
+            with self.subTest(failure=failure), tempfile.TemporaryDirectory() as temporary:
+                root = Path(temporary).resolve()
+                args, owner, package_path, allowlist_path = self.prepare_fixture(root)
+                output = root / "source-projection"
+                if failure == "owner-output":
+                    output = Path(args.owner_root) / "generated"
+                if failure == "framework-output":
+                    output = Path(args.framework_root) / "generated"
+                args.output_root = str(output)
+                baseline = package_path.read_bytes(), allowlist_path.read_bytes()
+                framework_commit = self.initialize_framework_snapshot(args)
+                def git_read(repo, *argv):
+                    if argv[0] == "status":
+                        return " M changed" if failure == "source-drift" or failure == "framework-drift" and repo == Path(args.framework_root) else ""
+                    return "a" * 40 if repo == Path(args.owner_root) else framework_commit
+                with (
+                    patch.object(release, "require_canonical_checkout", return_value=framework_commit),
+                    patch.object(release, "require_owner_source", return_value=(owner, "1.2.3", "a" * 40)),
+                    patch.object(release, "repo_slug", return_value=f"owner/{args.package_id}"),
+                    patch.object(release, "command", side_effect=release.ReleaseError("generator failed") if failure == "generator" else self.source_payload_command),
+                    patch.object(release, "git_value", side_effect=git_read),
+                    self.assertRaises(release.ReleaseError),
+                ):
+                    release.prepare_source(args)
+                self.assertFalse(output.exists())
+                self.assertEqual(baseline, (package_path.read_bytes(), allowlist_path.read_bytes()))
+
+    def test_source_gate_requires_fresh_clean_canonical_commit_without_tags(self) -> None:
+        root = Path("/fixture/owner")
+        manifest = {"package_id": "example", "version": "1.2.3", "codex_surface": {"plugin_id": "example"}}
+        blobs = {"opl-package.json": manifest, ".codex-plugin/plugin.json": {"name": "example", "version": "1.2.3"}}
+        for failure in (None, "dirty", "diverged"):
+            with self.subTest(failure=failure):
+                def git_read(_, *argv):
+                    if argv[0] == "cat-file" or any("refs/tags" in arg for arg in argv):
+                        self.fail("source preparation must not require a release tag")
+                    if argv == ("status", "--porcelain"):
+                        return " M changed" if failure == "dirty" else ""
+                    if argv[0] == "show":
+                        return release.json.dumps(blobs[argv[1].split(":", 1)[1]])
+                    return ("b" if failure == "diverged" and argv[-1] == "origin/main" else "a") * 40
+                with patch.object(release, "git_value", side_effect=git_read), patch.object(release, "command") as execute:
+                    if failure:
+                        with self.assertRaises(release.ReleaseError):
+                            release.require_owner_source(root, "example", owner_manifest_ref="opl-package.json", source_root=".")
+                    else:
+                        self.assertEqual(release.require_owner_source(root, "example", owner_manifest_ref="opl-package.json", source_root="."), (manifest, "1.2.3", "a" * 40))
+                        execute.assert_called_once_with(["git", "fetch", "origin", "main", "--tags", "--quiet"], cwd=root)
 
     def test_prepare_preserves_same_version_payload_bytes(self) -> None:
         for identical in (True, False):
