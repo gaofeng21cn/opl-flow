@@ -150,6 +150,16 @@ under those routers. They have no aliases or independent trigger metadata. OPL
 Skills retains only non-development reusable workflows and has no development
 preset or second installation route.
 
+## Optional Obsidian Authoring
+
+The optional `obsidian-authoring` bundle uses the upstream
+[`kepano/obsidian-skills`](https://github.com/kepano/obsidian-skills) source for
+Markdown, Bases, CLI, and Canvas operations. Its absence is normal; it adds no
+default install, offline payload, or repair obligation. A user who already has
+a Markdown vault can select these skills without adopting another knowledge
+store or community plugin. Vault-specific content rules and Framework
+knowledge-source permissions remain owned by their existing authorities.
+
 ## Model And Profile
 
 Flow recommends `gpt-6-astra` with `max` reasoning. The precedence is:

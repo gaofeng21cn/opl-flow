@@ -230,6 +230,32 @@ do not install or enable it by default, make Flow depend on it, or describe its
 absence as degraded. When the user enables it, report Hook trust and coverage
 as guard state rather than a security or general model-behavior guarantee.
 
+### Optional Obsidian authoring
+
+For an existing Obsidian vault, `kepano/obsidian-skills` provides focused
+`obsidian-markdown`, `obsidian-bases`, `obsidian-cli`, and `json-canvas` skills.
+They are optional capabilities, not part of the default experience baseline.
+Install only the selected skills through the upstream installation instructions
+or the carrier's skill installer; preserve an existing adapted `defuddle`
+instead of installing a duplicate owner. Record the upstream revision and
+verify the installed files and a real operation before declaring readiness.
+
+Route Markdown syntax, Bases definitions, Canvas files, and application
+commands separately. The vault's content and metadata rules take precedence
+over upstream examples: a sample frontmatter block does not require adding
+properties to every memo. Direct file operations remain valid for ordinary
+Markdown; use the native Obsidian CLI for application state, links, and views,
+with an explicit vault or working directory. The CLI requires the application
+to be running and does not replace knowledge-source permissions, accepted
+versions, or writeback review.
+
+Keep one editable body at its existing owner. Navigation points to current
+content; generated status views remain rebuildable projections of the existing
+control plane. Do not install another RAG index, REST server, or synchronization
+plugin without a demonstrated gap in the current path. For historical source
+snapshots, report old links separately from active-note errors and preserve the
+snapshot bytes.
+
 For Full distribution, read the Framework-generated
 `opl_flow_capability_build_lock.v1`. Do not derive Full payload selection from
 an App source manifest; it provides resolution hints only after Flow has

@@ -421,6 +421,70 @@
       "credential_policy": "none",
       "source": "https://github.com/lennney/stop-that-shit",
       "source_path": ".codex-plugin"
+    },
+    {
+      "id": "obsidian-markdown",
+      "kind": "codex_skill",
+      "owner": "kepano",
+      "bundle_id": "obsidian-authoring",
+      "install_source": "owner_skills_cli",
+      "lifecycle_owner": "kepano",
+      "online_install_default": false,
+      "offline_bundle": "none",
+      "activation": "task_routed",
+      "readiness_adapter": "codex_skill_payload",
+      "conflict_policy": "preserve_user_surface",
+      "credential_policy": "none",
+      "source": "https://github.com/kepano/obsidian-skills",
+      "source_path": "skills/obsidian-markdown"
+    },
+    {
+      "id": "obsidian-bases",
+      "kind": "codex_skill",
+      "owner": "kepano",
+      "bundle_id": "obsidian-authoring",
+      "install_source": "owner_skills_cli",
+      "lifecycle_owner": "kepano",
+      "online_install_default": false,
+      "offline_bundle": "none",
+      "activation": "task_routed",
+      "readiness_adapter": "codex_skill_payload",
+      "conflict_policy": "preserve_user_surface",
+      "credential_policy": "none",
+      "source": "https://github.com/kepano/obsidian-skills",
+      "source_path": "skills/obsidian-bases"
+    },
+    {
+      "id": "obsidian-cli",
+      "kind": "codex_skill",
+      "owner": "kepano",
+      "bundle_id": "obsidian-authoring",
+      "install_source": "owner_skills_cli",
+      "lifecycle_owner": "kepano",
+      "online_install_default": false,
+      "offline_bundle": "none",
+      "activation": "task_routed",
+      "readiness_adapter": "codex_skill_payload",
+      "conflict_policy": "preserve_user_surface",
+      "credential_policy": "none",
+      "source": "https://github.com/kepano/obsidian-skills",
+      "source_path": "skills/obsidian-cli"
+    },
+    {
+      "id": "json-canvas",
+      "kind": "codex_skill",
+      "owner": "kepano",
+      "bundle_id": "obsidian-authoring",
+      "install_source": "owner_skills_cli",
+      "lifecycle_owner": "kepano",
+      "online_install_default": false,
+      "offline_bundle": "none",
+      "activation": "task_routed",
+      "readiness_adapter": "codex_skill_payload",
+      "conflict_policy": "preserve_user_surface",
+      "credential_policy": "none",
+      "source": "https://github.com/kepano/obsidian-skills",
+      "source_path": "skills/json-canvas"
     }
   ],
   "capability_bundles": [
@@ -545,6 +609,24 @@
       "relationship": "compatible_optional",
       "member_refs": [
         "codex_plugin:stop-that-shit"
+      ],
+      "online_materialization": "observe_only",
+      "full_distribution": "none",
+      "readiness": {
+        "aggregation": "observe_members",
+        "absence_effect": "optional_absent",
+        "repair_policy": "none"
+      }
+    },
+    {
+      "id": "obsidian-authoring",
+      "label": "Obsidian authoring and CLI",
+      "relationship": "compatible_optional",
+      "member_refs": [
+        "codex_skill:obsidian-markdown",
+        "codex_skill:obsidian-bases",
+        "codex_skill:obsidian-cli",
+        "codex_skill:json-canvas"
       ],
       "online_materialization": "observe_only",
       "full_distribution": "none",

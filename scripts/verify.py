@@ -778,6 +778,7 @@ def check_workflow_policy(repo_root: Path) -> list[str]:
         "browser-gif-encoding": "experience_baseline",
         "official-codex-office-runtime": "compatible_optional",
         "task-boundary-guard": "compatible_optional",
+        "obsidian-authoring": "compatible_optional",
     }
     if {item.get("id"): item.get("relationship") for item in bundles} != expected_bundle_relationships:
         errors.append("workflow policy capability bundle relationships are incomplete")
