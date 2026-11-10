@@ -1280,5 +1280,121 @@ export function verifyPrivatePackagePublication(input, env) {
         self.assertFalse(paths[0].exists())
 
 
+class EnvironmentApprovalTests(unittest.TestCase):
+    def setUp(self) -> None:
+        self.repo = "owner/repo"
+        self.pending_endpoint = f"repos/{self.repo}/actions/runs/123/pending_deployments"
+        self.environment_endpoint = f"repos/{self.repo}/environments/release-stable"
+        self.deployment = {
+            "environment": {"id": 42, "name": "release-stable"},
+            "current_user_can_approve": False,
+        }
+        self.environment = {"id": 42, "name": "release-stable", "protection_rules": [{"type": "branch_policy"}]}
+        self.pending_states = [[self.deployment]]
+        self.pending_reads = 0
+        self.calls = []
+        self.posts = []
+        self.approval_error = None
+        self.completed_conclusion = None
+
+    def command_json(self, argv, **kwargs):
+        self.calls.append(argv)
+        if "POST" in argv:
+            self.assertEqual(argv[:5], ["gh", "api", "--method", "POST", self.pending_endpoint])
+            self.posts.append(argv)
+            if self.approval_error:
+                raise release.ReleaseError(self.approval_error)
+            return [{"id": 7}]
+        if argv == ["gh", "api", self.pending_endpoint]:
+            state = self.pending_states[min(self.pending_reads, len(self.pending_states) - 1)]
+            self.pending_reads += 1
+            return state
+        if argv == ["gh", "api", self.environment_endpoint]:
+            return self.environment
+        if argv[:4] == ["gh", "run", "view", "123"]:
+            self.assertEqual(argv[argv.index("--repo") + 1], self.repo)
+            if self.completed_conclusion:
+                return {"status": "completed", "conclusion": self.completed_conclusion}
+            pending = self.pending_states[min(self.pending_reads - 1, len(self.pending_states) - 1)]
+            return {"status": "waiting" if pending else "in_progress", "conclusion": None}
+        self.fail(f"unexpected publication operation: {argv}")
+
+    def approve(self):
+        with patch.object(release, "command_json", side_effect=self.command_json), patch.object(release.time, "sleep"):
+            return release.approve_release_environment(self.repo, 123, "request-1")
+
+    def test_automatic_environment_pending_continues_without_approval_post(self) -> None:
+        for rules in ([], [{"type": "branch_policy"}]):
+            with self.subTest(protection_rules=rules):
+                self.setUp()
+                self.environment["protection_rules"] = rules
+                result = self.approve()
+                self.assertEqual(result["status"], "automatic_pending")
+                self.assertEqual(result["environment_id"], 42)
+                self.assertIn(["gh", "api", self.environment_endpoint], self.calls)
+                self.assertEqual(self.posts, [])
+
+    def test_unapprovable_reviewers_and_unverified_environment_still_stop(self) -> None:
+        for fault in ("reviewers", "wrong-id", "wrong-name", "missing-rules"):
+            with self.subTest(fault=fault):
+                self.setUp()
+                if fault == "reviewers":
+                    self.environment["protection_rules"] = [{
+                        "type": "required_reviewers", "reviewers": [{"type": "User", "reviewer": {"id": 9}}],
+                    }]
+                elif fault == "wrong-id":
+                    self.environment["id"] = 99
+                elif fault == "wrong-name":
+                    self.environment["name"] = "production"
+                else:
+                    self.environment.pop("protection_rules")
+                with self.assertRaises(release.ReleaseError):
+                    self.approve()
+                self.assertEqual(self.posts, [])
+
+    def test_unknown_approval_is_reconciled_by_readback_without_second_post(self) -> None:
+        cases = (("command timed out", True, None), ("command returned invalid JSON", False, "success"))
+        for failure, can_approve_after_write, conclusion in cases:
+            with self.subTest(failure=failure):
+                self.setUp()
+                self.deployment["current_user_can_approve"] = True
+                after_write = {**self.deployment, "current_user_can_approve": can_approve_after_write}
+                self.pending_states = [[self.deployment], [after_write], []]
+                self.approval_error = failure
+                self.completed_conclusion = conclusion
+                result = self.approve()
+                self.assertEqual(result["status"], "approval_reconciled")
+                self.assertEqual(result["environment_id"], 42)
+                self.assertEqual(len(self.posts), 1)
+                self.assertGreaterEqual(self.pending_reads, 3)
+
+    def test_unresolved_approval_stops_without_reposting(self) -> None:
+        self.deployment["current_user_can_approve"] = True
+        self.approval_error = "command timed out"
+        with self.assertRaises(release.ReleaseError):
+            self.approve()
+        self.assertEqual(len(self.posts), 1)
+        self.assertGreater(self.pending_reads, 1)
+
+    def test_failed_or_cancelled_run_cannot_confirm_unknown_approval(self) -> None:
+        for conclusion in ("failure", "cancelled"):
+            with self.subTest(conclusion=conclusion):
+                self.setUp()
+                self.deployment["current_user_can_approve"] = True
+                self.approval_error = "command timed out"
+                self.pending_states = [[self.deployment], []]
+                self.completed_conclusion = conclusion
+                with self.assertRaises(release.ReleaseError):
+                    self.approve()
+                self.assertEqual(len(self.posts), 1)
+
+    def test_other_pending_environment_is_never_approved(self) -> None:
+        self.deployment["environment"]["name"] = "production"
+        self.deployment["current_user_can_approve"] = True
+        with self.assertRaisesRegex(release.ReleaseError, "unexpected pending deployment"):
+            self.approve()
+        self.assertEqual(self.posts, [])
+
+
 if __name__ == "__main__":
     unittest.main()

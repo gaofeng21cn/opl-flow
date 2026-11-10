@@ -538,6 +538,8 @@ def wait_for_run_id(repo: str, request_id: str, caller_commit: str) -> int:
 def approve_release_environment(repo: str, run_id: int, request_id: str) -> dict[str, Any]:
     endpoint = f"repos/{repo}/actions/runs/{run_id}/pending_deployments"
     last_status = ""
+    approval_unknown = False
+    environment_id = None
     for _ in range(15):
         pending = command_json(["gh", "api", endpoint], timeout=30)
         if not isinstance(pending, list):
@@ -553,31 +555,66 @@ def approve_release_environment(repo: str, run_id: int, request_id: str) -> dict
             if len(pending) != 1 or len(matches) != 1:
                 raise ReleaseError("publication has an unexpected pending deployment set")
             deployment = matches[0]
-            environment_id = deployment["environment"].get("id")
-            if not isinstance(environment_id, int) or deployment.get("current_user_can_approve") is not True:
-                raise ReleaseError("current GitHub identity cannot approve release-stable")
-            command_json(
-                [
-                    "gh", "api", "--method", "POST", endpoint,
-                    "-F", f"environment_ids[]={environment_id}",
-                    "-f", "state=approved",
-                    "-f", f"comment=Authorized OPL Package publication {request_id}",
-                ],
-                timeout=30,
-            )
-            return {
-                "status": "approved",
-                "environment": "release-stable",
-                "environment_id": environment_id,
-            }
+            pending_environment_id = deployment["environment"].get("id")
+            if approval_unknown and pending_environment_id != environment_id:
+                raise ReleaseError("release-stable environment identity changed during approval reconciliation")
+            environment_id = pending_environment_id
+            if not isinstance(environment_id, int):
+                raise ReleaseError("release-stable pending deployment has no environment identity")
+            if not approval_unknown:
+                if deployment.get("current_user_can_approve") is not True:
+                    environment = command_json(["gh", "api", f"repos/{repo}/environments/release-stable"], timeout=30)
+                    if (
+                        not isinstance(environment, dict) or environment.get("id") != environment_id
+                        or environment.get("name") != "release-stable"
+                        or not isinstance(environment.get("protection_rules"), list)
+                        or any(not isinstance(rule, dict) for rule in environment["protection_rules"])
+                    ):
+                        raise ReleaseError("release-stable protection metadata is invalid")
+                    if any(rule.get("type") == "required_reviewers" for rule in environment["protection_rules"]):
+                        raise ReleaseError("current GitHub identity cannot approve release-stable")
+                    # Branch policy/timer transitions are observed by the existing run watch.
+                    return {"status": "automatic_pending", "environment": "release-stable", "environment_id": environment_id}
+                try:
+                    command_json(
+                        [
+                            "gh", "api", "--method", "POST", endpoint,
+                            "-F", f"environment_ids[]={environment_id}",
+                            "-f", "state=approved",
+                            "-f", f"comment=Authorized OPL Package publication {request_id}",
+                        ],
+                        timeout=30,
+                    )
+                except ReleaseError:
+                    # The write may have landed. Reconcile this run without another POST.
+                    approval_unknown = True
+                    continue
+                return {
+                    "status": "approved",
+                    "environment": "release-stable",
+                    "environment_id": environment_id,
+                }
         run = command_json(
-            ["gh", "run", "view", str(run_id), "--repo", repo, "--json", "status"],
+            ["gh", "run", "view", str(run_id), "--repo", repo, "--json", "status,conclusion"],
             timeout=30,
         )
         last_status = str(run.get("status") or "") if isinstance(run, dict) else ""
+        if approval_unknown:
+            if last_status == "completed" and run.get("conclusion") != "success":
+                raise ReleaseError(
+                    f"publication workflow ended without verified environment approval: https://github.com/{repo}/actions/runs/{run_id}"
+                )
+            if not pending and last_status in ("in_progress", "completed"):
+                return {"status": "approval_reconciled", "environment": "release-stable", "environment_id": environment_id}
+            time.sleep(1)
+            continue
         if last_status not in ("queued", "waiting"):
             return {"status": "not_required", "environment": None, "environment_id": None}
         time.sleep(1)
+    if approval_unknown:
+        raise ReleaseError(
+            f"release-stable approval outcome remains unknown; inspect https://github.com/{repo}/actions/runs/{run_id} before any retry"
+        )
     if last_status == "waiting":
         raise ReleaseError("release-stable approval did not become available within 15s")
     return {"status": "not_required", "environment": None, "environment_id": None}

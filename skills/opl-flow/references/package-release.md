@@ -123,6 +123,10 @@ registry read is denied, the same protected workflow resolves the predecessor
 with its authenticated Package credential before any publication. Denial is
 never absence; unresolved authenticated reads stop publication.
 
+A pending environment without required reviewers continues through the same run
+watch. If an approval write has an unknown outcome, Flow only reads that run back;
+it never repeats the approval POST or dispatches another run during reconciliation.
+
 For an `authorized_only` Package, `publish` reads the private owner's publisher
 wrapper at its fresh `main` commit and dispatches that repository with the
 wrapper's four declared inputs. Both fixed Framework pins must agree, select a
