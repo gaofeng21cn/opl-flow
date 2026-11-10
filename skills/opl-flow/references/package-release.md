@@ -123,6 +123,27 @@ registry read is denied, the same protected workflow resolves the predecessor
 with its authenticated Package credential before any publication. Denial is
 never absence; unresolved authenticated reads stop publication.
 
+For an `authorized_only` Package, `publish` reads the private owner's publisher
+wrapper at its fresh `main` commit and dispatches that repository with the
+wrapper's four declared inputs. Both fixed Framework pins must agree, select a
+known ancestor of canonical Framework `main`, and contain the same selected
+Package release identity, access policy, and payload bytes. Presentation changes
+and unrelated Framework updates do not require
+repinning the wrapper. The owner caller commit, Package source commit, and pinned
+Framework commit remain separate; workflow and receipt readbacks bind each to the
+requested publication. The wrapper uses the registered mapping/scalar YAML form;
+duplicate keys, aliases, or other unsupported YAML forms fail before dispatch.
+
+Private publication uses the configured software source's credential handle.
+Disabled sources and missing credentials stop before dispatch. The private owner
+publisher resolves the predecessor with its authenticated identity, so a private
+registry's masked 404 cannot become an absence assertion. Flow reads the private
+OCI receipt through Framework's shared verifier and trusted signing key, with
+credentials confined to a short-lived process and temporary registry config.
+The verified receipt must match the request, predecessor, pinned Framework
+commit, owner repository, and workflow run. Private receipts are not downloaded
+from Actions, and public keyless verification is not used for private Packages.
+
 ```bash
 python3 <opl-flow-skill>/scripts/package_release.py activate \
   --package-id <id> --framework-root <framework> \

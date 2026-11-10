@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import argparse
+import base64
 import copy
 import difflib
 import hashlib
@@ -493,7 +494,7 @@ def run_id_from_dispatch(output: str) -> int | None:
     return int(match.group(1)) if match else None
 
 
-def find_run_id(repo: str, request_id: str, framework_commit: str) -> int | None:
+def find_run_id(repo: str, request_id: str, caller_commit: str) -> int | None:
     runs = command_json(
         [
             "gh",
@@ -518,16 +519,16 @@ def find_run_id(repo: str, request_id: str, framework_commit: str) -> int | None
         for item in runs
         if isinstance(item, dict)
         and request_id in str(item.get("displayTitle") or "")
-        and item.get("headSha") == framework_commit
+        and item.get("headSha") == caller_commit
     ]
     if len(matches) > 1:
         raise ReleaseError("publication request id matched more than one workflow run")
     return int(matches[0]["databaseId"]) if matches else None
 
 
-def wait_for_run_id(repo: str, request_id: str, framework_commit: str) -> int:
+def wait_for_run_id(repo: str, request_id: str, caller_commit: str) -> int:
     for _ in range(30):
-        run_id = find_run_id(repo, request_id, framework_commit)
+        run_id = find_run_id(repo, request_id, caller_commit)
         if run_id is not None:
             return run_id
         time.sleep(2)
@@ -629,6 +630,222 @@ def seconds_between(start: str, end: str) -> float:
     return round((parsed(end) - parsed(start)).total_seconds(), 3)
 
 
+PRIVATE_PUBLICATION_INPUTS = (
+    "expected_package_version", "expected_owner_source_commit",
+    "expected_latest_stable_predecessor", "publication_request_id",
+)
+
+
+def parse_private_wrapper(source: str) -> dict[str, Any]:
+    """Read the registered wrapper's mapping/scalar YAML subset without evaluation."""
+    document: dict[str, Any] = {}
+    stack: list[tuple[int, dict[str, Any]]] = [(-2, document)]
+    for line in source.splitlines():
+        if not line.strip() or line.lstrip().startswith("#"):
+            continue
+        match = re.fullmatch(r"( *)([A-Za-z_][A-Za-z0-9_-]*):(?: +(.*))?", line.rstrip())
+        if not match or len(match[1]) % 2:
+            raise ReleaseError("private publisher wrapper requires plain mapping/scalar YAML")
+        indent, key, value = len(match[1]), match[2], match[3]
+        while stack[-1][0] >= indent:
+            stack.pop()
+        if indent != stack[-1][0] + 2 or key in stack[-1][1]:
+            raise ReleaseError("private publisher wrapper has duplicate keys or invalid indentation")
+        parent = stack[-1][1]
+        if value is None:
+            parent[key] = {}
+            stack.append((indent, parent[key]))
+        else:
+            if value[0] in "!&*[{|>" or " #" in value:
+                raise ReleaseError("private publisher wrapper contains unsupported YAML values")
+            if value[0] in "\"'":
+                if len(value) < 2 or value[-1] != value[0]:
+                    raise ReleaseError("private publisher wrapper contains an invalid quoted value")
+                value = value[1:-1]
+            parent[key] = value
+    return document
+
+
+def private_publication_target(
+    package: dict[str, Any], framework_root: Path, selected_commit: str,
+) -> dict[str, str]:
+    source_repo = package.get("source_repo")
+    match = re.fullmatch(r"https://github\.com/([A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+)\.git", str(source_repo or ""))
+    if not match:
+        raise ReleaseError("private Package has no canonical owner repository")
+    repo = match[1]
+    metadata = command_json(["gh", "api", f"repos/{repo}"])
+    if (
+        not isinstance(metadata, dict) or metadata.get("private") is not True
+        or str(metadata.get("full_name") or "").lower() != repo.lower()
+        or metadata.get("default_branch") != "main"
+    ):
+        raise ReleaseError("private publication requires the private owner repository's main branch")
+    reference = command_json(["gh", "api", f"repos/{repo}/git/ref/heads/main"])
+    caller_commit = reference.get("object", {}).get("sha") if isinstance(reference, dict) else None
+    if not isinstance(caller_commit, str) or not re.fullmatch(r"[0-9a-f]{40}", caller_commit):
+        raise ReleaseError("private publisher main has no exact commit")
+    content = command_json([
+        "gh", "api", f"repos/{repo}/contents/.github/workflows/publish-package.yml?ref={caller_commit}",
+    ])
+    try:
+        if not isinstance(content, dict) or content.get("encoding") != "base64":
+            raise ValueError("not a base64 file")
+        wrapper = parse_private_wrapper(base64.b64decode(content["content"]).decode("utf-8"))
+        inputs = wrapper["on"]["workflow_dispatch"]["inputs"]
+        jobs = wrapper["jobs"]
+        job = jobs["publish-package"]
+        bindings = job["with"]
+        uses = re.fullmatch(
+            r"gaofeng21cn/one-person-lab/\.github/workflows/publish-package\.yml@([0-9a-f]{40})",
+            str(job.get("uses") or ""),
+        )
+        framework_commit = uses[1] if uses else ""
+        if (
+            set(inputs) != set(PRIVATE_PUBLICATION_INPUTS)
+            or any(inputs[name].get("required") != "true" or inputs[name].get("type") != "string" for name in PRIVATE_PUBLICATION_INPUTS)
+            or set(jobs) != {"publish-package"}
+            or not framework_commit
+            or job.get("if") != "github.ref == 'refs/heads/main'"
+            or job.get("secrets") != "inherit"
+            or set(bindings) != {*PRIVATE_PUBLICATION_INPUTS, "package_id", "expected_framework_source_commit"}
+            or bindings.get("package_id") != package["package_id"]
+            or bindings.get("expected_framework_source_commit") != framework_commit
+            or any(bindings[name] != "${{ inputs." + name + " }}" for name in PRIVATE_PUBLICATION_INPUTS)
+        ):
+            raise ReleaseError("private publisher wrapper identity, inputs, or fixed Framework pin differ")
+    except (KeyError, TypeError, ValueError, AttributeError, UnicodeDecodeError) as exc:
+        raise ReleaseError("private publisher wrapper is invalid") from exc
+    ancestry = command(
+        ["git", "merge-base", "--is-ancestor", framework_commit, selected_commit],
+        cwd=framework_root, check=False,
+    )
+    if ancestry.returncode != 0:
+        raise ReleaseError("private publisher Framework pin is not a known canonical ancestor")
+    manifest_ref = f"contracts/opl-framework/packages/{package['package_id']}.json"
+    pinned = committed_json(framework_root, framework_commit, manifest_ref)
+    def release_identity(manifest: dict[str, Any]) -> dict[str, Any]:
+        surface = manifest.get("codex_surface", {})
+        carrier = surface.get("configured_codex_plugin_carrier", {})
+        return {
+            **{key: manifest.get(key) for key in (
+                "package_id", "version", "source_repo", "visibility", "access_policy_ref",
+                "credential_provider", "content_lock",
+            )},
+            **{key: surface.get(key) for key in ("plugin_id", "carrier_source_commit", "plugin_payload_manifest_url")},
+            "publication_ref": carrier.get("publication_ref"),
+        }
+    if release_identity(pinned) != release_identity(package):
+        raise ReleaseError("private publisher Framework pin selects a different Package projection")
+    payload_ref = safe_owner_ref(package["codex_surface"].get("plugin_payload_manifest_url"), "Package payload ref")
+    payload_path = f"contracts/opl-framework/packages/{payload_ref}"
+    pinned_payload = command(["git", "show", f"{framework_commit}:{payload_path}"], cwd=framework_root).stdout
+    selected_payload = command(["git", "show", f"{selected_commit}:{payload_path}"], cwd=framework_root).stdout
+    if pinned_payload != selected_payload:
+        raise ReleaseError("private publisher Framework pin selects different Package payload bytes")
+    return {"repo": repo, "caller_commit": caller_commit, "framework_commit": framework_commit}
+
+
+PRIVATE_REGISTRY_ADAPTER = r"""
+import fs from 'node:fs';
+import path from 'node:path';
+import { pathToFileURL } from 'node:url';
+import { spawnSync } from 'node:child_process';
+let temporary;
+let safeError = 'Private Package registry readback failed.';
+const fail = (message) => { safeError = message; throw new Error(message); };
+try {
+  const root = process.argv[1];
+  const input = JSON.parse(fs.readFileSync(0, 'utf8'));
+  const package_ = input.package;
+  const publicationRef = package_.codex_surface.configured_codex_plugin_carrier.publication_ref;
+  const image = publicationRef.replace(/:latest-stable$/, '');
+  const load = (relative) => import(pathToFileURL(path.join(root, relative)).href);
+  const { resolvePackageSourceCredentialProvider } = await load('src/adapters/integration/software-sources.ts');
+  const { credentialForGithubPackages } = await load('src/adapters/integration/agent-package-registry-parts/package-registry-access-provider.ts');
+  const selected = resolvePackageSourceCredentialProvider(package_.source_repo, publicationRef, process.env);
+  if (!selected || selected.enabled !== true || !selected.credential_handle) {
+    fail('Private Package software source is disabled or has no configured credential.');
+  }
+  const credential = credentialForGithubPackages(process.env, selected.credential_handle);
+  if (!credential) fail('Private Package configured credential is unavailable.');
+  if (input.action === 'predecessor') {
+    // Private 404s can conceal authorization failure; the protected publisher resolves it.
+    process.stdout.write(JSON.stringify({ predecessor: 'resolve-authenticated' }));
+  } else {
+    if (input.action !== 'receipt') fail('Unknown private Package readback action.');
+    temporary = input.registryConfigRoot;
+    const auth = Buffer.from(`${credential.username}:${credential.token}`).toString('base64');
+    fs.writeFileSync(path.join(temporary, 'config.json'), JSON.stringify({ auths: { 'ghcr.io': { auth } } }), { mode: 0o600 });
+    const env = { ...process.env, DOCKER_CONFIG: temporary };
+    const descriptor = (ref) => {
+      const result = spawnSync('oras', ['manifest', 'fetch', '--descriptor', ref], {
+        env, encoding: 'utf8', timeout: 120_000, maxBuffer: 1024 * 1024,
+      });
+      if (result.error) fail('Private Package OCI descriptor is unavailable.');
+      if (result.status !== 0) {
+        fail('Private Package OCI descriptor is unavailable.');
+      }
+      const digest = JSON.parse(result.stdout).digest;
+      if (!/^sha256:[0-9a-f]{64}$/.test(digest ?? '')) fail('Private Package OCI descriptor has an invalid digest.');
+      return digest;
+    };
+    const digest = descriptor(`${image}:${package_.version}`);
+    if (descriptor(publicationRef) !== digest) fail('Private Package latest-stable differs from the selected version.');
+    const { verifyPrivatePackagePublication } = await load('scripts/oci-publication-receipt-readback.mjs');
+    const output = verifyPrivatePackagePublication({
+      subject: `${image}@${digest}`, packageId: package_.package_id, version: package_.version,
+      sourceRepo: package_.source_repo, sourceCommit: package_.codex_surface.carrier_source_commit,
+      accessPolicyRef: package_.access_policy_ref, credentialProvider: package_.credential_provider,
+      publicKey: path.join(root, 'contracts/opl-framework/keys/private-package-signing.pub'),
+      includeReceipt: true,
+      publicationRequestId: input.receiptSelector?.publicationRequestId,
+      workflowRepository: input.receiptSelector?.workflowRepository,
+      workflowRunId: input.receiptSelector?.workflowRunId,
+    }, env);
+    if (output?.status !== 'verified' || !output.receipt) fail('Shared private Package verifier did not return a verified receipt.');
+    process.stdout.write(JSON.stringify(output));
+  }
+} catch {
+  process.stderr.write(safeError + '\n');
+  process.exitCode = 1;
+} finally {
+  if (temporary) fs.rmSync(temporary, { recursive: true, force: true });
+}
+"""
+
+
+def private_registry_readback(
+    framework_root: Path, package: dict[str, Any], *, action: str,
+    receipt_selector: dict[str, str] | None = None,
+) -> dict[str, Any]:
+    # Credentials remain inside the Framework adapter process and its temporary config.
+    # Python also owns cleanup when the child is terminated before its finally block.
+    with tempfile.TemporaryDirectory(prefix="opl-flow-private-registry-") as temporary:
+        result = command(
+            ["node", "--input-type=module", "-e", PRIVATE_REGISTRY_ADAPTER, str(framework_root)],
+            input_text=json.dumps({
+                "action": action, "package": package, "registryConfigRoot": temporary,
+                "receiptSelector": receipt_selector,
+            }),
+            timeout=600, check=False,
+        )
+    if result.returncode != 0:
+        known_errors = {
+            "Private Package software source is disabled or has no configured credential.",
+            "Private Package configured credential is unavailable.",
+        }
+        detail = result.stderr.strip()
+        raise ReleaseError(detail if detail in known_errors else "private Package registry readback failed")
+    try:
+        output = json.loads(result.stdout)
+    except json.JSONDecodeError as exc:
+        raise ReleaseError("private Package readback did not return JSON") from exc
+    if not isinstance(output, dict):
+        raise ReleaseError("private Package readback did not return an object")
+    return output
+
+
 def publish(args: argparse.Namespace) -> dict[str, Any]:
     framework_root = Path(args.framework_root).resolve()
     command(["git", "fetch", "origin", "main", "--quiet"], cwd=framework_root)
@@ -640,6 +857,8 @@ def publish(args: argparse.Namespace) -> dict[str, Any]:
     package = read_json(
         framework_root / "contracts/opl-framework/packages" / f"{args.package_id}.json"
     )
+    if package.get("package_id") != args.package_id:
+        raise ReleaseError("Framework Package identity differs from the requested Package")
     codex_surface = package.get("codex_surface")
     if not isinstance(codex_surface, dict):
         raise ReleaseError("Framework package projection has no codex_surface")
@@ -649,13 +868,33 @@ def publish(args: argparse.Namespace) -> dict[str, Any]:
     publication_ref = carrier.get("publication_ref") if isinstance(carrier, dict) else None
     if not isinstance(publication_ref, str) or not publication_ref.endswith(":latest-stable"):
         raise ReleaseError("Framework Package has no latest-stable publication_ref")
+    visibility = package.get("visibility", "public")
+    if visibility not in ("public", "authorized_only"):
+        raise ReleaseError("Framework Package has an invalid publication visibility")
+    private = visibility == "authorized_only"
     image = publication_ref.removesuffix(":latest-stable")
-    predecessor = latest_stable_predecessor(image, resolve_in_publisher=True)
+    selected_commit = framework_commit
+    target = private_publication_target(package, framework_root, selected_commit) if private else {
+        "repo": repo_slug(framework_root), "caller_commit": framework_commit, "framework_commit": framework_commit,
+    }
+    repo, caller_commit = target["repo"], target["caller_commit"]
+    framework_commit = target["framework_commit"]
+    if private:
+        if (
+            image != f"ghcr.io/{repo.split('/')[0].lower()}/one-person-lab-private-packages/{args.package_id}"
+            or package.get("access_policy_ref") != f"github-package:{image.removeprefix('ghcr.io/')}"
+            or package.get("credential_provider") != "github_packages"
+        ):
+            raise ReleaseError("private Package registry and access identity differ from its owner")
+        predecessor = private_registry_readback(framework_root, package, action="predecessor").get("predecessor")
+        if predecessor not in ("none", "resolve-authenticated") and not re.fullmatch(r"sha256:[0-9a-f]{64}", str(predecessor or "")):
+            raise ReleaseError("private Package predecessor is invalid")
+    else:
+        predecessor = latest_stable_predecessor(image, resolve_in_publisher=True)
     request_id = args.request_id or (
         f"{args.package_id}-{version}-{datetime.now(timezone.utc).strftime('%Y%m%dT%H%M%SZ')}-"
         f"{framework_commit[:10]}"
     )
-    repo = repo_slug(framework_root)
     dispatch_args = [
         "gh",
         "workflow",
@@ -666,27 +905,25 @@ def publish(args: argparse.Namespace) -> dict[str, Any]:
         "--ref",
         "main",
         "-f",
-        f"package_id={args.package_id}",
-        "-f",
         f"expected_package_version={version}",
         "-f",
         f"expected_owner_source_commit={owner_commit}",
-        "-f",
-        f"expected_framework_source_commit={framework_commit}",
         "-f",
         f"expected_latest_stable_predecessor={predecessor}",
         "-f",
         f"publication_request_id={request_id}",
     ]
+    if not private:
+        dispatch_args.extend(["-f", f"package_id={args.package_id}", "-f", f"expected_framework_source_commit={framework_commit}"])
     dispatched = command(dispatch_args, check=False)
     combined_output = f"{dispatched.stdout}\n{dispatched.stderr}"
     run_id = run_id_from_dispatch(combined_output)
     if dispatched.returncode != 0:
-        run_id = find_run_id(repo, request_id, framework_commit)
+        run_id = find_run_id(repo, request_id, caller_commit)
         if run_id is None:
             raise ReleaseError("publication dispatch failed and no matching run exists")
     if run_id is None:
-        run_id = wait_for_run_id(repo, request_id, framework_commit)
+        run_id = wait_for_run_id(repo, request_id, caller_commit)
     environment_approval = approve_release_environment(repo, run_id, request_id)
     sys.stderr.write(f"Watching Package publication run {run_id}\n")
     watched = subprocess.run(
@@ -722,16 +959,28 @@ def publish(args: argparse.Namespace) -> dict[str, Any]:
             "jobs,createdAt,updatedAt,conclusion,url,headSha",
         ]
     )
-    if not isinstance(run, dict) or run.get("conclusion") != "success":
-        raise ReleaseError("publication workflow did not finish successfully")
-    with tempfile.TemporaryDirectory(prefix="opl-package-receipt-") as temporary:
-        command(
-            ["gh", "run", "download", str(run_id), "--repo", repo, "--dir", temporary]
-        )
-        receipts = list(Path(temporary).rglob("publication-receipt.json"))
-        if len(receipts) != 1:
-            raise ReleaseError("publication workflow did not expose one receipt")
-        receipt = read_json(receipts[0])
+    if not isinstance(run, dict) or run.get("conclusion") != "success" or run.get("headSha") != caller_commit:
+        raise ReleaseError("publication workflow did not finish successfully at the selected caller commit")
+    if private:
+        verified = private_registry_readback(framework_root, package, action="receipt", receipt_selector={
+            "publicationRequestId": request_id, "workflowRepository": repo, "workflowRunId": str(run_id),
+        })
+        receipt = verified.get("receipt")
+        workflow = receipt.get("workflow") if isinstance(receipt, dict) else None
+        if (
+            verified.get("status") != "verified" or not isinstance(workflow, dict)
+            or workflow.get("repository") != repo or str(workflow.get("run_id")) != str(run_id)
+        ):
+            raise ReleaseError("private Package receipt does not match its owner workflow run")
+    else:
+        with tempfile.TemporaryDirectory(prefix="opl-package-receipt-") as temporary:
+            command(
+                ["gh", "run", "download", str(run_id), "--repo", repo, "--dir", temporary]
+            )
+            receipts = list(Path(temporary).rglob("publication-receipt.json"))
+            if len(receipts) != 1:
+                raise ReleaseError("publication workflow did not expose one receipt")
+            receipt = read_json(receipts[0])
     digest = validate_receipt(
         receipt,
         package_id=args.package_id,
@@ -743,26 +992,22 @@ def publish(args: argparse.Namespace) -> dict[str, Any]:
     )
     immutable_ref = str(receipt["immutable"]["ref"])
     latest_ref = str(receipt["latest_stable"]["ref"])
-    if oci_descriptor(immutable_ref)["digest"] != digest:
-        raise ReleaseError("immutable OCI readback digest differs from receipt")
-    if oci_descriptor(latest_ref)["digest"] != digest:
-        raise ReleaseError("latest-stable OCI readback digest differs from receipt")
     attestation = receipt["attestations"]
-    for predicate_type in ("slsaprovenance1", "spdxjson"):
-        command(
-            [
-                "cosign",
-                "verify-attestation",
-                "--type",
-                predicate_type,
-                "--certificate-identity",
-                str(attestation["certificate_identity"]),
-                "--certificate-oidc-issuer",
-                "https://token.actions.githubusercontent.com",
-                str(attestation["subject"]),
-            ],
-            timeout=120,
-        )
+    if not private:
+        if oci_descriptor(immutable_ref)["digest"] != digest:
+            raise ReleaseError("immutable OCI readback digest differs from receipt")
+        if oci_descriptor(latest_ref)["digest"] != digest:
+            raise ReleaseError("latest-stable OCI readback digest differs from receipt")
+        for predicate_type in ("slsaprovenance1", "spdxjson"):
+            command(
+                [
+                    "cosign", "verify-attestation", "--type", predicate_type,
+                    "--certificate-identity", str(attestation["certificate_identity"]),
+                    "--certificate-oidc-issuer", "https://token.actions.githubusercontent.com",
+                    str(attestation["subject"]),
+                ],
+                timeout=120,
+            )
     jobs = run.get("jobs") if isinstance(run.get("jobs"), list) else []
     job = jobs[0] if jobs and isinstance(jobs[0], dict) else {}
     timings = {
@@ -777,6 +1022,9 @@ def publish(args: argparse.Namespace) -> dict[str, Any]:
         "version": version,
         "owner_source_commit": owner_commit,
         "framework_source_commit": framework_commit,
+        "framework_projection_commit": selected_commit,
+        "publisher_repository": repo,
+        "publisher_source_commit": caller_commit,
         "publication_request_id": request_id,
         "run_id": run_id,
         "run_url": run.get("url"),

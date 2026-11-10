@@ -1,14 +1,18 @@
 from __future__ import annotations
 
 import argparse
+import base64
 import copy
 import hashlib
 import importlib.util
+import json
+import os
 import subprocess
 import sys
 import tempfile
 import unittest
 from pathlib import Path
+from contextlib import ExitStack
 from unittest.mock import patch
 
 
@@ -798,6 +802,482 @@ class PackageReleaseTests(unittest.TestCase):
             self.assertEqual(commands.call_args_list[4].args[0], ["opl", "packages", "install", "--package-id", "provider", "--json"])
             self.assertEqual(result["installed_dependency_evidence"][0]["consumer_binding"]["status"], "current")
             self.assertIsNotNone(result["installed_dependency_evidence"][0]["content_digest"])
+
+
+class PackagePublishTests(unittest.TestCase):
+    framework_commit = "a" * 40
+    caller_commit = "b" * 40
+    source_commit = "c" * 40
+    digest = "sha256:" + "d" * 64
+    predecessor = "sha256:" + "e" * 64
+    framework_repo = "gaofeng21cn/one-person-lab"
+    private_repo = "gaofeng21cn/opl-capital-compass"
+
+    def setUp(self) -> None:
+        self.temporary = tempfile.TemporaryDirectory()
+        self.addCleanup(self.temporary.cleanup)
+        self.root = Path(self.temporary.name).resolve()
+        self.calls: list[list[str]] = []
+        self.private = False
+        self.dispatched = False
+        self.unknown_dispatch = False
+        self.run_head = self.framework_commit
+        self.receipt_error = None
+        self.receipt_status = "verified"
+        self.owner_private = True
+        self.owner_identity = self.private_repo
+        self.wrapper = ""
+        self.registry_calls = []
+        self.is_framework_ancestor = True
+        self.pinned_package_drift = False
+        self.pinned_presentation_drift = False
+        self.pinned_payload_drift = False
+        self.private_predecessor = "resolve-authenticated"
+
+    def fixture(self, *, private: bool = False) -> argparse.Namespace:
+        self.private = private
+        self.dispatched = False
+        package_id = "occ" if private else "research-agent"
+        owner_repo = self.private_repo if private else "gaofeng21cn/research-agent"
+        namespace = "one-person-lab-private-packages" if private else "one-person-lab-packages"
+        self.image = f"ghcr.io/gaofeng21cn/{namespace}/{package_id}"
+        self.run_repo = owner_repo if private else self.framework_repo
+        self.run_head = self.caller_commit if private else self.framework_commit
+        self.package = {
+            "package_id": package_id, "version": "1.2.3",
+            "source_repo": f"https://github.com/{owner_repo}.git",
+            "visibility": "authorized_only" if private else "public",
+            "codex_surface": {
+                "carrier_source_commit": self.source_commit,
+                "plugin_payload_manifest_url": f"payloads/{package_id}-1.2.3.json",
+                "configured_codex_plugin_carrier": {"publication_ref": f"{self.image}:latest-stable"},
+            },
+        }
+        if private:
+            self.package.update(
+                access_policy_ref=f"github-package:gaofeng21cn/{namespace}/{package_id}",
+                credential_provider="github_packages",
+            )
+            self.wrapper = """name: Publish private OCC Package
+run-name: OCC ${{ inputs.expected_package_version }} / ${{ inputs.publication_request_id }}
+on:
+  workflow_dispatch:
+    inputs:
+      expected_package_version:
+        required: true
+        type: string
+      expected_owner_source_commit:
+        required: true
+        type: string
+      expected_latest_stable_predecessor:
+        required: true
+        type: string
+      publication_request_id:
+        required: true
+        type: string
+permissions:
+  contents: read
+  packages: write
+  id-token: write
+jobs:
+  publish-package:
+    if: github.ref == 'refs/heads/main'
+    uses: gaofeng21cn/one-person-lab/.github/workflows/publish-package.yml@FRAMEWORK_COMMIT
+    with:
+      package_id: occ
+      expected_package_version: ${{ inputs.expected_package_version }}
+      expected_owner_source_commit: ${{ inputs.expected_owner_source_commit }}
+      expected_framework_source_commit: FRAMEWORK_COMMIT
+      expected_latest_stable_predecessor: ${{ inputs.expected_latest_stable_predecessor }}
+      publication_request_id: ${{ inputs.publication_request_id }}
+    secrets: inherit
+""".replace("FRAMEWORK_COMMIT", self.framework_commit)
+        path = self.root / f"contracts/opl-framework/packages/{package_id}.json"
+        path.parent.mkdir(parents=True, exist_ok=True)
+        release.write_json(path, self.package)
+        self.receipt = {
+            "status": "published_and_verified", "publication_request_id": "test-publication",
+            "package": {
+                "package_id": package_id, "version": "1.2.3",
+                "owner_source_commit": self.source_commit,
+                "framework_source_commit": self.framework_commit,
+            },
+            "immutable": {"ref": f"{self.image}:1.2.3", "digest": self.digest},
+            "latest_stable": {
+                "ref": f"{self.image}:latest-stable", "digest": self.digest,
+                "predecessor_digest": self.predecessor,
+            },
+            "attestations": {
+                "status": "verified", "subject": f"{self.image}@{self.digest}",
+                "certificate_identity": None if private else "https://github.com/gaofeng21cn/one-person-lab/.github/workflows/publish-package.yml@refs/heads/main",
+            },
+            "workflow": {"repository": self.run_repo, "run_id": "123", "run_attempt": "1"},
+        }
+        return argparse.Namespace(package_id=package_id, framework_root=str(self.root), request_id="test-publication")
+
+    def command(self, argv, **kwargs):
+        self.calls.append(list(argv))
+        result = ""
+        if argv[0] == "git":
+            if argv[1:3] == ["rev-parse", "HEAD"] or argv[1:3] == ["rev-parse", "origin/main"]:
+                result = self.framework_commit
+            elif argv[1:4] == ["remote", "get-url", "origin"]:
+                result = f"https://github.com/{self.framework_repo}.git"
+            elif argv[1:3] == ["merge-base", "--is-ancestor"]:
+                return subprocess.CompletedProcess(argv, 0 if self.is_framework_ancestor else 1, "", "")
+            elif argv[1] == "show":
+                commit, path = argv[2].split(":", 1)
+                if path.endswith(f"packages/{self.package['package_id']}.json"):
+                    result = copy.deepcopy(self.package)
+                    if commit != self.framework_commit and self.pinned_package_drift:
+                        result["version"] = "1.2.2"
+                    if commit != self.framework_commit and self.pinned_presentation_drift:
+                        result["presentation"] = {"display_name_i18n": {"en-US": "Previous catalog name"}}
+                else:
+                    self.assertIn("/payloads/", path)
+                    result = {"source_commit": self.source_commit}
+                    if commit != self.framework_commit and self.pinned_payload_drift:
+                        result["source_commit"] = "f" * 40
+            elif argv[1] not in ("fetch", "status"):
+                self.fail(f"Unexpected git command: {argv}")
+        elif argv[:4] == ["oras", "manifest", "fetch", "--descriptor"]:
+            result = {"digest": self.digest if self.dispatched else self.predecessor}
+        elif argv[:3] == ["gh", "workflow", "run"]:
+            self.dispatched = True
+            if self.unknown_dispatch:
+                return subprocess.CompletedProcess(argv, 1, "", "dispatch outcome unknown")
+            result = f"https://github.com/{self.run_repo}/actions/runs/123"
+        elif argv[:3] == ["gh", "run", "list"]:
+            result = [{"databaseId": 123, "displayTitle": "Publish test-publication", "headSha": self.run_head}]
+        elif argv[:3] == ["gh", "run", "view"]:
+            result = {
+                "status": "completed", "conclusion": "success", "headSha": self.run_head,
+                "url": f"https://github.com/{self.run_repo}/actions/runs/123", "jobs": [],
+            }
+        elif argv[:3] == ["gh", "run", "download"]:
+            release.write_json(Path(argv[argv.index("--dir") + 1]) / "publication-receipt.json", self.receipt)
+        elif argv[:2] == ["gh", "api"]:
+            endpoint = argv[2]
+            if endpoint.endswith("/pending_deployments"):
+                result = []
+            elif endpoint == f"repos/{self.private_repo}":
+                result = {"private": self.owner_private, "default_branch": "main", "full_name": self.owner_identity}
+            elif endpoint == f"repos/{self.private_repo}/git/ref/heads/main":
+                result = {"object": {"sha": self.caller_commit}}
+            elif endpoint == f"repos/{self.private_repo}/contents/.github/workflows/publish-package.yml?ref={self.caller_commit}":
+                result = {"encoding": "base64", "content": base64.b64encode(self.wrapper.encode()).decode()}
+            else:
+                self.fail(f"Unexpected GitHub API request: {endpoint}")
+        elif argv[0] != "cosign":
+            self.fail(f"Unexpected external command: {argv}")
+        if not isinstance(result, str):
+            result = release.json.dumps(result)
+        return subprocess.CompletedProcess(argv, 0, result, "")
+
+    def publish(self, args):
+        with ExitStack() as stack:
+            stack.enter_context(patch.object(release, "command", side_effect=self.command))
+            watch = stack.enter_context(patch.object(
+                release.subprocess, "run", return_value=subprocess.CompletedProcess([], 0, "", ""),
+            ))
+            if self.private:
+                stack.enter_context(patch.object(release, "private_registry_readback", side_effect=self.registry_readback))
+            result = release.publish(args)
+        self.watch_calls = [call.args[0] for call in watch.call_args_list]
+        return result
+
+    def registry_readback(self, framework_root, package, *, action, receipt_selector=None):
+        self.assertEqual(framework_root, self.root)
+        self.assertEqual(package, self.package)
+        self.registry_calls.append(action)
+        if action == "predecessor":
+            return {"predecessor": self.private_predecessor}
+        self.assertEqual(action, "receipt")
+        self.assertEqual(receipt_selector, {
+            "publicationRequestId": "test-publication",
+            "workflowRepository": self.run_repo,
+            "workflowRunId": "123",
+        })
+        if self.receipt_error:
+            raise release.ReleaseError(self.receipt_error)
+        return {"status": self.receipt_status, "subject": f"{self.image}@{self.digest}", "receipt": self.receipt}
+
+    def dispatch(self):
+        return next(call for call in self.calls if call[:3] == ["gh", "workflow", "run"])
+
+    def test_public_publish_keeps_framework_dispatch_and_actions_receipt(self) -> None:
+        result = self.publish(self.fixture())
+        dispatch = self.dispatch()
+        self.assertEqual(dispatch[dispatch.index("--repo") + 1], self.framework_repo)
+        fields = {dispatch[index + 1].split("=", 1)[0]: dispatch[index + 1].split("=", 1)[1]
+                  for index, value in enumerate(dispatch) if value == "-f"}
+        self.assertEqual(fields["expected_framework_source_commit"], self.framework_commit)
+        self.assertEqual(fields["expected_owner_source_commit"], self.source_commit)
+        self.assertEqual(fields["package_id"], "research-agent")
+        self.assertTrue(any(call[:3] == ["gh", "run", "download"] for call in self.calls))
+        self.assertEqual(len([call for call in self.calls if call[:2] == ["cosign", "verify-attestation"]]), 2)
+        self.assertEqual(result["status"], "published_and_verified")
+        self.assertEqual(result["digest"], self.digest)
+
+    def test_private_wrapper_must_bind_private_owner_package_and_framework_before_dispatch(self) -> None:
+        for fault in ("owner_visibility", "owner_identity", "package_identity", "framework_pin", "framework_input", "missing_input"):
+            with self.subTest(fault=fault):
+                self.calls.clear()
+                args = self.fixture(private=True)
+                self.owner_private = fault != "owner_visibility"
+                self.owner_identity = "gaofeng21cn/other-owner" if fault == "owner_identity" else self.private_repo
+                if fault == "package_identity":
+                    self.wrapper = self.wrapper.replace("package_id: occ", "package_id: other")
+                elif fault == "framework_pin":
+                    self.wrapper = self.wrapper.replace(f".yml@{self.framework_commit}", f".yml@{'f' * 40}")
+                elif fault == "framework_input":
+                    self.wrapper = self.wrapper.replace(f"expected_framework_source_commit: {self.framework_commit}",
+                                                        f"expected_framework_source_commit: {'f' * 40}")
+                elif fault == "missing_input":
+                    self.wrapper = self.wrapper.replace("      publication_request_id:\n        required: true\n        type: string\n", "")
+                with self.assertRaises(release.ReleaseError):
+                    self.publish(args)
+                self.assertFalse(any(call[:3] == ["gh", "workflow", "run"] for call in self.calls))
+
+    def test_public_receipt_must_match_request_framework_and_predecessor(self) -> None:
+        for fault in ("request", "framework", "predecessor"):
+            with self.subTest(fault=fault):
+                args = self.fixture()
+                if fault == "request":
+                    self.receipt["publication_request_id"] = "different-request"
+                elif fault == "framework":
+                    self.receipt["package"]["framework_source_commit"] = "f" * 40
+                else:
+                    self.receipt["latest_stable"]["predecessor_digest"] = "sha256:" + "f" * 64
+                with self.assertRaises(release.ReleaseError):
+                    self.publish(args)
+
+    def test_private_publish_uses_owner_wrapper_and_shared_registry_receipt(self) -> None:
+        result = self.publish(self.fixture(private=True))
+        dispatch = self.dispatch()
+        self.assertEqual(dispatch[dispatch.index("--repo") + 1], self.private_repo)
+        self.assertEqual(dispatch[dispatch.index("--ref") + 1], "main")
+        fields = {dispatch[index + 1].split("=", 1)[0]: dispatch[index + 1].split("=", 1)[1]
+                  for index, value in enumerate(dispatch) if value == "-f"}
+        self.assertEqual(fields, {
+            "expected_package_version": "1.2.3", "expected_owner_source_commit": self.source_commit,
+            "expected_latest_stable_predecessor": "resolve-authenticated",
+            "publication_request_id": "test-publication",
+        })
+        self.assertIn([
+            "gh", "api", f"repos/{self.private_repo}/contents/.github/workflows/publish-package.yml?ref={self.caller_commit}",
+        ], self.calls)
+        self.assertEqual(self.registry_calls, ["predecessor", "receipt"])
+        self.assertFalse(any(call[:3] == ["gh", "run", "download"] for call in self.calls))
+        self.assertFalse(any(call[0] in ("cosign", "oras") for call in self.calls))
+        self.assertEqual(result["owner_source_commit"], self.source_commit)
+        self.assertEqual(result["framework_source_commit"], self.framework_commit)
+        self.assertEqual(result["publisher_source_commit"], self.caller_commit)
+        self.assertEqual(result["publisher_repository"], self.private_repo)
+        self.assertEqual(result["status"], "published_and_verified")
+
+    def test_private_unknown_dispatch_reconciles_run_at_wrapper_caller_commit(self) -> None:
+        args = self.fixture(private=True)
+        self.unknown_dispatch = True
+        result = self.publish(args)
+        runs = [call for call in self.calls if call[:3] == ["gh", "run", "list"]]
+        self.assertEqual(len(runs), 1)
+        self.assertEqual(runs[0][runs[0].index("--repo") + 1], self.private_repo)
+        self.assertEqual(len([call for call in self.calls if call[:3] == ["gh", "workflow", "run"]]), 1)
+        self.assertEqual(result["run_id"], 123)
+
+    def test_private_wrapper_may_pin_unchanged_package_at_canonical_framework_ancestor(self) -> None:
+        for presentation_drift in (False, True):
+            with self.subTest(presentation_drift=presentation_drift):
+                args = self.fixture(private=True)
+                pin = "f" * 40
+                self.wrapper = self.wrapper.replace(self.framework_commit, pin)
+                self.pinned_presentation_drift = presentation_drift
+                self.receipt["package"]["framework_source_commit"] = pin
+                result = self.publish(args)
+                self.assertIn(["git", "merge-base", "--is-ancestor", pin, self.framework_commit], self.calls)
+                self.assertEqual(result["framework_source_commit"], pin)
+                self.assertEqual(result["publisher_source_commit"], self.caller_commit)
+                self.assertEqual(result["owner_source_commit"], self.source_commit)
+
+    def test_private_wrapper_rejects_unrelated_pin_or_changed_package_inputs(self) -> None:
+        for fault in ("ancestry", "package", "payload"):
+            with self.subTest(fault=fault):
+                args = self.fixture(private=True)
+                self.wrapper = self.wrapper.replace(self.framework_commit, "f" * 40)
+                self.is_framework_ancestor = fault != "ancestry"
+                self.pinned_package_drift = fault == "package"
+                self.pinned_payload_drift = fault == "payload"
+                self.calls.clear()
+                with self.assertRaises(release.ReleaseError):
+                    self.publish(args)
+                self.assertFalse(any(call[:3] == ["gh", "workflow", "run"] for call in self.calls))
+
+    def test_run_head_must_match_public_framework_or_private_wrapper_caller(self) -> None:
+        for private in (False, True):
+            with self.subTest(private=private):
+                args = self.fixture(private=private)
+                self.run_head = self.source_commit
+                self.registry_calls.clear()
+                self.calls.clear()
+                with self.assertRaises(release.ReleaseError):
+                    self.publish(args)
+                self.assertNotIn("receipt", self.registry_calls)
+                self.assertFalse(any(call[:3] == ["gh", "run", "download"] for call in self.calls))
+
+    def test_private_receipt_must_bind_request_framework_predecessor_and_workflow(self) -> None:
+        for fault in ("request", "framework", "predecessor", "workflow_repo", "workflow_run"):
+            with self.subTest(fault=fault):
+                args = self.fixture(private=True)
+                if fault == "request":
+                    self.receipt["publication_request_id"] = "different-request"
+                elif fault == "framework":
+                    self.receipt["package"]["framework_source_commit"] = "f" * 40
+                elif fault == "predecessor":
+                    self.private_predecessor = self.predecessor
+                    self.receipt["latest_stable"]["predecessor_digest"] = "sha256:" + "f" * 64
+                elif fault == "workflow_repo":
+                    self.receipt["workflow"]["repository"] = self.framework_repo
+                else:
+                    self.receipt["workflow"]["run_id"] = "999"
+                with self.assertRaises(release.ReleaseError):
+                    self.publish(args)
+
+    def test_private_shared_verifier_failure_does_not_report_publication_success(self) -> None:
+        for fault in ("error", "unverified"):
+            with self.subTest(fault=fault):
+                args = self.fixture(private=True)
+                self.receipt_error = "private receipt signature verification failed" if fault == "error" else None
+                self.receipt_status = "failed" if fault == "unverified" else "verified"
+                with self.assertRaises(release.ReleaseError):
+                    self.publish(args)
+                self.assertFalse(any(call[:3] == ["gh", "run", "download"] for call in self.calls))
+
+
+class PrivateRegistryAdapterTests(unittest.TestCase):
+    def setUp(self) -> None:
+        temporary = tempfile.TemporaryDirectory()
+        self.addCleanup(temporary.cleanup)
+        self.root = Path(temporary.name).resolve()
+        (self.root / "package.json").write_text('{"type":"module"}\n')
+        source = self.root / "src/adapters/integration/software-sources.ts"
+        source.parent.mkdir(parents=True)
+        source.write_text("""export function resolvePackageSourceCredentialProvider() {
+  const mode = process.env.OPL_TEST_SOURCE_MODE;
+  if (mode === 'missing') return null;
+  return { enabled: mode !== 'disabled', credential_handle: mode === 'no_handle' ? null : 'env:OPL_GITHUB_PACKAGES_TOKEN' };
+}
+""")
+        provider = self.root / "src/adapters/integration/agent-package-registry-parts/package-registry-access-provider.ts"
+        provider.parent.mkdir(parents=True)
+        provider.write_text("""import fs from 'node:fs';
+export function credentialForGithubPackages() {
+  fs.writeFileSync(process.env.OPL_TEST_CREDENTIAL_LOG, 'called');
+  return { username: 'fixture', token: 'synthetic-private-test-token' };
+}
+""")
+        verifier = self.root / "scripts/oci-publication-receipt-readback.mjs"
+        verifier.parent.mkdir()
+        verifier.write_text("""export function verifyPrivatePackagePublication() {
+  throw new Error('synthetic-private-test-token must stay inside the adapter');
+}
+""")
+        bindir = self.root / "bin"
+        bindir.mkdir()
+        oras = bindir / "oras"
+        oras.write_text("""#!/bin/sh
+printf '%s\\n' "$DOCKER_CONFIG" >> "$OPL_TEST_REGISTRY_LOG"
+printf '%s\\n' '{"digest":"sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"}'
+""")
+        oras.chmod(0o755)
+        self.credential_log = self.root / "credential-reader.log"
+        self.registry_log = self.root / "registry.log"
+        self.env = {
+            **os.environ, "PATH": str(bindir) + os.pathsep + os.environ.get("PATH", ""),
+            "OPL_TEST_CREDENTIAL_LOG": str(self.credential_log),
+            "OPL_TEST_REGISTRY_LOG": str(self.registry_log),
+        }
+        self.package = {
+            "package_id": "occ", "version": "1.2.3", "source_repo": "https://github.com/gaofeng21cn/opl-capital-compass.git",
+            "credential_provider": "github_packages",
+            "access_policy_ref": "github-package:gaofeng21cn/one-person-lab-private-packages/occ",
+            "codex_surface": {
+                "carrier_source_commit": "c" * 40,
+                "configured_codex_plugin_carrier": {
+                    "publication_ref": "ghcr.io/gaofeng21cn/one-person-lab-private-packages/occ:latest-stable",
+                },
+            },
+        }
+
+    def run_adapter(self, *, action: str, mode: str = "enabled"):
+        registry_config = self.root / "registry-config"
+        registry_config.mkdir(mode=0o700, exist_ok=True)
+        return subprocess.run(
+            ["node", "--input-type=module", "-e", release.PRIVATE_REGISTRY_ADAPTER, str(self.root)],
+            input=json.dumps({
+                "action": action, "package": self.package, "registryConfigRoot": str(registry_config),
+                "receiptSelector": {"publicationRequestId": "request-1", "workflowRepository": "owner/repo", "workflowRunId": "123"},
+            }),
+            capture_output=True, text=True, check=False,
+            env={**self.env, "OPL_TEST_SOURCE_MODE": mode},
+        )
+
+    def test_disabled_or_missing_source_never_reads_credentials_or_registry(self) -> None:
+        for mode in ("disabled", "missing", "no_handle"):
+            with self.subTest(mode=mode):
+                result = self.run_adapter(action="predecessor", mode=mode)
+                self.assertNotEqual(result.returncode, 0)
+                self.assertFalse(self.credential_log.exists())
+                self.assertFalse(self.registry_log.exists())
+
+    def test_predecessor_defers_authenticated_registry_read_to_publisher(self) -> None:
+        result = self.run_adapter(action="predecessor")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(json.loads(result.stdout), {"predecessor": "resolve-authenticated"})
+        self.assertTrue(self.credential_log.exists())
+        self.assertFalse(self.registry_log.exists())
+
+    def test_receipt_failure_redacts_provider_data_and_removes_temporary_config(self) -> None:
+        result = self.run_adapter(action="receipt")
+        self.assertNotEqual(result.returncode, 0)
+        self.assertNotIn("synthetic-private-test-token", result.stdout + result.stderr)
+        self.assertTrue(self.credential_log.exists())
+        configs = self.registry_log.read_text().splitlines()
+        self.assertTrue(configs)
+        for config in configs:
+            self.assertFalse(Path(config).exists(), config)
+
+    def test_receipt_selects_the_requested_verified_run(self) -> None:
+        (self.root / "scripts/oci-publication-receipt-readback.mjs").write_text("""import fs from 'node:fs';
+export function verifyPrivatePackagePublication(input, env) {
+  if (input.includeReceipt !== true || input.publicationRequestId !== 'request-1'
+    || input.workflowRepository !== 'owner/repo' || input.workflowRunId !== '123') throw new Error('Missing request selection');
+  if ((fs.statSync(env.DOCKER_CONFIG).mode & 0o777) !== 0o700
+    || (fs.statSync(`${env.DOCKER_CONFIG}/config.json`).mode & 0o777) !== 0o600) throw new Error('Unsafe config permissions');
+  return { status: 'verified', receipt: { publication_request_id: input.publicationRequestId } };
+}
+""")
+        result = self.run_adapter(action="receipt")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(json.loads(result.stdout)["receipt"]["publication_request_id"], "request-1")
+        self.assertNotIn("synthetic-private-test-token", result.stdout + result.stderr)
+        for config in self.registry_log.read_text().splitlines():
+            self.assertFalse(Path(config).exists(), config)
+
+    def test_python_owner_removes_temporary_config_after_adapter_timeout(self) -> None:
+        paths = []
+
+        def timeout(argv, **kwargs):
+            temporary = Path(json.loads(kwargs["input_text"])["registryConfigRoot"])
+            self.assertTrue(temporary.is_dir())
+            (temporary / "config.json").write_text("synthetic credential config")
+            paths.append(temporary)
+            raise release.ReleaseError("command timed out")
+
+        with patch.object(release, "command", side_effect=timeout), self.assertRaisesRegex(release.ReleaseError, "timed out"):
+            release.private_registry_readback(self.root, self.package, action="receipt")
+        self.assertEqual(len(paths), 1)
+        self.assertFalse(paths[0].exists())
 
 
 if __name__ == "__main__":
