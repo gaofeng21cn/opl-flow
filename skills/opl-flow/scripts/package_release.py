@@ -199,7 +199,7 @@ def package_skill_ids(package: dict[str, Any]) -> list[str]:
 def owner_projection(
     owner: dict[str, Any], previous: dict[str, Any], owner_root: Path
 ) -> dict[str, Any]:
-    # Only Framework registration and carrier metadata survives from the old projection.
+    # Framework registration and carrier metadata survive from the old projection.
     framework_fields = (
         "registry_entry", "source", "source_repo", "schema_ref",
         "publication_projection_order", "publication_source", "publication_channel_admission",
@@ -211,6 +211,15 @@ def owner_projection(
     for field in framework_fields:
         if field in previous:
             projected[field] = copy.deepcopy(previous[field])
+    # Presentation fields inherit central defaults; explicit owner values win.
+    previous_presentation = previous.get("presentation")
+    if isinstance(previous_presentation, dict):
+        if "presentation" not in owner:
+            projected["presentation"] = copy.deepcopy(previous_presentation)
+        elif isinstance(owner["presentation"], dict):
+            projected["presentation"] = {
+                **copy.deepcopy(previous_presentation), **projected["presentation"],
+            }
     if "machine_boundary" not in projected and "machine_boundary" in previous:
         projected["machine_boundary"] = previous["machine_boundary"]
     if "standard_agent_descriptor_projection" in previous:

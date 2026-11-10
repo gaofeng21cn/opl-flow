@@ -155,6 +155,48 @@ class PackageReleaseTests(unittest.TestCase):
                     release.prepare(args)
                 self.assertEqual(previous, (path.read_bytes(), allowlist_path.read_bytes()))
 
+    def test_prepare_preserves_presentation_and_applies_explicit_owner_fields(self) -> None:
+        central = {
+            "software_type": "capability",
+            "display_name_i18n": {"en-US": "Central name", "zh-CN": "中央名称"},
+            "description_i18n": {"en-US": "Central description"},
+            "home_shortcuts": [{"id": "open"}],
+        }
+        cases = (
+            ({}, central),
+            ({"presentation": {}}, central),
+            ({"presentation": {"display_name_i18n": {"en-US": "Owner name"}}},
+             {**central, "display_name_i18n": {"en-US": "Owner name"}}),
+            ({"presentation": {"home_shortcuts": [], "description_i18n": {}}},
+             {**central, "home_shortcuts": [], "description_i18n": {}}),
+            ({"presentation": {"software_type": "", "display_name_i18n": None}},
+             {**central, "software_type": "", "display_name_i18n": None}),
+            ({"presentation": None}, None),
+        )
+        for capability in (False, True):
+            for declared, expected in cases:
+                with self.subTest(capability=capability, owner=declared), tempfile.TemporaryDirectory() as temporary:
+                    args, owner, path, _ = self.prepare_fixture(Path(temporary), capability=capability)
+                    previous = release.read_json(path)
+                    previous["presentation"] = copy.deepcopy(central)
+                    release.write_json(path, previous)
+                    owner.update(copy.deepcopy(declared))
+
+                    def generate(argv, **kwargs):
+                        staged = release.read_json(Path(argv[argv.index("--manifest") + 1]))
+                        self.assertEqual(staged["presentation"], expected)
+                        return self.payload_command(argv, **kwargs)
+
+                    with (
+                        patch.object(release, "require_owner_release", return_value=(owner, "1.2.3", "a" * 40)),
+                        patch.object(release, "repo_slug", return_value=f"owner/{args.package_id}"),
+                        patch.object(release, "command", side_effect=generate),
+                    ):
+                        release.prepare(args)
+                    self.assertEqual(release.read_json(path)["presentation"], expected)
+                    self.assertEqual(owner.get("presentation"), declared.get("presentation"))
+                    self.assertEqual(previous["presentation"], central)
+
     def test_owner_projection_resolves_declared_json_pointer_and_locator(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
             args, owner, path, _ = self.prepare_fixture(Path(temporary))

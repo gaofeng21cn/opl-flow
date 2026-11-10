@@ -98,7 +98,10 @@ python3 <opl-flow-skill>/scripts/package_release.py prepare \
 annotated release tag selecting `HEAD`. It resolves the canonical owner manifest
 and carrier descriptor through Framework publication refs and the payload
 allowlist, verifies their committed identities, and refreshes owner capability,
-dependency and content-lock fields. A missing owner `source_repo` does not waive
+dependency and content-lock fields. Presentation inherits missing fields from
+the central projection; each explicitly declared owner field replaces its
+central value, including empty values, without merging nested values.
+A missing owner `source_repo` does not waive
 the binding between origin, Framework projection and payload allowlist. Existing
 same-version payload bytes remain immutable. Review and absorb the generated
 Package and payload files, plus the allowlist when content-lock paths changed,
