@@ -144,6 +144,11 @@ publisher resolves the predecessor with its authenticated identity, so a private
 registry's masked 404 cannot become an absence assertion. Flow reads the private
 OCI receipt through Framework's shared verifier and trusted signing key, with
 credentials confined to a short-lived process and temporary registry config.
+The trusted key is `contracts/opl-framework/keys/private-packages/<package_id>.pub`
+when present; only Packages without that file use the legacy
+`contracts/opl-framework/keys/private-package-signing.pub`. An invalid Package
+identity stops before credential access. Verification with a Package key never
+retries with the legacy key after failure.
 The verified receipt must match the request, predecessor, pinned Framework
 commit, owner repository, and workflow run. Private receipts are not downloaded
 from Actions, and public keyless verification is not used for private Packages.
