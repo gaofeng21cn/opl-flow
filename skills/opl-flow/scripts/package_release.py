@@ -795,6 +795,12 @@ try {
   const root = process.argv[1];
   const input = JSON.parse(fs.readFileSync(0, 'utf8'));
   const package_ = input.package;
+  if (typeof package_.package_id !== 'string' || !/^[a-z0-9](?:[a-z0-9.-]*[a-z0-9])?$/.test(package_.package_id)) {
+    fail('Private Package identity is invalid.');
+  }
+  const packagePublicKey = path.join(root, 'contracts/opl-framework/keys/private-packages', `${package_.package_id}.pub`);
+  const publicKey = fs.existsSync(packagePublicKey)
+    ? packagePublicKey : path.join(root, 'contracts/opl-framework/keys/private-package-signing.pub');
   const publicationRef = package_.codex_surface.configured_codex_plugin_carrier.publication_ref;
   const image = publicationRef.replace(/:latest-stable$/, '');
   const load = (relative) => import(pathToFileURL(path.join(root, relative)).href);
@@ -834,7 +840,7 @@ try {
       subject: `${image}@${digest}`, packageId: package_.package_id, version: package_.version,
       sourceRepo: package_.source_repo, sourceCommit: package_.codex_surface.carrier_source_commit,
       accessPolicyRef: package_.access_policy_ref, credentialProvider: package_.credential_provider,
-      publicKey: path.join(root, 'contracts/opl-framework/keys/private-package-signing.pub'),
+      publicKey,
       includeReceipt: true,
       publicationRequestId: input.receiptSelector?.publicationRequestId,
       workflowRepository: input.receiptSelector?.workflowRepository,

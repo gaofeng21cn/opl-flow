@@ -1237,6 +1237,46 @@ printf '%s\\n' '{"digest":"sha256:dddddddddddddddddddddddddddddddddddddddddddddd
         self.assertTrue(self.credential_log.exists())
         self.assertFalse(self.registry_log.exists())
 
+    def test_invalid_package_identity_stops_before_credentials_or_registry(self) -> None:
+        for package_id in ("../occ", "occ/../../other", "occ\\other", "/occ", "..", "", None, 7):
+            with self.subTest(package_id=package_id):
+                self.package["package_id"] = package_id
+                result = self.run_adapter(action="receipt")
+                self.assertNotEqual(result.returncode, 0)
+                self.assertEqual(result.stderr.strip(), "Private Package identity is invalid.")
+                self.assertFalse(self.credential_log.exists())
+                self.assertFalse(self.registry_log.exists())
+
+    def test_receipt_selects_package_key_or_legacy_key_without_retry(self) -> None:
+        keys = self.root / "contracts/opl-framework/keys"
+        (keys / "private-packages").mkdir(parents=True)
+        legacy_key = keys / "private-package-signing.pub"
+        legacy_key.write_text("synthetic legacy public key")
+        package_key = keys / "private-packages/occ.pub"
+        verifier_log = self.root / "verifier.log"
+        self.env["OPL_TEST_VERIFIER_LOG"] = str(verifier_log)
+        (self.root / "scripts/oci-publication-receipt-readback.mjs").write_text("""import fs from 'node:fs';
+export function verifyPrivatePackagePublication(input, env) {
+  fs.appendFileSync(env.OPL_TEST_VERIFIER_LOG, input.publicKey + '\\n');
+  if (env.OPL_TEST_REJECT_PACKAGE_KEY === 'true' && input.publicKey.includes('/private-packages/')) {
+    throw new Error('synthetic-private-test-token must stay inside the adapter');
+  }
+  return { status: 'verified', receipt: { publication_request_id: input.publicationRequestId } };
+}
+""")
+        for key_exists, rejects in ((False, False), (True, False), (True, True)):
+            with self.subTest(package_key_exists=key_exists, rejects_package_key=rejects):
+                if key_exists:
+                    package_key.write_text("synthetic package public key")
+                verifier_log.unlink(missing_ok=True)
+                self.env["OPL_TEST_REJECT_PACKAGE_KEY"] = str(rejects).lower()
+                result = self.run_adapter(action="receipt")
+                self.assertEqual(result.returncode == 0, not rejects, result.stderr)
+                self.assertEqual(verifier_log.read_text().splitlines(), [str(package_key if key_exists else legacy_key)])
+                self.assertNotIn("synthetic-private-test-token", result.stdout + result.stderr)
+                for config in self.registry_log.read_text().splitlines():
+                    self.assertFalse(Path(config).exists(), config)
+
     def test_receipt_failure_redacts_provider_data_and_removes_temporary_config(self) -> None:
         result = self.run_adapter(action="receipt")
         self.assertNotEqual(result.returncode, 0)
