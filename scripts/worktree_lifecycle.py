@@ -170,7 +170,7 @@ def integration_overlaps(
     lane_common_dir = common_dir(lane)
     for item in entries:
         other = Path(item["worktree"]).expanduser().resolve()
-        if other == lane or item["status"] != "ACTIVE" or not other.exists():
+        if other == lane or item["status"] != "ACTIVE" or not (other / ".git").exists():
             continue
         if common_dir(other) != lane_common_dir:
             continue

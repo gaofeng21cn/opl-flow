@@ -1,0 +1,13 @@
+{
+  "strategy": "daily_patch",
+  "prepare": [],
+  "verify": [
+    [
+      "python3",
+      "-m",
+      "unittest",
+      "tests.test_package_release"
+    ]
+  ],
+  "version_files": []
+}
