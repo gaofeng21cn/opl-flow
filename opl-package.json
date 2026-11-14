@@ -3,7 +3,7 @@
   "package_id": "opl-flow",
   "display_name": "OPL Flow",
   "publisher": "one-person-lab",
-  "version": "0.1.72",
+  "version": "0.1.73",
   "source": "first_party",
   "source_repo": "https://github.com/gaofeng21cn/opl-flow.git",
   "package_role": "workflow_profile",
@@ -49,10 +49,20 @@
   },
   "capability_dependencies": [],
   "presentation": {
-    "icon_ref": "assets/branding/opl-flow-logo.png",
     "display_name_i18n": {
       "zh-CN": "OPL Flow",
       "en-US": "OPL Flow"
-    }
+    },
+    "description_i18n": {
+      "zh-CN": "建立统一的 Codex 使用基线，协调跨任务、仓库与机器的持续工作。",
+      "en-US": "OPL Flow establishes the Codex experience baseline and coordinates durable work across tasks, repositories, and machines."
+    },
+    "session_routing_summary_i18n": {
+      "zh-CN": "建立统一的 Codex 使用基线，协调跨任务、仓库与机器的持续工作。",
+      "en-US": "OPL Flow establishes the Codex experience baseline and coordinates durable work across tasks, repositories, and machines."
+    },
+    "home_shortcuts": [],
+    "software_type": "capability",
+    "icon_ref": "assets/branding/opl-flow-logo.png"
   }
 }
