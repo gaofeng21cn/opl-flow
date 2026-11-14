@@ -1,6 +1,6 @@
 {
   "name": "opl-flow",
-  "version": "0.1.71",
+  "version": "0.1.72",
   "description": "OPL Flow establishes the Codex experience baseline and coordinates durable work across tasks, repositories, and machines.",
   "author": {
     "name": "Gaofeng"
@@ -28,7 +28,9 @@
       "multi-machine-fleet",
       "codegraph-bootstrap"
     ],
-    "defaultPrompt": "Use $opl-flow doctor to check my Codex baseline, or $opl-flow start for idempotent Ledger onboarding."
+    "defaultPrompt": "Use $opl-flow doctor to check my Codex baseline, or $opl-flow start for idempotent Ledger onboarding.",
+    "logo": "./assets/branding/opl-flow-logo.png",
+    "composerIcon": "./assets/branding/opl-flow-logo.png"
   },
   "homepage": "https://github.com/gaofeng21cn/opl-flow",
   "repository": "https://github.com/gaofeng21cn/opl-flow",
