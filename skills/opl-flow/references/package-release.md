@@ -32,6 +32,22 @@ and the OCI repository. Changes remain in repository documentation and Git
 history. Domain qualification is separate from Package publication. This rule
 does not apply to App products with independently distributed installers.
 
+## Daily automation
+
+Framework's `daily-package-channel.yml` prepares changed owner Packages through the
+owner's `release-automation.json`, exact source checks, version PRs and annotated
+tags. It then calls this Skill's existing `prepare` action to generate projections.
+The shared publisher verifies the daily run and exact plan artifact before selecting
+its automated environment. The manual `publish` action retains its existing protected
+path. Private owner wrappers may accept an optional `automation_source_run_id`; its
+binding is validated independently by Framework before publication. The signing key
+stays in the private owner's release environment.
+
+Package ID, version, owner source commit and content lock identify one publication
+across daily runs. A waiting or successful publication is reconciled before another
+run is dispatched. Channel updates make a version available; they do not update user
+installations or replace domain qualification.
+
 ## Local Source Preparation
 
 Use `prepare-source` to prepare a local source installation before publication.

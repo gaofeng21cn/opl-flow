@@ -733,22 +733,26 @@ def private_publication_target(
         jobs = wrapper["jobs"]
         job = jobs["publish-package"]
         bindings = job["with"]
+        optional_inputs = {"automation_source_run_id"} if "automation_source_run_id" in inputs else set()
         uses = re.fullmatch(
             r"gaofeng21cn/one-person-lab/\.github/workflows/publish-package\.yml@([0-9a-f]{40})",
             str(job.get("uses") or ""),
         )
         framework_commit = uses[1] if uses else ""
         if (
-            set(inputs) != set(PRIVATE_PUBLICATION_INPUTS)
+            set(inputs) != set(PRIVATE_PUBLICATION_INPUTS) | optional_inputs
+            or any(inputs[name].get("required") != "false" or inputs[name].get("type") != "string"
+                   or inputs[name].get("default") != "" for name in optional_inputs)
             or any(inputs[name].get("required") != "true" or inputs[name].get("type") != "string" for name in PRIVATE_PUBLICATION_INPUTS)
             or set(jobs) != {"publish-package"}
             or not framework_commit
             or job.get("if") != "github.ref == 'refs/heads/main'"
             or job.get("secrets") != "inherit"
-            or set(bindings) != {*PRIVATE_PUBLICATION_INPUTS, "package_id", "expected_framework_source_commit"}
+            or set(bindings) != {*PRIVATE_PUBLICATION_INPUTS, *optional_inputs, "package_id", "expected_framework_source_commit"}
             or bindings.get("package_id") != package["package_id"]
             or bindings.get("expected_framework_source_commit") != framework_commit
             or any(bindings[name] != "${{ inputs." + name + " }}" for name in PRIVATE_PUBLICATION_INPUTS)
+            or any(bindings[name] != "${{ inputs." + name + " }}" for name in optional_inputs)
         ):
             raise ReleaseError("private publisher wrapper identity, inputs, or fixed Framework pin differ")
     except (KeyError, TypeError, ValueError, AttributeError, UnicodeDecodeError) as exc:

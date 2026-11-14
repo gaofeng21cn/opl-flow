@@ -66,6 +66,18 @@ class WorktreeLifecycleTests(unittest.TestCase):
         git(self.lane, "add", "lane.txt")
         git(self.lane, "commit", "-m", "lane change")
 
+    def test_registration_preserves_a_stale_directory_receipt_without_blocking_other_repos(self) -> None:
+        self.register()
+        payload = json.loads(self.ledger.read_text())
+        stale = Path(self.temp.name) / "removed-worktree"
+        stale.mkdir()
+        previous = dict(payload["entries"][0], worktree=str(stale))
+        payload["entries"].append(previous)
+        self.ledger.write_text(json.dumps(payload))
+        self.assertEqual(self.register()["integration_overlaps"], [])
+        saved = worktree_lifecycle.read_ledger(self.ledger)
+        self.assertIn(previous, saved["entries"])
+
     def test_legacy_receipt_read_is_unchanged_then_write_has_one_custody_shape(self) -> None:
         self.register()
         payload = json.loads(self.ledger.read_text())

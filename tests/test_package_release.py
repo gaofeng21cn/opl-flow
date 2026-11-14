@@ -1076,6 +1076,15 @@ jobs:
         self.assertEqual(result["publisher_repository"], self.private_repo)
         self.assertEqual(result["status"], "published_and_verified")
 
+    def test_private_wrapper_accepts_only_the_bound_optional_daily_provenance_input(self) -> None:
+        args = self.fixture(private=True)
+        self.wrapper = self.wrapper.replace("    inputs:\n", "    inputs:\n      automation_source_run_id:\n        required: false\n        default: ''\n        type: string\n", 1)
+        self.wrapper = self.wrapper.replace("    with:\n", "    with:\n      automation_source_run_id: ${{ inputs.automation_source_run_id }}\n", 1)
+        self.assertEqual(self.publish(args)["status"], "published_and_verified")
+        self.wrapper = self.wrapper.replace("automation_source_run_id: ${{ inputs.automation_source_run_id }}", "automation_source_run_id: arbitrary")
+        with self.assertRaises(release.ReleaseError):
+            self.publish(args)
+
     def test_private_unknown_dispatch_reconciles_run_at_wrapper_caller_commit(self) -> None:
         args = self.fixture(private=True)
         self.unknown_dispatch = True
