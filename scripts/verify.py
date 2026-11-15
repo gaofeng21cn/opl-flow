@@ -73,6 +73,7 @@ REQUIRED_FILES = (
     "scripts/opl_fleet_parts/fleet_reconcile.py",
     "scripts/opl_fleet_parts/fleet_runner.py",
     "scripts/opl_fleet_parts/fleet_workspace.py",
+    "scripts/opl_fleet_parts/workspace_inventory.py",
     "scripts/opl_fleet_parts/fleet_workflow.py",
     "scripts/opl_task_owner.py",
     "scripts/opl_execution.py",
@@ -87,6 +88,7 @@ REQUIRED_FILES = (
 )
 
 CORE_TEST_MODULES = (
+    "tests/test_workspace_inventory.py",
     "tests/test_verify_lanes.py",
     "tests/test_worktree_absorption_audit.py",
     "tests/test_worktree_fleet_audit.py",
