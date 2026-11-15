@@ -39,15 +39,15 @@ def canonical_json_digest(value: Any) -> str:
     ).hexdigest()
 
 
-def _relative_path(value: Any, label: str, *, single_component: bool = False) -> str:
+def _relative_path(value: Any, label: str) -> str:
     text = str(value or "")
-    path = PurePosixPath(text)
+    parts = text.split("/")
     if (
         not text
         or text.startswith("/")
         or "\\" in text
-        or any(part in {"", ".", ".."} for part in path.parts)
-        or (single_component and len(path.parts) != 1)
+        or any(part in {"", ".", "..", ".git"} for part in parts)
+        or any(re.fullmatch(r"[A-Za-z0-9_.-]+", part) is None for part in parts)
     ):
         raise FleetError(f"workspace {label} is invalid")
     return text
@@ -109,7 +109,7 @@ def validate_workspace_profiles(payload: Any) -> dict[str, Any]:
                 raise FleetError(f"workspace repository fields are invalid: {profile_id}")
             slug = str(repository["repository"])
             directory = _relative_path(
-                repository["directory"], "repository directory", single_component=True
+                repository["directory"], "repository directory"
             )
             branch = str(repository["branch"])
             remote = str(repository["remote"])
@@ -127,6 +127,12 @@ def validate_workspace_profiles(payload: Any) -> dict[str, Any]:
             ):
                 raise FleetError(f"workspace repository is invalid: {profile_id}/{slug}")
             seen_repositories.add(slug)
+            if any(
+                PurePosixPath(directory).is_relative_to(PurePosixPath(other))
+                or PurePosixPath(other).is_relative_to(PurePosixPath(directory))
+                for other in seen_directories
+            ):
+                raise FleetError(f"workspace repository directories overlap: {profile_id}")
             seen_directories.add(directory)
         ledger = profile["ledger"]
         if not isinstance(ledger, dict) or set(ledger) != {
@@ -137,7 +143,6 @@ def validate_workspace_profiles(payload: Any) -> dict[str, Any]:
         ledger_directory = _relative_path(
             ledger["repository_directory"],
             "ledger repository directory",
-            single_component=True,
         )
         if ledger_directory not in seen_directories or ledger["role"] != "maintainer":
             raise FleetError(f"workspace ledger is invalid: {profile_id}")
@@ -234,6 +239,17 @@ def _worktree_count(repository: Path) -> int:
     return sum(line.startswith("worktree ") for line in result.stdout.splitlines())
 
 
+def _repository_path(root: Path, directory: str) -> Path:
+    """Reject redirected parents as well as a redirected checkout itself."""
+    relative = _relative_path(directory, "repository directory")
+    path = root
+    for part in relative.split("/"):
+        path = path / part
+        if path.is_symlink():
+            raise FleetError("workspace repository path contains a symlink")
+    return path
+
+
 def _repository_entry(
     spec: dict[str, Any],
     *,
@@ -241,7 +257,6 @@ def _repository_entry(
     fetch: bool,
     fresh_github: bool,
 ) -> dict[str, Any]:
-    path = root / str(spec["directory"])
     base = {
         "repository": spec["repository"],
         "directory": spec["directory"],
@@ -252,7 +267,9 @@ def _repository_entry(
         "github_commit": None,
         "worktree_count": 0,
     }
-    if path.is_symlink():
+    try:
+        path = _repository_path(root, str(spec["directory"]))
+    except FleetError:
         return {**base, "state": "PATH_UNSAFE"}
     if not path.exists():
         if fresh_github:
@@ -264,7 +281,7 @@ def _repository_entry(
     if not path.is_dir() or not (path / ".git").exists():
         return {**base, "state": "PATH_CONFLICT"}
     remote = git_value(path, ["remote", "get-url", "origin"], check=False)
-    if remote.returncode or remote.stdout.strip() != spec["remote"]:
+    if remote.returncode or github_repository_from_remote(remote.stdout.strip()) != spec["repository"]:
         return {**base, "state": "REMOTE_MISMATCH"}
     result = reconcile_repository(path, fetch=fetch, apply=False, expected_owner=None)
     if result is None or result["repository"] != spec["repository"]:
@@ -420,7 +437,9 @@ def _clone_missing(
         for spec in profile["repositories"]:
             if spec["repository"] not in missing:
                 continue
+            _repository_path(root, str(spec["directory"]))
             stage = stage_root / str(spec["directory"])
+            stage.parent.mkdir(parents=True, exist_ok=True)
             completed = run(
                 [
                     "git",
@@ -441,11 +460,13 @@ def _clone_missing(
             actual = git_value(stage, ["rev-parse", "HEAD"]).stdout.strip()
             if expected and actual != expected:
                 raise FleetError(f"workspace clone currentness changed: {spec['repository']}")
-            staged.append((stage, root / str(spec["directory"])))
+            staged.append((stage, _repository_path(root, str(spec["directory"]))))
         root.mkdir(parents=True, exist_ok=True)
         if any(target.exists() or target.is_symlink() for _, target in staged):
             raise FleetError("workspace target appeared during bootstrap")
         for stage, target in staged:
+            _repository_path(root, target.relative_to(root).as_posix())
+            target.parent.mkdir(parents=True, exist_ok=True)
             stage.replace(target)
 
 
@@ -468,7 +489,7 @@ def sync_workspace(profile_id: str) -> dict[str, Any]:
         entry = before_by_slug[spec["repository"]]
         if entry["state"] != "BEHIND":
             continue
-        repository = root / str(spec["directory"])
+        repository = _repository_path(root, str(spec["directory"]))
         current = git_value(repository, ["rev-parse", "HEAD"]).stdout.strip()
         if current != entry["local_commit"]:
             raise FleetError(f"workspace checkout changed during sync: {spec['repository']}")
