@@ -63,7 +63,7 @@
       "properties": {
         "repository_directory": {
           "type": "string",
-          "pattern": "^[A-Za-z0-9_.-]+$"
+          "pattern": "^(?!.*(?:^|/)(?:\\.{1,2}|\\.git)(?:/|$))[A-Za-z0-9_.-]+(?:/[A-Za-z0-9_.-]+)*$"
         },
         "role": {"const": "maintainer"}
       }
@@ -79,7 +79,7 @@
         },
         "directory": {
           "type": "string",
-          "pattern": "^[A-Za-z0-9_.-]+$"
+          "pattern": "^(?!.*(?:^|/)(?:\\.{1,2}|\\.git)(?:/|$))[A-Za-z0-9_.-]+(?:/[A-Za-z0-9_.-]+)*$"
         },
         "branch": {
           "type": "string",

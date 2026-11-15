@@ -228,6 +228,11 @@ native App before the owner CAS can proceed. Workspace bootstrap/currentness,
 CAS migration, and real cross-machine readback remain fail-closed runtime gates;
 when those gates are unavailable, the source owner continues locally.
 
+Repository directories may use nested relative paths such as `app/image-tool`.
+Bootstrap stages the clone and creates its parent directories before activation.
+Traversal, overlapping checkout roots, and symlinks in checkout paths are rejected.
+HTTPS and SSH URLs for the same GitHub repository share one source identity.
+
 The workspace profile is declared by the private Instance and binds
 nodes, a workspace root, an environment contract, an explicit repository
 allowlist, and Automation placement. Missing repositories are staged and cloned

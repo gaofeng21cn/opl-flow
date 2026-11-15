@@ -3907,10 +3907,71 @@ class WorkspaceProfileTests(unittest.TestCase):
         self.assertIn("test-profile", catalog["profiles"])
 
     def test_workspace_profile_rejects_unsafe_directory(self) -> None:
+        for directory in ("../project", "app/../project", "app/./project", "app//project", "app/.git/project", "/project", "C:/project"):
+            with self.subTest(directory=directory):
+                payload = self.profile_catalog()
+                payload["profiles"]["test-profile"]["repositories"][0]["directory"] = directory
+                with self.assertRaisesRegex(fleet.FleetError, "repository directory"):
+                    fleet.validate_workspace_profiles(payload)
+
+    def test_nested_repository_bootstrap_preserves_path_and_commit(self) -> None:
+        workspace = sys.modules["opl_fleet_parts"].fleet_workspace
         payload = self.profile_catalog()
-        payload["profiles"]["test-profile"]["repositories"][0]["directory"] = "../project"
-        with self.assertRaisesRegex(fleet.FleetError, "repository directory"):
+        profile = payload["profiles"]["test-profile"]
+        profile["repositories"][0]["directory"] = "app/project"
+        profile["ledger"]["repository_directory"] = "app/project"
+        fleet.validate_workspace_profiles(payload)
+        with tempfile.TemporaryDirectory() as temp:
+            base = Path(temp)
+            seed = base / "seed"
+            subprocess.run(["git", "init", "-q", "--initial-branch=main", str(seed)], check=True)
+            subprocess.run(["git", "-C", str(seed), "-c", "user.name=Test", "-c", "user.email=test@example.invalid", "commit", "-q", "--allow-empty", "-m", "seed"], check=True)
+            commit = subprocess.check_output(["git", "-C", str(seed), "rev-parse", "HEAD"], text=True).strip()
+
+            def local_clone(command, **kwargs):
+                command = list(command)
+                command[-2] = str(seed)
+                return subprocess.run(command, capture_output=True, text=True, **kwargs)
+
+            with mock.patch.object(workspace, "run", side_effect=local_clone):
+                workspace._clone_missing(profile, [{"repository": "example/project", "state": "MISSING", "github_commit": commit}], root=base / "workspace")
+            actual = subprocess.check_output(["git", "-C", str(base / "workspace/app/project"), "rev-parse", "HEAD"], text=True).strip()
+            self.assertEqual(actual, commit)
+
+    def test_nested_repository_rejects_symlink_parent_and_overlapping_roots(self) -> None:
+        workspace = sys.modules["opl_fleet_parts"].fleet_workspace
+        payload = self.profile_catalog()
+        spec = payload["profiles"]["test-profile"]["repositories"][0]
+        spec["directory"] = "app/project"
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp) / "workspace"
+            outside = Path(temp) / "outside"
+            root.mkdir()
+            outside.mkdir()
+            (root / "app").symlink_to(outside, target_is_directory=True)
+            result = workspace._repository_entry(spec, root=root, fetch=False, fresh_github=False)
+            self.assertEqual(result["state"], "PATH_UNSAFE")
+            with self.assertRaisesRegex(fleet.FleetError, "symlink"):
+                workspace._clone_missing(payload["profiles"]["test-profile"], [{"repository": "example/project", "state": "MISSING"}], root=root)
+            self.assertEqual(list(outside.iterdir()), [])
+        payload["profiles"]["test-profile"]["repositories"].append({**spec, "repository": "example/other", "remote": "https://github.com/example/other.git", "directory": "app"})
+        with self.assertRaisesRegex(fleet.FleetError, "overlap"):
             fleet.validate_workspace_profiles(payload)
+
+    def test_workspace_accepts_equivalent_github_ssh_remote(self) -> None:
+        workspace = sys.modules["opl_fleet_parts"].fleet_workspace
+        spec = self.profile_catalog()["profiles"]["test-profile"]["repositories"][0]
+        for remote in ("git@github.com:example/project.git", "ssh://ssh.github.com:443/example/project.git"):
+            with self.subTest(remote=remote), tempfile.TemporaryDirectory() as temp:
+                path = Path(temp) / "project"
+                (path / ".git").mkdir(parents=True)
+                with (
+                    mock.patch.object(workspace, "git_value", return_value=subprocess.CompletedProcess([], 0, remote, "")),
+                    mock.patch.object(workspace, "reconcile_repository", return_value={"repository": "example/project", "state": "CURRENT", "branch": "main", "default_branch": "main"}),
+                    mock.patch.object(workspace, "_worktree_count", return_value=1),
+                ):
+                    result = workspace._repository_entry(spec, root=Path(temp), fetch=False, fresh_github=False)
+                self.assertEqual(result["state"], "CURRENT")
 
     def test_workspace_profile_rejects_ledger_outside_repository_allowlist(self) -> None:
         payload = self.profile_catalog()
