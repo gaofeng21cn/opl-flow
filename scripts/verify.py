@@ -346,7 +346,7 @@ def check_workflow_policy(repo_root: Path) -> list[str]:
         if item.get("kind") == "codex_skill"
     }
     expected = {
-        "impeccable",
+        "impeccable", "modern-web-guidance",
         "agent-reach",
         "officecli", "officecli-docx", "officecli-pptx", "officecli-xlsx",
         "officecli-academic-paper", "officecli-data-dashboard",
@@ -362,6 +362,10 @@ def check_workflow_policy(repo_root: Path) -> list[str]:
     }
     officecli_source = "https://github.com/iOfficeAI/OfficeCLI"
     expected_skill_sources = {
+        "modern-web-guidance": (
+            "https://github.com/GoogleChrome/modern-web-guidance",
+            "skills/modern-web-guidance",
+        ),
         "impeccable": (
             "https://github.com/pbakaus/impeccable",
             ".agents/skills/impeccable",

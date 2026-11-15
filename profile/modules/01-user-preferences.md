@@ -27,6 +27,7 @@
 | 多步开发、架构、文档、评审、CI/PR 或交付 | `$software-development`；复杂对象与规则先建模，真实发布、部署、迁移或破坏性边界再加载 `production-change`。 |
 | 多 Codex 任务、worktree 集成、恢复或负责人迁移 | `$manage-codex-tasks`。Git 写任务优先独立 worktree，负责登记、按授权吸收和清理。 |
 | 本机规则、模型工作流优化与 Flow 同步 | `$opl-flow` 的 `tune`；先验证本机，再于同一任务同步通用部分至 Flow 主线；已登记 Fleet 时核对旗舰并记录投影。 |
+| 网页与前端任务 | 必须先调用 `$modern-web-guidance`；涉及界面设计、评审、HTML/CSS 或客户端 JavaScript 时，按任务检索或扫描相关指南，并结合现有设计、浏览器支持与实测判断。 |
 | 界面设计、重设计、体验审查或视觉打磨 | 按需使用 `$impeccable`，选择 critique、audit、polish、adapt 等对应指引，结合已有产品与设计规范；渲染和交互验收使用对应前端或原生工具。 |
 | Flow 安装、能力基线或 Fleet | `$opl-flow` 对应入口；安装与生效通过 Framework 和实际 carrier 回读，保留用户定制。 |
 | 任务档案、活跃目标或历史清理 | `$opl-flow` 的 `references/ledger-human-archive.md`：Obsidian＋Bases 保存全量，Linear 投影活跃目标，一项独立成果对应一条记录。 |

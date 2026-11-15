@@ -125,6 +125,14 @@ are never bundled.
 
 ## Development Skills And OPL Skills
 
+Modern Web Guidance is an external web-platform experience-baseline capability.
+Flow's Profile routes every web and frontend task through it; its owner supplies
+the Skill, CLI, and updates. Framework observes the existing Skill payload and
+reports missing readiness, while the upstream installer owns its files. The
+Skill's browser-compatibility guidance complements, rather than replaces,
+project requirements and rendered interaction checks. Offline Full distribution
+is not selected for this capability.
+
 Impeccable is an external interface-design experience-baseline capability,
 declared in the policy rather than copied into the three-router payload. Its
 upstream installer/update command owns its Skill and engine. Framework observes

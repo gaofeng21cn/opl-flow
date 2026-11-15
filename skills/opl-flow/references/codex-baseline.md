@@ -42,7 +42,7 @@ The baseline is grouped as:
 | Internet research | Agent Reach Skill + CLI/doctor | degraded, owner repair offered |
 | Office authoring | OfficeCLI Skill family + CLI | degraded, Framework repair offered |
 | Document extraction | MinerU extractor Skill + CLI | degraded, Framework repair offered |
-| Interface design | Impeccable Skill + owner-managed engine | degraded, owner repair offered |
+| Web guidance and interface design | Modern Web Guidance + Impeccable Skills | degraded, owner repair offered |
 
 App first-run does not own this table. Read `system_initialize.recommended_skills`
 from the installed Framework projection. When Flow is absent, that Flow-derived
@@ -193,10 +193,25 @@ The carrier must not overwrite an unknown existing Profile.
 
 ## Capability Routing
 
-The experience baseline is intentionally broad enough to establish the OPL App
-usage floor: internet research, Office documents, document extraction, and
-interface design. It
-is not a claim that every task requires those tools.
+The experience baseline covers internet research, Office documents, document
+extraction, and web/interface work. Apply each capability to its routed tasks.
+
+Modern Web Guidance is required at the start of web and frontend tasks. Use its
+search or modernization workflow as applicable, and judge recommendations
+against the project's browser support, existing design, and rendered behavior.
+Its CLI and guidance complement Impeccable; neither replaces browser testing.
+Google owns the external Skill and its updates. Framework observes the installed
+payload and reports missing readiness; it does not silently replace user files.
+For the user-level Codex installation and owner-supported update, use:
+
+```bash
+npx -y modern-web-guidance@latest install -g -a codex -y
+npx -y modern-web-guidance@latest update
+```
+
+The CLI's upstream documentation describes its telemetry and opt-out. Do not
+enable experimental or volatile web features without the applicable project
+policy and user authorization.
 
 Impeccable owns interface design and refinement guidance. Load only the
 playbook relevant to the requested surface, using existing product and design

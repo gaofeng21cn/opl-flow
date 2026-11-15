@@ -145,6 +145,22 @@
   ],
   "experience_baseline": [
     {
+      "id": "modern-web-guidance",
+      "kind": "codex_skill",
+      "owner": "googlechrome",
+      "bundle_id": "interface-design",
+      "install_source": "owner_skills_cli",
+      "lifecycle_owner": "googlechrome",
+      "online_install_default": true,
+      "offline_bundle": "none",
+      "activation": "task_routed",
+      "readiness_adapter": "codex_skill_payload",
+      "conflict_policy": "preserve_user_surface",
+      "credential_policy": "none",
+      "source": "https://github.com/GoogleChrome/modern-web-guidance",
+      "source_path": "skills/modern-web-guidance"
+    },
+    {
       "id": "impeccable",
       "kind": "codex_skill",
       "owner": "pbakaus",
@@ -490,10 +506,11 @@
   "capability_bundles": [
     {
       "id": "interface-design",
-      "label": "Interface design and refinement",
+      "label": "Web guidance and interface design",
       "relationship": "experience_baseline",
       "member_refs": [
-        "codex_skill:impeccable"
+        "codex_skill:impeccable",
+        "codex_skill:modern-web-guidance"
       ],
       "online_materialization": "members_marked_default",
       "full_distribution": "members_marked_full",
