@@ -22,6 +22,45 @@ Use `gh` for authenticated identity, Actions runs/jobs/logs, and connector gaps.
 Route a confirmed CI defect to `$gh-fix-ci`; do not start CI repair before the
 SSOT intake is complete.
 
+## Prepare A Public Reply
+
+Apply this workflow to individual Issue/PR replies as well as patrols, within
+the user's authorized scope:
+
+1. Read the complete item and discussion, including later corrections and
+   linked outcomes. Identify the actual question and distinguish a support
+   request, a reproducible defect, a proposal and a code review.
+2. Search the same repository, then relevant related repositories, for similar
+   handled items, including closed ones. Read their final responses and
+   resolution evidence. Prioritize user-confirmed corrections; a previous
+   automated reply or closed state alone proves neither policy nor correctness.
+3. Check those precedents against the current product intent, contracts,
+   implementation and applicable live evidence. Existing code does not by
+   itself establish the intended product policy. Distinguish open-source
+   customization from access to an operated service, and model availability
+   from compatibility with an official Agent. Verify time-sensitive model,
+   version and service claims before reusing them.
+4. Answer the contributor's actual question with the relevant public facts,
+   available paths and necessary evidence. Internal responsibility assignments
+   must not replace a product explanation. Technical reviews may explain
+   ownership and interfaces needed to assess a concrete change; do not expose
+   private operational details or unpublished plans, invent access promises,
+   or infer a diagnosis solely from a reported error code.
+5. Resolve the artifact language before writing. Correct an owned mistaken
+   reply in place when possible, preserving valid evidence and the discussion's
+   meaning. Do not rewrite third-party text or turn a fact explicitly bounded
+   to an older revision or date into a current claim.
+6. Choose the disposition from the actual outcome: use completed for resolved
+   work, not planned for a declined or out-of-scope request, and duplicate only
+   with its concrete successor. Keep a genuine unresolved repository task or
+   necessary evidence request open. Do not retain an answered service-access
+   question merely to wait for an invented internal owner handoff, or close a
+   real defect just because its repair belongs to a related repository.
+7. Read back the exact comment, author, language and item state. Keep the
+   precedent URLs, decision basis and mutation evidence in the caller's
+   existing private record; do not publish a private reasoning log or create a
+   second product-policy registry.
+
 ## Run The Patrol
 
 1. Read the caller-owned memory and latest ACTIVE checkpoint. This Skill does
