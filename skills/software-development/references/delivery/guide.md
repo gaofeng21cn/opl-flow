@@ -196,6 +196,15 @@ A small feature does not need a bank vault around it. Scope architecture to the
 current behavior and real boundary, even when the surrounding repository is
 large.
 
+Apply Framework's [engineering boundary policy](https://github.com/gaofeng21cn/one-person-lab/blob/main/docs/policies/engineering-boundary-policy.md)
+to existing restrictions as well as new ones. Name the protected object, reachable
+failure, and smallest operation that must stop; old code, a contract, or a passing
+test alone does not establish necessity. Prefer normalization, a local diagnostic,
+or disabling only the unavailable capability when that closes the actual risk.
+An isolated read of a named commit does not require a clean source checkout, and
+elapsed time alone does not revoke an admitted durable task. Keep production,
+irreversible-write, identity, and authorization controls at their real boundary.
+
 - Every added file, abstraction, dependency, state, execution path, fallback,
   compatibility path, and verification gate needs a present payer: a current
   requirement or caller, an existing contract, an observed failure, or a

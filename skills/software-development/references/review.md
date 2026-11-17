@@ -36,6 +36,13 @@ Challenge new abstractions, public operations, state machines, compatibility
 paths, defensive copies, and defaults that lack a current caller, owner,
 contract, observed failure, or reachable risk.
 
+Challenge retained and new blocking guards with the same standard. Explain the
+actual failure they prevent and why a smaller local check would be insufficient;
+their presence in an old implementation or contract is not proof of necessity.
+Do not preserve a rejected normal path by weakening its test or adding another
+approval. Remove or narrow the unjustified guard and exercise the normal path
+alongside the specific risk it still needs to prevent.
+
 ## Report Findings
 
 Lead with findings ordered by severity. For each, name the tightest file and

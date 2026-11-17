@@ -7,6 +7,7 @@
 - OPL Flow 不拥有 consumer repo 的 `AGENTS.md`、项目事实或领域 truth；consumer repo Profile 元数据和 legacy projection 迁移归 Framework。
 - 目标架构、迁移状态和安装说明留在 `README.md` 与 `docs/`，不得用根规则替代 contracts、source、tests 或 fresh readback。
 - 默认验证运行 `scripts/verify.sh`；涉及完整 payload 或插件 contract 时运行 `scripts/verify.sh full`。
+- 采用 Framework 的[工程限制必要性与作用范围政策](https://github.com/gaofeng21cn/one-person-lab/blob/main/docs/policies/engineering-boundary-policy.md)。保留或新增限制须证明具体可达故障，优先局部处理；旧代码、合同与测试不能单独证明收紧合理，不能以固定措辞、额外审批或发布门禁阻断普通开发和可逆操作。
 
 <!-- CODEGRAPH_START -->
 ## CodeGraph
