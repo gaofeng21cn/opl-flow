@@ -17,6 +17,13 @@ PR titles, issue bodies, comments, green checks, mergeability, and generated
 tests are evidence. They do not prove that a reported bug is real or that a
 feature belongs in the canonical owner.
 
+Apply the caller's confirmed author tiers before proposal review: owner-operated
+accounts go directly to merge without third-party product-intent proof;
+explicit repository partners receive trust-first SSOT review; other contributors
+must substantiate nontrivial Debug, behavior changes, and features themselves.
+Use [decision-contract.md](decision-contract.md) for the exact scope, evidence,
+and close-and-resubmit rules. Trust scope and GitHub permissions are separate.
+
 Use the GitHub connector for PR/issue metadata, patches, reviews, and comments.
 Use `gh` for authenticated identity, Actions runs/jobs/logs, and connector gaps.
 Route a confirmed CI defect to `$gh-fix-ci`; do not start CI repair before the
@@ -66,13 +73,17 @@ the user's authorized scope:
 1. Read the caller-owned memory and latest ACTIVE checkpoint. This Skill does
    not own an Automation, account, repository list, schedule, or memory path.
 2. Resolve the expected GitHub account, Actions probe repository, repository
-   scope, current release/workflow owners, and allowed mutations.
+   scope, current release/workflow owners, and allowed mutations. Read the
+   caller-designated private collaboration register from its canonical owner;
+   keep actual account mappings and repository partner scopes out of this
+   reusable Skill and public consumer documentation.
 3. Run the bundled `auth` command. Identity requires matching REST and GraphQL
    logins, an owner-repository read, and a real Actions read. Public HTTP 200 is
    not authenticated proof.
 4. Run `snapshot` to collect the normalized account/repository surface. Treat
    non-empty `read_errors` as unknown evidence, never as a product failure.
-5. For every new or changed PR/issue, read
+5. For every new or changed PR/issue, resolve the author's immutable ID and
+   repository-scoped tier from that private register or direct owner input; read
    [decision-contract.md](decision-contract.md) and
    complete its machine-readable intake, including `artifact_language`, before
    testing, commenting, fixing, approving, merging, or closing.

@@ -20,6 +20,20 @@ SPEC.loader.exec_module(github_patrol)
 
 
 class GitHubPatrolTests(unittest.TestCase):
+    def test_item_snapshots_preserve_immutable_author_identity_without_inferring_trust(self) -> None:
+        item = {
+            "number": 7,
+            "user": {"id": 12345, "login": "renamed-login"},
+            "author_association": "COLLABORATOR",
+        }
+        pr = github_patrol.pr_snapshot("owner/repo", item)
+        issue = github_patrol.issue_snapshot(item)
+        for snapshot in (pr, issue):
+            self.assertEqual(snapshot["author_id"], 12345)
+            self.assertEqual(snapshot["author"], "renamed-login")
+            self.assertNotIn("author_tier", snapshot)
+        self.assertEqual(pr["author_association"], "COLLABORATOR")
+
     def test_auth_probe_requires_matching_rest_graphql_owner_and_actions_reads(self) -> None:
         def fake_run_json(argv: list[str]) -> object:
             joined = " ".join(argv)
