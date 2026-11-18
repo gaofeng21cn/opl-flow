@@ -3,11 +3,11 @@
   "schema": "opl_flow_workflow_policy.v4",
   "package": {
     "id": "opl-flow",
-    "version": "0.1.76",
+    "version": "0.1.77",
     "owner": "opl-flow",
     "kind": "workflow_profile"
   },
-  "workflow_generation": "model-native-gpt-6-astra",
+  "workflow_generation": "model-native-gpt-6.2-astra",
   "task_boundary_policy": {
     "authority": "opl-flow",
     "stop_ladder": [
@@ -1091,7 +1091,7 @@
     "authority": "opl-flow",
     "mode_default": "auto",
     "configured_default": {
-      "model": "gpt-6-astra",
+      "model": "gpt-6.2-astra",
       "reasoning_effort": "max"
     },
     "override_precedence": [

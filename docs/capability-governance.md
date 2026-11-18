@@ -170,7 +170,7 @@ knowledge-source permissions remain owned by their existing authorities.
 
 ## Model And Profile
 
-Flow recommends `gpt-6-astra` with `max` reasoning. The precedence is:
+Flow recommends `gpt-6.2-astra` with `max` reasoning. The precedence is:
 
 ```text
 explicit user selection
