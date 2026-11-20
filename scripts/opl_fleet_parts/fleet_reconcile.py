@@ -1379,19 +1379,21 @@ def fetch_state_file(relative: str) -> str:
         "Accept: application/vnd.github.raw+json",
         f"repos/{spec['repository']}/contents/{relative}?ref=state",
     ]
-    retry_delays = (0.25, 0.75)
-    result: subprocess.CompletedProcess[str] | None = None
-    for attempt in range(len(retry_delays) + 1):
-        result = run(command, check=False, timeout=10)
+    attempt_delays = (0, 0.25, 0.75)
+    for delay in attempt_delays:
+        if delay:
+            time.sleep(delay)
+        try:
+            result = run(command, check=False, timeout=10)
+        except subprocess.TimeoutExpired as exc:
+            suffix = f": request timed out after {exc.timeout} seconds"
+            continue
         if result.returncode == 0:
             return result.stdout
-        if attempt < len(retry_delays):
-            time.sleep(retry_delays[attempt])
-    assert result is not None
-    detail = " ".join((result.stderr or result.stdout).split())[:240]
-    suffix = f": {detail}" if detail else f" (exit {result.returncode})"
+        detail = " ".join((result.stderr or result.stdout).split())[:240]
+        suffix = f": {detail}" if detail else f" (exit {result.returncode})"
     raise FleetError(
-        f"fleet state file is unavailable after 3 attempts: {relative}{suffix}"
+        f"fleet state file is unavailable after {len(attempt_delays)} attempts: {relative}{suffix}"
     )
 
 def remote_asset_catalog() -> dict[str, Any]:

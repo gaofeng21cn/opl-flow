@@ -390,6 +390,37 @@ class CodexFleetTests(unittest.TestCase):
         command.assert_called_with(mock.ANY, check=False, timeout=10)
         sleep.assert_called_once_with(0.25)
 
+    def test_fetch_state_file_retries_a_timed_out_read(self) -> None:
+        timed_out = fleet.subprocess.TimeoutExpired(["gh", "api"], timeout=10)
+        succeeded = fleet.subprocess.CompletedProcess(
+            ["gh", "api"], 0, '{"schema":"codex_fleet_assets.v1"}', ""
+        )
+        with (
+            patch_fleet("manifest", return_value={"repository": "example/fleet"}),
+            patch_fleet("run", side_effect=[timed_out, succeeded]) as command,
+            mock.patch("opl_fleet_parts.fleet_reconcile.time.sleep") as sleep,
+        ):
+            payload = fleet.fetch_state_file("ASSETS.json")
+        self.assertEqual(payload, succeeded.stdout)
+        self.assertEqual(command.call_count, 2)
+        command.assert_called_with(mock.ANY, check=False, timeout=10)
+        sleep.assert_called_once_with(0.25)
+
+    def test_fetch_state_file_bounds_repeated_timeouts(self) -> None:
+        timed_out = fleet.subprocess.TimeoutExpired(["gh", "api"], timeout=10)
+        with (
+            patch_fleet("manifest", return_value={"repository": "example/fleet"}),
+            patch_fleet("run", side_effect=timed_out) as command,
+            mock.patch("opl_fleet_parts.fleet_reconcile.time.sleep") as sleep,
+        ):
+            with self.assertRaisesRegex(
+                fleet.FleetError,
+                r"unavailable after 3 attempts: ASSETS\.json: request timed out after 10 seconds",
+            ):
+                fleet.fetch_state_file("ASSETS.json")
+        self.assertEqual(command.call_count, 3)
+        self.assertEqual([call.args for call in sleep.call_args_list], [(0.25,), (0.75,)])
+
     def test_fetch_state_file_bounds_retries_and_reports_failure(self) -> None:
         failed = fleet.subprocess.CompletedProcess(
             ["gh", "api"], 1, "", "HTTP 503 service unavailable\nrequest id: demo"

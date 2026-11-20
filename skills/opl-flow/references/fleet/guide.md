@@ -92,6 +92,11 @@ Choose the narrow command family:
 Read `python3 scripts/opl_fleet.py <command> --help` for exact options rather
 than guessing flags.
 
+Fleet reads the published asset catalog from the remote `state` branch through
+`gh`. Each attempt has a ten-second timeout. A failed or timed-out read gets
+up to two retries with a short delay. After three unsuccessful attempts,
+Fleet reports the read failure.
+
 ## Flagship And Workflow Delivery
 
 The private Instance's `fleet/nodes.json` may select exactly one approved
