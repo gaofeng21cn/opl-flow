@@ -2,7 +2,7 @@
 
 Use the repository's declared browser control and the bundled `encode_gif.py`
 next to this guide. This route produces a local
-artifact; publishing it to a PR assets branch is a separate authorized action.
+artifact. Attaching it to a pull request requires a request to publish it.
 
 ## Record Truthful Evidence
 
@@ -15,7 +15,12 @@ concrete DOM predicates, and include the detail or trajectory needed to prove
 tool calls, failures, or recovery. Do not capture secrets, personal data, or
 unrelated tabs.
 
-Store frames under the repository's ignored browser-artifact directory. Keep
+For continuous motion, record the demonstrated page with Playwright video when
+the configured browser supports it. Match the recording size to the viewport,
+keep the page's video handle and await context closure before saving the WebM.
+Use ordered screenshots for discrete states or a browser without video.
+
+Store the recording under the repository's ignored browser-artifact directory. Keep
 dimensions and viewport stable. Require `ffmpeg` and `ffprobe`; report missing
 media binaries instead of installing them implicitly. When Flow is installed,
 use the Framework-projected repair action
@@ -25,15 +30,29 @@ are callable.
 
 ## Encode And Verify
 
-Run the bundled encoder with explicit durations, frame rate, width, color, and
-size limits. Read its JSON summary and inspect the encoded GIF itself, not just
+Run the encoder from this guide's directory. For example, trim a recording
+and hold the final state, or assign display times to ordered screenshots.
+
+```bash
+python3 encode_gif.py demo.webm demo.gif --start 1 --end 5 --speed 2 --final-hold 1
+python3 encode_gif.py frames demo.gif --durations 1,2,2
+```
+
+Set the frame rate, width, palette and byte limit to suit the destination. Read its JSON summary and inspect the encoded GIF itself, not just
 the source frames. Confirm frame count, dimensions, duration, final-state hold,
 byte size, and absence of sensitive content. Do not claim the GIF proves a
 different commit, server, transport, or model than the one recorded.
 
 ## Publish Separately
 
-Only when the user asks to attach the GIF to a PR, use a dedicated append-only
-assets branch. Re-read the live PR head before and after editing its body,
-verify the remote asset bytes and content type, and never commit media to the
-product branch or force-push an assets branch.
+When asked to attach the GIF, check the demonstrated commit against the live PR
+head. On GitHub CLI with attachment support, append the file directly:
+
+```bash
+gh pr edit <number> --repo <owner/repo> --attach './demo.gif#Demonstrated workflow'
+```
+
+Read back the body, attachment, and head. A partial upload can update the PR
+even when the command exits with an error. Reconcile the attachments before
+retrying. Use the repository's documented asset route on hosts without native
+attachment support.

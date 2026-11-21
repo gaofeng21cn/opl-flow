@@ -4,7 +4,7 @@ Find changes that reduce caller knowledge and concentrate behavior behind a smal
 
 ## Process
 
-1. Read the relevant `CONTEXT.md`, context map, ADRs, repository instructions, and current implementation.
+1. Start with the subsystem or pain point the user named. For an open-ended review, use recent changes to locate areas where callers repeatedly pay the same cost. Follow their dependencies into quieter code when needed. Consult the project's glossary, context map, and ADRs for that scope.
 2. Trace the real callers, dependencies, invariants, and tests with available structural tools. Do not require subagents or a specific report renderer.
 3. Look for shallow pass-through modules, leaked sequencing or representation, duplicated caller knowledge, tightly coupled files, speculative seams, and tests that must bypass the public interface.
 4. Apply the deletion test: if removing a module makes complexity disappear, it was probably indirection; if complexity spreads back across callers, the module may be earning its keep.

@@ -10,8 +10,8 @@ skill routes to focused leaf skills; it does not duplicate their manuals.
   Load `map.md`.
 - `improve`: deepen an interface, reduce caller knowledge, or concentrate
   invariants. Load `improve/guide.md`.
-- `simplify-audit`: run a deletion-first, read-only over-engineering audit. Use
-  the upstream-managed `$ponytail-audit`; do not mutate during the audit.
+- `simplify-audit`: use [Find Simplifications](simplification-audit.md) to
+  trace proposed deletions to callers and rank them in a read-only audit.
 - `grill`: challenge a plan against the repository vocabulary and documented
   decisions. Load `grill/guide.md` and preserve its interactive boundary.
 

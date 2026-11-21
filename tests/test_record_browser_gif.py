@@ -79,6 +79,36 @@ class RecordBrowserGifTests(unittest.TestCase):
             self.assertEqual(summary["bytes"], output.stat().st_size)
             self.assertTrue(output.read_bytes().startswith(b"GIF"))
 
+    def test_video_trim_speed_hold_and_failed_replacement(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            video = root / "browser recording.webm"
+            output = root / "demo.gif"
+            subprocess.run([
+                "ffmpeg", "-loglevel", "error", "-f", "lavfi", "-i",
+                "testsrc2=size=80x60:rate=10:duration=3", "-c:v", "libvpx", str(video),
+            ], check=True)
+            command = [
+                sys.executable, str(ENCODER), str(video), str(output),
+                "--start", "0.5", "--end", "2.5", "--speed", "2", "--final-hold", "1",
+            ]
+            result = subprocess.run(command, check=True, capture_output=True, text=True)
+            summary = json.loads(result.stdout)
+            self.assertEqual(summary["sourceVideo"], str(video.resolve()))
+            self.assertAlmostEqual(summary["durationSeconds"], 2.0, delta=0.2)
+            self.assertEqual((summary["width"], summary["height"]), (80, 60))
+            verified = output.read_bytes()
+            for options, message in [
+                ([], "already exists"),
+                (["--force", "--max-bytes", "1"], "above --max-bytes"),
+                (["--force", "--durations", "1"], "require a screenshot directory"),
+            ]:
+                with self.subTest(options=options):
+                    rejected = subprocess.run(command + options, capture_output=True, text=True)
+                    self.assertNotEqual(rejected.returncode, 0)
+                    self.assertIn(message, rejected.stderr)
+                    self.assertEqual(output.read_bytes(), verified)
+
     def test_encoder_rejects_mismatched_frame_dimensions(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)

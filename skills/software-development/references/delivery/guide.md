@@ -174,8 +174,9 @@ a high-impact implementation choice.
    then resolve the authoritative contract and its owner.
 2. Use the cheapest credible executable disproof first. If material uncertainty
    remains and isolated context could expose normalized assumptions, use at most
-   one read-only fresh-context reviewer. Reuse that reviewer instead of fanning
-   out more opinions.
+   one read-only fresh-context reviewer when delegation is authorized. Provide
+   the decision, contract, and any caller, guard, or failing test that challenges
+   it. Let the reviewer form a conclusion from those artifacts.
 3. Classify each finding as missing review context, a contract gap, an actionable
    defect, an owner-accepted trade-off, or noise. Correct missing context in the
    review input. A contract gap belongs to its owner and may be changed only when

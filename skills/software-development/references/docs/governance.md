@@ -21,6 +21,10 @@ layout, a second project-management system, or an automated truth generator.
    name the missing evidence, and ask only when choosing would change the
    requested outcome.
 
+For a changed CLI example, exercise the documented invocation on a small
+fixture using the supported version. Check what a reader will observe,
+including any separate save, close, or readback needed by the next tool.
+
 Do not require a fixed set of files such as `docs/project.md`, `status.md`, or
 `architecture.md`. Follow the target repository's existing taxonomy and owner
 boundaries.
