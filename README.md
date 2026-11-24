@@ -24,7 +24,7 @@ experience and offers repair while Flow remains usable.
 
 | Need | Entry |
 | --- | --- |
-| Inspect, set up, tune, or update the Codex baseline | `$opl-flow` |
+| Inspect, set up, tune, or update the Codex or AntiGravity baseline | `$opl-flow` |
 | Develop, review, improve architecture, govern docs, or deliver software | `$software-development` |
 | Coordinate native Codex tasks, integrate work, recover, or migrate an owner | `$manage-codex-tasks` |
 | Keep durable objectives and an optional Linear portal | `$opl-flow start` |
@@ -73,6 +73,16 @@ the configured carrier and verify discovery in a new Codex task. Then use:
 
 ```text
 Use $opl-flow setup to establish or repair my Codex baseline.
+```
+
+To inspect or directly configure a Google AntiGravity environment (`~/.gemini/`)
+from the reusable baseline templates, follow
+[AntiGravity setup](docs/antigravity-setup.md) or run:
+
+```bash
+python3 scripts/opl_workflow.py antigravity doctor --json
+python3 scripts/opl_workflow.py antigravity apply --dry-run --json
+python3 scripts/opl_workflow.py antigravity apply --json
 ```
 
 Setup deploys capabilities. Explicit `$opl-flow start` additionally creates or

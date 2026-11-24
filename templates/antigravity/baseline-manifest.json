@@ -1,0 +1,81 @@
+{
+  "schema": "opl_flow_antigravity_baseline.v1",
+  "owner": "opl-flow",
+  "description": "Reusable AntiGravity experience baseline: minimal resident plugins, progressive-disclosure skills, prompt-cache and Swarm hygiene rules, and opt-in read-only weekly audit.",
+  "rule_budgets": {
+    "per_file_bytes_cap": 24000,
+    "warn_bytes": 16384,
+    "aggregate_rules_token_budget": 20000
+  },
+  "managed_markers": {
+    "start": "<!-- OPL_FLOW_AGY_BASELINE_START -->",
+    "end": "<!-- OPL_FLOW_AGY_BASELINE_END -->"
+  },
+  "rules": [
+    {
+      "id": "global_gemini_rules",
+      "template_path": "templates/antigravity/GEMINI.md",
+      "target_rel": "GEMINI.md",
+      "merge_mode": "managed_block_preserve_user",
+      "required": true
+    },
+    {
+      "id": "agy_fast_local_overrides",
+      "template_path": "templates/antigravity/agy-fast-AGENTS.local.md",
+      "target_rel": "config/plugins/agy-fast/rules/AGENTS.local.md",
+      "merge_mode": "managed_block_preserve_user",
+      "requires_plugin": "agy-fast",
+      "required": false
+    }
+  ],
+  "plugins": [
+    {
+      "id": "agy-fast",
+      "role": "core_latency_and_batching",
+      "source": "https://github.com/INK-Q/agy-fast",
+      "install_command": "git clone --depth 1 https://github.com/INK-Q/agy-fast.git <tmp> && node <tmp>/scripts/install.mjs install",
+      "doctor_script_rel": "config/plugins/agy-fast/scripts/install.mjs",
+      "benchmark_script_rel": "config/plugins/agy-fast/dist/benchmark.mjs",
+      "expected_tool_loading": "eager",
+      "required": true
+    },
+    {
+      "id": "modern-web-guidance-plugin",
+      "role": "web_and_frontend_guidance",
+      "marketplace_id": "antigravity-plugins-official/plugin/modern-web-guidance-plugin",
+      "required": false
+    }
+  ],
+  "skills": [
+    {
+      "id": "swarm-code-worker-brief",
+      "source": "bundled_template",
+      "template_path": "templates/antigravity/swarm-code-worker-brief.md",
+      "target_rel": "config/skills/swarm-code-worker-brief/SKILL.md",
+      "required": true
+    },
+    {
+      "id": "impeccable",
+      "source": "external_owner_or_shared_agents_dir",
+      "shared_agents_rel": ".agents/skills/impeccable",
+      "target_rel": "config/skills/impeccable",
+      "install_hint": "npx impeccable install --scope=global --no-hooks",
+      "required": false
+    }
+  ],
+  "avoid_duplicates": [
+    {
+      "skill_id": "modern-web-guidance",
+      "plugin_id": "modern-web-guidance-plugin",
+      "reason": "Avoid loading both the standalone skill symlink and the official plugin."
+    }
+  ],
+  "optional_weekly_audit": {
+    "sidecar_id": "weekly-agy-env-audit",
+    "display_name": "AntiGravity Weekly Environment Audit",
+    "default_cron_tz": "Asia/Shanghai",
+    "default_schedule": "0 9 * * 1",
+    "auto_enable": false,
+    "script_target_rel": "config/scripts/agy-weekly-audit.py"
+  }
+}

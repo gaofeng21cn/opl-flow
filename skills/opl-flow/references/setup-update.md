@@ -41,6 +41,15 @@ specialized capability absence, Profile state, Ledger state, and Fleet state.
 5. Restart or create a new Codex session only when executor discovery requires
    it, then verify the effective Skill IDs.
 
+## AntiGravity Baseline
+
+When the user asks to inspect, establish, or repair their AntiGravity
+(`~/.gemini/`) baseline, load `references/antigravity-baseline.md` and run
+`python3 scripts/opl_workflow.py antigravity doctor --json`, preview with
+`apply --dry-run --json`, and apply with `apply --json` (adding
+`--install-plugins` or `--with-weekly-audit` only when requested). Existing user
+rules outside managed markers are always backed up and preserved.
+
 ## OPL Skills
 
 OPL Skills contains independently useful non-development workflows. Install

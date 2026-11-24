@@ -14,6 +14,7 @@ documentation explains those authorities.
 | [Capability governance](capability-governance.md) | Profile and capability policy composition through Framework and App |
 | [Executor compatibility](compatibility.md) | Supported executor scope and neutral-contract boundary |
 | [New machine setup](new-machine-codex-setup.md) | Install, initialize, update, and verify a machine |
+| [AntiGravity setup](antigravity-setup.md) | Inspect and directly configure the AntiGravity experience baseline |
 | [Fleet architecture](opl-fleet-architecture.md) | Distributed execution and continuity contracts, including explicit design gaps |
 | [Fleet observation](fleet-agent-cockpit-architecture.md) | Agent, Gateway, Cockpit, and provider protocol boundaries |
 | [Browser routing](browser-tool-routing.md) | Select an operation tool from session and interaction requirements |

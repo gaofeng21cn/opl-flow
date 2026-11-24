@@ -22,7 +22,7 @@ Flow 是可选组件。缺少 Flow 不阻断 Codex、OPL Base、App、其他 Pac
 
 | 需要完成的工作 | 入口 |
 | --- | --- |
-| 检查、安装、优化或更新 Codex 基线 | `$opl-flow` |
+| 检查、安装、优化或更新 Codex 或 AntiGravity 基线 | `$opl-flow` |
 | 开发、评审、架构优化、文档治理或软件交付 | `$software-development` |
 | 协调原生 Codex 任务、集成、恢复或迁移执行负责人 | `$manage-codex-tasks` |
 | 保存持久目标并使用可选 Linear 门户 | `$opl-flow start` |
@@ -63,6 +63,14 @@ OPL Flow 白皮书说明一致的任务接收、自动投递和可恢复执行�
 
 ```text
 使用 $opl-flow setup 建立或修复我的 Codex 基线。
+```
+
+如需按 OPL Flow 基线范本直接体检并配置本机 Google AntiGravity（`~/.gemini/`），可参考[AntiGravity 基线配置](docs/antigravity-setup.md)或直接运行：
+
+```bash
+python3 scripts/opl_workflow.py antigravity doctor --json
+python3 scripts/opl_workflow.py antigravity apply --dry-run --json
+python3 scripts/opl_workflow.py antigravity apply --json
 ```
 
 Setup 部署能力。显式执行 `$opl-flow start` 才创建或复用总账 Dashboard、Bead、

@@ -49,10 +49,10 @@ Choose one product action and load only its named references.
 
 | Action | Use when | Load |
 | --- | --- | --- |
-| `doctor` | Inspect the effective baseline, Profile, Package, model, capabilities, Ledger, or Fleet. | `references/codex-baseline.md`, then `references/terminal-readback.md` |
-| `setup` | Establish or repair the owner-supported baseline on this machine. | `references/setup-update.md`, `references/package-lifecycle.md` |
-| `tune` | Audit a model upgrade and tune Profile, Skills, model defaults, or capability selection while preserving user ownership. | `references/codex-baseline.md`, `references/app-integration.md` |
-| `update` | Update Flow and configured components through their owners and verify effective discovery. | `references/setup-update.md`, `references/package-lifecycle.md` |
+| `doctor` | Inspect the effective Codex or AntiGravity baseline, Profile, Package, model, capabilities, Ledger, or Fleet. | `references/codex-baseline.md` (and `references/antigravity-baseline.md` for AntiGravity), then `references/terminal-readback.md` |
+| `setup` | Establish or repair the owner-supported Codex or AntiGravity baseline on this machine. | `references/setup-update.md`, `references/package-lifecycle.md` (and `references/antigravity-baseline.md` for AntiGravity) |
+| `tune` | Audit a model upgrade or AntiGravity telemetry and tune Profile, Skills, rules, or capability selection while preserving user ownership. | `references/codex-baseline.md` (or `references/antigravity-baseline.md`), `references/app-integration.md` |
+| `update` | Update Flow and configured Codex/AntiGravity components through their owners and verify effective discovery. | `references/setup-update.md`, `references/package-lifecycle.md` (and `references/antigravity-baseline.md` for AntiGravity) |
 | `release-package` | Prepare, publish, or locally activate one first-party OPL Package. | `references/package-release.md` |
 | `start` | Bind the owner's Ledger Dashboard, Bead, Linear projection, and Supervisor. | `references/ledger-start.md` |
 | `supervise` | Run one bounded episode of an existing Ledger Supervisor. | `references/ledger-supervisor.md`, then `references/terminal-readback.md` |

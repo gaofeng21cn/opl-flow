@@ -14,7 +14,7 @@ from pathlib import Path
 from typing import Any, Iterable
 
 try:
-    from . import opl_codex_bridge, opl_events, opl_execution, opl_ledger, opl_service, opl_supervisor
+    from . import opl_antigravity, opl_codex_bridge, opl_events, opl_execution, opl_ledger, opl_service, opl_supervisor
     from .fleet import fleet_execution
     from .opl_task_owner import (
         TaskOwnerError,
@@ -27,7 +27,7 @@ try:
         verify_target as verify_owner_migration,
     )
 except ImportError:  # Direct script execution.
-    import opl_codex_bridge, opl_events, opl_execution, opl_ledger, opl_service, opl_supervisor
+    import opl_antigravity, opl_codex_bridge, opl_events, opl_execution, opl_ledger, opl_service, opl_supervisor
     from fleet import fleet_execution
     from opl_task_owner import (
         TaskOwnerError,
@@ -1039,12 +1039,18 @@ def parser() -> argparse.ArgumentParser:
     approve_p.add_argument("--bd-bin")
     approve_p.add_argument("--by", dest="approved_by")
     approve_p.add_argument("--json", action="store_true")
+
+    opl_antigravity.add_antigravity_subparser(commands)
     return root
 
 
 def main(argv: list[str] | None = None) -> int:
     args = parser().parse_args(argv)
     try:
+        if args.command == "antigravity":
+            result = opl_antigravity.dispatch_antigravity(args)
+            print(json.dumps(result, ensure_ascii=False, indent=2, sort_keys=True))
+            return 0
         if args.command == "worker":
             handoff = opl_execution.validate_handoff(read_json_argument(args.handoff_json, "worker handoff"))
             if args.worker_action == "result":
