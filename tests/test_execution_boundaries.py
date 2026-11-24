@@ -115,7 +115,7 @@ class ExecutionBoundaryTests(unittest.TestCase):
         self.assertNotIn('input_refs',json.dumps(stored))
 
     def test_ledger_and_owner_core_do_not_import_fleet(self):
-        for filename in ('opl_ledger.py','opl_task_owner.py','opl_execution.py','opl_supervisor.py','opl_events.py','opl_codex_bridge.py','opl_service.py'):
+        for filename in ('opl_ledger.py','opl_task_owner.py','opl_execution.py','opl_supervisor.py','opl_events.py','opl_codex_bridge.py','opl_service.py','opl_app_contribution.py'):
             tree = ast.parse((ROOT/'scripts'/filename).read_text())
             imports = [node.module or '' for node in ast.walk(tree) if isinstance(node,ast.ImportFrom)]
             self.assertFalse(any('fleet' in name for name in imports), filename)

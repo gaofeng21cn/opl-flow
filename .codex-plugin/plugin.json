@@ -6,6 +6,7 @@
     "name": "Gaofeng"
   },
   "skills": "./skills/",
+  "mcpServers": "./mcp.json",
   "interface": {
     "displayName": "OPL Flow",
     "shortDescription": "Route OPL operations, software work, and Codex tasks",

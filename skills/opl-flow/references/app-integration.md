@@ -38,3 +38,22 @@ resolve Skill source ownership, or infer installed truth from a static contract.
 Model and reasoning controls remain visible and user-selectable. Flow supplies
 the recommendation; App controls Auto resolution and fallback when Flow is
 absent.
+
+## Decision Dashboard MiniApp (Standard MCP App)
+
+OPL Flow exposes a unified Chinese decision surface across both the shared OPL Apps
+catalog and a dedicated standard MCP App (`ui://opl-flow/decision-dashboard.html`):
+
+- **Shared OPL Apps declaration**: `opl-package.json` declares `presentation.miniapp`,
+  `codex_surface.app_contribution_abi`, `codex_surface.app_contribution_adapter`
+  (`app-contribution-adapter.json`), and `app_contributions` backed by
+  `scripts/opl_app_contribution.py`.
+- **Dedicated MCP App**: `mcp.json` (referenced by `.codex-plugin/plugin.json`) launches
+  the bundled Node stdio MCP server `decision-dashboard/server.bundle.mjs`, serving
+  `decision-dashboard/index.html` using the pinned official DSH stylesheet (`dsh-theme.css`)
+  and `@modelcontextprotocol/ext-apps`.
+- **Authority boundary**: the UI renders sanitized owner readback (`needs_action`,
+  `safe_to_archive`, `active_objectives`, `blocked`, `backlog`, `pending_events`, and
+  Router service status) and delegates writes (`send`, `approve`, `tick`, `service`)
+  exclusively to `scripts/opl_app_contribution.py`. Archive approval and Router engine
+  start/stop always require explicit human confirmation and fresh owner readback.

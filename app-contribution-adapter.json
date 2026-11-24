@@ -1,0 +1,133 @@
+{
+  "schema_version": "opl-package-app-contribution-adapter.v1",
+  "reads": {
+    "opl-flow.decision.v1#dashboard": {
+      "kind": "command",
+      "cwd": "package",
+      "argv": [
+        "python3",
+        "scripts/opl_app_contribution.py",
+        "dashboard"
+      ],
+      "stdin": "input_json",
+      "passthrough": true,
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "instance_path": {
+            "type": "string",
+            "title": "实例目录（可选）",
+            "description": "留空则使用当前默认绑定的 OPL Flow 实例目录。"
+          }
+        },
+        "additionalProperties": false
+      }
+    }
+  },
+  "actions": {
+    "opl-flow.decision.v1#send": {
+      "kind": "command",
+      "cwd": "package",
+      "argv": [
+        "python3",
+        "scripts/opl_app_contribution.py",
+        "send"
+      ],
+      "stdin": "input_json",
+      "passthrough": true,
+      "input_schema": {
+        "type": "object",
+        "required": [
+          "message"
+        ],
+        "properties": {
+          "objective_id": {
+            "type": "string",
+            "title": "目标编号（留空则新建目标）"
+          },
+          "title": {
+            "type": "string",
+            "title": "目标标题（新建时可选）"
+          },
+          "message": {
+            "type": "string",
+            "title": "任务描述或回复指示"
+          },
+          "execution_mode": {
+            "type": "string",
+            "title": "执行模式",
+            "enum": [
+              "active",
+              "backlog"
+            ],
+            "default": "active"
+          },
+          "now": {
+            "type": "boolean",
+            "title": "投递后立即推进一轮状态评估",
+            "default": false
+          }
+        },
+        "additionalProperties": false
+      }
+    },
+    "opl-flow.decision.v1#approve": {
+      "kind": "command",
+      "cwd": "package",
+      "argv": [
+        "python3",
+        "scripts/opl_app_contribution.py",
+        "approve"
+      ],
+      "stdin": "input_json",
+      "passthrough": true,
+      "input_schema": {
+        "type": "object",
+        "required": [
+          "bead_id",
+          "approved_by",
+          "confirmed"
+        ],
+        "properties": {
+          "bead_id": {
+            "type": "string",
+            "title": "待批准归档的目标编号"
+          },
+          "approved_by": {
+            "type": "string",
+            "title": "批准人",
+            "default": "owner"
+          },
+          "confirmed": {
+            "type": "boolean",
+            "title": "我已核对终态证据并确认归档",
+            "const": true
+          }
+        },
+        "additionalProperties": false
+      }
+    },
+    "opl-flow.decision.v1#tick": {
+      "kind": "command",
+      "cwd": "package",
+      "argv": [
+        "python3",
+        "scripts/opl_app_contribution.py",
+        "tick"
+      ],
+      "stdin": "input_json",
+      "passthrough": true,
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "dry_run": {
+            "type": "boolean",
+            "title": "仅预览不推进游标",
+            "default": false
+          }
+        },
+        "additionalProperties": false
+      }
+    }
+  }
+}

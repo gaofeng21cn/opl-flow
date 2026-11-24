@@ -158,11 +158,40 @@ def run(
         raise WorkflowError(f"{argv[0]} returned invalid JSON") from exc
 
 
+INSTANCE_POINTER_PATH = Path.home() / ".config/opl-flow/instance.json"
+
+
+def instance_pointer(pointer_path: Path | None = None) -> Path | None:
+    """Read the node's single Instance binding without mutating local state."""
+    path = pointer_path or INSTANCE_POINTER_PATH
+    if not path.exists() and not path.is_symlink():
+        return None
+    if path.is_symlink() or not path.is_file():
+        raise WorkflowError("OPL Instance pointer must be a regular file")
+    if path.stat().st_mode & 0o077:
+        raise WorkflowError("OPL Instance pointer must have mode 0600")
+    try:
+        pointer = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as exc:
+        raise WorkflowError("OPL Instance pointer is unreadable") from exc
+    if (
+        not isinstance(pointer, dict)
+        or set(pointer) != {"schema", "path"}
+        or pointer.get("schema") != "opl_flow_instance_pointer.v1"
+        or not isinstance(pointer.get("path"), str)
+        or not Path(pointer["path"]).expanduser().is_absolute()
+    ):
+        raise WorkflowError("OPL Instance pointer is invalid")
+    return Path(pointer["path"]).expanduser().resolve()
+
+
 def instance_root(value: str | Path | None, *, required: bool = True) -> Path | None:
-    configured = value or os.environ.get("OPL_INSTANCE")
+    configured: str | Path | None = value or os.environ.get("OPL_INSTANCE")
+    if not configured and required:
+        configured = instance_pointer()
     if not configured:
         if required:
-            raise WorkflowError("pass --instance or set OPL_INSTANCE")
+            raise WorkflowError("pass --instance, set OPL_INSTANCE, or bind ~/.config/opl-flow/instance.json")
         return None
     root = Path(configured).expanduser().resolve()
     if not root.is_dir():

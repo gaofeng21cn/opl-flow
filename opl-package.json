@@ -22,7 +22,23 @@
       "opl-flow",
       "software-development",
       "manage-codex-tasks"
-    ]
+    ],
+    "app_contribution_abi": {
+      "schema_version": "opl-package-app-contribution-cli.v1",
+      "transport": "stdin_json_stdout_json",
+      "argv": [
+        "opl",
+        "app",
+        "contribution",
+        "adapter",
+        "--stdin"
+      ],
+      "request_schema": "opl-package-app-contribution-request.v1",
+      "response_schema": "opl-package-app-contribution-response.v1"
+    },
+    "app_contribution_adapter": {
+      "manifest": "app-contribution-adapter.json"
+    }
   },
   "profile_surface": {
     "runtime_profile": {
@@ -63,6 +79,77 @@
     },
     "home_shortcuts": [],
     "software_type": "capability",
-    "icon_ref": "assets/branding/opl-flow-logo.png"
+    "icon_ref": "assets/branding/opl-flow-logo.png",
+    "miniapp": {
+      "presentation_mode": "dedicated_app",
+      "entry_kind": "product_entry",
+      "direct_entry": true,
+      "entry_view_id": "opl-flow.decision.dashboard",
+      "dedicated_resource_uri": "ui://opl-flow/decision-dashboard.html"
+    }
+  },
+  "app_contributions": {
+    "schema_version": "opl-app-contributions.v1",
+    "views": [
+      {
+        "view_id": "opl-flow.decision.dashboard",
+        "view_type": "task_board",
+        "title_i18n": {
+          "zh-CN": "决策看板",
+          "en-US": "Decision Dashboard"
+        },
+        "data_ref": "opl-flow.decision.v1#dashboard",
+        "command_ids": [
+          "opl-flow.objective.send",
+          "opl-flow.objective.approve",
+          "opl-flow.router.tick"
+        ],
+        "empty_state_i18n": {
+          "zh-CN": "当前暂无需要拍板或运行中的目标",
+          "en-US": "No objectives currently require action or are active"
+        }
+      }
+    ],
+    "commands": [
+      {
+        "command_id": "opl-flow.objective.send",
+        "label_i18n": {
+          "zh-CN": "投递任务或回复",
+          "en-US": "Send task or reply"
+        },
+        "action_ref": "opl-flow.decision.v1#send",
+        "confirmation_required": true
+      },
+      {
+        "command_id": "opl-flow.objective.approve",
+        "label_i18n": {
+          "zh-CN": "批准归档",
+          "en-US": "Approve archive"
+        },
+        "action_ref": "opl-flow.decision.v1#approve",
+        "confirmation_required": true
+      },
+      {
+        "command_id": "opl-flow.router.tick",
+        "label_i18n": {
+          "zh-CN": "推进一轮调度",
+          "en-US": "Run router tick"
+        },
+        "action_ref": "opl-flow.decision.v1#tick",
+        "confirmation_required": true
+      }
+    ],
+    "badges": [],
+    "ui": [
+      {
+        "contribution_id": "opl-flow.decision.dashboard",
+        "slot": "runtime.detail",
+        "contribution_kind": "view",
+        "trust_tier": "declarative",
+        "scope": "root",
+        "sort_order": 200,
+        "view_id": "opl-flow.decision.dashboard"
+      }
+    ]
   }
 }

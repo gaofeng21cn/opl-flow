@@ -4,3 +4,4 @@ __pycache__/
 .worktrees/
 docs/site/latest/
 tmp/
+decision-dashboard/node_modules/
