@@ -23,20 +23,20 @@ Include the following block verbatim alongside the worker's owned files and acce
 ```text
 ## Tooling & Hygiene Rules (Swarm Worker — No MCP Mounted)
 - Small/known ranges: use parallel `read_file(StartLine, EndLine)` (<=200 lines per range). Avoid blind full-file reads (>300 lines).
-- Batch search, outlines, multi-file edits, and concurrent checks via `agy-fast --cli` in `run_command` (keeps output <=8.8 KB, zero output.txt spills):
-  Set `F="node ~/.gemini/config/plugins/agy-fast/dist/mcp-server.mjs --cli"`
-  - Search (use `--text`/`--regex`/`--glob`/`--git`):
-    `$F search --text "symbol" --path src --git "status --short"`
+- Batch search, outlines, multi-file edits, and concurrent checks via `agy-fast --cli` in `run_command` (keeps output <=8.8 KB, zero output.txt spills). Never store `node ... --cli` in a single scalar variable (fails with exit 127 on macOS `zsh`), and place per-query modifiers (`--path`, `--file-type`) BEFORE the query they scope to:
+  Set `CLI="$HOME/.gemini/config/plugins/agy-fast/dist/mcp-server.mjs"` (or invoke `node "<plugin>/dist/mcp-server.mjs" --cli ...` directly on any OS)
+  - Search (modifiers precede their query; use `--text`/`--regex`/`--glob`/`--git`):
+    `node "$CLI" --cli search --path src --text "symbol" --git "status --short"`
   - Outline (>300-line files before reading):
-    `$F outline src/a.ts src/b.ts`
+    `node "$CLI" --cli outline src/a.ts src/b.ts`
   - Slice small ranges + outlines:
-    `$F slice src/a.ts:1-60,120-160 --outline src/b.ts`
+    `node "$CLI" --cli slice src/a.ts:1-60,120-160 --outline src/b.ts`
   - Multi-hunk / multi-file atomic edit (+ optional verify):
-    `$F edit --best-effort --verify "npm run typecheck" --stdin <<'EOF'`
+    `node "$CLI" --cli edit --best-effort --verify "npm run typecheck" --stdin <<'EOF'`
     `{"edits":[{"path":"src/a.ts","hunks":[{"target":"old","replacement":"new"}]}]}`
     `EOF`
   - Concurrent checks (default compact; use `--full` only for bounded stdout):
-    `$F check --compact "cmd1" "cmd2"`
+    `node "$CLI" --cli check --compact "cmd1" "cmd2"`
 - Keep <=10s shell commands synchronous (`WaitMsBeforeAsync: 5000-10000`).
 - Report back concisely: modified files, verification command results, and any blockers (no raw file dumps).
 ```
