@@ -1444,6 +1444,43 @@ class EnvironmentApprovalTests(unittest.TestCase):
             self.approve()
         self.assertEqual(self.posts, [])
 
+    def test_transient_initial_404_retries_then_approves(self) -> None:
+        self.deployment["current_user_can_approve"] = True
+        calls = 0
+
+        def flaky_command(argv, **kwargs):
+            nonlocal calls
+            if argv == ["gh", "api", self.pending_endpoint] and calls < 2:
+                calls += 1
+                raise release.ReleaseError(f"command failed (1): gh api {self.pending_endpoint}: gh: Not Found (HTTP 404)")
+            return self.command_json(argv, **kwargs)
+
+        with patch.object(release, "command_json", side_effect=flaky_command), patch.object(release.time, "sleep"):
+            result = release.approve_release_environment(self.repo, 123, "request-1")
+
+        self.assertEqual(result, {"status": "approved", "environment": "release-stable", "environment_id": 42})
+        self.assertEqual(calls, 2)
+        self.assertEqual(len(self.posts), 1)
+
+    def test_persistent_404_or_non_404_fails_closed(self) -> None:
+        self.deployment["current_user_can_approve"] = True
+
+        def forbidden_command(argv, **kwargs):
+            raise release.ReleaseError("gh: Forbidden (HTTP 403)")
+
+        with patch.object(release, "command_json", side_effect=forbidden_command) as mocked:
+            with self.assertRaisesRegex(release.ReleaseError, "HTTP 403"):
+                release.approve_release_environment(self.repo, 123, "request-1")
+        self.assertEqual(mocked.call_count, 1)
+
+        def persistent_404(argv, **kwargs):
+            raise release.ReleaseError("gh: Not Found (HTTP 404)")
+
+        with patch.object(release, "command_json", side_effect=persistent_404) as mocked, patch.object(release.time, "sleep"):
+            with self.assertRaisesRegex(release.ReleaseError, "HTTP 404"):
+                release.approve_release_environment(self.repo, 123, "request-1")
+        self.assertEqual(mocked.call_count, 6)
+
 
 class CodexLocalPluginReadbackAndProfileTests(unittest.TestCase):
     def test_plugin_entry_reads_app_server_stdio_and_skips_notifications(self) -> None:

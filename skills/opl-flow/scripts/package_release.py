@@ -541,8 +541,20 @@ def approve_release_environment(repo: str, run_id: int, request_id: str) -> dict
     last_status = ""
     approval_unknown = False
     environment_id = None
-    for _ in range(15):
-        pending = command_json(["gh", "api", endpoint], timeout=30)
+    for attempt in range(30):
+        try:
+            pending = command_json(["gh", "api", endpoint], timeout=30)
+        except ReleaseError as exc:
+            message = str(exc)
+            if (
+                not approval_unknown
+                and attempt < 5
+                and ("HTTP 404" in message or ("404" in message and "Not Found" in message))
+            ):
+                last_status = "queued"
+                time.sleep(1)
+                continue
+            raise
         if not isinstance(pending, list):
             raise ReleaseError("GitHub pending deployments readback is invalid")
         if pending:
@@ -617,7 +629,7 @@ def approve_release_environment(repo: str, run_id: int, request_id: str) -> dict
             f"release-stable approval outcome remains unknown; inspect https://github.com/{repo}/actions/runs/{run_id} before any retry"
         )
     if last_status == "waiting":
-        raise ReleaseError("release-stable approval did not become available within 15s")
+        raise ReleaseError("release-stable approval did not become available within 30s")
     return {"status": "not_required", "environment": None, "environment_id": None}
 
 
