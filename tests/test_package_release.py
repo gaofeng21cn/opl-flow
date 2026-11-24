@@ -98,7 +98,7 @@ class PackageReleaseTests(unittest.TestCase):
             "package_id": manifest["package_id"], "package_version": manifest["version"],
             "source_commit": surface["carrier_source_commit"],
         })
-        return subprocess.CompletedProcess(argv, 0, "", "")
+        return subprocess.CompletedProcess(argv, 0, "{}", "")
 
     def initialize_framework_snapshot(self, args):
         root = Path(args.framework_root)
@@ -137,6 +137,43 @@ class PackageReleaseTests(unittest.TestCase):
                 else:
                     self.assertEqual(actual["standard_agent_descriptor_projection"]["domain_id"], "current-domain")
                     self.assertEqual(actual["standard_agent_descriptor_projection"]["explicit_aliases"], ["current-alias"])
+
+    def test_prepare_carries_generated_allowlist_only_when_paths_match_payload(self) -> None:
+        payload_paths = ["opl-package.json", "current.md"]
+        for matches in (True, False):
+            with self.subTest(matches=matches), tempfile.TemporaryDirectory() as temporary:
+                args, owner, path, allowlist_path = self.prepare_fixture(Path(temporary))
+                old_manifest = path.read_bytes()
+                old_allowlist = release.read_json(allowlist_path)
+                payload_ref = "payloads/research-agent-1.2.3.json"
+
+                def generate(argv, **kwargs):
+                    result = self.payload_command(argv, **kwargs)
+                    staged_package = Path(argv[argv.index("--manifest") + 1])
+                    staged_payload = staged_package.parent / payload_ref
+                    payload = release.read_json(staged_payload)
+                    payload["files"] = [{"path": name} for name in payload_paths]
+                    release.write_json(staged_payload, payload)
+                    result.stdout = json.dumps({
+                        "projected_allowlist_paths": payload_paths if matches else payload_paths[::-1],
+                    })
+                    return result
+
+                with (
+                    patch.object(release, "require_owner_release", return_value=(owner, "1.2.3", "a" * 40)),
+                    patch.object(release, "repo_slug", return_value=f"owner/{args.package_id}"),
+                    patch.object(release, "command", side_effect=generate),
+                ):
+                    if matches:
+                        result = release.prepare(args)
+                        self.assertIn(str(allowlist_path.resolve()), result["updated_files"])
+                        self.assertEqual(release.read_json(allowlist_path), {**old_allowlist, "paths": payload_paths})
+                    else:
+                        with self.assertRaisesRegex(release.ReleaseError, "allowlist paths do not match"):
+                            release.prepare(args)
+                        self.assertEqual(path.read_bytes(), old_manifest)
+                        self.assertEqual(release.read_json(allowlist_path), old_allowlist)
+                        self.assertFalse((path.parent / payload_ref).exists())
 
     def test_prepare_keeps_repo_binding_and_does_not_write_failed_generation(self) -> None:
         for mismatch in ("owner", "projection", "allowlist", "plugin", "generator"):
@@ -434,7 +471,7 @@ class PackageReleaseTests(unittest.TestCase):
                         "source_commit": "new-commit",
                     },
                 )
-                return subprocess.CompletedProcess(argv, 0, "", "")
+                return subprocess.CompletedProcess(argv, 0, "{}", "")
 
             args = argparse.Namespace(
                 package_id="opl-flow",

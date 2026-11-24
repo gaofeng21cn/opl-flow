@@ -403,7 +403,7 @@ def prepare(
                 raise ReleaseError("immutable payload path must be a regular file")
             staged_payload.parent.mkdir()
             staged_payload.write_bytes(payload_path.read_bytes())
-        command(
+        generation = command_json(
             [
                 "node",
                 str(framework_root / "scripts/first-party-package-payload.mjs"),
@@ -425,6 +425,22 @@ def prepare(
             or payload.get("source_commit") != source_commit
         ):
             raise ReleaseError("generated Framework payload projection has an invalid identity")
+        if not isinstance(generation, dict):
+            raise ReleaseError("Framework payload generation result must be a JSON object")
+        if "projected_allowlist_paths" in generation:
+            projected_paths = generation["projected_allowlist_paths"]
+            files = payload.get("files")
+            if (
+                not isinstance(projected_paths, list)
+                or not projected_paths
+                or not all(isinstance(path, str) for path in projected_paths)
+                or not isinstance(files, list)
+                or projected_paths != [
+                    entry.get("path") if isinstance(entry, dict) else None for entry in files
+                ]
+            ):
+                raise ReleaseError("generated Framework allowlist paths do not match the payload")
+            allowlist["paths"] = projected_paths
         payload_bytes = staged_payload.read_bytes()
     payload_path.parent.mkdir(exist_ok=True)
     with tempfile.NamedTemporaryFile(dir=payload_path.parent, prefix=f".{payload_path.name}.") as output:
