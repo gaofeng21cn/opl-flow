@@ -2,9 +2,10 @@
 
 from __future__ import annotations
 
-from typing import Any
+from typing import Annotated, Any, Literal
 from pathlib import Path
 import argparse
+from pydantic import BaseModel, ConfigDict, Field, StrictBool, StrictInt, StrictStr, field_validator
 import datetime as dt
 import json
 import plistlib
@@ -14,31 +15,68 @@ import shutil
 import time
 import uuid
 from fleet_inventory import collect_inventory, validate_inventory
+from . import fleet_common
 from .fleet_common import COMMIT_PATTERN, FleetError, GPU_APIS, LEASE_PHASES, LEASE_WORKLOAD_CLASSES, PREEMPTIBLE_WORKLOAD_CLASSES, ROUTES_PATH, STATE_ROOT, atomic_json, dispatch_adapter, node_identity, normalize_node_id, parse_utc, read_json, run, utc_now
 from .fleet_features import gpu_profiles, inventory_age_seconds, node_features
 from .fleet_control import control_commit, manifest, node_registry
 from .fleet_reconcile import remote_asset_catalog
 from .fleet_lease import acquire_lease_record, active_lease_map, public_lease, release_lease_record, renew_lease_record, validate_admission, validate_lease, validate_owner_id, validate_role, validate_ttl
 
+class _WorkVolumeRouteModel(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    volume_uuid: Any
+    filesystem: StrictStr
+    min_free_gb: Annotated[StrictInt, Field(ge=1, le=10_000)]
+    probe_subpath: Annotated[StrictStr, Field(min_length=1, max_length=240)]
+
+    @field_validator("filesystem")
+    @classmethod
+    def _apfs(cls, value: str) -> str:
+        if value.lower() != "apfs":
+            raise ValueError("fleet work volume route is invalid")
+        return value
+
+    @field_validator("probe_subpath")
+    @classmethod
+    def _safe_subpath(cls, value: str) -> str:
+        if "\\" in value or any(part in {"", ".", ".."} for part in value.split("/")):
+            raise ValueError("fleet work volume route is invalid")
+        return value
+
+    @field_validator("volume_uuid")
+    @classmethod
+    def _valid_uuid(cls, value: Any) -> Any:
+        try:
+            uuid.UUID(str(value))
+        except ValueError as exc:
+            raise ValueError("fleet work volume UUID is invalid") from exc
+        return value
+
+
+_RunnerCmdStr = Annotated[StrictStr, Field(min_length=1, max_length=4000, pattern=r"^[^\x00\r\n]+$")]
+
+
+class _RunnerControlModel(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    shell: Literal["posix", "powershell"]
+    start: _RunnerCmdStr
+    stop: _RunnerCmdStr
+    status: _RunnerCmdStr
+
+
+class _FleetRouteModel(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    local: StrictBool | None = None
+    ssh: StrictStr | None = None
+    tailscale_host: StrictStr | None = None
+    work_volume: _WorkVolumeRouteModel | None = None
+    runner_control: _RunnerControlModel | None = None
+
+
 def validate_work_volume_route(value: Any) -> dict[str, Any]:
-    subpath = str(value.get("probe_subpath", "")) if isinstance(value, dict) else ""
-    if (
-        not isinstance(value, dict)
-        or set(value)
-        != {"volume_uuid", "filesystem", "min_free_gb", "probe_subpath"}
-        or str(value.get("filesystem", "")).lower() != "apfs"
-        or not isinstance(value.get("min_free_gb"), int)
-        or not 1 <= value["min_free_gb"] <= 10_000
-        or not 1 <= len(subpath) <= 240
-        or "\\" in subpath
-        or any(part in {"", ".", ".."} for part in subpath.split("/"))
-    ):
-        raise FleetError("fleet work volume route is invalid")
-    try:
-        uuid.UUID(str(value["volume_uuid"]))
-    except ValueError as exc:
-        raise FleetError("fleet work volume UUID is invalid") from exc
+    fleet_common.runtime.validate_model(_WorkVolumeRouteModel, value, error_cls=FleetError)
     return value
+
 
 def read_routes() -> dict[str, Any]:
     if not ROUTES_PATH.is_file():
@@ -52,43 +90,16 @@ def read_routes() -> dict[str, Any]:
     if not isinstance(routes, dict):
         raise FleetError("fleet routes are invalid")
     for node_id, route in routes.items():
-        if (
-            normalize_node_id(str(node_id)) != node_id
-            or not isinstance(route, dict)
-            or set(route)
-            - {"local", "ssh", "tailscale_host", "work_volume", "runner_control"}
-            or ("local" in route and not isinstance(route["local"], bool))
-            or (
-                "ssh" in route
-                and not isinstance(route["ssh"], str)
-            )
-            or (
-                "tailscale_host" in route
-                and not isinstance(route["tailscale_host"], str)
-            )
-        ):
+        if normalize_node_id(str(node_id)) != node_id or not isinstance(route, dict):
             raise FleetError(f"fleet route is invalid: {node_id}")
-        if "work_volume" in route:
-            validate_work_volume_route(route["work_volume"])
-        if "runner_control" in route:
-            validate_runner_control(route["runner_control"])
+        if any(k in route and route[k] is None for k in ("local", "ssh", "tailscale_host", "work_volume", "runner_control")):
+            raise FleetError(f"fleet route is invalid: {node_id}")
+        fleet_common.runtime.validate_model(_FleetRouteModel, route, error_cls=FleetError, message=f"fleet route is invalid: {node_id}")
     return payload
 
+
 def validate_runner_control(value: Any) -> dict[str, Any]:
-    if (
-        not isinstance(value, dict)
-        or set(value) != {"shell", "start", "stop", "status"}
-        or value.get("shell") not in {"posix", "powershell"}
-    ):
-        raise FleetError("runner control route is invalid")
-    for action in ("start", "stop", "status"):
-        command = value.get(action)
-        if (
-            not isinstance(command, str)
-            or not 1 <= len(command) <= 4000
-            or any(character in command for character in ("\x00", "\r", "\n"))
-        ):
-            raise FleetError(f"runner control {action} command is invalid")
+    fleet_common.runtime.validate_model(_RunnerControlModel, value, error_cls=FleetError, message="runner control route is invalid")
     return value
 
 def tailscale_online(host: str | None) -> bool | None:

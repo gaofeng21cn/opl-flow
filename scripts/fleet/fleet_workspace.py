@@ -3,7 +3,8 @@
 from __future__ import annotations
 
 from pathlib import Path, PurePosixPath
-from typing import Any
+from typing import Annotated, Any, Literal
+from pydantic import BaseModel, ConfigDict, Field, StrictBool, StrictInt, StrictStr, field_validator, model_validator
 import hashlib
 import json
 import re
@@ -53,128 +54,125 @@ def _relative_path(value: Any, label: str) -> str:
     return text
 
 
+class _WorkspaceRepoModel(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    repository: Annotated[StrictStr, Field(pattern=REPOSITORY_PATTERN.pattern)]
+    directory: Any
+    branch: Annotated[StrictStr, Field(pattern=BRANCH_PATTERN.pattern)]
+    remote: Annotated[StrictStr, Field(pattern=REMOTE_PATTERN.pattern)]
+    role: Literal["authority", "implementation_dependency"]
+    required: StrictBool
+
+    @field_validator("directory")
+    @classmethod
+    def _valid_dir(cls, value: Any) -> str:
+        return _relative_path(value, "repository directory")
+
+    @model_validator(mode="after")
+    def _valid_repo(self) -> "_WorkspaceRepoModel":
+        if self.branch.startswith("/") or ".." in PurePosixPath(self.branch).parts or github_repository_from_remote(self.remote) != self.repository:
+            raise ValueError("workspace repository is invalid")
+        return self
+
+
+class _WorkspaceLedgerModel(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    repository_directory: Any
+    role: Literal["maintainer"]
+
+    @field_validator("repository_directory")
+    @classmethod
+    def _valid_dir(cls, value: Any) -> str:
+        return _relative_path(value, "ledger repository directory")
+
+
+class _AutomationPlacementModel(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    id: Annotated[StrictStr, Field(pattern=PROFILE_ID_PATTERN.pattern)]
+    singleton_key: Annotated[StrictStr, Field(pattern=r"^[a-z0-9][a-z0-9:.-]{0,127}$")]
+    role: Literal["ledger_supervisor", "github_patrol"]
+    migration_order: Annotated[StrictInt, Field(ge=1)]
+    desired_state: Literal["disabled", "shadow", "active"]
+
+
+class _WorkspaceProfileModel(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    node_ids: Annotated[list[Annotated[StrictStr, Field(pattern=fleet_common.NODE_ID_PATTERN.pattern)]], Field(min_length=1)]
+    workspace_root: StrictStr
+    environment_contract: Any
+    repositories: Annotated[list[_WorkspaceRepoModel], Field(min_length=1)]
+    ledger: _WorkspaceLedgerModel
+    automation_placements: list[_AutomationPlacementModel]
+
+    @field_validator("node_ids")
+    @classmethod
+    def _sorted_nodes(cls, value: list[str]) -> list[str]:
+        if value != sorted(set(value)):
+            raise ValueError("workspace profile nodes are invalid")
+        return value
+
+    @field_validator("workspace_root")
+    @classmethod
+    def _home_root(cls, value: str) -> str:
+        if not value.startswith("~/") or ".." in PurePosixPath(value[2:]).parts:
+            raise ValueError("workspace root is invalid")
+        return value
+
+    @field_validator("environment_contract")
+    @classmethod
+    def _valid_env(cls, value: Any) -> str:
+        return _relative_path(value, "environment contract")
+
+    @model_validator(mode="after")
+    def _check_uniqueness(self) -> "_WorkspaceProfileModel":
+        seen_repos: set[str] = set()
+        seen_dirs: set[str] = set()
+        for repo in self.repositories:
+            if repo.repository in seen_repos or repo.directory in seen_dirs:
+                raise ValueError(f"workspace repository is invalid: {repo.repository}")
+            if any(
+                PurePosixPath(repo.directory).is_relative_to(PurePosixPath(other))
+                or PurePosixPath(other).is_relative_to(PurePosixPath(repo.directory))
+                for other in seen_dirs
+            ):
+                raise ValueError("workspace repository directories overlap")
+            seen_repos.add(repo.repository)
+            seen_dirs.add(repo.directory)
+        if self.ledger.repository_directory not in seen_dirs:
+            raise ValueError("workspace ledger is invalid")
+        if (
+            len({p.id for p in self.automation_placements}) != len(self.automation_placements)
+            or len({p.singleton_key for p in self.automation_placements}) != len(self.automation_placements)
+        ):
+            raise ValueError("workspace automation placement is invalid")
+        return self
+
+
 def validate_workspace_profiles(payload: Any) -> dict[str, Any]:
     if (
         not isinstance(payload, dict)
         or set(payload) != {"$schema", "schema", "profiles"}
-        or payload.get("$schema")
-        != "https://one-person-lab.dev/schemas/opl-flow/fleet-workspace-profile.v1.json"
+        or payload.get("$schema") != "https://one-person-lab.dev/schemas/opl-flow/fleet-workspace-profile.v1.json"
         or payload.get("schema") != PROFILE_SCHEMA
         or not isinstance(payload.get("profiles"), dict)
         or not payload["profiles"]
     ):
         raise FleetError("workspace profile catalog is invalid")
-
     seen_nodes: set[str] = set()
     for profile_id, profile in payload["profiles"].items():
         if not PROFILE_ID_PATTERN.fullmatch(str(profile_id)) or not isinstance(profile, dict):
             raise FleetError(f"workspace profile identity is invalid: {profile_id!r}")
-        if set(profile) != {
-            "node_ids",
-            "workspace_root",
-            "environment_contract",
-            "repositories",
-            "ledger",
-            "automation_placements",
-        }:
-            raise FleetError(f"workspace profile fields are not allowed: {profile_id}")
-        node_ids = profile["node_ids"]
+        raw_nodes = profile.get("node_ids")
         if (
-            not isinstance(node_ids, list)
-            or not node_ids
-            or node_ids != sorted(set(node_ids))
-            or any(not fleet_common.NODE_ID_PATTERN.fullmatch(str(item)) for item in node_ids)
-            or seen_nodes.intersection(node_ids)
+            not isinstance(raw_nodes, list)
+            or not raw_nodes
+            or any(not isinstance(item, str) for item in raw_nodes)
+            or seen_nodes.intersection(raw_nodes)
         ):
             raise FleetError(f"workspace profile nodes are invalid: {profile_id}")
-        seen_nodes.update(node_ids)
-        workspace_root = str(profile["workspace_root"])
-        if not workspace_root.startswith("~/") or ".." in PurePosixPath(workspace_root[2:]).parts:
-            raise FleetError(f"workspace root is invalid: {profile_id}")
-        _relative_path(profile["environment_contract"], "environment contract")
-        repositories = profile["repositories"]
-        if not isinstance(repositories, list) or not repositories:
-            raise FleetError(f"workspace repositories are invalid: {profile_id}")
-        seen_repositories: set[str] = set()
-        seen_directories: set[str] = set()
-        for repository in repositories:
-            if not isinstance(repository, dict) or set(repository) != {
-                "repository",
-                "directory",
-                "branch",
-                "remote",
-                "role",
-                "required",
-            }:
-                raise FleetError(f"workspace repository fields are invalid: {profile_id}")
-            slug = str(repository["repository"])
-            directory = _relative_path(
-                repository["directory"], "repository directory"
-            )
-            branch = str(repository["branch"])
-            remote = str(repository["remote"])
-            if (
-                not REPOSITORY_PATTERN.fullmatch(slug)
-                or not BRANCH_PATTERN.fullmatch(branch)
-                or branch.startswith("/")
-                or ".." in PurePosixPath(branch).parts
-                or not REMOTE_PATTERN.fullmatch(remote)
-                or github_repository_from_remote(remote) != slug
-                or repository["role"] not in {"authority", "implementation_dependency"}
-                or not isinstance(repository["required"], bool)
-                or slug in seen_repositories
-                or directory in seen_directories
-            ):
-                raise FleetError(f"workspace repository is invalid: {profile_id}/{slug}")
-            seen_repositories.add(slug)
-            if any(
-                PurePosixPath(directory).is_relative_to(PurePosixPath(other))
-                or PurePosixPath(other).is_relative_to(PurePosixPath(directory))
-                for other in seen_directories
-            ):
-                raise FleetError(f"workspace repository directories overlap: {profile_id}")
-            seen_directories.add(directory)
-        ledger = profile["ledger"]
-        if not isinstance(ledger, dict) or set(ledger) != {
-            "repository_directory",
-            "role",
-        }:
-            raise FleetError(f"workspace ledger fields are invalid: {profile_id}")
-        ledger_directory = _relative_path(
-            ledger["repository_directory"],
-            "ledger repository directory",
-        )
-        if ledger_directory not in seen_directories or ledger["role"] != "maintainer":
-            raise FleetError(f"workspace ledger is invalid: {profile_id}")
-        placements = profile["automation_placements"]
-        if not isinstance(placements, list):
-            raise FleetError(f"workspace automation placements are invalid: {profile_id}")
-        seen_automations: set[str] = set()
-        seen_singletons: set[str] = set()
-        for placement in placements:
-            if not isinstance(placement, dict) or set(placement) != {
-                "id",
-                "singleton_key",
-                "role",
-                "migration_order",
-                "desired_state",
-            }:
-                raise FleetError(f"workspace automation placement fields are invalid: {profile_id}")
-            automation_id = str(placement["id"])
-            singleton = str(placement["singleton_key"])
-            if (
-                not PROFILE_ID_PATTERN.fullmatch(automation_id)
-                or not re.fullmatch(r"[a-z0-9][a-z0-9:.-]{0,127}", singleton)
-                or placement["role"] not in {"ledger_supervisor", "github_patrol"}
-                or not isinstance(placement["migration_order"], int)
-                or placement["migration_order"] < 1
-                or placement["desired_state"] not in {"disabled", "shadow", "active"}
-                or automation_id in seen_automations
-                or singleton in seen_singletons
-            ):
-                raise FleetError(f"workspace automation placement is invalid: {profile_id}")
-            seen_automations.add(automation_id)
-            seen_singletons.add(singleton)
+        parsed = fleet_common.runtime.validate_model(_WorkspaceProfileModel, profile, error_cls=FleetError)
+        assert isinstance(parsed, _WorkspaceProfileModel)
+        seen_nodes.update(parsed.node_ids)
     return payload
 
 

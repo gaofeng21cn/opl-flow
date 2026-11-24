@@ -8,24 +8,28 @@ from __future__ import annotations
 import contextlib
 from copy import deepcopy
 import datetime as dt
-import fcntl
 import hashlib
 import json
-import os
 from pathlib import Path, PurePosixPath
 import re
 import signal
 import subprocess
 import sys
-import tempfile
 import time
-from typing import Any, Callable, Iterator
+from typing import Annotated, Any, Callable, Iterator
 import uuid
 
 try:
+    from . import opl_runtime as runtime, opl_state_store as state_store
     from . import opl_execution, opl_ledger, opl_supervisor
 except ImportError:  # Direct script execution.
-    import opl_execution, opl_ledger, opl_supervisor
+    import opl_runtime as runtime
+    import opl_state_store as state_store
+    import opl_execution
+    import opl_ledger
+    import opl_supervisor
+
+from pydantic import BaseModel, ConfigDict, Field, StrictStr, field_validator
 
 
 EVENT_SCHEMA = "opl_workflow_event.v1"
@@ -66,26 +70,17 @@ class EventControlError(RuntimeError):
 
 
 def _utc_now() -> dt.datetime:
-    return dt.datetime.now(dt.timezone.utc)
+    return runtime.utc_now()
 
 
 def _parse_utc(value: Any) -> dt.datetime:
-    if not isinstance(value, str) or not value.strip():
-        raise EventControlError("timestamp must be a non-empty ISO-8601 string")
-    text = value.strip()
-    if text.endswith("Z"):
-        text = text[:-1] + "+00:00"
-    try:
-        parsed = dt.datetime.fromisoformat(text)
-    except ValueError as exc:
-        raise EventControlError(f"invalid ISO-8601 timestamp: {value!r}") from exc
-    if parsed.tzinfo is None:
-        parsed = parsed.replace(tzinfo=dt.timezone.utc)
-    return parsed.astimezone(dt.timezone.utc)
+    parsed = runtime.parse_utc(value, error_cls=EventControlError)
+    assert parsed is not None
+    return parsed
 
 
 def _iso_utc(value: dt.datetime) -> str:
-    return value.astimezone(dt.timezone.utc).isoformat().replace("+00:00", "Z")
+    return runtime.iso_utc(value)
 
 
 def default_event_state_dir(instance_root: Path) -> Path:
@@ -94,8 +89,12 @@ def default_event_state_dir(instance_root: Path) -> Path:
 
 
 def inbox_paths(state_dir: Path) -> tuple[Path, Path]:
-    root = state_dir.expanduser().resolve()
-    return root / "inbox.json", root / "inbox.lock"
+    db_path, lock_path, _ = state_store.inbox_db_paths(state_dir)
+    return db_path, lock_path
+
+
+def inbox_exists(state_dir: Path) -> bool:
+    return state_store.inbox_exists(state_dir)
 
 
 def _empty_inbox() -> dict[str, Any]:
@@ -103,67 +102,27 @@ def _empty_inbox() -> dict[str, Any]:
 
 
 def _atomic_json(path: Path, payload: dict[str, Any], *, mode: int = 0o600) -> None:
-    path.parent.mkdir(parents=True, exist_ok=True)
-    try:
-        os.chmod(path.parent, 0o700)
-    except OSError:
-        pass
-    fd, temp_name = tempfile.mkstemp(prefix=f".{path.name}.", dir=str(path.parent))
-    temp_path = Path(temp_name)
-    try:
-        with os.fdopen(fd, "w", encoding="utf-8") as handle:
-            json.dump(payload, handle, ensure_ascii=False, indent=2, sort_keys=True)
-            handle.write("\n")
-        os.chmod(temp_path, mode)
-        os.replace(temp_path, path)
-    except BaseException:
-        temp_path.unlink(missing_ok=True)
-        raise
+    runtime.atomic_write_json(path, payload, mode=mode, ensure_ascii=False, private_dir=True)
 
 
 @contextlib.contextmanager
 def _inbox_lock(state_dir: Path) -> Iterator[None]:
     _, lock_path = inbox_paths(state_dir)
-    lock_path.parent.mkdir(parents=True, exist_ok=True)
-    try:
-        os.chmod(lock_path.parent, 0o700)
-    except OSError:
-        pass
-    fd = os.open(lock_path, os.O_CREAT | os.O_RDWR, 0o600)
-    try:
-        os.chmod(lock_path, 0o600)
-        fcntl.flock(fd, fcntl.LOCK_EX)
+    with runtime.file_lock(lock_path, private_dir=True, mode=0o600):
         yield
-    finally:
-        try:
-            fcntl.flock(fd, fcntl.LOCK_UN)
-        finally:
-            os.close(fd)
 
 
 def _read_inbox(state_dir: Path) -> dict[str, Any]:
-    data_path, _ = inbox_paths(state_dir)
-    if not data_path.exists():
-        return _empty_inbox()
-    try:
-        payload = json.loads(data_path.read_text(encoding="utf-8"))
-    except (OSError, json.JSONDecodeError) as exc:
-        raise EventControlError(f"event inbox is unreadable: {data_path}") from exc
-    if (
-        not isinstance(payload, dict)
-        or payload.get("schema") != INBOX_SCHEMA
-        or not isinstance(payload.get("events"), list)
-    ):
-        raise EventControlError(f"event inbox schema is invalid: {data_path}")
-    return payload
+    return state_store.read_inbox_store(state_dir, error_cls=EventControlError)
 
 
 def _write_inbox(state_dir: Path, payload: dict[str, Any]) -> None:
-    data_path, _ = inbox_paths(state_dir)
-    events = list(payload.get("events") or [])
-    active = [e for e in events if e.get("status") not in {"acked", "dead_letter"}]
-    terminal = [e for e in events if e.get("status") in {"acked", "dead_letter"}][-MAX_RETAINED_TERMINAL_EVENTS:]
-    _atomic_json(data_path, {"schema": INBOX_SCHEMA, "events": [*active, *terminal]}, mode=0o600)
+    state_store.write_inbox_store(
+        state_dir,
+        payload,
+        max_retained_terminal=MAX_RETAINED_TERMINAL_EVENTS,
+        error_cls=EventControlError,
+    )
 
 
 def _validate_event_inputs(
@@ -481,42 +440,67 @@ def intake_objective(
     return {"schema": "opl_intake_result.v1", "bead": bead, "event": emitted["event"], "deduplicated": emitted["deduplicated"]}
 
 
+class _GraphSliceModel(BaseModel):
+    model_config = ConfigDict(extra="allow")
+    key: Annotated[StrictStr, Field(pattern=r"^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$")]
+    title: StrictStr
+    scope: StrictStr
+    write_set: list[Any] = Field(default_factory=list)
+    depends_on: list[Any] = Field(default_factory=list)
+    envelope: dict[str, Any] | None = None
+    resumability: dict[str, Any] | None = None
+
+    @field_validator("key", "title", "scope", mode="before")
+    @classmethod
+    def _strip_text(cls, value: Any) -> str:
+        text = str(value or "").strip()
+        if not text:
+            raise ValueError("graph slice requires non-empty key, title, and scope")
+        return text
+
+
+class _GraphSpecModel(BaseModel):
+    model_config = ConfigDict(extra="allow")
+    graph_id: Annotated[StrictStr, Field(pattern=r"^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$")]
+    epic: dict[str, Any]
+    slices: Annotated[list[_GraphSliceModel], Field(min_length=1)]
+
+    @field_validator("graph_id", mode="before")
+    @classmethod
+    def _strip_graph_id(cls, value: Any) -> str:
+        return str(value or "").strip()
+
+    @field_validator("epic")
+    @classmethod
+    def _epic_title(cls, value: dict[str, Any]) -> dict[str, Any]:
+        if not str(value.get("title") or "").strip():
+            raise ValueError("graph epic must declare a non-empty title")
+        return value
+
+
 def _validate_graph_spec(graph_spec: Any) -> tuple[str, dict[str, Any], list[dict[str, Any]]]:
     if not isinstance(graph_spec, dict):
         raise EventControlError("graph_spec must be a JSON object")
-    graph_id = str(graph_spec.get("graph_id") or "").strip()
-    if not graph_id or not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9._-]{0,127}", graph_id):
-        raise EventControlError("graph_id is invalid or missing")
-    epic = graph_spec.get("epic")
-    if not isinstance(epic, dict) or not str(epic.get("title") or "").strip():
-        raise EventControlError("graph epic must declare a non-empty title")
-    slices = graph_spec.get("slices")
-    if not isinstance(slices, list) or not slices:
-        raise EventControlError("graph slices must be a non-empty list")
-
+    parsed = runtime.validate_model(_GraphSpecModel, graph_spec, error_cls=EventControlError)
+    assert isinstance(parsed, _GraphSpecModel)
+    graph_id, epic = parsed.graph_id, parsed.epic
     by_key: dict[str, dict[str, Any]] = {}
-    for item in slices:
-        if not isinstance(item, dict):
-            raise EventControlError("every graph slice must be an object")
-        key = str(item.get("key") or "").strip()
-        if not key or not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9._-]{0,63}", key):
-            raise EventControlError(f"invalid graph slice key: {key!r}")
+    for raw_item, slice_model in zip(graph_spec["slices"], parsed.slices):
+        key = slice_model.key
         if key in by_key:
             raise EventControlError(f"duplicate graph slice key: {key}")
-        if not str(item.get("title") or "").strip() or not str(item.get("scope") or "").strip():
-            raise EventControlError(f"slice {key} requires title and scope")
         try:
-            write_set = [opl_execution.validate_relative_path(p, f"{key}.write_set") for p in (item.get("write_set") or [])]
-            if "envelope" in item and item["envelope"] is not None:
-                opl_execution.validate_envelope(item["envelope"])
-            if "resumability" in item and item["resumability"] is not None:
-                opl_execution.validate_resumability(item["resumability"])
+            write_set = [opl_execution.validate_relative_path(p, f"{key}.write_set") for p in slice_model.write_set]
+            if slice_model.envelope is not None:
+                opl_execution.validate_envelope(slice_model.envelope)
+            if slice_model.resumability is not None:
+                opl_execution.validate_resumability(slice_model.resumability)
         except opl_execution.ExecutionError as exc:
             raise EventControlError(str(exc)) from exc
-        normalized = deepcopy(item)
+        normalized = deepcopy(raw_item)
         normalized["key"] = key
         normalized["write_set"] = write_set
-        normalized["depends_on"] = [str(d).strip() for d in (item.get("depends_on") or []) if str(d).strip()]
+        normalized["depends_on"] = [str(d).strip() for d in slice_model.depends_on if str(d).strip()]
         by_key[key] = normalized
 
     for key, item in by_key.items():
@@ -543,7 +527,7 @@ def _validate_graph_spec(graph_spec: Any) -> tuple[str, dict[str, Any], list[dic
     for key in by_key:
         _visit(key)
 
-    return graph_id, epic, [by_key[item["key"]] for item in slices]
+    return graph_id, epic, [by_key[item.key] for item in parsed.slices]
 
 
 def import_task_graph(

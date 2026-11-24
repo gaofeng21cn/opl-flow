@@ -2,9 +2,10 @@
 
 from __future__ import annotations
 
-from typing import Any
+from typing import Annotated, Any, Literal
 from pathlib import Path
 import argparse
+from pydantic import BaseModel, ConfigDict, Field, StrictBool, StrictInt, StrictStr, field_validator, model_validator
 import json
 import re
 import shlex
@@ -13,101 +14,97 @@ import subprocess
 import tempfile
 import uuid
 import opl_execution
+from . import fleet_common
 from .fleet_common import EXECUTION_REQUIREMENTS_SCHEMA, FleetError, GPU_APIS, LEASE_PHASES, LEASE_WORKLOAD_CLASSES, MAX_EXECUTION_OUTPUT_BYTES, MAX_EXECUTION_REQUIREMENTS_BYTES, PREEMPTIBLE_WORKLOAD_CLASSES, REMOTE_EXECUTION_TIMEOUT_SECONDS, REMOTE_EXECUTOR, dispatch_adapter, normalize_node_id, parse_requirements, parse_utc, run, utc_now
 from .fleet_control import control_commit, manifest, node_registry
 from .fleet_reconcile import remote_asset_catalog
 from .fleet_lease import acquire_lease_record, active_lease_map, lease_lock, public_lease, read_lease_store, release_lease_record, select_nodes, validate_owner_id, validate_role, validate_ttl
 from .fleet_runner import assert_lease_admission, assert_runner_role_node, assert_runner_role_workload, build_admission_receipt, controller_guard, data_job_admission, doctor_result, read_routes, runner_role_nodes, verify_lease_record
 
+class _ExecutionRequirementsModel(BaseModel):
+    model_config = ConfigDict(extra="forbid", populate_by_name=True)
+    schema_version: Literal["opl_execution_requirements.v1"] = Field(alias="schema")
+    adapter: StrictStr = "lease-only"
+    requires: list[StrictStr] = Field(default_factory=list)
+    min_memory_gb: Annotated[StrictInt, Field(ge=0)] = 0
+    gpu_api: Literal["any", "cuda", "metal"] = "any"
+    min_gpu_memory_gb: Annotated[StrictInt, Field(ge=0)] = 0
+    gpu_model: Annotated[StrictStr, Field(min_length=1, max_length=120, pattern=r"^[^\x00\r\n]+$")] | None = None
+    workload_class: StrictStr = "background"
+    priority: Annotated[StrictInt, Field(ge=0, le=1000)] = 300
+    preemptible: StrictBool = False
+    phase: StrictStr = "interruptible"
+    ttl_seconds: Annotated[StrictInt, Field(ge=60, le=86_400)] = 3600
+
+    @model_validator(mode="after")
+    def _check_invariants(self) -> "_ExecutionRequirementsModel":
+        if len(self.requires) != len(set(self.requires)):
+            raise ValueError("execution requirements list is invalid")
+        parse_requirements(",".join(self.requires))
+        dispatch_adapter(self.adapter)
+        if self.workload_class not in LEASE_WORKLOAD_CLASSES:
+            raise ValueError("execution requirements workload class is invalid")
+        if self.phase not in LEASE_PHASES:
+            raise ValueError("execution requirements phase is invalid")
+        if self.preemptible and self.workload_class not in PREEMPTIBLE_WORKLOAD_CLASSES:
+            raise ValueError("execution requirements workload cannot be preemptible")
+        return self
+
+
+class _ExecutionResultModel(BaseModel):
+    model_config = ConfigDict(extra="forbid", populate_by_name=True)
+    schema_version: Literal["codex_fleet_ssh_execution_result.v1"] = Field(alias="schema")
+    started_at: Any
+    finished_at: Any
+    exit_code: StrictInt | None
+    timed_out: StrictBool
+    stdout: StrictStr
+    stderr: StrictStr
+    stdout_truncated: StrictBool
+    stderr_truncated: StrictBool
+
+    @field_validator("stdout", "stderr")
+    @classmethod
+    def _bounded_output(cls, value: str) -> str:
+        if len(value.encode("utf-8")) > MAX_EXECUTION_OUTPUT_BYTES * 4:
+            raise ValueError("SSH execution result is invalid")
+        return value
+
+    @field_validator("started_at", "finished_at")
+    @classmethod
+    def _valid_ts(cls, value: Any) -> Any:
+        parse_utc(value)
+        return value
+
+
 def validate_execution_requirements(value: Any) -> dict[str, Any]:
     if not isinstance(value, dict):
         raise FleetError("execution requirements must be a JSON object")
-    encoded = json.dumps(value, ensure_ascii=False, sort_keys=True)
-    if len(encoded.encode("utf-8")) > MAX_EXECUTION_REQUIREMENTS_BYTES:
+    if len(json.dumps(value, ensure_ascii=False, sort_keys=True).encode("utf-8")) > MAX_EXECUTION_REQUIREMENTS_BYTES:
         raise FleetError("execution requirements exceed size limit")
-    allowed = {
-        "schema",
-        "adapter",
-        "requires",
-        "min_memory_gb",
-        "gpu_api",
-        "min_gpu_memory_gb",
-        "gpu_model",
-        "workload_class",
-        "priority",
-        "preemptible",
-        "phase",
-        "ttl_seconds",
-    }
-    if set(value) - allowed or value.get("schema") != EXECUTION_REQUIREMENTS_SCHEMA:
-        raise FleetError("execution requirements schema or fields are invalid")
-    requires = value.get("requires", [])
-    if (
-        not isinstance(requires, list)
-        or any(not isinstance(item, str) for item in requires)
-        or len(requires) != len(set(requires))
-    ):
-        raise FleetError("execution requirements list is invalid")
-    parse_requirements(",".join(requires))
-    for field in ("adapter", "gpu_api", "workload_class", "phase"):
-        if field in value and not isinstance(value[field], str):
-            raise FleetError(f"execution requirements {field} is invalid")
-    adapter = str(value.get("adapter", "lease-only"))
-    dispatch_adapter(adapter)
-    gpu_api = str(value.get("gpu_api", "any"))
-    if gpu_api not in GPU_APIS:
-        raise FleetError("execution requirements GPU API is invalid")
-    for field in ("min_memory_gb", "min_gpu_memory_gb", "priority", "ttl_seconds"):
-        if field in value and (
-            not isinstance(value[field], int)
-            or isinstance(value[field], bool)
-            or value[field] < 0
-        ):
-            raise FleetError(f"execution requirements {field} is invalid")
-    if "priority" in value and value["priority"] > 1000:
-        raise FleetError("execution requirements priority is invalid")
-    if "ttl_seconds" in value and not 60 <= value["ttl_seconds"] <= 86_400:
-        raise FleetError("execution requirements TTL is invalid")
-    if "gpu_model" in value:
-        model = value["gpu_model"]
-        if (
-            not isinstance(model, str)
-            or not 1 <= len(model) <= 120
-            or any(character in model for character in ("\x00", "\r", "\n"))
-        ):
-            raise FleetError("execution requirements GPU model is invalid")
-    workload = str(value.get("workload_class", "background"))
-    if workload not in LEASE_WORKLOAD_CLASSES:
-        raise FleetError("execution requirements workload class is invalid")
-    phase = str(value.get("phase", "interruptible"))
-    if phase not in LEASE_PHASES:
-        raise FleetError("execution requirements phase is invalid")
-    if "preemptible" in value and not isinstance(value["preemptible"], bool):
-        raise FleetError("execution requirements preemptible is invalid")
-    preemptible = bool(value.get("preemptible", False))
-    if preemptible and workload not in PREEMPTIBLE_WORKLOAD_CLASSES:
-        raise FleetError("execution requirements workload cannot be preemptible")
-    normalized = {
+    if "gpu_model" in value and value["gpu_model"] is None:
+        raise FleetError("execution requirements GPU model is invalid")
+    parsed = fleet_common.runtime.validate_model(_ExecutionRequirementsModel, value, error_cls=FleetError)
+    assert isinstance(parsed, _ExecutionRequirementsModel)
+    reqs = set(parsed.requires)
+    if parsed.gpu_api != "any":
+        reqs |= {parsed.gpu_api, "gpu"}
+    elif parsed.min_gpu_memory_gb or parsed.gpu_model:
+        reqs.add("gpu")
+    return {
         "schema": EXECUTION_REQUIREMENTS_SCHEMA,
-        "adapter": adapter,
-        "requires": sorted(set(requires)),
-        "min_memory_gb": int(value.get("min_memory_gb", 0)),
-        "gpu_api": gpu_api,
-        "min_gpu_memory_gb": int(value.get("min_gpu_memory_gb", 0)),
-        "gpu_model": value.get("gpu_model"),
-        "workload_class": workload,
-        "priority": int(value.get("priority", 300)),
-        "preemptible": preemptible,
-        "phase": phase,
-        "ttl_seconds": int(value.get("ttl_seconds", 3600)),
+        "adapter": parsed.adapter,
+        "requires": sorted(reqs),
+        "min_memory_gb": parsed.min_memory_gb,
+        "gpu_api": parsed.gpu_api,
+        "min_gpu_memory_gb": parsed.min_gpu_memory_gb,
+        "gpu_model": parsed.gpu_model,
+        "workload_class": parsed.workload_class,
+        "priority": parsed.priority,
+        "preemptible": parsed.preemptible,
+        "phase": parsed.phase,
+        "ttl_seconds": parsed.ttl_seconds,
     }
-    if normalized["gpu_api"] != "any":
-        normalized["requires"] = sorted(
-            set(normalized["requires"]) | {normalized["gpu_api"], "gpu"}
-        )
-    elif normalized["min_gpu_memory_gb"] or normalized["gpu_model"]:
-        normalized["requires"] = sorted(set(normalized["requires"]) | {"gpu"})
-    return normalized
 
 def read_execution_requirements(value: str | None) -> dict[str, Any]:
     if not value:
@@ -570,36 +567,12 @@ def validate_execution_argv(value: str) -> list[str]:
     return payload
 
 def validate_execution_result(value: Any) -> dict[str, Any]:
-    fields = {
-        "schema",
-        "started_at",
-        "finished_at",
-        "exit_code",
-        "timed_out",
-        "stdout",
-        "stderr",
-        "stdout_truncated",
-        "stderr_truncated",
-    }
-    if (
-        not isinstance(value, dict)
-        or set(value) != fields
-        or value.get("schema") != "codex_fleet_ssh_execution_result.v1"
-        or not isinstance(value.get("timed_out"), bool)
-        or not isinstance(value.get("stdout"), str)
-        or not isinstance(value.get("stderr"), str)
-        or not isinstance(value.get("stdout_truncated"), bool)
-        or not isinstance(value.get("stderr_truncated"), bool)
-        or (
-            value.get("exit_code") is not None
-            and not isinstance(value.get("exit_code"), int)
-        )
-        or len(value["stdout"].encode("utf-8")) > MAX_EXECUTION_OUTPUT_BYTES * 4
-        or len(value["stderr"].encode("utf-8")) > MAX_EXECUTION_OUTPUT_BYTES * 4
-    ):
-        raise FleetError("SSH execution result is invalid")
-    parse_utc(value["started_at"])
-    parse_utc(value["finished_at"])
+    fleet_common.runtime.validate_model(
+        _ExecutionResultModel,
+        value,
+        error_cls=FleetError,
+        message="SSH execution result is invalid",
+    )
     return value
 
 def execute_ssh_session(
@@ -703,7 +676,6 @@ def fetch_data_job_artifact(
         raise FleetError(f"data-job artifact destination already exists: {destination}")
     destination.parent.mkdir(parents=True, exist_ok=True)
     staging = Path(tempfile.mkdtemp(prefix="opl-fleet-data-job-"))
-    moved = False
     try:
         if route.get("local") is True:
             source = Path.home() / relative
@@ -733,7 +705,6 @@ def fetch_data_job_artifact(
         if destination.exists():
             raise FleetError(f"data-job artifact destination already exists: {destination}")
         shutil.move(str(staging / "artifact"), str(destination))
-        moved = True
         return {
             "status": "fetched",
             "source": relative,

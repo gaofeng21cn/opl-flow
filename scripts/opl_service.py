@@ -14,9 +14,12 @@ import re
 import shlex
 import subprocess
 import sys
-import tempfile
 from typing import Any, Callable
-from xml.sax.saxutils import escape
+
+try:
+    from . import opl_runtime as runtime
+except ImportError:  # Direct script execution.
+    import opl_runtime as runtime
 
 
 SERVICE_PREFIX = "dev.one-person-lab.opl-flow-router"
@@ -38,17 +41,7 @@ def _default_run(argv: list[str], *, check: bool = True) -> subprocess.Completed
 
 
 def _atomic_write_text(path: Path, text: str, *, mode: int) -> None:
-    path.parent.mkdir(parents=True, exist_ok=True)
-    fd, temp_name = tempfile.mkstemp(prefix=f".{path.name}.", dir=str(path.parent))
-    temp_path = Path(temp_name)
-    try:
-        with os.fdopen(fd, "w", encoding="utf-8") as handle:
-            handle.write(text)
-        os.chmod(temp_path, mode)
-        os.replace(temp_path, path)
-    except BaseException:
-        temp_path.unlink(missing_ok=True)
-        raise
+    runtime.atomic_write_text(path, text, mode=mode)
 
 
 def instance_hash(instance_root: Path) -> str:
@@ -124,26 +117,20 @@ def render_macos_plist(
             "/sbin",
         ]
     )
-    prog_items = "\n".join(f"    <string>{escape(item)}</string>" for item in argv)
-    return (
-        '<?xml version="1.0" encoding="UTF-8"?>\n'
-        '<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" '
-        '"http://www.apple.com/DTDs/PropertyList-1.0.dtd">\n'
-        '<plist version="1.0">\n'
-        "<dict>\n"
-        f"  <key>Label</key>\n  <string>{escape(label)}</string>\n"
-        "  <key>EnvironmentVariables</key>\n  <dict>\n"
-        f"    <key>HOME</key>\n    <string>{escape(str(resolved_home))}</string>\n"
-        f"    <key>PATH</key>\n    <string>{escape(path_env or default_path)}</string>\n"
-        "  </dict>\n"
-        f"  <key>ProgramArguments</key>\n  <array>\n{prog_items}\n  </array>\n"
-        "  <key>RunAtLoad</key>\n  <true/>\n"
-        "  <key>KeepAlive</key>\n  <true/>\n"
-        "  <key>ThrottleInterval</key>\n  <integer>10</integer>\n"
-        f"  <key>StandardOutPath</key>\n  <string>{escape(str(resolved_logs / 'router.stdout.log'))}</string>\n"
-        f"  <key>StandardErrorPath</key>\n  <string>{escape(str(resolved_logs / 'router.stderr.log'))}</string>\n"
-        "</dict>\n"
-        "</plist>\n"
+    return runtime.render_plist_xml(
+        {
+            "Label": label,
+            "EnvironmentVariables": {
+                "HOME": str(resolved_home),
+                "PATH": path_env or default_path,
+            },
+            "ProgramArguments": list(argv),
+            "RunAtLoad": True,
+            "KeepAlive": True,
+            "ThrottleInterval": 10,
+            "StandardOutPath": str(resolved_logs / "router.stdout.log"),
+            "StandardErrorPath": str(resolved_logs / "router.stderr.log"),
+        }
     )
 
 

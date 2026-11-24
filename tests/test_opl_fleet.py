@@ -1236,7 +1236,7 @@ class CodexFleetTests(unittest.TestCase):
                 now=now,
             )
             self.assertEqual(
-                (state_root / "controller/leases.json").stat().st_mode & 0o777,
+                (state_root / "controller/leases.sqlite3").stat().st_mode & 0o777,
                 0o600,
             )
             with self.assertRaisesRegex(fleet.FleetError, "already has"):
@@ -3207,7 +3207,7 @@ class CodexFleetTests(unittest.TestCase):
     def test_empty_v1_lease_store_migrates_without_fabricating_leases(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
             state_root = Path(temp_dir)
-            path, _ = fleet.lease_paths(state_root)
+            path = state_root / "controller/leases.json"
             path.parent.mkdir(parents=True)
             path.write_text(
                 json.dumps(

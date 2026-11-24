@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Any
+from typing import Annotated, Any, Literal
 from pathlib import Path
 import argparse
 import base64
@@ -23,12 +23,13 @@ try:
 except ModuleNotFoundError:  # pragma: no cover - Python < 3.11 degrades safely.
     tomllib = None
 from fleet_inventory import collect_inventory, validate_inventory
+from pydantic import BaseModel, ConfigDict, Field, StrictStr, field_validator
 from . import fleet_common
 from .fleet_common import CONFIG_PATH, FLOW_ROOT, FleetError, NODE_ID_PATTERN, PET_FILES, RECEIPT_FIELDS, REPORT_FIELDS, REPOSITORY_FETCH_TIMEOUT_SECONDS, RUNNER_PATH, SKILL_REFERENCE_SCHEMA, STATE_ROOT, _INSTANCE_OWNER, atomic_json, effective_codex_home, node_identity, normalize_node_id, read_json, run, sha256_file, utc_now
 
 
 from .fleet_control import (
-    manifest, managed_repository_owner, node_registry, control_commit, checkout_commit, update_checkout, update_flow, update_control, github_repository_from_remote, git_value, restart_after_flow_update, github_head,
+    manifest, managed_repository_owner, node_registry, checkout_commit, update_flow, update_control, github_repository_from_remote, git_value, restart_after_flow_update,
 )
 
 def pet_manifest(
@@ -774,26 +775,44 @@ def build_receipt(
         "updated_at": dt.datetime.now(dt.timezone.utc).replace(microsecond=0).isoformat(),
     }
 
+class _ReceiptModel(BaseModel):
+    model_config = ConfigDict(extra="forbid", populate_by_name=True)
+    schema_version: Literal["codex_fleet_receipt.v1"] = Field(alias="schema")
+    node_id: Any
+    hostname_s: Any
+    platform: Any
+    architecture: Any
+    state: Literal["CURRENT", "UPDATE_REQUIRED", "EXTERNAL_BLOCKER"]
+    drift: list[Annotated[StrictStr, Field(max_length=120)]]
+    owner_actions: list[Annotated[StrictStr, Field(max_length=120)]]
+    control_commit: Annotated[StrictStr, Field(pattern=r"^[0-9a-f]{40}$")]
+    runner_commit: Annotated[StrictStr, Field(pattern=r"^[0-9a-f]{40}$")]
+    updated_at: Any
+
+    @field_validator("node_id", "hostname_s")
+    @classmethod
+    def _normalize_id(cls, value: Any) -> str:
+        return normalize_node_id(str(value))
+
+    @field_validator("updated_at")
+    @classmethod
+    def _valid_timestamp(cls, value: Any) -> Any:
+        dt.datetime.fromisoformat(str(value).replace("Z", "+00:00"))
+        return value
+
+
 def validate_receipt(payload: dict[str, Any]) -> dict[str, Any]:
-    if set(payload) != RECEIPT_FIELDS:
+    if not isinstance(payload, dict) or set(payload) != RECEIPT_FIELDS:
         raise FleetError("receipt fields are not allowed")
     if payload.get("schema") != "codex_fleet_receipt.v1":
         raise FleetError("unsupported receipt")
-    payload["node_id"] = normalize_node_id(str(payload["node_id"]))
-    payload["hostname_s"] = normalize_node_id(str(payload["hostname_s"]))
-    if payload.get("state") not in {"CURRENT", "UPDATE_REQUIRED", "EXTERNAL_BLOCKER"}:
-        raise FleetError("invalid receipt state")
-    for key in ("drift", "owner_actions"):
-        values = payload.get(key)
-        if (
-            not isinstance(values, list)
-            or any(not isinstance(item, str) or len(item) > 120 for item in values)
-        ):
-            raise FleetError(f"invalid receipt {key}")
-    for key in ("control_commit", "runner_commit"):
-        if not re.fullmatch(r"[0-9a-f]{40}", str(payload.get(key, ""))):
-            raise FleetError(f"invalid receipt {key}")
-    dt.datetime.fromisoformat(str(payload["updated_at"]).replace("Z", "+00:00"))
+    model = fleet_common.runtime.validate_model(
+        _ReceiptModel,
+        payload,
+        error_cls=FleetError,
+    )
+    payload["node_id"] = model.node_id
+    payload["hostname_s"] = model.hostname_s
     return payload
 
 def render_status(state_root: Path) -> str:
@@ -1200,30 +1219,28 @@ def install_macos_schedule(
             "/sbin",
         ]
     )
-    content = f"""<?xml version="1.0" encoding="UTF-8"?>
-<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
-<plist version="1.0"><dict>
-<key>Label</key><string>{label}</string>
-<key>EnvironmentVariables</key><dict>
-<key>HOME</key><string>{Path.home()}</string>
-<key>PATH</key><string>{launchd_path}</string>
-</dict>
-<key>ProgramArguments</key><array>
-<string>{command}</string><string>reconcile</string><string>--report</string><string>--install-required</string>
-</array>
-<key>StartCalendarInterval</key><dict>
-<key>Hour</key><integer>{hour}</integer>
-<key>Minute</key><integer>{minute}</integer>
-</dict>
-<key>StandardOutPath</key><string>{log_root / 'stdout.log'}</string>
-<key>StandardErrorPath</key><string>{log_root / 'stderr.log'}</string>
-</dict></plist>
-"""
-    path.parent.mkdir(parents=True, exist_ok=True)
-    staged = path.with_name(f".{path.name}.stage-{os.getpid()}")
-    staged.write_text(content, encoding="utf-8")
-    os.chmod(staged, 0o600)
-    staged.replace(path)
+    content = fleet_common.runtime.render_plist_xml(
+        {
+            "Label": label,
+            "EnvironmentVariables": {
+                "HOME": str(Path.home()),
+                "PATH": launchd_path,
+            },
+            "ProgramArguments": [
+                str(command),
+                "reconcile",
+                "--report",
+                "--install-required",
+            ],
+            "StartCalendarInterval": {
+                "Hour": hour,
+                "Minute": minute,
+            },
+            "StandardOutPath": str(log_root / "stdout.log"),
+            "StandardErrorPath": str(log_root / "stderr.log"),
+        }
+    )
+    fleet_common.runtime.atomic_write_text(path, content, mode=0o600)
     domain = f"gui/{os.getuid()}"
     run(["launchctl", "bootout", domain, str(path)], check=False)
     run(["launchctl", "bootstrap", domain, str(path)])

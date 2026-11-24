@@ -15,12 +15,16 @@ import shutil
 import subprocess
 import sys
 import tempfile
-from typing import Any
+from typing import Any, Literal
 
 try:
+    from . import opl_runtime as runtime
     from . import opl_execution
 except ImportError:  # Direct script execution.
+    import opl_runtime as runtime
     import opl_execution
+
+from pydantic import BaseModel, ConfigDict, StrictBool, StrictStr, field_validator
 
 
 CONTROL_RECEIPT_SCHEMA_NAME = "opl_control_turn_receipt.v1"
@@ -135,35 +139,37 @@ def build_worker_output_schema() -> dict[str, Any]:
     }
 
 
+class _ControlTurnReceiptModel(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    schema_version: Literal["opl_control_turn_receipt.v1"] = ...
+    root_objective_id: StrictStr | None
+    status: Literal["completed", "dispatched", "waiting_user", "blocked", "noop"]
+    actions_taken: list[StrictStr]
+    dispatched_attempts: list[StrictStr]
+    needs_human_action: StrictBool
+    summary: StrictStr
+    next_step: StrictStr
+
+    @field_validator("summary", "next_step")
+    @classmethod
+    def _non_empty(cls, value: str) -> str:
+        if not value.strip():
+            raise ValueError("field must be a non-empty string")
+        return value
+
+
 def validate_control_receipt(payload: Any) -> dict[str, Any]:
-    required_keys = {
-        "schema",
-        "root_objective_id",
-        "status",
-        "actions_taken",
-        "dispatched_attempts",
-        "needs_human_action",
-        "summary",
-        "next_step",
-    }
-    if not isinstance(payload, dict) or set(payload) != required_keys:
+    if not isinstance(payload, dict):
         raise BridgeError("control turn receipt schema or fields are invalid")
-    if payload.get("schema") != CONTROL_RECEIPT_SCHEMA_NAME:
-        raise BridgeError("control turn receipt schema version mismatch")
-    if payload.get("root_objective_id") is not None and not isinstance(payload["root_objective_id"], str):
-        raise BridgeError("control turn receipt root_objective_id is invalid")
-    if payload.get("status") not in {"completed", "dispatched", "waiting_user", "blocked", "noop"}:
-        raise BridgeError("control turn receipt status is invalid")
-    for list_field in ("actions_taken", "dispatched_attempts"):
-        val = payload.get(list_field)
-        if not isinstance(val, list) or not all(isinstance(item, str) for item in val):
-            raise BridgeError(f"control turn receipt {list_field} must be a list of strings")
-    if not isinstance(payload.get("needs_human_action"), bool):
-        raise BridgeError("control turn receipt needs_human_action must be boolean")
-    for str_field in ("summary", "next_step"):
-        val = payload.get(str_field)
-        if not isinstance(val, str) or not val.strip():
-            raise BridgeError(f"control turn receipt {str_field} must be a non-empty string")
+    data = dict(payload)
+    if "schema" in data:
+        data["schema_version"] = data.pop("schema")
+    runtime.validate_model(
+        _ControlTurnReceiptModel,
+        data,
+        error_cls=BridgeError,
+        message="control turn receipt schema or fields are invalid",
+    )
     return deepcopy(payload)
 
 
@@ -235,14 +241,20 @@ def _run_codex_exec(
     timeout_seconds: int,
 ) -> subprocess.CompletedProcess[str]:
     try:
-        return subprocess.run(
-            argv,
-            cwd=cwd,
-            input=prompt,
-            capture_output=True,
-            text=True,
-            timeout=timeout_seconds,
-            check=False,
+        return runtime.run_with_retry(
+            lambda: subprocess.run(
+                argv,
+                cwd=cwd,
+                input=prompt,
+                capture_output=True,
+                text=True,
+                timeout=timeout_seconds,
+                check=False,
+            ),
+            attempts=3,
+            min_wait=0.05,
+            max_wait=0.25,
+            retry_on=(BlockingIOError, InterruptedError),
         )
     except subprocess.TimeoutExpired as exc:
         raise BridgeError(f"codex exec timed out after {timeout_seconds}s") from exc

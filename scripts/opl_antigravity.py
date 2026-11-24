@@ -18,6 +18,11 @@ from collections import Counter, defaultdict
 from pathlib import Path
 from typing import Any
 
+try:
+    from . import opl_runtime as runtime
+except ImportError:  # Direct script execution.
+    import opl_runtime as runtime
+
 
 def flow_root() -> Path:
     return Path(__file__).resolve().parents[1]
@@ -48,10 +53,7 @@ def sha256_text(text: str) -> str:
 
 
 def split_frontmatter(text: str) -> tuple[str, str]:
-    match = re.match(r"\A(---\r?\n[\s\S]*?\r?\n---\r?\n)", text)
-    if not match:
-        return "", text
-    return match.group(1), text[match.end() :]
+    return runtime.split_frontmatter(text)
 
 
 def _normalize_heading(line: str) -> str:
@@ -138,21 +140,7 @@ def backup_file(target: Path, gemini_home: Path, backup_root: Path) -> Path:
 
 
 def atomic_write_text(target: Path, content: str) -> None:
-    target.parent.mkdir(parents=True, exist_ok=True)
-    mode = target.stat().st_mode if target.exists() and not target.is_symlink() else 0o644
-    fd, tmp_name = tempfile.mkstemp(dir=target.parent, prefix=f".{target.name}.opltmp.")
-    tmp_path = Path(tmp_name)
-    try:
-        with os.fdopen(fd, "w", encoding="utf-8") as handle:
-            handle.write(content)
-            handle.flush()
-            os.fsync(handle.fileno())
-        os.chmod(tmp_path, mode)
-        os.replace(tmp_path, target)
-    except Exception:
-        if tmp_path.exists():
-            tmp_path.unlink(missing_ok=True)
-        raise
+    runtime.atomic_write_text(target, content, mode=0o644, preserve_mode=True, fsync=True)
 
 
 def _parse_iso(value: Any) -> float | None:
