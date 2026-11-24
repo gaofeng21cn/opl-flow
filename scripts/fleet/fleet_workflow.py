@@ -7,7 +7,6 @@ bytes. This module never copies flagship instructions into the public source.
 from __future__ import annotations
 
 import contextlib
-import fcntl
 import hashlib
 import json
 import os
@@ -15,13 +14,21 @@ from pathlib import Path
 import re
 import shutil
 import subprocess
-from typing import Any
+from typing import Annotated, Any
 
+from pydantic import BaseModel, ConfigDict, Field, StrictStr
 from . import fleet_common as common
 from . import fleet_control as control
 
 PROFILE_PATH = "templates/AGENTS.md"
 PROJECTION_FIELDS = {"flagship_node_id", "source_agents_sha256", "flow_commit"}
+
+
+class _WorkflowProjectionModel(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    flagship_node_id: Annotated[StrictStr, Field(pattern=common.NODE_ID_PATTERN.pattern)]
+    source_agents_sha256: Annotated[StrictStr, Field(pattern=r"^[0-9a-f]{64}$")]
+    flow_commit: Annotated[StrictStr, Field(pattern=r"^[0-9a-f]{40}$")]
 
 
 @contextlib.contextmanager
@@ -30,8 +37,7 @@ def control_lock():
     directory = Path(control.git_value(root, ["rev-parse", "--git-common-dir"]).stdout.strip())
     if not directory.is_absolute():
         directory = root / directory
-    with (directory / "opl-fleet-workflow.lock").open("a") as handle:
-        fcntl.flock(handle, fcntl.LOCK_EX)
+    with common.runtime.file_lock(directory / "opl-fleet-workflow.lock", mode=0o600):
         yield
 
 
@@ -39,17 +45,12 @@ def workflow_projection() -> dict[str, str] | None:
     projection = control.manifest().get("workflow_projection")
     if projection is None:
         return None
-    if (
-        not isinstance(projection, dict)
-        or set(projection) != PROJECTION_FIELDS
-        or not isinstance(projection["flagship_node_id"], str)
-        or not common.NODE_ID_PATTERN.fullmatch(projection["flagship_node_id"])
-        or not isinstance(projection["source_agents_sha256"], str)
-        or not re.fullmatch(r"[0-9a-f]{64}", projection["source_agents_sha256"])
-        or not isinstance(projection["flow_commit"], str)
-        or not re.fullmatch(r"[0-9a-f]{40}", projection["flow_commit"])
-    ):
-        raise common.FleetError("invalid Instance workflow projection")
+    common.runtime.validate_model(
+        _WorkflowProjectionModel,
+        projection,
+        error_cls=common.FleetError,
+        message="invalid Instance workflow projection",
+    )
     return projection
 
 

@@ -14,4 +14,10 @@ case "$lane" in
 esac
 
 if [[ $# -gt 0 ]]; then shift; fi
-python3 scripts/verify.py "$lane" "$@"
+if command -v uv >/dev/null 2>&1 && [[ -f "$repo_root/uv.lock" ]]; then
+  exec uv run --frozen python scripts/verify.py "$lane" "$@"
+elif [[ -x "$repo_root/.venv/bin/python" ]]; then
+  exec "$repo_root/.venv/bin/python" scripts/verify.py "$lane" "$@"
+else
+  exec python3 scripts/verify.py "$lane" "$@"
+fi

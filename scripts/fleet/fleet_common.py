@@ -14,7 +14,11 @@ import shlex
 import shutil
 import socket
 import subprocess
-import tempfile
+
+try:
+    from .. import opl_runtime as runtime
+except (ImportError, ValueError):  # Direct script execution.
+    import opl_runtime as runtime
 
 # Layout: scripts/fleet/fleet_common.py -> scripts/ -> repo root.
 SCRIPTS_DIR = Path(__file__).resolve().parent.parent
@@ -284,20 +288,14 @@ def write_instance_pointer(instance: Path) -> Path:
     INSTANCE_POINTER_PATH.parent.mkdir(parents=True, exist_ok=True)
     # Serialize through a private sibling lock because atomic replace alone
     # would still permit two first-time join operations to overwrite each other.
-    import fcntl
     lock_path = INSTANCE_POINTER_PATH.with_suffix(".lock")
-    descriptor = os.open(lock_path, os.O_RDWR | os.O_CREAT, 0o600)
-    try:
-        os.fchmod(descriptor, 0o600)
-        fcntl.flock(descriptor, fcntl.LOCK_EX)
+    with runtime.file_lock(lock_path, mode=0o600):
         assert_instance_binding(instance, instance_pointer())
         atomic_json(
             INSTANCE_POINTER_PATH,
             {"schema": "opl_flow_instance_pointer.v1", "path": str(instance)},
             mode=0o600,
         )
-    finally:
-        os.close(descriptor)
     return INSTANCE_POINTER_PATH
 
 def run(
@@ -339,26 +337,15 @@ def atomic_json(
     path: Path, payload: dict[str, Any], mode: int = 0o600,
     *, sort_keys: bool = True, ensure_ascii: bool = True,
 ) -> None:
-    path.parent.mkdir(parents=True, exist_ok=True)
-    with tempfile.NamedTemporaryFile(
-        "w",
-        encoding="utf-8",
-        dir=path.parent,
-        prefix=f".{path.name}.",
-        delete=False,
-    ) as handle:
-        json.dump(payload, handle, indent=2, sort_keys=sort_keys, ensure_ascii=ensure_ascii)
-        handle.write("\n")
-        handle.flush()
-        os.fsync(handle.fileno())
-        staged = Path(handle.name)
-    os.chmod(staged, mode)
-    staged.replace(path)
-    directory = os.open(path.parent, os.O_RDONLY)
-    try:
-        os.fsync(directory)
-    finally:
-        os.close(directory)
+    runtime.atomic_write_json(
+        path,
+        payload,
+        mode=mode,
+        sort_keys=sort_keys,
+        ensure_ascii=ensure_ascii,
+        fsync=True,
+        fsync_dir=True,
+    )
 
 def effective_codex_home() -> Path:
     configured = os.environ.get("CODEX_HOME")
@@ -402,13 +389,17 @@ def node_identity(explicit: str | None = None) -> str:
     return normalize_node_id(socket.gethostname().split(".")[0])
 
 def utc_now() -> dt.datetime:
-    return dt.datetime.now(dt.timezone.utc)
+    return runtime.utc_now()
 
 def parse_utc(value: Any) -> dt.datetime:
-    parsed = dt.datetime.fromisoformat(str(value).replace("Z", "+00:00"))
-    if parsed.tzinfo is None:
-        raise FleetError("lease timestamp must include a timezone")
-    return parsed.astimezone(dt.timezone.utc)
+    parsed = runtime.parse_utc(
+        str(value),
+        error_cls=FleetError,
+        require_timezone=True,
+        error_message="lease timestamp must include a timezone",
+    )
+    assert parsed is not None
+    return parsed
 
 def dispatch_adapter(adapter: str) -> dict[str, Any]:
     try:

@@ -3,10 +3,17 @@ from __future__ import annotations
 
 from copy import deepcopy
 from pathlib import PurePosixPath
-from typing import Any
+from typing import Annotated, Any, Literal
 import hashlib
 import json
 import re
+
+try:
+    from . import opl_runtime as runtime
+except ImportError:  # Direct script execution.
+    import opl_runtime as runtime
+
+from pydantic import BaseModel, ConfigDict, Field, StrictBool, StrictFloat, StrictInt, StrictStr, field_validator, model_validator
 
 
 class ExecutionError(ValueError):
@@ -40,14 +47,6 @@ FORBIDDEN_PRIVACY_KEYS = frozenset(
 )
 
 
-def _is_int(value: Any) -> bool:
-    return isinstance(value, int) and not isinstance(value, bool)
-
-
-def _is_number(value: Any) -> bool:
-    return isinstance(value, (int, float)) and not isinstance(value, bool)
-
-
 def _check_no_raw_secret(value: str, label: str) -> None:
     if RAW_SECRET_PATTERN.search(value):
         raise ExecutionError(f"{label} appears to contain a raw secret value")
@@ -75,145 +74,182 @@ def references(value: Any, label: str, *, required: bool = False) -> list[str]:
     return [identity(item, label) for item in value]
 
 
+StrictNum = StrictInt | StrictFloat
+Sha256Str = Annotated[StrictStr, Field(pattern=r"^[0-9a-f]{64}$")]
+CommitStr = Annotated[StrictStr, Field(pattern=r"^[0-9a-f]{40}$")]
+
+
+class _EnvelopeModel(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    allowed_write_paths: list[Any] | None = None
+    allowed_tools: list[Any] | None = None
+    allow_network: StrictBool | None = None
+    allow_destructive: StrictBool | None = None
+    max_duration_seconds: Annotated[StrictInt, Field(ge=1, le=86400)] | None = None
+    max_tokens: Annotated[StrictInt, Field(ge=1)] | None = None
+    max_cost_usd: Annotated[StrictNum, Field(ge=0)] | None = None
+    credential_refs: list[StrictStr] | None = None
+
+    @field_validator("allowed_write_paths")
+    @classmethod
+    def _check_paths(cls, paths: list[Any] | None) -> list[str] | None:
+        if paths is None:
+            return None
+        normalized = [validate_relative_path(item, "allowed_write_paths") for item in paths]
+        if len(normalized) != len(set(normalized)):
+            raise ValueError("envelope allowed_write_paths must be unique")
+        return normalized
+
+    @field_validator("allowed_tools")
+    @classmethod
+    def _check_tools(cls, tools: list[Any] | None) -> list[str] | None:
+        if tools is None:
+            return None
+        validated = references(tools, "allowed_tools")
+        for tool in validated:
+            if len(tool) > 128:
+                raise ValueError("envelope allowed_tools entry exceeds length limit")
+            _check_no_raw_secret(tool, "allowed_tools")
+        if len(validated) != len(set(validated)):
+            raise ValueError("envelope allowed_tools must be unique")
+        return validated
+
+    @field_validator("credential_refs")
+    @classmethod
+    def _check_creds(cls, refs: list[str] | None) -> list[str] | None:
+        if refs is None:
+            return None
+        for item in refs:
+            _check_no_raw_secret(item, "credential_refs")
+            if not CREDENTIAL_REF_PATTERN.fullmatch(item):
+                raise ValueError("envelope credential_refs must use opaque cred: references")
+        if len(refs) != len(set(refs)):
+            raise ValueError("envelope credential_refs must be unique")
+        return refs
+
+
+class _ResumabilityModel(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    checkpointable: StrictBool
+    heartbeat_interval_seconds: Annotated[StrictInt, Field(ge=10, le=3600)] | None = None
+    max_stale_seconds: Annotated[StrictInt, Field(ge=30, le=86400)] | None = None
+    interruptible_phase: Literal["interruptible", "non-interruptible"] | None = None
+    resume_command_ref: StrictStr | None = None
+
+    @field_validator("resume_command_ref")
+    @classmethod
+    def _check_resume_ref(cls, value: str | None) -> str | None:
+        return identity(value, "resume_command_ref") if value is not None else None
+
+    @model_validator(mode="after")
+    def _check_stale_ge_hb(self) -> "_ResumabilityModel":
+        if self.heartbeat_interval_seconds is not None and self.max_stale_seconds is not None:
+            if self.max_stale_seconds < self.heartbeat_interval_seconds:
+                raise ValueError("resumability max_stale_seconds must be >= heartbeat_interval_seconds")
+        return self
+
+
+class _HandoffModel(BaseModel):
+    model_config = ConfigDict(extra="forbid", populate_by_name=True)
+    schema_version: Literal["opl_worker_handoff.v1"] = Field(alias="schema")
+    attempt_id: StrictStr
+    objective_id: StrictStr
+    owner_id: StrictStr
+    scope: StrictStr
+    input_refs: list[StrictStr]
+    checkpoint_refs: list[StrictStr]
+    expected_result: StrictStr
+    objective_revision: Annotated[StrictInt, Field(ge=1)] | None = None
+    write_set: list[StrictStr] | None = None
+    envelope: _EnvelopeModel | None = None
+    resumability: _ResumabilityModel | None = None
+
+    @field_validator("attempt_id", "objective_id", "owner_id", "scope", "expected_result")
+    @classmethod
+    def _check_identities(cls, value: str, info: Any) -> str:
+        return identity(value, info.field_name)
+
+    @field_validator("input_refs", "checkpoint_refs")
+    @classmethod
+    def _check_refs(cls, value: list[str], info: Any) -> list[str]:
+        return references(value, info.field_name)
+
+    @field_validator("write_set")
+    @classmethod
+    def _check_write_set(cls, value: list[str] | None) -> list[str] | None:
+        if value is None:
+            return None
+        normalized = [validate_relative_path(item, "write_set") for item in value]
+        if len(normalized) != len(set(normalized)):
+            raise ValueError("write_set entries must be unique")
+        return normalized
+
+
+class _BudgetUsageModel(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    elapsed_seconds: Annotated[StrictNum, Field(ge=0)] | None = None
+    tokens_used: Annotated[StrictInt, Field(ge=0)] | None = None
+    estimated_cost_usd: Annotated[StrictNum, Field(ge=0)] | None = None
+
+
+class _WorkerResultModel(BaseModel):
+    model_config = ConfigDict(extra="forbid", populate_by_name=True)
+    schema_version: Literal["opl_worker_result.v1"] = Field(alias="schema")
+    binding: dict[str, Any]
+    outcome: Literal["checkpoint", "completed", "blocked", "unknown"]
+    artifact_refs: list[StrictStr]
+    checkpoint_refs: list[StrictStr]
+    remaining: list[StrictStr]
+    next_action: StrictStr
+    budget_usage: _BudgetUsageModel | None = None
+    checkpoint_digests: dict[StrictStr, Sha256Str] | None = None
+
+    @field_validator("next_action")
+    @classmethod
+    def _check_next_action(cls, value: str) -> str:
+        return identity(value, "next_action")
+
+    @field_validator("artifact_refs", "remaining")
+    @classmethod
+    def _check_ref_lists(cls, value: list[str], info: Any) -> list[str]:
+        return references(value, info.field_name)
+
+    @field_validator("checkpoint_digests")
+    @classmethod
+    def _check_digest_keys(cls, value: dict[str, str] | None) -> dict[str, str] | None:
+        if value is not None:
+            for key in value:
+                identity(key, "checkpoint_digests key")
+        return value
+
+    @model_validator(mode="after")
+    def _check_outcome_invariants(self) -> "_WorkerResultModel":
+        references(self.checkpoint_refs, "checkpoint_refs", required=self.outcome == "checkpoint")
+        if self.outcome == "completed" and (self.remaining or not self.artifact_refs):
+            raise ValueError("completed worker slice requires evidence and no remaining work")
+        return self
+
+
 def validate_envelope(value: Any) -> dict[str, Any]:
     if not isinstance(value, dict):
         raise ExecutionError("worker handoff envelope must be an object")
-    allowed = {
-        "allowed_write_paths",
-        "allowed_tools",
-        "allow_network",
-        "allow_destructive",
-        "max_duration_seconds",
-        "max_tokens",
-        "max_cost_usd",
-        "credential_refs",
-    }
-    if set(value) - allowed:
-        raise ExecutionError("worker handoff envelope contains unsupported fields")
-    if "allowed_write_paths" in value:
-        paths = value["allowed_write_paths"]
-        if not isinstance(paths, list):
-            raise ExecutionError("envelope allowed_write_paths must be a list")
-        normalized = [validate_relative_path(item, "allowed_write_paths") for item in paths]
-        if len(normalized) != len(set(normalized)):
-            raise ExecutionError("envelope allowed_write_paths must be unique")
-    if "allowed_tools" in value:
-        tools = references(value["allowed_tools"], "allowed_tools")
-        for tool in tools:
-            if len(tool) > 128:
-                raise ExecutionError("envelope allowed_tools entry exceeds length limit")
-            _check_no_raw_secret(tool, "allowed_tools")
-        if len(tools) != len(set(tools)):
-            raise ExecutionError("envelope allowed_tools must be unique")
-    for bool_field in ("allow_network", "allow_destructive"):
-        if bool_field in value and not isinstance(value[bool_field], bool):
-            raise ExecutionError(f"envelope {bool_field} must be a boolean")
-    if "max_duration_seconds" in value:
-        dur = value["max_duration_seconds"]
-        if not _is_int(dur) or not 1 <= dur <= 86400:
-            raise ExecutionError("envelope max_duration_seconds is invalid")
-    if "max_tokens" in value:
-        tokens = value["max_tokens"]
-        if not _is_int(tokens) or tokens < 1:
-            raise ExecutionError("envelope max_tokens is invalid")
-    if "max_cost_usd" in value:
-        cost = value["max_cost_usd"]
-        if not _is_number(cost) or cost < 0:
-            raise ExecutionError("envelope max_cost_usd is invalid")
-    if "credential_refs" in value:
-        refs = value["credential_refs"]
-        if not isinstance(refs, list):
-            raise ExecutionError("envelope credential_refs must be a list")
-        seen: set[str] = set()
-        for item in refs:
-            if not isinstance(item, str):
-                raise ExecutionError("envelope credential_refs entry must be a string")
-            _check_no_raw_secret(item, "credential_refs")
-            if not CREDENTIAL_REF_PATTERN.fullmatch(item):
-                raise ExecutionError("envelope credential_refs must use opaque cred: references")
-            if item in seen:
-                raise ExecutionError("envelope credential_refs must be unique")
-            seen.add(item)
+    runtime.validate_model(_EnvelopeModel, value, error_cls=ExecutionError)
     return deepcopy(value)
 
 
 def validate_resumability(value: Any) -> dict[str, Any]:
     if not isinstance(value, dict):
         raise ExecutionError("worker handoff resumability must be an object")
-    allowed = {
-        "checkpointable",
-        "heartbeat_interval_seconds",
-        "max_stale_seconds",
-        "interruptible_phase",
-        "resume_command_ref",
-    }
-    if "checkpointable" not in value or set(value) - allowed:
-        raise ExecutionError("worker handoff resumability schema or fields are invalid")
-    if not isinstance(value["checkpointable"], bool):
-        raise ExecutionError("resumability checkpointable must be a boolean")
-    heartbeat = value.get("heartbeat_interval_seconds")
-    stale = value.get("max_stale_seconds")
-    if heartbeat is not None and (not _is_int(heartbeat) or not 10 <= heartbeat <= 3600):
-        raise ExecutionError("resumability heartbeat_interval_seconds is invalid")
-    if stale is not None and (not _is_int(stale) or not 30 <= stale <= 86400):
-        raise ExecutionError("resumability max_stale_seconds is invalid")
-    if heartbeat is not None and stale is not None and stale < heartbeat:
-        raise ExecutionError("resumability max_stale_seconds must be >= heartbeat_interval_seconds")
-    if "interruptible_phase" in value and value["interruptible_phase"] not in {
-        "interruptible",
-        "non-interruptible",
-    }:
-        raise ExecutionError("resumability interruptible_phase is invalid")
-    if "resume_command_ref" in value:
-        identity(value["resume_command_ref"], "resume_command_ref")
+    runtime.validate_model(_ResumabilityModel, value, error_cls=ExecutionError)
     return deepcopy(value)
 
 
 def validate_handoff(value: Any) -> dict[str, Any]:
-    required_fields = {
-        'schema',
-        'attempt_id',
-        'objective_id',
-        'owner_id',
-        'scope',
-        'input_refs',
-        'checkpoint_refs',
-        'expected_result',
-    }
-    optional_fields = {
-        'objective_revision',
-        'write_set',
-        'envelope',
-        'resumability',
-    }
-    if (
-        not isinstance(value, dict)
-        or not required_fields.issubset(value)
-        or (set(value) - required_fields - optional_fields)
-        or value.get('schema') != 'opl_worker_handoff.v1'
-    ):
-        raise ExecutionError('worker handoff schema or fields are invalid')
+    if not isinstance(value, dict):
+        raise ExecutionError("worker handoff schema or fields are invalid")
     if len(json.dumps(value).encode()) > 32768:
-        raise ExecutionError('worker handoff exceeds size limit')
-    for field in ('attempt_id', 'objective_id', 'owner_id', 'scope', 'expected_result'):
-        identity(value[field], field)
-    for field in ('input_refs', 'checkpoint_refs'):
-        references(value[field], field)
-    if 'objective_revision' in value:
-        rev = value['objective_revision']
-        if not _is_int(rev) or rev < 1:
-            raise ExecutionError('objective_revision must be a positive integer')
-    if 'write_set' in value:
-        raw_write_set = value['write_set']
-        if not isinstance(raw_write_set, list):
-            raise ExecutionError('write_set must be a list of relative paths')
-        normalized = [validate_relative_path(item, 'write_set') for item in raw_write_set]
-        if len(normalized) != len(set(normalized)):
-            raise ExecutionError('write_set entries must be unique')
-    if 'envelope' in value:
-        validate_envelope(value['envelope'])
-    if 'resumability' in value:
-        validate_resumability(value['resumability'])
+        raise ExecutionError("worker handoff exceeds size limit")
+    runtime.validate_model(_HandoffModel, value, error_cls=ExecutionError)
     return deepcopy(value)
 
 
@@ -230,51 +266,17 @@ def handoff_binding(value: Any) -> dict[str, str]:
 def _validate_budget_usage(value: Any) -> dict[str, Any]:
     if not isinstance(value, dict):
         raise ExecutionError("budget_usage must be an object")
-    allowed = {"elapsed_seconds", "tokens_used", "estimated_cost_usd"}
-    if set(value) - allowed:
-        raise ExecutionError("budget_usage contains unsupported fields")
-    if "elapsed_seconds" in value and (not _is_number(value["elapsed_seconds"]) or value["elapsed_seconds"] < 0):
-        raise ExecutionError("budget_usage elapsed_seconds is invalid")
-    if "tokens_used" in value and (not _is_int(value["tokens_used"]) or value["tokens_used"] < 0):
-        raise ExecutionError("budget_usage tokens_used is invalid")
-    if "estimated_cost_usd" in value and (
-        not _is_number(value["estimated_cost_usd"]) or value["estimated_cost_usd"] < 0
-    ):
-        raise ExecutionError("budget_usage estimated_cost_usd is invalid")
+    runtime.validate_model(_BudgetUsageModel, value, error_cls=ExecutionError)
     return deepcopy(value)
 
 
 def validate_result(value: Any, handoff: Any) -> dict[str, Any]:
     expected = handoff_binding(handoff)
-    required_fields = {'schema', 'binding', 'outcome', 'artifact_refs', 'checkpoint_refs', 'remaining', 'next_action'}
-    optional_fields = {'budget_usage', 'checkpoint_digests'}
-    if (
-        not isinstance(value, dict)
-        or not required_fields.issubset(value)
-        or (set(value) - required_fields - optional_fields)
-        or value.get('schema') != 'opl_worker_result.v1'
-    ):
-        raise ExecutionError('worker result schema or fields are invalid')
-    if value['binding'] != expected:
-        raise ExecutionError('worker result does not match the handoff')
-    if not isinstance(value['outcome'], str) or value['outcome'] not in {'checkpoint', 'completed', 'blocked', 'unknown'}:
-        raise ExecutionError('worker result outcome is invalid')
-    references(value['artifact_refs'], 'artifact_refs')
-    references(value['checkpoint_refs'], 'checkpoint_refs', required=value['outcome'] == 'checkpoint')
-    references(value['remaining'], 'remaining')
-    identity(value['next_action'], 'next_action')
-    if value['outcome'] == 'completed' and (value['remaining'] or not value['artifact_refs']):
-        raise ExecutionError('completed worker slice requires evidence and no remaining work')
-    if 'budget_usage' in value:
-        _validate_budget_usage(value['budget_usage'])
-    if 'checkpoint_digests' in value:
-        digests = value['checkpoint_digests']
-        if not isinstance(digests, dict):
-            raise ExecutionError('checkpoint_digests must be an object')
-        for ref, digest_hex in digests.items():
-            identity(ref, 'checkpoint_digests key')
-            if not isinstance(digest_hex, str) or not SHA256_PATTERN.fullmatch(digest_hex):
-                raise ExecutionError('checkpoint_digests values must be 64-hex sha256 strings')
+    if not isinstance(value, dict):
+        raise ExecutionError("worker result schema or fields are invalid")
+    if value.get("binding") != expected:
+        raise ExecutionError("worker result does not match the handoff")
+    runtime.validate_model(_WorkerResultModel, value, error_cls=ExecutionError)
     return deepcopy(value)
 
 

@@ -3,12 +3,15 @@
 from __future__ import annotations
 
 from pathlib import Path
+from typing import Annotated, Any, Literal
 import argparse
 import datetime as dt
 import json
 import re
+import sys
+import typer
 from fleet_inventory import collect_inventory
-from .fleet_common import DISPATCH_ADAPTERS, FleetError, GPU_APIS, LEASE_PHASES, LEASE_WORKLOAD_CLASSES, configure_instance, install_fleet_command, node_identity, normalize_node_id, parse_requirements, run, utc_now, write_instance_pointer
+from .fleet_common import FleetError, GPU_APIS, configure_instance, install_fleet_command, node_identity, normalize_node_id, parse_requirements, run, utc_now, write_instance_pointer
 from .fleet_control import control_commit, manifest, node_registry
 from .fleet_reconcile import fetch_state_file, fleet_repositories, join, reconcile, record_receipt, remote_asset_catalog
 from .fleet_lease import acquire_lease_record, active_lease_map, lease_lock, public_lease, read_lease_store, reap_expired_leases, release_lease_record, renew_lease_record, select_nodes, write_lease_store
@@ -326,370 +329,389 @@ def fleet_lease_reap(args: argparse.Namespace) -> int:
     )
     return 0
 
+AdapterChoice = Literal["github-runner", "lease-only", "local-codex", "remote-codex", "ssh-session"]
+GpuApiChoice = Literal["any", "cuda", "metal"]
+WorkloadChoice = Literal["background", "experiment", "foreground", "guest", "job", "p0-release", "vm"]
+PhaseChoice = Literal["interruptible", "non-interruptible"]
+SandboxChoice = Literal["read-only", "workspace-write", "danger-full-access"]
+DispatchModeChoice = Literal["execute", "envelope"]
+BoolStrChoice = Literal["true", "false"]
+
+ReqStr = Annotated[str, typer.Option()]
+ReqInt = Annotated[int, typer.Option()]
+ReqPath = Annotated[Path, typer.Option()]
+OptPreempt = Annotated[bool | None, typer.Option("--preemptible/--no-preemptible")]
+
+
+def _typer(help_text: str | None = None) -> typer.Typer:
+    return typer.Typer(help=help_text, rich_markup_mode=None, add_completion=False, no_args_is_help=True)
+
+
+cli_app = _typer("OPL Fleet engine backed by one private OPL Instance.")
+flagship_app = _typer("inspect or explicitly switch the workflow authoring node")
+workflow_app = _typer("inspect or receive the reviewed workflow Profile")
+repos_app = _typer()
+workspace_app = _typer("validate, materialize, synchronize, or admit a declared workspace")
+data_job_app = _typer("run a lightweight structured task without reserving compute capacity")
+dispatch_app = _typer("plan, lease, verify, execute, or release task capacity")
+dispatch_group_app = _typer("plan, execute, or inspect fan-out/fan-in dispatch groups")
+attempt_app = _typer("manage and observe sanitized execution attempts")
+queue_app = _typer("priority queueing and backpressure planning")
+runner_app = _typer()
+lease_app = _typer()
+
+dispatch_app.add_typer(dispatch_group_app, name="group")
+for _name, _sub in (
+    ("flagship", flagship_app), ("workflow", workflow_app), ("repos", repos_app),
+    ("workspace", workspace_app), ("data-job", data_job_app), ("dispatch", dispatch_app),
+    ("attempt", attempt_app), ("queue", queue_app), ("runner", runner_app), ("lease", lease_app),
+):
+    cli_app.add_typer(_sub, name=_name)
+
+
+def _ns(ctx: typer.Context, action: str, **extra: Any) -> argparse.Namespace:
+    params = dict(ctx.params)
+    if "json_output" in params:
+        params["json"] = params.pop("json_output")
+    return argparse.Namespace(instance=(ctx.obj or {}).get("instance"), action=action, **params, **extra)
+
+
+@cli_app.callback()
+def _cli_root(ctx: typer.Context, instance: str | None = None) -> None:
+    ctx.obj = {"instance": instance}
+
+
+@cli_app.command("join")
+def _cmd_join(ctx: typer.Context, node_id: str | None = None, no_schedule: Annotated[bool, typer.Option("--no-schedule")] = False) -> argparse.Namespace:
+    return _ns(ctx, "join")
+
+
+@cli_app.command("reconcile")
+def _cmd_reconcile(
+    ctx: typer.Context,
+    report: Annotated[bool, typer.Option("--report")] = False,
+    install_required: Annotated[bool, typer.Option("--install-required/--no-install-required", help="install missing required components from their declared owners (default)")] = True,
+) -> argparse.Namespace:
+    return _ns(ctx, "reconcile")
+
+
+@cli_app.command("status")
+def _cmd_status(ctx: typer.Context) -> argparse.Namespace:
+    return _ns(ctx, "status")
+
+
+@cli_app.command("assets")
+def _cmd_assets(ctx: typer.Context) -> argparse.Namespace:
+    return _ns(ctx, "assets")
+
+
+@flagship_app.command("status")
+def _cmd_flagship_status(ctx: typer.Context) -> argparse.Namespace:
+    return _ns(ctx, "flagship", flagship_action="status")
+
+
+@flagship_app.command("set")
+def _cmd_flagship_set(ctx: typer.Context, node_id: str, expected_current: Annotated[str, typer.Option(help="current node ID, or none for initial selection")]) -> argparse.Namespace:
+    return _ns(ctx, "flagship", flagship_action="set")
+
+
+@workflow_app.command("status")
+def _cmd_workflow_status(ctx: typer.Context) -> argparse.Namespace:
+    return _ns(ctx, "workflow", workflow_action="status")
+
+
+@workflow_app.command("sync")
+def _cmd_workflow_sync(ctx: typer.Context) -> argparse.Namespace:
+    return _ns(ctx, "workflow", workflow_action="sync")
+
+
+@workflow_app.command("record-projection", help="record completed semantic review after Flow main publication")
+def _cmd_workflow_projection(
+    ctx: typer.Context,
+    flow_commit: ReqStr,
+    source_sha256: Annotated[str, typer.Option(help="exact flagship AGENTS.md hash reviewed by the authoring task")],
+) -> argparse.Namespace:
+    return _ns(ctx, "workflow", workflow_action="record-projection")
+
+
+@repos_app.command("status")
+def _cmd_repos_status(ctx: typer.Context) -> argparse.Namespace:
+    return _ns(ctx, "repos", repos_action="status")
+
+
+@repos_app.command("sync")
+def _cmd_repos_sync(ctx: typer.Context) -> argparse.Namespace:
+    return _ns(ctx, "repos", repos_action="sync")
+
+
+def _register_workspace_action(name: str) -> None:
+    @workspace_app.command(name)
+    def _cmd(ctx: typer.Context, profile: ReqStr) -> argparse.Namespace:
+        return _ns(ctx, "workspace", workspace_action=name)
+
+
+for _ws_action in ("validate", "plan", "status", "bootstrap", "sync", "claim-check"):
+    _register_workspace_action(_ws_action)
+
+
+@cli_app.command("nodes")
+def _cmd_nodes(ctx: typer.Context, json_output: Annotated[bool, typer.Option("--json")] = False) -> argparse.Namespace:
+    return _ns(ctx, "nodes")
+
+
+@cli_app.command("inventory")
+def _cmd_inventory(ctx: typer.Context, json_output: Annotated[bool, typer.Option("--json")] = False) -> argparse.Namespace:
+    return _ns(ctx, "inventory")
+
+
+@cli_app.command("doctor")
+def _cmd_doctor(ctx: typer.Context, node_id: str) -> argparse.Namespace:
+    return _ns(ctx, "doctor")
+
+
+@data_job_app.command("run")
+def _cmd_data_job_run(
+    ctx: typer.Context, node_id: str, argv_json: ReqStr, stdin_file: Path | None = None,
+    cwd: str | None = None, timeout_seconds: int = 900, artifact_path: str | None = None,
+    artifact_destination: Path | None = None,
+) -> argparse.Namespace:
+    return _ns(ctx, "data-job", data_job_action="run")
+
+
+@cli_app.command("select")
+def _cmd_select(
+    ctx: typer.Context, requires: str = "", min_memory_gb: int = 0,
+    gpu_api: GpuApiChoice = "any", min_gpu_memory_gb: int = 0, gpu_model: str | None = None,
+) -> argparse.Namespace:
+    return _ns(ctx, "select")
+
+
+@dispatch_app.command("plan")
+def _cmd_dispatch_plan(
+    ctx: typer.Context, requirements_json: str | None = None,
+    handoff_json: Annotated[str | None, typer.Option(help="carrier-neutral Worker handoff JSON or @file")] = None,
+    adapter: AdapterChoice | None = None, node_id: str | None = None, role: str | None = None,
+    requires: str | None = None, min_memory_gb: int | None = None, gpu_api: GpuApiChoice | None = None,
+    min_gpu_memory_gb: int | None = None, gpu_model: str | None = None, workload_class: WorkloadChoice | None = None,
+    priority: int | None = None, preemptible: OptPreempt = None, phase: PhaseChoice | None = None,
+    ttl_seconds: int | None = None,
+) -> argparse.Namespace:
+    return _ns(ctx, "dispatch", dispatch_action="plan")
+
+
+@dispatch_app.command("acquire")
+def _cmd_dispatch_acquire(
+    ctx: typer.Context, owner_task: ReqStr, requirements_json: str | None = None,
+    handoff_json: Annotated[str | None, typer.Option(help="carrier-neutral Worker handoff JSON or @file")] = None,
+    adapter: AdapterChoice | None = None, node_id: str | None = None, role: str | None = None,
+    requires: str | None = None, min_memory_gb: int | None = None, gpu_api: GpuApiChoice | None = None,
+    min_gpu_memory_gb: int | None = None, gpu_model: str | None = None, workload_class: WorkloadChoice | None = None,
+    priority: int | None = None, preemptible: OptPreempt = None, phase: PhaseChoice | None = None,
+    ttl_seconds: int | None = None, owner_thread: str | None = None, owner_run: str | None = None,
+    preempt_lease_id: str | None = None, preempt_generation: int | None = None, preempt_nonce: str | None = None,
+) -> argparse.Namespace:
+    return _ns(ctx, "dispatch", dispatch_action="acquire")
+
+
+@dispatch_app.command("verify")
+def _cmd_dispatch_verify(ctx: typer.Context, dispatch_id: str, min_ttl_seconds: int = 300, max_admission_age_seconds: int = 300) -> argparse.Namespace:
+    return _ns(ctx, "dispatch", dispatch_action="verify")
+
+
+@dispatch_app.command("execute", help="execute only an ssh-session lease; native Codex tasks use the app")
+def _cmd_dispatch_execute(
+    ctx: typer.Context, dispatch_id: str, owner_task: ReqStr, argv_json: ReqStr,
+    owner_thread: str | None = None, owner_run: str | None = None, handoff_json: str | None = None,
+    cwd: str | None = None, timeout_seconds: int = 900, min_ttl_seconds: int = 60, max_admission_age_seconds: int = 300,
+) -> argparse.Namespace:
+    return _ns(ctx, "dispatch", dispatch_action="execute")
+
+
+@dispatch_app.command("release")
+def _cmd_dispatch_release(ctx: typer.Context, dispatch_id: str, owner_task: ReqStr) -> argparse.Namespace:
+    return _ns(ctx, "dispatch", dispatch_action="release")
+
+
+@dispatch_app.command("run", help="run unified single-transaction dispatch across adapters")
+def _cmd_dispatch_run(
+    ctx: typer.Context, owner_task: ReqStr, requirements_json: str | None = None,
+    handoff_json: Annotated[str | None, typer.Option(help="carrier-neutral Worker handoff JSON or @file")] = None,
+    adapter: AdapterChoice | None = None, node_id: str | None = None, role: str | None = None,
+    requires: str | None = None, min_memory_gb: int | None = None, gpu_api: GpuApiChoice | None = None,
+    min_gpu_memory_gb: int | None = None, gpu_model: str | None = None, workload_class: WorkloadChoice | None = None,
+    priority: int | None = None, preemptible: OptPreempt = None, phase: PhaseChoice | None = None,
+    ttl_seconds: int | None = None, owner_thread: str | None = None, owner_run: str | None = None,
+    preempt_lease_id: str | None = None, preempt_generation: int | None = None, preempt_nonce: str | None = None,
+    argv_json: str | None = None, executor_cmd_json: str | None = None, mode: DispatchModeChoice = "execute",
+    cwd: str | None = None, timeout_seconds: int = 900, workspace_root: Path | None = None,
+    runtime_dir: Path | None = None, callback_state_dir: Path | None = None, group_id: str | None = None,
+    verify_git: Annotated[bool, typer.Option("--verify-git")] = False,
+    use_codex_bridge: Annotated[bool, typer.Option("--use-codex-bridge")] = False,
+    codex_bin: str | None = None, model: str | None = None, sandbox: SandboxChoice | None = None,
+    worktree: Annotated[bool, typer.Option("--worktree")] = False,
+) -> argparse.Namespace:
+    return _ns(ctx, "dispatch", dispatch_action="run")
+
+
+@dispatch_app.command("complete", help="validate worker result, release lease, and emit callback for async dispatch")
+def _cmd_dispatch_complete(
+    ctx: typer.Context, handoff_json: ReqStr, result_json: ReqStr,
+    attempt_id: str | None = None, dispatch_id: str | None = None, callback_state_dir: Path | None = None,
+) -> argparse.Namespace:
+    return _ns(ctx, "dispatch", dispatch_action="complete")
+
+
+@dispatch_group_app.command("plan")
+def _cmd_group_plan(ctx: typer.Context, group_json: ReqStr, max_concurrent: int | None = None, max_local_concurrent: int | None = None) -> argparse.Namespace:
+    return _ns(ctx, "dispatch", dispatch_action="group", group_action="plan")
+
+
+@dispatch_group_app.command("run")
+def _cmd_group_run(
+    ctx: typer.Context, group_json: ReqStr, max_concurrent: int | None = None, max_local_concurrent: int | None = None,
+    workspace_root: Path | None = None, runtime_dir: Path | None = None, callback_state_dir: Path | None = None,
+) -> argparse.Namespace:
+    return _ns(ctx, "dispatch", dispatch_action="group", group_action="run")
+
+
+@dispatch_group_app.command("status")
+def _cmd_group_status(ctx: typer.Context, group_id: str) -> argparse.Namespace:
+    return _ns(ctx, "dispatch", dispatch_action="group", group_action="status")
+
+
+@attempt_app.command("status")
+def _cmd_attempt_status(
+    ctx: typer.Context, attempt_id: Annotated[str | None, typer.Argument()] = None,
+    node_id: str | None = None, objective_id: str | None = None, group_id: str | None = None, state: str | None = None,
+) -> argparse.Namespace:
+    return _ns(ctx, "attempt", attempt_action="status")
+
+
+@attempt_app.command("observe")
+def _cmd_attempt_observe(ctx: typer.Context, node_id: str | None = None) -> argparse.Namespace:
+    return _ns(ctx, "attempt", attempt_action="observe")
+
+
+@attempt_app.command("heartbeat")
+def _cmd_attempt_hb(
+    ctx: typer.Context, attempt_id: str, phase: str | None = None, checkpoint_ref: str | None = None,
+    budget_json: str | None = None, renew_lease: Annotated[bool, typer.Option("--renew-lease")] = False,
+    lease_ttl_seconds: int | None = None,
+) -> argparse.Namespace:
+    return _ns(ctx, "attempt", attempt_action="heartbeat")
+
+
+@attempt_app.command("preempt-plan")
+def _cmd_attempt_preempt(ctx: typer.Context, node_id: str, incoming_priority: ReqInt) -> argparse.Namespace:
+    return _ns(ctx, "attempt", attempt_action="preempt-plan")
+
+
+@attempt_app.command("suspend")
+def _cmd_attempt_suspend(
+    ctx: typer.Context, attempt_id: str, checkpoint_ref: ReqStr, reason: str = "preempted",
+    release_lease: Annotated[bool, typer.Option("--release-lease/--no-release-lease")] = True,
+) -> argparse.Namespace:
+    return _ns(ctx, "attempt", attempt_action="suspend")
+
+
+@attempt_app.command("stale-check")
+def _cmd_attempt_stale(ctx: typer.Context, callback_state_dir: Path | None = None) -> argparse.Namespace:
+    return _ns(ctx, "attempt", attempt_action="stale-check")
+
+
+@queue_app.command("plan")
+def _cmd_queue_plan(ctx: typer.Context, requests_json: ReqStr, max_concurrent: int | None = None, max_local_concurrent: int | None = None) -> argparse.Namespace:
+    return _ns(ctx, "queue", queue_action="plan")
+
+
+@runner_app.command("start")
+def _cmd_runner_start(
+    ctx: typer.Context, role: str, owner_task: ReqStr, owner_thread: str | None = None, owner_run: str | None = None,
+    workload_class: WorkloadChoice = "background", priority: int = 300,
+    preemptible: Annotated[bool, typer.Option("--preemptible")] = False,
+    phase: PhaseChoice = "non-interruptible", ttl_seconds: int = 3600, min_ttl_seconds: int = 300,
+    max_admission_age_seconds: int = 300, startup_timeout_seconds: int = 60,
+) -> argparse.Namespace:
+    return _ns(ctx, "runner", runner_action="start")
+
+
+@runner_app.command("stop")
+def _cmd_runner_stop(ctx: typer.Context, role: str, owner_task: str | None = None, shutdown_timeout_seconds: int = 60) -> argparse.Namespace:
+    return _ns(ctx, "runner", runner_action="stop")
+
+
+@runner_app.command("renew")
+def _cmd_runner_renew(ctx: typer.Context, role: str, owner_task: str | None = None, ttl_seconds: int | None = None) -> argparse.Namespace:
+    return _ns(ctx, "runner", runner_action="renew")
+
+
+@runner_app.command("status")
+def _cmd_runner_status(ctx: typer.Context, role: str) -> argparse.Namespace:
+    return _ns(ctx, "runner", runner_action="status")
+
+
+@lease_app.command("show")
+def _cmd_lease_show(ctx: typer.Context, node_id: Annotated[str | None, typer.Argument()] = None) -> argparse.Namespace:
+    return _ns(ctx, "lease", lease_action="show")
+
+
+@lease_app.command("verify")
+def _cmd_lease_verify(
+    ctx: typer.Context, node_id: str, expect_role: ReqStr, expect_lease_id: ReqStr, expect_generation: ReqInt,
+    expect_owner_task: ReqStr, expect_workload_class: Annotated[WorkloadChoice, typer.Option()],
+    expect_phase: Annotated[PhaseChoice, typer.Option()], expect_preemptible: Annotated[BoolStrChoice, typer.Option()],
+    min_ttl_seconds: ReqInt, expect_requires: ReqStr, expect_min_memory_gb: ReqInt, expect_control_commit: ReqStr,
+    expect_owner_thread: str | None = None, expect_owner_run: str | None = None, max_admission_age_seconds: int = 300,
+) -> argparse.Namespace:
+    return _ns(ctx, "lease", lease_action="verify")
+
+
+@lease_app.command("acquire")
+def _cmd_lease_acquire(
+    ctx: typer.Context, node_id: str, owner_task: ReqStr, workload_class: Annotated[WorkloadChoice, typer.Option()],
+    priority: ReqInt, owner_thread: str | None = None, owner_run: str | None = None, role: str | None = None,
+    preemptible: Annotated[bool, typer.Option("--preemptible")] = False, phase: PhaseChoice = "interruptible",
+    ttl_seconds: int = 3600, requires: str = "", min_memory_gb: int = 0, preempt_lease_id: str | None = None,
+    preempt_generation: int | None = None, preempt_nonce: str | None = None,
+) -> argparse.Namespace:
+    return _ns(ctx, "lease", lease_action="acquire")
+
+
+@lease_app.command("renew")
+def _cmd_lease_renew(
+    ctx: typer.Context, node_id: str, lease_id: ReqStr, generation: ReqInt, nonce: ReqStr, owner_task: ReqStr,
+    ttl_seconds: int = 3600, phase: PhaseChoice | None = None,
+) -> argparse.Namespace:
+    return _ns(ctx, "lease", lease_action="renew")
+
+
+@lease_app.command("release")
+def _cmd_lease_release(ctx: typer.Context, node_id: str, lease_id: ReqStr, generation: ReqInt, nonce: ReqStr, owner_task: ReqStr) -> argparse.Namespace:
+    return _ns(ctx, "lease", lease_action="release")
+
+
+@lease_app.command("reap")
+def _cmd_lease_reap(ctx: typer.Context, node_id: Annotated[str | None, typer.Argument()] = None) -> argparse.Namespace:
+    return _ns(ctx, "lease", lease_action="reap")
+
+
+@cli_app.command("record", hidden=True)
+def _cmd_record(ctx: typer.Context, state_root: ReqPath, payload_b64: ReqStr) -> argparse.Namespace:
+    return _ns(ctx, "record")
+
+
 def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
-    parser = argparse.ArgumentParser(
-        description="OPL Fleet engine backed by one private OPL Instance."
-    )
-    parser.add_argument("--instance")
-    subparsers = parser.add_subparsers(dest="action", required=True)
-    join_parser = subparsers.add_parser("join")
-    join_parser.add_argument("--node-id")
-    join_parser.add_argument("--no-schedule", action="store_true")
-    reconcile_parser = subparsers.add_parser("reconcile")
-    reconcile_parser.add_argument("--report", action="store_true")
-    reconcile_parser.add_argument(
-        "--install-required",
-        action=argparse.BooleanOptionalAction,
-        default=True,
-        help="install missing required components from their declared owners (default)",
-    )
-    subparsers.add_parser("status")
-    subparsers.add_parser("assets")
-    flagship_parser = subparsers.add_parser("flagship", help="inspect or explicitly switch the workflow authoring node")
-    flagship_actions = flagship_parser.add_subparsers(dest="flagship_action", required=True)
-    flagship_actions.add_parser("status")
-    flagship_set = flagship_actions.add_parser("set")
-    flagship_set.add_argument("node_id")
-    flagship_set.add_argument("--expected-current", required=True, help="current node ID, or none for initial selection")
-    workflow_parser = subparsers.add_parser("workflow", help="inspect or receive the reviewed workflow Profile")
-    workflow_actions = workflow_parser.add_subparsers(dest="workflow_action", required=True)
-    workflow_actions.add_parser("status")
-    workflow_actions.add_parser("sync")
-    projection = workflow_actions.add_parser("record-projection", help="record completed semantic review after Flow main publication")
-    projection.add_argument("--flow-commit", required=True)
-    projection.add_argument("--source-sha256", required=True, help="exact flagship AGENTS.md hash reviewed by the authoring task")
-    repos_parser = subparsers.add_parser("repos")
-    repos_subparsers = repos_parser.add_subparsers(
-        dest="repos_action",
-        required=True,
-    )
-    repos_subparsers.add_parser("status")
-    repos_subparsers.add_parser("sync")
-    workspace_parser = subparsers.add_parser(
-        "workspace",
-        help="validate, materialize, synchronize, or admit a declared workspace",
-    )
-    workspace_subparsers = workspace_parser.add_subparsers(
-        dest="workspace_action",
-        required=True,
-    )
-    for workspace_action in (
-        "validate",
-        "plan",
-        "status",
-        "bootstrap",
-        "sync",
-        "claim-check",
-    ):
-        command = workspace_subparsers.add_parser(workspace_action)
-        command.add_argument("--profile", required=True)
-    nodes_parser = subparsers.add_parser("nodes")
-    nodes_parser.add_argument("--json", action="store_true")
-    inventory_parser = subparsers.add_parser("inventory")
-    inventory_parser.add_argument("--json", action="store_true")
-    doctor_parser = subparsers.add_parser("doctor")
-    doctor_parser.add_argument("node_id")
-    data_job_parser = subparsers.add_parser(
-        "data-job",
-        help="run a lightweight structured task without reserving compute capacity",
-    )
-    data_job_subparsers = data_job_parser.add_subparsers(
-        dest="data_job_action",
-        required=True,
-    )
-    data_job_run = data_job_subparsers.add_parser("run")
-    data_job_run.add_argument("node_id")
-    data_job_run.add_argument("--argv-json", required=True)
-    data_job_run.add_argument("--stdin-file", type=Path)
-    data_job_run.add_argument("--cwd")
-    data_job_run.add_argument("--timeout-seconds", type=int, default=900)
-    data_job_run.add_argument("--artifact-path")
-    data_job_run.add_argument("--artifact-destination", type=Path)
-    select_parser = subparsers.add_parser("select")
-    select_parser.add_argument("--requires", default="")
-    select_parser.add_argument("--min-memory-gb", type=int, default=0)
-    select_parser.add_argument("--gpu-api", choices=sorted(GPU_APIS), default="any")
-    select_parser.add_argument("--min-gpu-memory-gb", type=int, default=0)
-    select_parser.add_argument("--gpu-model")
-    dispatch_parser = subparsers.add_parser(
-        "dispatch",
-        help="plan, lease, verify, execute, or release task capacity",
-    )
-    dispatch_subparsers = dispatch_parser.add_subparsers(
-        dest="dispatch_action",
-        required=True,
-    )
-
-    def add_dispatch_request_arguments(
-        command: argparse.ArgumentParser,
-        *,
-        owner: bool,
-    ) -> None:
-        command.add_argument("--requirements-json")
-        command.add_argument("--handoff-json", help="carrier-neutral Worker handoff JSON or @file")
-        command.add_argument(
-            "--adapter",
-            choices=sorted(DISPATCH_ADAPTERS),
-            default=None,
-        )
-        command.add_argument("--node-id")
-        command.add_argument("--role")
-        command.add_argument("--requires", default=None)
-        command.add_argument("--min-memory-gb", type=int, default=None)
-        command.add_argument("--gpu-api", choices=sorted(GPU_APIS), default=None)
-        command.add_argument("--min-gpu-memory-gb", type=int, default=None)
-        command.add_argument("--gpu-model", default=None)
-        command.add_argument(
-            "--workload-class",
-            choices=sorted(LEASE_WORKLOAD_CLASSES),
-            default=None,
-        )
-        command.add_argument("--priority", type=int, default=None)
-        command.add_argument(
-            "--preemptible",
-            action=argparse.BooleanOptionalAction,
-            default=None,
-        )
-        command.add_argument(
-            "--phase",
-            choices=sorted(LEASE_PHASES),
-            default=None,
-        )
-        command.add_argument("--ttl-seconds", type=int, default=None)
-        if owner:
-            command.add_argument("--owner-task", required=True)
-            command.add_argument("--owner-thread")
-            command.add_argument("--owner-run")
-            command.add_argument("--preempt-lease-id")
-            command.add_argument("--preempt-generation", type=int)
-            command.add_argument("--preempt-nonce")
-
-    dispatch_plan_parser = dispatch_subparsers.add_parser("plan")
-    add_dispatch_request_arguments(dispatch_plan_parser, owner=False)
-    dispatch_acquire_parser = dispatch_subparsers.add_parser("acquire")
-    add_dispatch_request_arguments(dispatch_acquire_parser, owner=True)
-    dispatch_verify_parser = dispatch_subparsers.add_parser("verify")
-    dispatch_verify_parser.add_argument("dispatch_id")
-    dispatch_verify_parser.add_argument("--min-ttl-seconds", type=int, default=300)
-    dispatch_verify_parser.add_argument(
-        "--max-admission-age-seconds",
-        type=int,
-        default=300,
-    )
-    dispatch_execute_parser = dispatch_subparsers.add_parser(
-        "execute",
-        help="execute only an ssh-session lease; native Codex tasks use the app",
-    )
-    dispatch_execute_parser.add_argument("dispatch_id")
-    dispatch_execute_parser.add_argument("--owner-task", required=True)
-    dispatch_execute_parser.add_argument("--owner-thread")
-    dispatch_execute_parser.add_argument("--owner-run")
-    dispatch_execute_parser.add_argument("--argv-json", required=True)
-    dispatch_execute_parser.add_argument("--handoff-json")
-    dispatch_execute_parser.add_argument("--cwd")
-    dispatch_execute_parser.add_argument("--timeout-seconds", type=int, default=900)
-    dispatch_execute_parser.add_argument("--min-ttl-seconds", type=int, default=60)
-    dispatch_execute_parser.add_argument(
-        "--max-admission-age-seconds",
-        type=int,
-        default=300,
-    )
-    dispatch_release_parser = dispatch_subparsers.add_parser("release")
-    dispatch_release_parser.add_argument("dispatch_id")
-    dispatch_release_parser.add_argument("--owner-task", required=True)
-    dispatch_run_parser = dispatch_subparsers.add_parser(
-        "run",
-        help="run unified single-transaction dispatch across adapters",
-    )
-    add_dispatch_request_arguments(dispatch_run_parser, owner=True)
-    dispatch_run_parser.add_argument("--argv-json")
-    dispatch_run_parser.add_argument("--executor-cmd-json")
-    dispatch_run_parser.add_argument("--mode", choices=("execute", "envelope"), default="execute")
-    dispatch_run_parser.add_argument("--cwd")
-    dispatch_run_parser.add_argument("--timeout-seconds", type=int, default=900)
-    dispatch_run_parser.add_argument("--workspace-root", type=Path)
-    dispatch_run_parser.add_argument("--runtime-dir", type=Path)
-    dispatch_run_parser.add_argument("--callback-state-dir", type=Path)
-    dispatch_run_parser.add_argument("--group-id")
-    dispatch_run_parser.add_argument("--verify-git", action="store_true")
-    dispatch_run_parser.add_argument("--use-codex-bridge", action="store_true")
-    dispatch_run_parser.add_argument("--codex-bin")
-    dispatch_run_parser.add_argument("--model")
-    dispatch_run_parser.add_argument("--sandbox", choices=("read-only", "workspace-write", "danger-full-access"))
-    dispatch_run_parser.add_argument("--worktree", action="store_true")
-    dispatch_complete_parser = dispatch_subparsers.add_parser(
-        "complete",
-        help="validate worker result, release lease, and emit callback for async dispatch",
-    )
-    dispatch_complete_parser.add_argument("--attempt-id")
-    dispatch_complete_parser.add_argument("--dispatch-id")
-    dispatch_complete_parser.add_argument("--handoff-json", required=True)
-    dispatch_complete_parser.add_argument("--result-json", required=True)
-    dispatch_complete_parser.add_argument("--callback-state-dir", type=Path)
-    dispatch_group_parser = dispatch_subparsers.add_parser(
-        "group",
-        help="plan, execute, or inspect fan-out/fan-in dispatch groups",
-    )
-    dispatch_group_actions = dispatch_group_parser.add_subparsers(dest="group_action", required=True)
-    group_plan = dispatch_group_actions.add_parser("plan")
-    group_plan.add_argument("--group-json", required=True)
-    group_plan.add_argument("--max-concurrent", type=int)
-    group_plan.add_argument("--max-local-concurrent", type=int)
-    group_run = dispatch_group_actions.add_parser("run")
-    group_run.add_argument("--group-json", required=True)
-    group_run.add_argument("--max-concurrent", type=int)
-    group_run.add_argument("--max-local-concurrent", type=int)
-    group_run.add_argument("--workspace-root", type=Path)
-    group_run.add_argument("--runtime-dir", type=Path)
-    group_run.add_argument("--callback-state-dir", type=Path)
-    group_status = dispatch_group_actions.add_parser("status")
-    group_status.add_argument("group_id")
-
-    attempt_parser = subparsers.add_parser("attempt", help="manage and observe sanitized execution attempts")
-    attempt_actions = attempt_parser.add_subparsers(dest="attempt_action", required=True)
-    attempt_status = attempt_actions.add_parser("status")
-    attempt_status.add_argument("attempt_id", nargs="?")
-    attempt_status.add_argument("--node-id")
-    attempt_status.add_argument("--objective-id")
-    attempt_status.add_argument("--group-id")
-    attempt_status.add_argument("--state")
-    attempt_observe = attempt_actions.add_parser("observe")
-    attempt_observe.add_argument("--node-id")
-    attempt_hb = attempt_actions.add_parser("heartbeat")
-    attempt_hb.add_argument("attempt_id")
-    attempt_hb.add_argument("--phase")
-    attempt_hb.add_argument("--checkpoint-ref")
-    attempt_hb.add_argument("--budget-json")
-    attempt_hb.add_argument("--renew-lease", action="store_true")
-    attempt_hb.add_argument("--lease-ttl-seconds", type=int)
-    attempt_preempt = attempt_actions.add_parser("preempt-plan")
-    attempt_preempt.add_argument("node_id")
-    attempt_preempt.add_argument("--incoming-priority", type=int, required=True)
-    attempt_suspend = attempt_actions.add_parser("suspend")
-    attempt_suspend.add_argument("attempt_id")
-    attempt_suspend.add_argument("--checkpoint-ref", required=True)
-    attempt_suspend.add_argument("--reason", default="preempted")
-    attempt_suspend.add_argument("--no-release-lease", dest="release_lease", action="store_false", default=True)
-    attempt_stale = attempt_actions.add_parser("stale-check")
-    attempt_stale.add_argument("--callback-state-dir", type=Path)
-
-    queue_parser = subparsers.add_parser("queue", help="priority queueing and backpressure planning")
-    queue_actions = queue_parser.add_subparsers(dest="queue_action", required=True)
-    queue_plan = queue_actions.add_parser("plan")
-    queue_plan.add_argument("--requests-json", required=True)
-    queue_plan.add_argument("--max-concurrent", type=int)
-    queue_plan.add_argument("--max-local-concurrent", type=int)
-    runner_parser = subparsers.add_parser("runner")
-    runner_subparsers = runner_parser.add_subparsers(
-        dest="runner_action",
-        required=True,
-    )
-    runner_start = runner_subparsers.add_parser("start")
-    runner_start.add_argument("role")
-    runner_start.add_argument("--owner-task", required=True)
-    runner_start.add_argument("--owner-thread")
-    runner_start.add_argument("--owner-run")
-    runner_start.add_argument(
-        "--workload-class",
-        choices=sorted(LEASE_WORKLOAD_CLASSES),
-        default="background",
-    )
-    runner_start.add_argument("--priority", type=int, default=300)
-    runner_start.add_argument("--preemptible", action="store_true")
-    runner_start.add_argument(
-        "--phase",
-        choices=sorted(LEASE_PHASES),
-        default="non-interruptible",
-    )
-    runner_start.add_argument("--ttl-seconds", type=int, default=3600)
-    runner_start.add_argument("--min-ttl-seconds", type=int, default=300)
-    runner_start.add_argument("--max-admission-age-seconds", type=int, default=300)
-    runner_start.add_argument("--startup-timeout-seconds", type=int, default=60)
-    runner_stop = runner_subparsers.add_parser("stop")
-    runner_stop.add_argument("role")
-    runner_stop.add_argument("--owner-task")
-    runner_stop.add_argument("--shutdown-timeout-seconds", type=int, default=60)
-    runner_renew = runner_subparsers.add_parser("renew")
-    runner_renew.add_argument("role")
-    runner_renew.add_argument("--owner-task")
-    runner_renew.add_argument("--ttl-seconds", type=int)
-    runner_status = runner_subparsers.add_parser("status")
-    runner_status.add_argument("role")
-    lease_parser = subparsers.add_parser("lease")
-    lease_subparsers = lease_parser.add_subparsers(
-        dest="lease_action",
-        required=True,
-    )
-    lease_show = lease_subparsers.add_parser("show")
-    lease_show.add_argument("node_id", nargs="?")
-    lease_verify = lease_subparsers.add_parser("verify")
-    lease_verify.add_argument("node_id")
-    lease_verify.add_argument("--expect-role", required=True)
-    lease_verify.add_argument("--expect-lease-id", required=True)
-    lease_verify.add_argument("--expect-generation", type=int, required=True)
-    lease_verify.add_argument("--expect-owner-task", required=True)
-    lease_verify.add_argument("--expect-owner-thread")
-    lease_verify.add_argument("--expect-owner-run")
-    lease_verify.add_argument(
-        "--expect-workload-class",
-        choices=sorted(LEASE_WORKLOAD_CLASSES),
-        required=True,
-    )
-    lease_verify.add_argument(
-        "--expect-phase",
-        choices=sorted(LEASE_PHASES),
-        required=True,
-    )
-    lease_verify.add_argument(
-        "--expect-preemptible",
-        choices=("true", "false"),
-        required=True,
-    )
-    lease_verify.add_argument("--min-ttl-seconds", type=int, required=True)
-    lease_verify.add_argument("--expect-requires", required=True)
-    lease_verify.add_argument("--expect-min-memory-gb", type=int, required=True)
-    lease_verify.add_argument("--max-admission-age-seconds", type=int, default=300)
-    lease_verify.add_argument("--expect-control-commit", required=True)
-    lease_acquire = lease_subparsers.add_parser("acquire")
-    lease_acquire.add_argument("node_id")
-    lease_acquire.add_argument("--owner-task", required=True)
-    lease_acquire.add_argument("--owner-thread")
-    lease_acquire.add_argument("--owner-run")
-    lease_acquire.add_argument("--role")
-    lease_acquire.add_argument(
-        "--workload-class",
-        choices=sorted(LEASE_WORKLOAD_CLASSES),
-        required=True,
-    )
-    lease_acquire.add_argument("--priority", type=int, required=True)
-    lease_acquire.add_argument("--preemptible", action="store_true")
-    lease_acquire.add_argument("--phase", choices=sorted(LEASE_PHASES), default="interruptible")
-    lease_acquire.add_argument("--ttl-seconds", type=int, default=3600)
-    lease_acquire.add_argument("--requires", default="")
-    lease_acquire.add_argument("--min-memory-gb", type=int, default=0)
-    lease_acquire.add_argument("--preempt-lease-id")
-    lease_acquire.add_argument("--preempt-generation", type=int)
-    lease_acquire.add_argument("--preempt-nonce")
-    lease_renew = lease_subparsers.add_parser("renew")
-    lease_renew.add_argument("node_id")
-    lease_renew.add_argument("--lease-id", required=True)
-    lease_renew.add_argument("--generation", type=int, required=True)
-    lease_renew.add_argument("--nonce", required=True)
-    lease_renew.add_argument("--owner-task", required=True)
-    lease_renew.add_argument("--ttl-seconds", type=int, default=3600)
-    lease_renew.add_argument("--phase", choices=sorted(LEASE_PHASES))
-    lease_release = lease_subparsers.add_parser("release")
-    lease_release.add_argument("node_id")
-    lease_release.add_argument("--lease-id", required=True)
-    lease_release.add_argument("--generation", type=int, required=True)
-    lease_release.add_argument("--nonce", required=True)
-    lease_release.add_argument("--owner-task", required=True)
-    lease_reap = lease_subparsers.add_parser("reap")
-    lease_reap.add_argument("node_id", nargs="?")
-    record_parser = subparsers.add_parser("record", help=argparse.SUPPRESS)
-    record_parser.add_argument("--state-root", type=Path, required=True)
-    record_parser.add_argument("--payload-b64", required=True)
-    return parser.parse_args(argv)
+    raw = list(sys.argv[1:] if argv is None else argv)
+    try:
+        parsed = cli_app(raw, prog_name="opl-fleet", standalone_mode=False)
+    except typer.Exit as exc:
+        raise SystemExit(exc.exit_code) from None
+    except typer.TyperException as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        raise SystemExit(getattr(exc, "exit_code", 2)) from None
+    if isinstance(parsed, argparse.Namespace):
+        return parsed
+    raise SystemExit(0 if parsed in (0, None) else int(parsed))
 
 def _read_json_arg(value: str, label: str) -> Any:
     source = value

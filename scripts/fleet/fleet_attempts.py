@@ -4,19 +4,18 @@ from __future__ import annotations
 
 import contextlib
 from copy import deepcopy
-import fcntl
-import os
 from pathlib import Path
 from typing import Any, Iterator
 
 from . import fleet_common
-from .fleet_common import FleetError, atomic_json, normalize_node_id, parse_utc, read_json, utc_now
+from .fleet_common import FleetError, normalize_node_id, parse_utc, utc_now
 from .fleet_lease import read_lease_store, release_lease_record, renew_lease_record
 
 try:
-    from .. import opl_execution
-except ImportError:  # Direct script execution.
+    from .. import opl_execution, opl_state_store as state_store
+except (ImportError, ValueError):  # Direct script execution.
     import opl_execution
+    import opl_state_store as state_store
 
 
 ATTEMPTS_SCHEMA = "opl_fleet_attempts.v1"
@@ -61,28 +60,15 @@ def _resolve_state_root(state_root: Path | None) -> Path:
 
 
 def attempt_paths(state_root: Path | None = None) -> tuple[Path, Path]:
-    root = _resolve_state_root(state_root)
-    return root / "controller/attempts.json", root / "controller/attempts.lock"
+    db_path, lock_path, _ = state_store.attempt_db_paths(_resolve_state_root(state_root))
+    return db_path, lock_path
 
 
 @contextlib.contextmanager
 def _attempts_lock(*, state_root: Path | None = None) -> Iterator[None]:
     _, lock_path = attempt_paths(state_root)
-    lock_path.parent.mkdir(parents=True, exist_ok=True)
-    try:
-        os.chmod(lock_path.parent, 0o700)
-    except OSError:
-        pass
-    fd = os.open(lock_path, os.O_CREAT | os.O_RDWR, 0o600)
-    try:
-        os.chmod(lock_path, 0o600)
-        fcntl.flock(fd, fcntl.LOCK_EX)
+    with fleet_common.runtime.file_lock(lock_path, private_dir=True, mode=0o600):
         yield
-    finally:
-        try:
-            fcntl.flock(fd, fcntl.LOCK_UN)
-        finally:
-            os.close(fd)
 
 
 def _empty_store() -> dict[str, Any]:
@@ -90,32 +76,17 @@ def _empty_store() -> dict[str, Any]:
 
 
 def read_attempt_store(*, state_root: Path | None = None) -> dict[str, Any]:
-    path, _ = attempt_paths(state_root)
-    if not path.exists():
-        return _empty_store()
-    payload = read_json(path)
-    if (
-        not isinstance(payload, dict)
-        or payload.get("schema") != ATTEMPTS_SCHEMA
-        or not isinstance(payload.get("attempts"), dict)
-    ):
-        raise FleetError(f"attempt store schema is invalid: {path}")
-    return payload
+    return state_store.read_attempt_sqlite_store(_resolve_state_root(state_root), error_cls=FleetError)
 
 
 def _write_attempt_store(payload: dict[str, Any], *, state_root: Path | None = None) -> None:
-    path, _ = attempt_paths(state_root)
-    attempts = dict(payload.get("attempts") or {})
-    active = {k: v for k, v in attempts.items() if v.get("state") in ACTIVE_ATTEMPT_STATES}
-    terminal = [
-        (k, v)
-        for k, v in attempts.items()
-        if v.get("state") not in ACTIVE_ATTEMPT_STATES
-    ]
-    terminal.sort(key=lambda item: str(item[1].get("updated_at") or ""))
-    kept_terminal = dict(terminal[-MAX_RETAINED_TERMINAL_ATTEMPTS:])
-    merged = {**kept_terminal, **active}
-    atomic_json(path, {"schema": ATTEMPTS_SCHEMA, "attempts": merged})
+    state_store.write_attempt_sqlite_store(
+        _resolve_state_root(state_root),
+        payload,
+        active_states=ACTIVE_ATTEMPT_STATES,
+        max_retained_terminal=MAX_RETAINED_TERMINAL_ATTEMPTS,
+        error_cls=FleetError,
+    )
 
 
 def _sanitize_record(record: dict[str, Any]) -> dict[str, Any]:

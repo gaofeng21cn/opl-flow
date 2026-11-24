@@ -4,7 +4,6 @@
 from __future__ import annotations
 
 import argparse
-import fcntl
 import hashlib
 import json
 import os
@@ -14,13 +13,13 @@ import socket
 import sqlite3
 import tempfile
 from contextlib import contextmanager
-from datetime import datetime, timezone
 from pathlib import Path, PurePosixPath
 from typing import Any, Iterator
 
 try:
-    from scripts import worktree_absorption_audit, worktree_fleet_audit
+    from scripts import opl_runtime as runtime, worktree_absorption_audit, worktree_fleet_audit
 except ModuleNotFoundError:
+    import opl_runtime as runtime
     import worktree_absorption_audit
     import worktree_fleet_audit
 
@@ -37,7 +36,7 @@ git = worktree_fleet_audit.git
 
 
 def now() -> str:
-    return datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
+    return runtime.iso_utc(runtime.utc_now())
 
 
 def empty_ledger() -> dict[str, Any]:
@@ -68,26 +67,7 @@ def write_ledger(path: Path, payload: dict[str, Any]) -> None:
     prune_orphaned_integration_overlaps(payload)
     payload["recorded_at"] = now()
     payload["entries"] = sorted(payload["entries"], key=lambda item: item["worktree"])
-    data = json.dumps(payload, indent=2, sort_keys=True) + "\n"
-    temporary: Path | None = None
-    try:
-        with tempfile.NamedTemporaryFile(
-            mode="w",
-            encoding="utf-8",
-            dir=path.parent,
-            prefix=f".{path.name}.",
-            delete=False,
-        ) as handle:
-            temporary = Path(handle.name)
-            os.fchmod(handle.fileno(), 0o600)
-            handle.write(data)
-            handle.flush()
-            os.fsync(handle.fileno())
-        os.replace(temporary, path)
-        os.chmod(path, 0o600)
-    finally:
-        if temporary and temporary.exists():
-            temporary.unlink()
+    runtime.atomic_write_json(path, payload, mode=0o600, sort_keys=True, ensure_ascii=True, fsync=True)
 
 
 def prune_orphaned_integration_overlaps(payload: dict[str, Any]) -> None:
@@ -113,15 +93,8 @@ def prune_orphaned_integration_overlaps(payload: dict[str, Any]) -> None:
 @contextmanager
 def ledger_lock(path: Path) -> Iterator[None]:
     lock_path = path.expanduser().resolve().with_suffix(path.suffix + ".lock")
-    lock_path.parent.mkdir(parents=True, exist_ok=True)
-    fd = os.open(lock_path, os.O_CREAT | os.O_RDWR, 0o600)
-    try:
-        os.chmod(lock_path, 0o600)
-        fcntl.flock(fd, fcntl.LOCK_EX)
+    with runtime.file_lock(lock_path, mode=0o600):
         yield
-    finally:
-        fcntl.flock(fd, fcntl.LOCK_UN)
-        os.close(fd)
 
 
 def worktree_records(repo_root: Path) -> list[dict[str, str | bool]]:

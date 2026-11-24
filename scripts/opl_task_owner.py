@@ -3,18 +3,20 @@
 from __future__ import annotations
 
 from copy import deepcopy
-from datetime import datetime, timezone
 from pathlib import PurePosixPath
-from typing import Any
+from typing import Annotated, Any
 import hashlib
 import json
 import re
 import uuid
 
 try:
-    from . import opl_execution as execution
+    from . import opl_execution as execution, opl_runtime as runtime
 except ImportError:
     import opl_execution as execution
+    import opl_runtime as runtime
+
+from pydantic import BaseModel, ConfigDict, Field, StrictStr, field_validator
 
 
 MIGRATION_SCHEMA = "opl_task_owner_migration.v1"
@@ -40,7 +42,7 @@ class TaskOwnerError(RuntimeError):
 
 
 def now() -> str:
-    return datetime.now(timezone.utc).isoformat()
+    return runtime.utc_now().isoformat()
 
 
 def digest(value: Any) -> str:
@@ -93,65 +95,71 @@ def _relative(value: Any, label: str) -> str:
     return text
 
 
+class _GitRecoveryEntryModel(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    repository: Annotated[StrictStr, Field(pattern=REPOSITORY.pattern)]
+    ref: StrictStr
+    commit: Annotated[StrictStr, Field(pattern=SHA40.pattern)]
+    tree: Annotated[StrictStr, Field(pattern=SHA40.pattern)]
+
+    @field_validator("ref")
+    @classmethod
+    def _clean_ref(cls, value: str) -> str:
+        text = value.strip()
+        if not text or len(text) > 200:
+            raise ValueError("git recovery entry is invalid")
+        return text
+
+
+class _SourceCheckpointModel(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    write_set: Annotated[list[StrictStr], Field(min_length=1)]
+    remaining: list[StrictStr]
+    next_action: StrictStr
+    git_recovery: list[_GitRecoveryEntryModel]
+
+    @field_validator("write_set")
+    @classmethod
+    def _valid_write_set(cls, value: list[str]) -> list[str]:
+        if value != sorted(set(value)):
+            raise ValueError("source checkpoint content is invalid")
+        return [_relative(item, "write-set path") for item in value]
+
+    @field_validator("remaining")
+    @classmethod
+    def _valid_remaining(cls, value: list[str]) -> list[str]:
+        if any(not item.strip() for item in value):
+            raise ValueError("source checkpoint content is invalid")
+        return [item.strip() for item in value]
+
+    @field_validator("next_action")
+    @classmethod
+    def _clean_next_action(cls, value: str) -> str:
+        text = value.strip()
+        if not text:
+            raise ValueError("source checkpoint content is invalid")
+        return text
+
+    @field_validator("git_recovery")
+    @classmethod
+    def _unique_repos(cls, value: list[_GitRecoveryEntryModel]) -> list[_GitRecoveryEntryModel]:
+        repos = [entry.repository for entry in value]
+        if len(repos) != len(set(repos)):
+            raise ValueError("git recovery entry is invalid")
+        return value
+
+
 def validate_checkpoint(value: Any) -> dict[str, Any]:
-    if not isinstance(value, dict) or set(value) != {
-        "write_set",
-        "remaining",
-        "next_action",
-        "git_recovery",
-    }:
+    if not isinstance(value, dict) or set(value) != {"write_set", "remaining", "next_action", "git_recovery"}:
         raise TaskOwnerError("source checkpoint fields are invalid")
-    write_set = value["write_set"]
-    remaining = value["remaining"]
-    recovery = value["git_recovery"]
-    next_action = str(value["next_action"] or "").strip()
-    if (
-        not isinstance(write_set, list)
-        or not write_set
-        or write_set != sorted(set(write_set))
-        or not isinstance(remaining, list)
-        or any(not isinstance(item, str) or not item.strip() for item in remaining)
-        or not isinstance(recovery, list)
-        or not next_action
-    ):
-        raise TaskOwnerError("source checkpoint content is invalid")
-    normalized_write_set = [_relative(item, "write-set path") for item in write_set]
-    normalized_recovery: list[dict[str, str]] = []
-    seen_repositories: set[str] = set()
-    for entry in recovery:
-        if not isinstance(entry, dict) or set(entry) != {
-            "repository",
-            "ref",
-            "commit",
-            "tree",
-        }:
-            raise TaskOwnerError("git recovery entry fields are invalid")
-        repository = str(entry["repository"])
-        ref = str(entry["ref"] or "").strip()
-        if (
-            not REPOSITORY.fullmatch(repository)
-            or repository in seen_repositories
-            or not ref
-            or len(ref) > 200
-            or not SHA40.fullmatch(str(entry["commit"]))
-            or not SHA40.fullmatch(str(entry["tree"]))
-        ):
-            raise TaskOwnerError("git recovery entry is invalid")
-        seen_repositories.add(repository)
-        normalized_recovery.append(
-            {
-                "repository": repository,
-                "ref": ref,
-                "commit": str(entry["commit"]),
-                "tree": str(entry["tree"]),
-            }
-        )
+    parsed = runtime.validate_model(_SourceCheckpointModel, value, error_cls=TaskOwnerError)
+    assert isinstance(parsed, _SourceCheckpointModel)
     return {
         "recorded_at": now(),
-        "write_set": normalized_write_set,
-        "remaining": [item.strip() for item in remaining],
-        "next_action": next_action,
-        "git_recovery": normalized_recovery,
+        "write_set": parsed.write_set,
+        "remaining": parsed.remaining,
+        "next_action": parsed.next_action,
+        "git_recovery": [entry.model_dump() for entry in parsed.git_recovery],
     }
 
 

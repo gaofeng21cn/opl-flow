@@ -8,16 +8,17 @@ import hashlib
 import json
 import sys
 import uuid
-from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
 if __package__:
+    from . import opl_runtime as runtime
     from . import opl_events, opl_ledger, opl_service, opl_workflow
 else:
     SCRIPT_DIR = Path(__file__).resolve().parent
     if str(SCRIPT_DIR) not in sys.path:
         sys.path.insert(0, str(SCRIPT_DIR))
+    import opl_runtime as runtime
     import opl_events
     import opl_ledger
     import opl_service
@@ -32,7 +33,7 @@ MAX_APPROVER_CHARS = 120
 
 
 def _utc_now_iso() -> str:
-    return datetime.now(timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z")
+    return runtime.iso_utc(runtime.utc_now(), drop_microseconds=True)
 
 
 def _clean_text(value: Any, *, max_len: int = MAX_MESSAGE_CHARS) -> str:
@@ -125,7 +126,7 @@ def build_dashboard(input_data: dict[str, Any]) -> dict[str, Any]:
         bd = opl_workflow.executable("bd", None)
         snap = opl_workflow.supervisor_snapshot(root, bd, "git")
         ev_dir = opl_events.default_event_state_dir(root)
-        active_dir = ev_dir if opl_events.inbox_paths(ev_dir)[0].exists() else None
+        active_dir = ev_dir if opl_events.inbox_exists(ev_dir) else None
         raw_inbox = opl_events.list_inbox_summary(snap, state_dir=active_dir)
         svc = _sanitize_service(opl_service.router_service_status(root))
     except (

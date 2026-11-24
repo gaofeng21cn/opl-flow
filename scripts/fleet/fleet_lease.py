@@ -2,22 +2,27 @@
 
 from __future__ import annotations
 
-from typing import Any
-from typing import Iterator
+from typing import Annotated, Any, Iterator, Literal
 from pathlib import Path
 import contextlib
 import datetime as dt
-import fcntl
-import os
-import re
 import secrets
 import uuid
-from .fleet_common import ADMISSION_FIELDS, ADMISSION_OPTIONAL_FIELDS, COMMIT_PATTERN, FleetError, GPU_APIS, LEASE_OPTIONAL_FIELDS, LEASE_PHASES, LEASE_REQUIRED_FIELDS, LEASE_WORKLOAD_CLASSES, OWNER_ID_PATTERN, PREEMPTIBLE_WORKLOAD_CLASSES, PROTECTED_WORKLOAD_CLASSES, ROLE_PATTERN, STATE_ROOT, atomic_json, dispatch_adapter, normalize_node_id, parse_utc, read_json, utc_now
+from pydantic import BaseModel, ConfigDict, Field, StrictBool, StrictInt, StrictStr, field_validator, model_validator
+from . import fleet_common
+from .fleet_common import ADMISSION_FIELDS, ADMISSION_OPTIONAL_FIELDS, COMMIT_PATTERN, FleetError, LEASE_OPTIONAL_FIELDS, LEASE_PHASES, LEASE_REQUIRED_FIELDS, LEASE_WORKLOAD_CLASSES, OWNER_ID_PATTERN, PREEMPTIBLE_WORKLOAD_CLASSES, PROTECTED_WORKLOAD_CLASSES, ROLE_PATTERN, STATE_ROOT, dispatch_adapter, normalize_node_id, parse_utc, utc_now
 from .fleet_features import gpu_profiles, inventory_is_fresh, matching_gpus, node_features
+
+try:
+    from .. import opl_state_store as state_store
+except (ImportError, ValueError):  # Direct script execution.
+    import opl_state_store as state_store
+
 
 def lease_paths(state_root: Path | None = None) -> tuple[Path, Path]:
     root = state_root or STATE_ROOT
-    return root / "controller/leases.json", root / "controller/leases.lock"
+    db_path, lock_path, _ = state_store.lease_db_paths(root)
+    return db_path, lock_path
 
 def empty_lease_store() -> dict[str, Any]:
     return {
@@ -47,113 +52,147 @@ def validate_role(value: Any, *, required: bool = False) -> str | None:
         raise FleetError("runner role is invalid")
     return normalized
 
+class _AdmissionModel(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    checked_at: Any
+    inventory_age_seconds: Annotated[StrictInt, Field(ge=0)]
+    requirements: list[Annotated[StrictStr, Field(pattern=r"^[a-z0-9-]{1,40}$")]]
+    min_memory_gb: Annotated[StrictInt, Field(ge=0)]
+    power_ok: StrictBool
+    storage_ok: StrictBool
+    thermal_ok: StrictBool
+    interactive_busy: StrictBool
+    busy: StrictBool
+    work_volume_ready: StrictBool
+    gpu_api: Literal["any", "cuda", "metal"] = "any"
+    min_gpu_memory_gb: Annotated[StrictInt, Field(ge=0)] = 0
+    gpu_model: Annotated[StrictStr, Field(min_length=1, max_length=120, pattern=r"^[^\x00\r\n]+$")] | None = None
+
+    @field_validator("checked_at")
+    @classmethod
+    def _check_ts(cls, value: Any) -> Any:
+        parse_utc(value)
+        return value
+
+    @field_validator("requirements")
+    @classmethod
+    def _sorted_unique(cls, value: list[str]) -> list[str]:
+        if value != sorted(set(value)):
+            raise ValueError("lease admission is invalid")
+        return value
+
+
+class _WorkerBindingModel(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    attempt_id: StrictStr
+    objective_id: StrictStr
+    owner_id: StrictStr
+    handoff_sha256: Annotated[StrictStr, Field(pattern=r"^[0-9a-f]{64}$")]
+
+    @field_validator("attempt_id", "objective_id", "owner_id")
+    @classmethod
+    def _non_empty(cls, value: str) -> str:
+        if not value.strip():
+            raise ValueError("lease worker binding is invalid")
+        return value
+
+
+class _LeaseAuditEventModel(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    event: Literal["acquire", "renew", "release", "reap", "preempt"]
+    at: Any
+    node_id: StrictStr
+    lease_id: Any
+    generation: Annotated[StrictInt, Field(ge=1)]
+    reason: Annotated[StrictStr, Field(max_length=120)]
+
+    @field_validator("node_id")
+    @classmethod
+    def _valid_node(cls, value: str) -> str:
+        if normalize_node_id(value) != value:
+            raise ValueError("lease audit event is invalid")
+        return value
+
+    @field_validator("at")
+    @classmethod
+    def _valid_at(cls, value: Any) -> Any:
+        parse_utc(value)
+        return value
+
+
+class _LeaseModel(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    lease_id: Any
+    generation: Annotated[StrictInt, Field(ge=1)]
+    nonce: Annotated[StrictStr, Field(pattern=r"^[0-9a-f]{32}$")]
+    node_id: StrictStr
+    owner_task: Any
+    owner_thread: Any
+    owner_run: Any
+    role: Any
+    workload_class: str
+    priority: Any
+    preemptible: Any
+    phase: str
+    acquired_at: Any
+    expires_at: Any
+    control_commit: Annotated[StrictStr, Field(pattern=COMMIT_PATTERN.pattern)]
+    admission: _AdmissionModel
+    dispatch_adapter: StrictStr = "lease-only"
+    worker_binding: _WorkerBindingModel | None = None
+
+    @model_validator(mode="after")
+    def _check_policy(self) -> "_LeaseModel":
+        if self.worker_binding is not None and self.worker_binding.objective_id != self.owner_task:
+            raise ValueError("lease worker binding is invalid")
+        dispatch_adapter(self.dispatch_adapter)
+        try:
+            uuid.UUID(str(self.lease_id))
+        except ValueError as exc:
+            raise ValueError("lease id is invalid") from exc
+        if normalize_node_id(self.node_id) != self.node_id:
+            raise ValueError("lease identity is invalid")
+        validate_owner_id(self.owner_task, "owner task", required=True)
+        validate_owner_id(self.owner_thread, "owner thread")
+        validate_owner_id(self.owner_run, "owner run")
+        validate_role(self.role)
+        if (
+            self.workload_class not in LEASE_WORKLOAD_CLASSES
+            or self.phase not in LEASE_PHASES
+            or not isinstance(self.priority, int)
+            or isinstance(self.priority, bool)
+            or not 0 <= self.priority <= 1000
+            or not isinstance(self.preemptible, bool)
+            or (self.preemptible and self.workload_class not in PREEMPTIBLE_WORKLOAD_CLASSES)
+        ):
+            raise ValueError("lease workload policy is invalid")
+        if self.workload_class in PROTECTED_WORKLOAD_CLASSES and (not self.owner_thread or not self.owner_run):
+            raise ValueError("protected lease requires owner thread and owner run")
+        if parse_utc(self.expires_at) <= parse_utc(self.acquired_at):
+            raise ValueError("lease expiry is invalid")
+        return self
+
+
 def validate_admission(payload: Any) -> dict[str, Any]:
-    if (
-        not isinstance(payload, dict)
-        or not ADMISSION_FIELDS.issubset(payload)
-        or set(payload) - ADMISSION_FIELDS - ADMISSION_OPTIONAL_FIELDS
-    ):
+    if not isinstance(payload, dict) or not ADMISSION_FIELDS.issubset(payload) or set(payload) - ADMISSION_FIELDS - ADMISSION_OPTIONAL_FIELDS:
         raise FleetError("lease admission fields are invalid")
     payload.setdefault("gpu_api", "any")
     payload.setdefault("min_gpu_memory_gb", 0)
     payload.setdefault("gpu_model", None)
-    parse_utc(payload["checked_at"])
-    requirements = payload["requirements"]
-    if (
-        not isinstance(payload["inventory_age_seconds"], int)
-        or payload["inventory_age_seconds"] < 0
-        or not isinstance(requirements, list)
-        or any(not isinstance(item, str) for item in requirements)
-        or requirements != sorted(set(requirements))
-        or any(not re.fullmatch(r"[a-z0-9-]{1,40}", item) for item in requirements)
-        or not isinstance(payload["min_memory_gb"], int)
-        or payload["min_memory_gb"] < 0
-        or payload["gpu_api"] not in GPU_APIS
-        or not isinstance(payload["min_gpu_memory_gb"], int)
-        or payload["min_gpu_memory_gb"] < 0
-        or (
-            payload["gpu_model"] is not None
-            and (
-                not isinstance(payload["gpu_model"], str)
-                or not 1 <= len(payload["gpu_model"]) <= 120
-                or any(
-                    character in payload["gpu_model"]
-                    for character in ("\x00", "\r", "\n")
-                )
-            )
-        )
-        or any(
-            not isinstance(payload[field], bool)
-            for field in (
-                "power_ok",
-                "storage_ok",
-                "thermal_ok",
-                "interactive_busy",
-                "busy",
-                "work_volume_ready",
-            )
-        )
-    ):
-        raise FleetError("lease admission is invalid")
+    fleet_common.runtime.validate_model(_AdmissionModel, payload, error_cls=FleetError, message="lease admission is invalid")
     return payload
 
+
 def validate_lease(payload: dict[str, Any]) -> dict[str, Any]:
-    if (
-        not isinstance(payload, dict)
-        or not LEASE_REQUIRED_FIELDS.issubset(payload)
-        or set(payload) - LEASE_REQUIRED_FIELDS - LEASE_OPTIONAL_FIELDS
-    ):
+    if not isinstance(payload, dict) or not LEASE_REQUIRED_FIELDS.issubset(payload) or set(payload) - LEASE_REQUIRED_FIELDS - LEASE_OPTIONAL_FIELDS:
         raise FleetError("lease fields are invalid")
-    if "worker_binding" in payload:
-        binding = payload["worker_binding"]
-        if (not isinstance(binding, dict) or set(binding) != {"attempt_id", "objective_id", "owner_id", "handoff_sha256"}
-                or binding.get("objective_id") != payload.get("owner_task")
-                or any(not isinstance(binding.get(k), str) or not binding[k].strip() for k in ("attempt_id", "objective_id", "owner_id"))
-                or not re.fullmatch(r"[0-9a-f]{64}", str(binding.get("handoff_sha256", "")))):
-            raise FleetError("lease worker binding is invalid")
     payload.setdefault("dispatch_adapter", "lease-only")
-    dispatch_adapter(str(payload["dispatch_adapter"]))
-    try:
-        uuid.UUID(str(payload["lease_id"]))
-    except ValueError as exc:
-        raise FleetError("lease id is invalid") from exc
-    if (
-        not isinstance(payload["generation"], int)
-        or payload["generation"] < 1
-        or not re.fullmatch(r"[0-9a-f]{32}", str(payload["nonce"]))
-        or normalize_node_id(str(payload["node_id"])) != payload["node_id"]
-    ):
-        raise FleetError("lease identity is invalid")
-    validate_owner_id(payload["owner_task"], "owner task", required=True)
-    validate_owner_id(payload["owner_thread"], "owner thread")
-    validate_owner_id(payload["owner_run"], "owner run")
-    validate_role(payload["role"])
-    workload_class = str(payload["workload_class"])
-    phase = str(payload["phase"])
-    if (
-        workload_class not in LEASE_WORKLOAD_CLASSES
-        or phase not in LEASE_PHASES
-        or not isinstance(payload["priority"], int)
-        or not 0 <= payload["priority"] <= 1000
-        or not isinstance(payload["preemptible"], bool)
-        or (
-            payload["preemptible"]
-            and workload_class not in PREEMPTIBLE_WORKLOAD_CLASSES
-        )
-    ):
-        raise FleetError("lease workload policy is invalid")
-    if workload_class in PROTECTED_WORKLOAD_CLASSES and (
-        not payload["owner_thread"] or not payload["owner_run"]
-    ):
-        raise FleetError("protected lease requires owner thread and owner run")
-    acquired = parse_utc(payload["acquired_at"])
-    expires = parse_utc(payload["expires_at"])
-    if expires <= acquired:
-        raise FleetError("lease expiry is invalid")
-    if not COMMIT_PATTERN.fullmatch(str(payload["control_commit"])):
-        raise FleetError("lease control commit is invalid")
+    if "worker_binding" in payload and payload["worker_binding"] is None:
+        raise FleetError("lease worker binding is invalid")
+    fleet_common.runtime.validate_model(_LeaseModel, payload, error_cls=FleetError)
     validate_admission(payload["admission"])
     return payload
+
 
 def validate_lease_store(payload: dict[str, Any]) -> dict[str, Any]:
     if (
@@ -161,6 +200,7 @@ def validate_lease_store(payload: dict[str, Any]) -> dict[str, Any]:
         or set(payload) != {"schema", "generation", "leases", "audit"}
         or payload.get("schema") != "codex_fleet_leases.v2"
         or not isinstance(payload.get("generation"), int)
+        or isinstance(payload.get("generation"), bool)
         or payload["generation"] < 0
         or not isinstance(payload.get("leases"), dict)
         or not isinstance(payload.get("audit"), list)
@@ -179,20 +219,9 @@ def validate_lease_store(payload: dict[str, Any]) -> dict[str, Any]:
     if payload["generation"] < maximum:
         raise FleetError("lease store generation moved backward")
     for event in payload["audit"]:
-        if (
-            not isinstance(event, dict)
-            or set(event)
-            != {"event", "at", "node_id", "lease_id", "generation", "reason"}
-            or event["event"] not in {"acquire", "renew", "release", "reap", "preempt"}
-            or normalize_node_id(str(event["node_id"])) != event["node_id"]
-            or not isinstance(event["generation"], int)
-            or event["generation"] < 1
-            or not isinstance(event["reason"], str)
-            or len(event["reason"]) > 120
-        ):
-            raise FleetError("lease audit event is invalid")
-        parse_utc(event["at"])
+        fleet_common.runtime.validate_model(_LeaseAuditEventModel, event, error_cls=FleetError, message="lease audit event is invalid")
     return payload
+
 
 @contextlib.contextmanager
 def lease_lock(
@@ -201,36 +230,32 @@ def lease_lock(
     exclusive: bool,
 ) -> Iterator[None]:
     _, lock_path = lease_paths(state_root)
-    lock_path.parent.mkdir(parents=True, exist_ok=True)
-    descriptor = os.open(lock_path, os.O_RDWR | os.O_CREAT, 0o600)
-    os.fchmod(descriptor, 0o600)
-    try:
-        fcntl.flock(descriptor, fcntl.LOCK_EX if exclusive else fcntl.LOCK_SH)
+    with fleet_common.runtime.file_lock(lock_path, mode=0o600):
         yield
-    finally:
-        fcntl.flock(descriptor, fcntl.LOCK_UN)
-        os.close(descriptor)
+
 
 def read_lease_store(*, state_root: Path | None = None) -> dict[str, Any]:
-    path, _ = lease_paths(state_root)
-    if not path.is_file():
-        return empty_lease_store()
-    if path.stat().st_mode & 0o077:
-        raise FleetError("lease store must have mode 0600")
-    payload = read_json(path)
-    if payload.get("schema") == "codex_fleet_leases.v1":
-        if payload.get("leases"):
-            raise FleetError("active lease v1 state requires explicit release before upgrade")
-        payload["schema"] = "codex_fleet_leases.v2"
-    return validate_lease_store(payload)
+    root = state_root or STATE_ROOT
+    return state_store.read_lease_sqlite_store(
+        root,
+        empty_factory=empty_lease_store,
+        validator=validate_lease_store,
+        error_cls=FleetError,
+    )
+
 
 def write_lease_store(
     payload: dict[str, Any],
     *,
     state_root: Path | None = None,
 ) -> None:
-    path, _ = lease_paths(state_root)
-    atomic_json(path, validate_lease_store(payload), mode=0o600)
+    root = state_root or STATE_ROOT
+    state_store.write_lease_sqlite_store(
+        root,
+        payload,
+        validator=validate_lease_store,
+        error_cls=FleetError,
+    )
 
 def lease_is_expired(lease: dict[str, Any], *, now: dt.datetime) -> bool:
     return parse_utc(lease["expires_at"]) <= now.astimezone(dt.timezone.utc)

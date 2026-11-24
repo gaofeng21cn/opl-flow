@@ -12,13 +12,13 @@ import json
 import os
 from pathlib import Path
 import re
-import tempfile
 from typing import Any
 
 try:
-    from . import opl_execution
+    from . import opl_execution, opl_runtime as runtime
 except ImportError:  # Direct script execution.
     import opl_execution
+    import opl_runtime as runtime
 
 
 AUTO_REPLY_MARKER = "【OPL Flow · Codex 自动回复】"
@@ -59,40 +59,19 @@ class SupervisorError(RuntimeError):
 
 
 def _utc_now() -> dt.datetime:
-    return dt.datetime.now(dt.timezone.utc)
+    return runtime.utc_now()
 
 
 def _parse_utc(value: Any) -> dt.datetime | None:
-    if not isinstance(value, str) or not value.strip():
-        return None
-    text = value.strip()
-    if text.endswith("Z"):
-        text = text[:-1] + "+00:00"
-    try:
-        parsed = dt.datetime.fromisoformat(text)
-    except ValueError:
-        return None
-    if parsed.tzinfo is None:
-        parsed = parsed.replace(tzinfo=dt.timezone.utc)
-    return parsed.astimezone(dt.timezone.utc)
+    return runtime.parse_utc(value, allow_none=True)
 
 
 def _iso_utc(value: dt.datetime) -> str:
-    return value.astimezone(dt.timezone.utc).isoformat().replace("+00:00", "Z")
+    return runtime.iso_utc(value)
 
 
 def _atomic_write_text(path: Path, text: str, *, mode: int = 0o600) -> None:
-    path.parent.mkdir(parents=True, exist_ok=True)
-    fd, temp_name = tempfile.mkstemp(prefix=f".{path.name}.", dir=str(path.parent))
-    temp_path = Path(temp_name)
-    try:
-        with os.fdopen(fd, "w", encoding="utf-8") as handle:
-            handle.write(text)
-        os.chmod(temp_path, mode)
-        os.replace(temp_path, path)
-    except BaseException:
-        temp_path.unlink(missing_ok=True)
-        raise
+    runtime.atomic_write_text(path, text, mode=mode)
 
 
 def default_cursor_path(instance_root: Path) -> Path:
@@ -674,12 +653,7 @@ def detect_changes(
 
 
 def _strip_frontmatter(text: str) -> str:
-    if not text.startswith("---\n"):
-        return text
-    end_idx = text.find("\n---\n", 4)
-    if end_idx == -1:
-        return text
-    return text[end_idx + 5 :]
+    return runtime.strip_frontmatter(text)
 
 
 def _extract_manual_sections(body_without_fm: str) -> tuple[str, str]:

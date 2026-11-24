@@ -14,6 +14,7 @@ from pathlib import Path
 from typing import Any, Iterable
 
 try:
+    from . import opl_runtime as runtime  # noqa: F401
     from . import opl_antigravity, opl_codex_bridge, opl_events, opl_execution, opl_ledger, opl_service, opl_supervisor
     from .fleet import fleet_execution
     from .opl_task_owner import (
@@ -27,7 +28,14 @@ try:
         verify_target as verify_owner_migration,
     )
 except ImportError:  # Direct script execution.
-    import opl_antigravity, opl_codex_bridge, opl_events, opl_execution, opl_ledger, opl_service, opl_supervisor
+    import opl_runtime as runtime  # noqa: F401
+    import opl_antigravity
+    import opl_codex_bridge
+    import opl_events
+    import opl_execution
+    import opl_ledger
+    import opl_service
+    import opl_supervisor
     from fleet import fleet_execution
     from opl_task_owner import (
         TaskOwnerError,
@@ -1244,7 +1252,7 @@ def main(argv: list[str] | None = None) -> int:
         if args.command == "ps":
             snap = supervisor_snapshot(root, bd, args.git_bin)
             ev_dir = args.event_state_dir or opl_events.default_event_state_dir(root)
-            active_dir = ev_dir if opl_events.inbox_paths(ev_dir)[0].exists() else None
+            active_dir = ev_dir if opl_events.inbox_exists(ev_dir) else None
             summary = opl_events.list_inbox_summary(snap, state_dir=active_dir)
             svc = opl_service.router_service_status(root)
             if args.json:
@@ -1399,7 +1407,7 @@ def main(argv: list[str] | None = None) -> int:
             else:
                 snap = supervisor_snapshot(root, bd, args.git_bin)
                 ev_dir = args.event_state_dir or opl_events.default_event_state_dir(root)
-                pending = opl_events.list_events(ev_dir, status="pending") if opl_events.inbox_paths(ev_dir)[0].exists() else []
+                pending = opl_events.list_events(ev_dir, status="pending") if opl_events.inbox_exists(ev_dir) else []
                 wt_ledger = read_json_argument(args.worktree_ledger_json, "worktree ledger") if args.worktree_ledger_json else None
                 result = opl_events.evaluate_control_turn(
                     snap,
@@ -1458,7 +1466,7 @@ def main(argv: list[str] | None = None) -> int:
             if args.inbox_action == "list":
                 snap = supervisor_snapshot(root, bd, args.git_bin)
                 ev_dir = args.event_state_dir or opl_events.default_event_state_dir(root)
-                active_dir = ev_dir if opl_events.inbox_paths(ev_dir)[0].exists() else None
+                active_dir = ev_dir if opl_events.inbox_exists(ev_dir) else None
                 result = opl_events.list_inbox_summary(snap, state_dir=active_dir)
                 if args.human:
                     print(opl_events.format_inbox_human(result, service_status=opl_service.router_service_status(root)))
