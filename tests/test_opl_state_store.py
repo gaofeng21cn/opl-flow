@@ -298,6 +298,48 @@ class OplStateStoreAndRuntimeTests(unittest.TestCase):
             self.assertNotIn("import fcntl", text, f"Unix-only fcntl found in {script}")
             self.assertNotIn("<plist", text, f"Raw XML plist concatenation found in {script}")
 
+    def test_cached_uv_venv_hydrates_for_installed_plugin_layout(self) -> None:
+        import hashlib
+        import os
+        import subprocess
+        import sys
+        from unittest.mock import patch
+
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            plugin_dir = root / "installed-plugin"
+            plugin_dir.mkdir(parents=True)
+            (plugin_dir / "pyproject.toml").write_text((REPO_ROOT / "pyproject.toml").read_text(encoding="utf-8"), encoding="utf-8")
+            lock_bytes = (REPO_ROOT / "uv.lock").read_bytes()
+            (plugin_dir / "uv.lock").write_bytes(lock_bytes)
+            lock_hash = hashlib.sha256(lock_bytes).hexdigest()[:12]
+            cache_dir = root / "venv-cache"
+
+            with (
+                patch.dict(os.environ, {"OPL_FLOW_VENV_CACHE_DIR": str(cache_dir)}),
+                patch.object(runtime, "_find_uv_binary", return_value="/fake/uv"),
+                patch.object(subprocess, "run") as run_mock,
+            ):
+                def _fake_sync(cmd, **kwargs):
+                    env = kwargs["env"]
+                    venv_path = Path(env["UV_PROJECT_ENVIRONMENT"])
+                    ver = f"python{sys.version_info.major}.{sys.version_info.minor}"
+                    site_dir = venv_path / "lib" / ver / "site-packages"
+                    site_dir.mkdir(parents=True, exist_ok=True)
+                    return subprocess.CompletedProcess(cmd, 0)
+
+                run_mock.side_effect = _fake_sync
+                site_dir = runtime._ensure_cached_uv_venv(plugin_dir)
+                self.assertIsNotNone(site_dir)
+                expected_venv = cache_dir / f"py{sys.version_info.major}.{sys.version_info.minor}-{lock_hash}"
+                self.assertTrue(expected_venv.is_dir())
+                self.assertEqual(run_mock.call_count, 1)
+
+                # Second call hits existing cached venv without re-invoking uv
+                site_dir_2 = runtime._ensure_cached_uv_venv(plugin_dir)
+                self.assertEqual(site_dir_2, site_dir)
+                self.assertEqual(run_mock.call_count, 1)
+
 
 if __name__ == "__main__":
     unittest.main()

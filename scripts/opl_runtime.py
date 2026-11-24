@@ -9,11 +9,14 @@ from __future__ import annotations
 
 import contextlib
 import datetime as dt
+import hashlib
 import json
 import os
 import plistlib
+import shutil
 import site
 import sqlite3
+import subprocess
 import sys
 import tempfile
 from pathlib import Path
@@ -21,28 +24,108 @@ from typing import Any, Callable, Iterator, TypeVar
 
 T = TypeVar("T")
 
+_REQUIRED_THIRD_PARTY_MODULES = ("filelock", "frontmatter", "pydantic", "tenacity", "typer")
+
+
+def _site_packages_dir(venv_root: Path) -> Path | None:
+    if not venv_root.is_dir():
+        return None
+    ver = f"python{sys.version_info.major}.{sys.version_info.minor}"
+    for site_dir in (venv_root / "lib" / ver / "site-packages", venv_root / "Lib" / "site-packages"):
+        if site_dir.is_dir():
+            return site_dir
+    return None
+
+
+def _all_third_party_modules_available() -> bool:
+    for module_name in _REQUIRED_THIRD_PARTY_MODULES:
+        try:
+            __import__(module_name)
+        except ModuleNotFoundError:
+            return False
+    return True
+
+
+def _find_uv_binary() -> str | None:
+    found = shutil.which("uv")
+    if found:
+        return found
+    for candidate in (
+        Path(sys.executable).with_name("uv"),
+        Path.home() / ".local" / "bin" / "uv",
+        Path("/opt/homebrew/bin/uv"),
+    ):
+        if candidate.is_file() and os.access(candidate, os.X_OK):
+            return str(candidate)
+    return None
+
+
+def _ensure_cached_uv_venv(repo_root: Path) -> Path | None:
+    pyproject = repo_root / "pyproject.toml"
+    lockfile = repo_root / "uv.lock"
+    if not pyproject.is_file() or not lockfile.is_file():
+        return None
+    lock_hash = hashlib.sha256(lockfile.read_bytes()).hexdigest()[:12]
+    cache_env = os.environ.get("OPL_FLOW_VENV_CACHE_DIR", "").strip()
+    cache_root = Path(cache_env).expanduser() if cache_env else (Path.home() / ".cache" / "opl-flow" / "venvs")
+    target_venv = cache_root / f"py{sys.version_info.major}.{sys.version_info.minor}-{lock_hash}"
+    existing_site = _site_packages_dir(target_venv)
+    if existing_site is not None:
+        return existing_site
+    uv_bin = _find_uv_binary()
+    if not uv_bin:
+        return None
+    cache_root.mkdir(parents=True, exist_ok=True)
+    staging_venv = Path(tempfile.mkdtemp(prefix=f".staging-{lock_hash}-", dir=str(cache_root)))
+    try:
+        synced = False
+        for extra_flags in (["--offline"], []):
+            env = {**os.environ, "UV_PROJECT_ENVIRONMENT": str(staging_venv)}
+            res = subprocess.run(
+                [
+                    uv_bin,
+                    "sync",
+                    "--frozen",
+                    "--no-dev",
+                    "--no-progress",
+                    "--python",
+                    sys.executable,
+                    *extra_flags,
+                ],
+                cwd=str(repo_root),
+                env=env,
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+                timeout=90,
+                check=False,
+            )
+            if res.returncode == 0 and _site_packages_dir(staging_venv) is not None:
+                synced = True
+                break
+        if synced:
+            try:
+                staging_venv.rename(target_venv)
+            except OSError:
+                pass
+    except (OSError, subprocess.SubprocessError):
+        pass
+    finally:
+        if staging_venv.exists():
+            shutil.rmtree(staging_venv, ignore_errors=True)
+    return _site_packages_dir(target_venv)
+
 
 def bootstrap_venv() -> None:
-    """Attach the repository .venv site-packages when invoked under bare python3."""
-    try:
-        import filelock  # noqa: F401
-        import pydantic  # noqa: F401
+    """Attach a project .venv or uv.lock cached venv site-packages when invoked under bare python3."""
+    if _all_third_party_modules_available():
         return
-    except ModuleNotFoundError:
-        pass
     repo_root = Path(__file__).resolve().parent.parent
-    venv_root = repo_root / ".venv"
-    if not venv_root.is_dir():
-        return
-    ver = f"python{sys.version_info.major}.{sys.version_info.minor}"
-    candidates = (
-        venv_root / "lib" / ver / "site-packages",
-        venv_root / "Lib" / "site-packages",
-    )
-    for site_dir in candidates:
-        if site_dir.is_dir() and str(site_dir) not in sys.path:
-            site.addsitedir(str(site_dir))
-            return
+    for site_dir in (_site_packages_dir(repo_root / ".venv"), _ensure_cached_uv_venv(repo_root)):
+        if site_dir is not None:
+            if str(site_dir) not in sys.path:
+                site.addsitedir(str(site_dir))
+            if _all_third_party_modules_available():
+                return
 
 
 bootstrap_venv()
