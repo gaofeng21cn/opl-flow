@@ -387,8 +387,11 @@ def install_runner(spec: dict[str, Any], revision: str) -> str:
         if runner_root.is_symlink() or RUNNER_PATH.is_symlink():
             raise FleetError("fleet runner destination must be a real directory")
         runner_root.parent.mkdir(parents=True, exist_ok=True)
-        shutil.copytree(source, runner_root, dirs_exist_ok=True)
-        help_text = run([sys.executable, str(RUNNER_PATH), "--help"]).stdout
+        shutil.copytree(
+            source, runner_root, dirs_exist_ok=True,
+            ignore=shutil.ignore_patterns(".venv", "__pycache__"),
+        )
+        help_text = run(runner_command("--help")).stdout
         if "node-status" not in help_text or "node-sync" not in help_text:
             raise FleetError("source runner does not expose pull-node commands")
         atomic_json(state_path, {"repository": repository, "commit": revision})
@@ -729,11 +732,18 @@ def install_missing_owner_skills(
             raise FleetError(f"owner install did not provide {package}: {remaining}")
     return sorted(owner_actions)
 
+def runner_command(*args: str) -> list[str]:
+    project = RUNNER_PATH.parent.parent
+    if (project / "pyproject.toml").is_file():
+        uv = shutil.which("uv")
+        if not uv:
+            raise FleetError("uv is required to run the installed machine-sync project")
+        return [uv, "run", "--project", str(project), "--no-dev", "python", str(RUNNER_PATH), *args]
+    return [sys.executable, str(RUNNER_PATH), *args]
+
+
 def runner_call(action: str) -> dict[str, Any]:
-    result = run(
-        [sys.executable, str(RUNNER_PATH), action, "--json"],
-        check=False,
-    )
+    result = run(runner_command(action, "--json"), check=False)
     for line in reversed(result.stdout.splitlines()):
         try:
             payload = json.loads(line)
@@ -741,7 +751,8 @@ def runner_call(action: str) -> dict[str, Any]:
             continue
         if isinstance(payload, dict):
             return payload
-    raise FleetError(f"runner returned no JSON for {action}")
+    detail = result.stderr.strip()
+    raise FleetError(f"runner returned no JSON for {action}" + (f": {detail}" if detail else ""))
 
 def build_receipt(
     node_id: str,
