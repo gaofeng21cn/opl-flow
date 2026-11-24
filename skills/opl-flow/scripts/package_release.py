@@ -28,6 +28,18 @@ class ReleaseError(RuntimeError):
     pass
 
 
+def _command_env(argv: Sequence[str]) -> dict[str, str] | None:
+    if not argv or Path(argv[0]).name != "gh":
+        return None
+    env = os.environ.copy()
+    existing = env.get("GODEBUG", "")
+    tokens = [token.strip() for token in existing.split(",") if token.strip()]
+    if not any(token.startswith("http2client=") for token in tokens):
+        tokens.append("http2client=0")
+        env["GODEBUG"] = ",".join(tokens)
+    return env
+
+
 def command(
     argv: Sequence[str],
     *,
@@ -44,6 +56,7 @@ def command(
             text=True,
             capture_output=True,
             timeout=timeout,
+            env=_command_env(argv),
             check=False,
         )
     except FileNotFoundError as exc:
@@ -66,10 +79,18 @@ def command_json(argv: Sequence[str], *, cwd: Path | None = None, timeout: int =
 
 _TRANSIENT_GH_PATTERNS = (
     "unexpected eof",
+    "unexpected end of json input",
+    "command returned invalid json",
     "connection reset by peer",
+    "connection closed",
     "connection refused",
+    "broken pipe",
+    "proxyconnect",
+    "no such host",
+    "temporary failure in name resolution",
     "tls handshake timeout",
     "i/o timeout",
+    "client.timeout exceeded",
     "context deadline exceeded",
     "http2",
     "stream error",
@@ -730,6 +751,7 @@ def watch_publication_run(repo: str, run_id: int) -> None:
             text=True,
             stdout=sys.stderr,
             stderr=sys.stderr,
+            env=_command_env(["gh"]),
             check=False,
         )
         if watched.returncode == 0:

@@ -1573,6 +1573,11 @@ class EnvironmentApprovalTests(unittest.TestCase):
                     raise release.ReleaseError(
                         f'command failed (1): gh api {self.pending_endpoint}: Get "https://api.github.com/{self.pending_endpoint}": EOF'
                     )
+                if pending_failures == 1:
+                    pending_failures += 1
+                    raise release.ReleaseError(
+                        f"command failed (1): gh api {self.pending_endpoint}: unexpected end of JSON input"
+                    )
                 return pending_seq.pop(0)
             if argv[:4] == ["gh", "run", "view", "123"]:
                 if run_view_failures == 0:
@@ -1589,7 +1594,7 @@ class EnvironmentApprovalTests(unittest.TestCase):
             result = release.approve_release_environment(self.repo, 123, "request-1")
 
         self.assertEqual(result, {"status": "approved", "environment": "release-stable", "environment_id": 42})
-        self.assertEqual(pending_failures, 1)
+        self.assertEqual(pending_failures, 2)
         self.assertEqual(run_view_failures, 1)
         self.assertEqual(len(posts), 1)
         self.assertEqual(pending_seq, [])
@@ -1616,6 +1621,24 @@ class EnvironmentApprovalTests(unittest.TestCase):
             with self.assertRaisesRegex(release.ReleaseError, "publication workflow failed: 123"):
                 release.watch_publication_run(self.repo, 123)
         self.assertEqual(watch_fail.call_count, 1)
+
+    def test_command_env_disables_http2_for_gh_only(self) -> None:
+        with patch.dict(os.environ, {}, clear=True):
+            gh_env = release._command_env(["gh", "api", "repos/a/b"])
+            self.assertIsNotNone(gh_env)
+            assert gh_env is not None
+            self.assertEqual(gh_env["GODEBUG"], "http2client=0")
+            self.assertIsNone(release._command_env(["git", "status"]))
+
+        with patch.dict(os.environ, {"GODEBUG": "netdns=go"}, clear=True):
+            gh_env = release._command_env(["/usr/local/bin/gh", "run", "view"])
+            assert gh_env is not None
+            self.assertEqual(gh_env["GODEBUG"], "netdns=go,http2client=0")
+
+        with patch.dict(os.environ, {"GODEBUG": "http2client=1"}, clear=True):
+            gh_env = release._command_env(["gh", "run", "view"])
+            assert gh_env is not None
+            self.assertEqual(gh_env["GODEBUG"], "http2client=1")
 
 
 class CodexLocalPluginReadbackAndProfileTests(unittest.TestCase):
