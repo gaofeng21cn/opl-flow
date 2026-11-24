@@ -4,7 +4,7 @@
 
 发布日期：2026-11-02
 
-最近修订：2026-11-02
+最近修订：2026-11-24
 
 适用对象：希望理解 OPL Flow 工作方式的用户、合作者与开发者。
 
@@ -66,13 +66,13 @@ OPL Flow 用 Router、Worker、Fleet 和 Ledger 描述四种协作责任。
 
 协作从事件进入 Router 开始。Router 读取已有目标与负责人，把下一段工作交给 Worker；需要执行资源或接力时，由 Fleet 提供条件。Worker 将成果、检查点或阻塞写回 Ledger，需要进一步处理的变化再交给 Router。
 
-当前的路由入口由 Skill 和 Agent 判断承载，自动化交接随着真实使用逐步补齐。
+入口既支持对话中按需调用 Skill 路由，也支持通过统一的事件收件箱、后台路由服务与无状态控制轮次自动推进任务流转，让自动化交接随真实使用持续深化。
 
 ## Router：把注意力放到正确的工作上
 
 Router 的价值在于理解一次变化意味着什么。用户的新要求、一次检查失败、执行结果、到期事项或审阅意见，都可能改变工作的下一步。Router 结合当前目标与负责人判断：继续已有工作、调用另一种方法、安排接力，或把需要人决定的问题交回用户。
 
-一个已经有人推进的目标，新消息应先交给这位负责人；同一问题的多次提醒，可以合并成一次有用的更新；只有状态、成果或下一步发生了有意义的变化，才值得再次占用用户的注意力。这样，Router 帮助减少重复理解、重复启动和无效打断。
+一个已经有人推进的目标，新消息应先交给这位负责人；同一问题的多次提醒，可以合并成一次有用的更新；只有状态、成果或下一步发生了有意义的变化，才值得再次占用用户的注意力。通过脱敏、幂等的统一事件收件箱，手工提交、外部回调与任务图变化都能按一致节奏进入路由循环；需要人工裁决或归档确认的事项汇聚到统一的人类决策收件箱，用户可用简洁直观的启停、查看、派发与批准操作介入，其余已授权工作则在后台服务中持续推进，减少重复理解、重复启动和无效打断。
 
 OPL Flow 当前提供三个按职责划分的入口：`opl-flow` 负责 Flow 的基线、Ledger 与 Fleet 操作，`software-development` 负责软件开发、评审、架构和交付，`manage-codex-tasks` 负责原生任务协调、恢复与负责人迁移。用户通常直接表达目标，由执行中的 Agent 选择相应入口；熟悉流程的用户也可以直接指定 Skill。
 
@@ -84,7 +84,7 @@ Worker 承担真正的执行。它可以就在当前会话中工作，也可以�
 
 一次执行可以持续到一个自然的交接点：完成一项改动、得到一组分析结果、形成可审阅稿件，或者发现需要补充材料的问题。切片的大小由工作决定。执行者应有足够空间完成连贯工作，普通步骤由其自主安排。
 
-为了让工作容易恢复，Worker 在交接时留下几项真正有用的信息：已经完成什么，当前成果在哪里，哪些决定已经确定，剩余工作是什么，以及接下来如何继续。代码可以通过已保存的提交继续，文档可以通过明确版本和审阅意见继续，分析可以通过输入、输出和运行记录继续。
+为了让工作可控且容易恢复，每次执行交接不仅说明已经完成什么、当前成果在哪里、哪些决定已经确定、剩余工作是什么以及如何继续，还可通过结构化的交接与回执约定明确写入范围、工具与网络边界、耗时与成本预算，以及可中断恢复的检查点条件。Worker 在有界切片内自主推进并返回标准化结果，由当前 Ledger 负责人核验后决定继续、修复或收口。代码可以通过已保存的提交继续，文档可以通过明确版本和审阅意见继续，分析可以通过输入、输出和运行记录继续。
 
 这些线索让下一位执行者从成果出发。原会话仍可作为背景，但接力所需的关键决定和工作位置已经清楚。换模型、换会话或换机器时，同一个目标可以继续向前。
 
@@ -98,7 +98,7 @@ Fleet 负责把不同机器和执行环境组织成可用资源。一台笔记�
 
 任务等待人工意见或外部条件时，可以保存检查点，并在执行方式允许时释放计算资源。条件恢复后，再取得可用容量继续。若执行结果尚不清楚，先查明实际进展，再决定恢复、释放或重试。
 
-Fleet 可以利用 SSH、CI Runner 和原生 Agent 连接等已有执行方式。工作方法由 Router 与 Worker 决定，Fleet 把环境准备、资源占用和接力条件处理清楚。
+Fleet 可以利用原生本地执行桥、SSH、CI Runner 和原生 Agent 连接等已有执行方式，并在统一调度适配层上支持按优先级排队、并发子任务的分组派发与结果汇聚，以及跨节点切换时的受控上下文恢复。工作方法由 Router 与 Worker 决定，Fleet 把环境准备、资源占用和接力条件处理清楚。
 
 ## Ledger：让目标长于执行者
 
@@ -108,7 +108,7 @@ Ledger 保存一项工作的持久身份。一个独立目标可以经历多个�
 
 “唯一任务真相”指的是目标与执行状态的归属。代码仍由代码仓库保存，文件仍在工作空间中，发布结果仍由发布系统证明，专业质量仍由对应领域负责人判断。Ledger 连接这些成果与证据的引用，让人能够理解整个目标推进到了哪里。
 
-人读界面可以有多种：Obsidian + Bases 保存完整任务档案，Linear 展示选定的活跃目标，工作台呈现当前进展。它们围绕同一目标组织信息，任务的执行状态始终回到 Ledger。
+人读界面可以有多种：Obsidian + Bases 保存完整任务档案，Linear 展示选定的活跃目标，工作台呈现当前进展。确定性的状态差异检测与无冲突归档同步把任务进展稳定投影到这些界面，无需依赖人工整理或额外建立第二份任务库；任务的执行状态始终回到 Ledger。
 
 ## 一个场景：从本机修改到另一台机器继续
 
@@ -148,7 +148,7 @@ Router 把需要关注的变化交给正确的人或执行者，Worker 持续形
 
 OPL Flow 可以先在单机上工作。精简 Profile 保持偏好与方法一致，三个 Router Skill 帮助选择合适入口，当前 Agent 完成执行。有了需要跨会话管理的目标，再使用 Ledger；有了跨机器工作或容量需求，再使用 Fleet。
 
-现有源码已经提供 Ledger 适配、Fleet 节点检查、workspace 管理、容量租约、执行入口和负责人迁移机制。事件的统一接入、自动合并、完整的执行交接信息，以及更广泛的自动恢复，仍需要沿实际工作逐步完善。具体实现范围由[工作流架构](https://github.com/gaofeng21cn/opl-flow/blob/main/docs/reusable-workflow-architecture.md)和 [Fleet 架构](https://github.com/gaofeng21cn/opl-flow/blob/main/docs/opl-fleet-architecture.md)维护。
+现有源码已经提供 Ledger 适配、确定性的 Obsidian 归档与 Linear 状态投影、统一事件收件箱与跨平台后台路由服务、人类决策收件箱与简洁控制入口、带权限与预算边界的结构化交接和结果回执、默认本地执行桥，以及具备优先级排队与分组派发能力的统一 Fleet 调度机制。更广泛的跨节点无人值守自治、多机异常自愈与细粒度排队策略，仍沿着真实工作持续打磨与实机验证。具体实现范围由[工作流架构](https://github.com/gaofeng21cn/opl-flow/blob/main/docs/reusable-workflow-architecture.md)和 [Fleet 架构](https://github.com/gaofeng21cn/opl-flow/blob/main/docs/opl-fleet-architecture.md)维护。
 
 改进首先发生在已有分工内：交接缺少信息，就补充检查点；重复提醒影响工作，就在入口合并；节点状态不够准确，就改善实时检查。并发需求增长时，再完善排队和容量分配。每一步都服务于一个已经能够说明的工作问题。
 
@@ -164,9 +164,9 @@ OPL Framework 提供通用运行能力，并负责 Package 安装、Profile 物�
 
 ## 延伸阅读
 
-- [One Person Lab 白皮书](https://github.com/gaofeng21cn/one-person-lab/blob/main/docs/whitepapers/opl-whitepaper.md)：复杂知识工作的整体产品思想。
-- [OPL Framework 白皮书](https://github.com/gaofeng21cn/one-person-lab/blob/main/docs/whitepapers/opl-framework-whitepaper.md)：通用能力的组合与演进。
-- [OPL App 白皮书](https://github.com/gaofeng21cn/one-person-lab-app/blob/main/docs/whitepapers/opl-app-whitepaper.md)：连续工作在界面中的表达。
-- [OPL Cloud 白皮书](https://github.com/gaofeng21cn/one-person-lab-cloud/blob/main/docs/whitepapers/opl-cloud-whitepaper.md)：在线资源与协作。
-- [MAS 白皮书](https://github.com/gaofeng21cn/med-autoscience/blob/main/docs/whitepapers/mas-whitepaper.md)：专业领域如何围绕同一研究目标持续推进。
+- [One Person Lab 白皮书](https://gaofeng21cn.github.io/one-person-lab/latest/whitepapers/opl-whitepaper.html)：复杂知识工作的整体产品思想。
+- [OPL Framework 白皮书](https://gaofeng21cn.github.io/one-person-lab/latest/whitepapers/opl-framework-whitepaper.html)：通用能力的组合与演进。
+- [OPL App 白皮书](https://gaofeng21cn.github.io/one-person-lab/latest/whitepapers/opl-app-whitepaper.html)：极薄底座、平权插件生态与连续工作体验。
+- [OPL Cloud 白皮书](https://gaofeng21cn.github.io/one-person-lab/latest/whitepapers/opl-cloud-whitepaper.html)：在线工作空间、远端资源与对外服务。
+- [MAS 白皮书](https://gaofeng21cn.github.io/one-person-lab/latest/whitepapers/mas-whitepaper.html)：专业领域如何围绕同一研究目标持续推进。
 - [OPL Flow 文档索引](https://github.com/gaofeng21cn/opl-flow/blob/main/docs/README.md)：当前架构、安装与操作入口。
