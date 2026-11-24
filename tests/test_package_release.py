@@ -1481,6 +1481,80 @@ class EnvironmentApprovalTests(unittest.TestCase):
                 release.approve_release_environment(self.repo, 123, "request-1")
         self.assertEqual(mocked.call_count, 6)
 
+    def test_waits_through_in_progress_publication_authority_before_approving(self) -> None:
+        self.deployment["current_user_can_approve"] = True
+        pending_seq = [[], [], [self.deployment]]
+        run_seq = [
+            {"status": "in_progress", "conclusion": None, "jobs": [{"name": "publication-authority", "status": "in_progress", "conclusion": None}]},
+            {"status": "in_progress", "conclusion": None, "jobs": [{"name": "publication-authority", "status": "completed", "conclusion": "success"}]},
+        ]
+        posts: list[list[str]] = []
+
+        def fake_command(argv, **kwargs):
+            if "POST" in argv:
+                posts.append(argv)
+                return [{"id": 7}]
+            if argv == ["gh", "api", self.pending_endpoint]:
+                return pending_seq.pop(0)
+            if argv[:4] == ["gh", "run", "view", "123"]:
+                return run_seq.pop(0)
+            self.fail(f"unexpected argv: {argv}")
+
+        with patch.object(release, "command_json", side_effect=fake_command), patch.object(release.time, "sleep"):
+            result = release.approve_release_environment(self.repo, 123, "request-1")
+
+        self.assertEqual(result, {"status": "approved", "environment": "release-stable", "environment_id": 42})
+        self.assertEqual(len(posts), 1)
+        self.assertEqual(pending_seq, [])
+        self.assertEqual(run_seq, [])
+
+    def test_stops_promptly_if_publication_authority_fails(self) -> None:
+        calls: list[list[str]] = []
+
+        def fake_command(argv, **kwargs):
+            calls.append(argv)
+            if argv == ["gh", "api", self.pending_endpoint]:
+                return []
+            if argv[:4] == ["gh", "run", "view", "123"]:
+                return {
+                    "status": "in_progress",
+                    "conclusion": None,
+                    "jobs": [{"name": "publication-authority", "status": "completed", "conclusion": "failure"}],
+                }
+            self.fail(f"unexpected argv: {argv}")
+
+        with patch.object(release, "command_json", side_effect=fake_command), patch.object(release.time, "sleep") as sleep:
+            result = release.approve_release_environment(self.repo, 123, "request-1")
+
+        self.assertEqual(result, {"status": "not_required", "environment": None, "environment_id": None})
+        self.assertEqual(len(calls), 2)
+        sleep.assert_not_called()
+
+    def test_returns_not_required_once_publish_job_starts_without_approval(self) -> None:
+        calls: list[list[str]] = []
+
+        def fake_command(argv, **kwargs):
+            calls.append(argv)
+            if argv == ["gh", "api", self.pending_endpoint]:
+                return []
+            if argv[:4] == ["gh", "run", "view", "123"]:
+                return {
+                    "status": "in_progress",
+                    "conclusion": None,
+                    "jobs": [
+                        {"name": "publication-authority", "status": "completed", "conclusion": "success"},
+                        {"name": "publish-package", "status": "in_progress", "conclusion": None},
+                    ],
+                }
+            self.fail(f"unexpected argv: {argv}")
+
+        with patch.object(release, "command_json", side_effect=fake_command), patch.object(release.time, "sleep") as sleep:
+            result = release.approve_release_environment(self.repo, 123, "request-1")
+
+        self.assertEqual(result, {"status": "not_required", "environment": None, "environment_id": None})
+        self.assertEqual(len(calls), 2)
+        sleep.assert_not_called()
+
 
 class CodexLocalPluginReadbackAndProfileTests(unittest.TestCase):
     def test_plugin_entry_reads_app_server_stdio_and_skips_notifications(self) -> None:

@@ -536,12 +536,45 @@ def wait_for_run_id(repo: str, request_id: str, caller_commit: str) -> int:
     raise ReleaseError("dispatched publication run did not become visible")
 
 
+def _approval_stage_still_pending(run: dict[str, Any]) -> bool:
+    status = str(run.get("status") or "")
+    if status in ("queued", "waiting"):
+        return True
+    if status != "in_progress":
+        return False
+    jobs = run.get("jobs")
+    if not isinstance(jobs, list) or not jobs:
+        return False
+    job_dicts = [job for job in jobs if isinstance(job, dict)]
+    if not job_dicts:
+        return False
+    authority_jobs = [
+        job
+        for job in job_dicts
+        if str(job.get("name") or "") == "publication-authority"
+        or str(job.get("name") or "").endswith("/ publication-authority")
+    ]
+    if authority_jobs:
+        if any(str(job.get("status") or "") != "completed" for job in authority_jobs):
+            return True
+        if any(str(job.get("conclusion") or "") not in ("", "success") for job in authority_jobs):
+            return False
+        downstream = [job for job in job_dicts if job not in authority_jobs]
+        if not downstream:
+            return True
+        return any(
+            str(job.get("status") or "") in ("queued", "waiting", "pending", "requested")
+            for job in downstream
+        )
+    return any(str(job.get("status") or "") in ("waiting", "pending") for job in job_dicts)
+
+
 def approve_release_environment(repo: str, run_id: int, request_id: str) -> dict[str, Any]:
     endpoint = f"repos/{repo}/actions/runs/{run_id}/pending_deployments"
     last_status = ""
     approval_unknown = False
     environment_id = None
-    for attempt in range(30):
+    for attempt in range(60):
         try:
             pending = command_json(["gh", "api", endpoint], timeout=30)
         except ReleaseError as exc:
@@ -608,7 +641,7 @@ def approve_release_environment(repo: str, run_id: int, request_id: str) -> dict
                     "environment_id": environment_id,
                 }
         run = command_json(
-            ["gh", "run", "view", str(run_id), "--repo", repo, "--json", "status,conclusion"],
+            ["gh", "run", "view", str(run_id), "--repo", repo, "--json", "status,conclusion,jobs"],
             timeout=30,
         )
         last_status = str(run.get("status") or "") if isinstance(run, dict) else ""
@@ -621,7 +654,7 @@ def approve_release_environment(repo: str, run_id: int, request_id: str) -> dict
                 return {"status": "approval_reconciled", "environment": "release-stable", "environment_id": environment_id}
             time.sleep(1)
             continue
-        if last_status not in ("queued", "waiting"):
+        if not _approval_stage_still_pending(run if isinstance(run, dict) else {}):
             return {"status": "not_required", "environment": None, "environment_id": None}
         time.sleep(1)
     if approval_unknown:
@@ -629,7 +662,7 @@ def approve_release_environment(repo: str, run_id: int, request_id: str) -> dict
             f"release-stable approval outcome remains unknown; inspect https://github.com/{repo}/actions/runs/{run_id} before any retry"
         )
     if last_status == "waiting":
-        raise ReleaseError("release-stable approval did not become available within 30s")
+        raise ReleaseError("release-stable approval did not become available within 60s")
     return {"status": "not_required", "environment": None, "environment_id": None}
 
 
