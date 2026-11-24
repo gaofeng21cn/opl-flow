@@ -64,6 +64,51 @@ def command_json(argv: Sequence[str], *, cwd: Path | None = None, timeout: int =
         raise ReleaseError(f"command returned invalid JSON: {' '.join(argv)}") from exc
 
 
+_TRANSIENT_GH_PATTERNS = (
+    "unexpected eof",
+    "connection reset by peer",
+    "connection refused",
+    "tls handshake timeout",
+    "i/o timeout",
+    "context deadline exceeded",
+    "http2",
+    "stream error",
+    "server closed idle connection",
+    "error connecting to api.github.com",
+    "bad gateway",
+    "service unavailable",
+    "gateway timeout",
+    "http 502",
+    "http 503",
+    "http 504",
+    "timed out after",
+)
+
+
+def _is_transient_gh_error(message: str) -> bool:
+    lowered = message.lower()
+    if any(token in lowered for token in ("http 400", "http 401", "http 403", "http 404", "http 422")):
+        return False
+    return bool(re.search(r"\beof\b", lowered)) or any(pattern in lowered for pattern in _TRANSIENT_GH_PATTERNS)
+
+
+def _gh_read_json(
+    argv: Sequence[str],
+    *,
+    cwd: Path | None = None,
+    timeout: int = 30,
+    attempts: int = 4,
+) -> Any:
+    for attempt in range(attempts):
+        try:
+            return command_json(argv, cwd=cwd, timeout=timeout)
+        except ReleaseError as exc:
+            if attempt + 1 < attempts and _is_transient_gh_error(str(exc)):
+                time.sleep(min(2, attempt + 1))
+                continue
+            raise
+
+
 def read_json(path: Path) -> dict[str, Any]:
     try:
         value = json.loads(path.read_text(encoding="utf-8"))
@@ -496,7 +541,7 @@ def run_id_from_dispatch(output: str) -> int | None:
 
 
 def find_run_id(repo: str, request_id: str, caller_commit: str) -> int | None:
-    runs = command_json(
+    runs = _gh_read_json(
         [
             "gh",
             "run",
@@ -511,7 +556,8 @@ def find_run_id(repo: str, request_id: str, caller_commit: str) -> int | None:
             "20",
             "--json",
             "databaseId,displayTitle,headSha",
-        ]
+        ],
+        timeout=60,
     )
     if not isinstance(runs, list):
         return None
@@ -576,7 +622,7 @@ def approve_release_environment(repo: str, run_id: int, request_id: str) -> dict
     environment_id = None
     for attempt in range(60):
         try:
-            pending = command_json(["gh", "api", endpoint], timeout=30)
+            pending = _gh_read_json(["gh", "api", endpoint], timeout=30)
         except ReleaseError as exc:
             message = str(exc)
             if (
@@ -609,7 +655,7 @@ def approve_release_environment(repo: str, run_id: int, request_id: str) -> dict
                 raise ReleaseError("release-stable pending deployment has no environment identity")
             if not approval_unknown:
                 if deployment.get("current_user_can_approve") is not True:
-                    environment = command_json(["gh", "api", f"repos/{repo}/environments/release-stable"], timeout=30)
+                    environment = _gh_read_json(["gh", "api", f"repos/{repo}/environments/release-stable"], timeout=30)
                     if (
                         not isinstance(environment, dict) or environment.get("id") != environment_id
                         or environment.get("name") != "release-stable"
@@ -640,7 +686,7 @@ def approve_release_environment(repo: str, run_id: int, request_id: str) -> dict
                     "environment": "release-stable",
                     "environment_id": environment_id,
                 }
-        run = command_json(
+        run = _gh_read_json(
             ["gh", "run", "view", str(run_id), "--repo", repo, "--json", "status,conclusion,jobs"],
             timeout=30,
         )
@@ -664,6 +710,45 @@ def approve_release_environment(repo: str, run_id: int, request_id: str) -> dict
     if last_status == "waiting":
         raise ReleaseError("release-stable approval did not become available within 60s")
     return {"status": "not_required", "environment": None, "environment_id": None}
+
+
+def watch_publication_run(repo: str, run_id: int) -> None:
+    for attempt in range(4):
+        watched = subprocess.run(
+            [
+                "gh",
+                "run",
+                "watch",
+                str(run_id),
+                "--repo",
+                repo,
+                "--compact",
+                "--exit-status",
+                "--interval",
+                "5",
+            ],
+            text=True,
+            stdout=sys.stderr,
+            stderr=sys.stderr,
+            check=False,
+        )
+        if watched.returncode == 0:
+            return
+        state = _gh_read_json(
+            ["gh", "run", "view", str(run_id), "--repo", repo, "--json", "status,conclusion"],
+            timeout=30,
+        )
+        if isinstance(state, dict):
+            status = str(state.get("status") or "")
+            conclusion = str(state.get("conclusion") or "")
+            if status == "completed":
+                if conclusion == "success":
+                    return
+                raise ReleaseError(f"publication workflow failed: {run_id}")
+            if attempt < 3:
+                time.sleep(2)
+                continue
+        raise ReleaseError(f"publication workflow failed: {run_id}")
 
 
 def validate_receipt(
@@ -757,18 +842,18 @@ def private_publication_target(
     if not match:
         raise ReleaseError("private Package has no canonical owner repository")
     repo = match[1]
-    metadata = command_json(["gh", "api", f"repos/{repo}"])
+    metadata = _gh_read_json(["gh", "api", f"repos/{repo}"])
     if (
         not isinstance(metadata, dict) or metadata.get("private") is not True
         or str(metadata.get("full_name") or "").lower() != repo.lower()
         or metadata.get("default_branch") != "main"
     ):
         raise ReleaseError("private publication requires the private owner repository's main branch")
-    reference = command_json(["gh", "api", f"repos/{repo}/git/ref/heads/main"])
+    reference = _gh_read_json(["gh", "api", f"repos/{repo}/git/ref/heads/main"])
     caller_commit = reference.get("object", {}).get("sha") if isinstance(reference, dict) else None
     if not isinstance(caller_commit, str) or not re.fullmatch(r"[0-9a-f]{40}", caller_commit):
         raise ReleaseError("private publisher main has no exact commit")
-    content = command_json([
+    content = _gh_read_json([
         "gh", "api", f"repos/{repo}/contents/.github/workflows/publish-package.yml?ref={caller_commit}",
     ])
     try:
@@ -1019,28 +1104,9 @@ def publish(args: argparse.Namespace) -> dict[str, Any]:
         run_id = wait_for_run_id(repo, request_id, caller_commit)
     environment_approval = approve_release_environment(repo, run_id, request_id)
     sys.stderr.write(f"Watching Package publication run {run_id}\n")
-    watched = subprocess.run(
-        [
-            "gh",
-            "run",
-            "watch",
-            str(run_id),
-            "--repo",
-            repo,
-            "--compact",
-            "--exit-status",
-            "--interval",
-            "5",
-        ],
-        text=True,
-        stdout=sys.stderr,
-        stderr=sys.stderr,
-        check=False,
-    )
-    if watched.returncode != 0:
-        raise ReleaseError(f"publication workflow failed: {run_id}")
+    watch_publication_run(repo, run_id)
 
-    run = command_json(
+    run = _gh_read_json(
         [
             "gh",
             "run",
@@ -1050,7 +1116,8 @@ def publish(args: argparse.Namespace) -> dict[str, Any]:
             repo,
             "--json",
             "jobs,createdAt,updatedAt,conclusion,url,headSha",
-        ]
+        ],
+        timeout=60,
     )
     if not isinstance(run, dict) or run.get("conclusion") != "success" or run.get("headSha") != caller_commit:
         raise ReleaseError("publication workflow did not finish successfully at the selected caller commit")
@@ -1066,14 +1133,24 @@ def publish(args: argparse.Namespace) -> dict[str, Any]:
         ):
             raise ReleaseError("private Package receipt does not match its owner workflow run")
     else:
-        with tempfile.TemporaryDirectory(prefix="opl-package-receipt-") as temporary:
-            command(
-                ["gh", "run", "download", str(run_id), "--repo", repo, "--dir", temporary]
-            )
-            receipts = list(Path(temporary).rglob("publication-receipt.json"))
-            if len(receipts) != 1:
-                raise ReleaseError("publication workflow did not expose one receipt")
-            receipt = read_json(receipts[0])
+        receipt = None
+        for attempt in range(3):
+            with tempfile.TemporaryDirectory(prefix="opl-package-receipt-") as temporary:
+                try:
+                    command(
+                        ["gh", "run", "download", str(run_id), "--repo", repo, "--dir", temporary]
+                    )
+                except ReleaseError as exc:
+                    if attempt < 2 and _is_transient_gh_error(str(exc)):
+                        time.sleep(attempt + 1)
+                        continue
+                    raise
+                receipts = list(Path(temporary).rglob("publication-receipt.json"))
+                if len(receipts) != 1:
+                    raise ReleaseError("publication workflow did not expose one receipt")
+                receipt = read_json(receipts[0])
+                break
+        assert receipt is not None
     digest = validate_receipt(
         receipt,
         package_id=args.package_id,

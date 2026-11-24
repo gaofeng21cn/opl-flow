@@ -1555,6 +1555,68 @@ class EnvironmentApprovalTests(unittest.TestCase):
         self.assertEqual(len(calls), 2)
         sleep.assert_not_called()
 
+    def test_transient_eof_on_pending_and_run_view_retries_then_approves(self) -> None:
+        self.deployment["current_user_can_approve"] = True
+        pending_failures = 0
+        run_view_failures = 0
+        pending_seq = [[], [self.deployment]]
+        posts: list[list[str]] = []
+
+        def fake_command(argv, **kwargs):
+            nonlocal pending_failures, run_view_failures
+            if "POST" in argv:
+                posts.append(argv)
+                return [{"id": 7}]
+            if argv == ["gh", "api", self.pending_endpoint]:
+                if pending_failures == 0:
+                    pending_failures += 1
+                    raise release.ReleaseError(
+                        f'command failed (1): gh api {self.pending_endpoint}: Get "https://api.github.com/{self.pending_endpoint}": EOF'
+                    )
+                return pending_seq.pop(0)
+            if argv[:4] == ["gh", "run", "view", "123"]:
+                if run_view_failures == 0:
+                    run_view_failures += 1
+                    raise release.ReleaseError("TLS handshake timeout")
+                return {
+                    "status": "in_progress",
+                    "conclusion": None,
+                    "jobs": [{"name": "publication-authority", "status": "in_progress", "conclusion": None}],
+                }
+            self.fail(f"unexpected argv: {argv}")
+
+        with patch.object(release, "command_json", side_effect=fake_command), patch.object(release.time, "sleep"):
+            result = release.approve_release_environment(self.repo, 123, "request-1")
+
+        self.assertEqual(result, {"status": "approved", "environment": "release-stable", "environment_id": 42})
+        self.assertEqual(pending_failures, 1)
+        self.assertEqual(run_view_failures, 1)
+        self.assertEqual(len(posts), 1)
+        self.assertEqual(pending_seq, [])
+
+    def test_watch_publication_run_recovers_from_disconnect_and_fails_closed_on_failure(self) -> None:
+        watch_results = [
+            subprocess.CompletedProcess(args=[], returncode=1),
+            subprocess.CompletedProcess(args=[], returncode=0),
+        ]
+        with (
+            patch.object(release.subprocess, "run", side_effect=watch_results) as watch_mock,
+            patch.object(release, "command_json", return_value={"status": "in_progress", "conclusion": ""}) as view_mock,
+            patch.object(release.time, "sleep"),
+        ):
+            release.watch_publication_run(self.repo, 123)
+        self.assertEqual(watch_mock.call_count, 2)
+        view_mock.assert_called_once()
+
+        with (
+            patch.object(release.subprocess, "run", return_value=subprocess.CompletedProcess(args=[], returncode=1)) as watch_fail,
+            patch.object(release, "command_json", return_value={"status": "completed", "conclusion": "failure"}),
+            patch.object(release.time, "sleep"),
+        ):
+            with self.assertRaisesRegex(release.ReleaseError, "publication workflow failed: 123"):
+                release.watch_publication_run(self.repo, 123)
+        self.assertEqual(watch_fail.call_count, 1)
+
 
 class CodexLocalPluginReadbackAndProfileTests(unittest.TestCase):
     def test_plugin_entry_reads_app_server_stdio_and_skips_notifications(self) -> None:
