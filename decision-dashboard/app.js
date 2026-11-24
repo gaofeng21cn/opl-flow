@@ -6,7 +6,10 @@ import {
 } from '@modelcontextprotocol/ext-apps';
 
 const app = new App(
-  { name: 'opl-flow-decision-dashboard', version: '0.1.81' },
+  {
+    name: 'opl-flow-decision-dashboard',
+    version: typeof __OPL_FLOW_VERSION__ === 'string' ? __OPL_FLOW_VERSION__ : '0.1.82',
+  },
   { tools: { listChanged: false } },
   { strict: true },
 );

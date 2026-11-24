@@ -1,9 +1,24 @@
 import { build } from 'esbuild';
+import { readFileSync } from 'node:fs';
 import { readFile, writeFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const root = resolve(fileURLToPath(new URL('.', import.meta.url)));
+
+function readPackageVersion() {
+  for (const candidate of [resolve(root, '..', 'opl-package.json'), resolve(root, 'package.json')]) {
+    try {
+      const parsed = JSON.parse(readFileSync(candidate, 'utf8'));
+      if (typeof parsed?.version === 'string' && parsed.version.trim()) {
+        return parsed.version.trim();
+      }
+    } catch {}
+  }
+  return '0.1.82';
+}
+
+const pkgVersion = readPackageVersion();
 
 const ui = await build({
   entryPoints: [resolve(root, 'app.js')],
@@ -13,6 +28,9 @@ const ui = await build({
   write: false,
   minify: true,
   legalComments: 'inline',
+  define: {
+    __OPL_FLOW_VERSION__: JSON.stringify(pkgVersion),
+  },
 });
 const script = ui.outputFiles[0].text.replace(/<\/script/gi, '<\\/script');
 const template = await readFile(resolve(root, 'template.html'), 'utf8');

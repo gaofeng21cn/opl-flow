@@ -41,6 +41,11 @@ specialized capability absence, Profile state, Ledger state, and Fleet state.
 5. Restart or create a new Codex session only when executor discovery requires
    it, then verify the effective Skill IDs.
 
+## Dual-Host Profile Separation
+
+- **Codex (`~/.codex/`)**: Uses `templates/AGENTS.md` (projected into `~/.codex/AGENTS.md`) and `templates/TASTE.md` (`~/.codex/TASTE.md`), handled via Framework `profile_surface` with semantic merge that preserves machine-local policies appended by the user.
+- **AntiGravity (`~/.gemini/`)**: Uses `templates/antigravity/GEMINI.md` (`~/.gemini/GEMINI.md`) and `templates/antigravity/agy-fast-AGENTS.local.md`, handled via `opl_workflow.py antigravity` marker blocks (`OPL_FLOW_AGY_BASELINE`) and never shares or overwrites `~/.codex/AGENTS.md`.
+
 ## AntiGravity Baseline
 
 When the user asks to inspect, establish, or repair their AntiGravity

@@ -11,6 +11,7 @@ import hashlib
 import json
 import os
 import re
+import selectors
 import subprocess
 import sys
 import tarfile
@@ -1082,8 +1083,139 @@ def publish(args: argparse.Namespace) -> dict[str, Any]:
     }
 
 
+def codex_local_plugin_list(codex_bin: str, timeout: int = 15) -> dict[str, Any]:
+    """Query installed Codex plugins via `app-server --stdio` without network marketplace hangs."""
+    proc = subprocess.Popen(
+        [codex_bin, "app-server", "--stdio"],
+        stdin=subprocess.PIPE,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        bufsize=0,
+        start_new_session=(os.name != "nt"),
+    )
+    assert proc.stdin is not None and proc.stdout is not None and proc.stderr is not None
+    sel = selectors.DefaultSelector()
+    stdout_fd = proc.stdout.fileno()
+    stderr_fd = proc.stderr.fileno()
+    sel.register(stdout_fd, selectors.EVENT_READ, "stdout")
+    sel.register(stderr_fd, selectors.EVENT_READ, "stderr")
+    deadline = time.monotonic() + timeout
+    stdout_buf = b""
+    stderr_bytes = 0
+    stdout_bytes = 0
+    max_bytes = 8 * 1024 * 1024
+
+    def send(frame: dict[str, Any]) -> None:
+        assert proc.stdin is not None
+        try:
+            proc.stdin.write((json.dumps(frame) + "\n").encode("utf-8"))
+            proc.stdin.flush()
+        except OSError as exc:
+            raise ReleaseError(f"codex app-server stdin failed: {exc}") from exc
+
+    def read_response(expected_id: int) -> dict[str, Any]:
+        nonlocal stdout_buf, stdout_bytes, stderr_bytes
+        while True:
+            newline = stdout_buf.find(b"\n")
+            if newline >= 0:
+                raw_line = stdout_buf[:newline].strip()
+                stdout_buf = stdout_buf[newline + 1 :]
+                if not raw_line:
+                    continue
+                try:
+                    frame = json.loads(raw_line.decode("utf-8"))
+                except (UnicodeDecodeError, json.JSONDecodeError) as exc:
+                    raise ReleaseError("codex app-server returned invalid JSON") from exc
+                if not isinstance(frame, dict):
+                    raise ReleaseError("codex app-server returned non-object frame")
+                if "id" not in frame and isinstance(frame.get("method"), str):
+                    continue
+                if frame.get("error") is not None:
+                    raise ReleaseError(f"codex app-server rejected request: {frame.get('error')}")
+                if frame.get("id") != expected_id or not isinstance(frame.get("result"), dict):
+                    raise ReleaseError("codex app-server returned unexpected response frame")
+                return frame["result"]
+            remaining = deadline - time.monotonic()
+            if remaining <= 0 or not sel.get_map():
+                raise ReleaseError(f"command timed out after {timeout}s: {codex_bin} app-server --stdio")
+            events = sel.select(timeout=remaining)
+            if not events:
+                raise ReleaseError(f"command timed out after {timeout}s: {codex_bin} app-server --stdio")
+            for key, _ in events:
+                chunk = os.read(key.fd, 65536)
+                if not chunk:
+                    sel.unregister(key.fd)
+                    if key.data == "stdout":
+                        if stdout_buf.strip():
+                            raise ReleaseError("codex app-server exited with partial JSON line")
+                        raise ReleaseError("codex app-server closed stdout before responding")
+                    continue
+                if key.data == "stderr":
+                    stderr_bytes += len(chunk)
+                    if stderr_bytes > max_bytes:
+                        raise ReleaseError("codex app-server stderr exceeded limit")
+                else:
+                    stdout_bytes += len(chunk)
+                    if stdout_bytes > max_bytes:
+                        raise ReleaseError("codex app-server stdout exceeded limit")
+                    stdout_buf += chunk
+
+    try:
+        send({"id": 1, "method": "initialize", "params": {"clientInfo": {"name": "opl_package_release", "version": "1"}}})
+        read_response(1)
+        send({"method": "initialized", "params": {}})
+        send({"id": 2, "method": "plugin/list", "params": {"marketplaceKinds": ["local"]}})
+        inventory = read_response(2)
+    finally:
+        sel.close()
+        for stream in (proc.stdin, proc.stdout, proc.stderr):
+            try:
+                stream.close()
+            except OSError:
+                pass
+        if proc.poll() is None:
+            proc.terminate()
+            try:
+                proc.wait(timeout=2)
+            except subprocess.TimeoutExpired:
+                proc.kill()
+                proc.wait()
+
+    marketplaces = inventory.get("marketplaces")
+    load_errors = inventory.get("marketplaceLoadErrors", [])
+    if not isinstance(marketplaces, list) or not isinstance(load_errors, list) or load_errors:
+        raise ReleaseError("Codex app-server plugin/list returned invalid marketplace inventory")
+    installed: list[dict[str, Any]] = []
+    for marketplace in marketplaces:
+        if not isinstance(marketplace, dict) or not isinstance(marketplace.get("plugins"), list):
+            raise ReleaseError("Codex app-server plugin/list returned invalid marketplace entry")
+        for plugin in marketplace["plugins"]:
+            if not isinstance(plugin, dict) or not isinstance(plugin.get("id"), str):
+                raise ReleaseError("Codex app-server plugin/list returned invalid plugin entry")
+            if plugin.get("installed") is not True:
+                continue
+            source = plugin.get("source") if isinstance(plugin.get("source"), dict) else {}
+            source_type = source.get("type")
+            installed.append(
+                {
+                    "pluginId": plugin["id"],
+                    "version": plugin.get("localVersion") or plugin.get("version"),
+                    "installed": True,
+                    "enabled": bool(plugin.get("enabled")),
+                    "source": {
+                        "source": source_type,
+                        "path": source.get("path") if source_type == "local" else None,
+                    },
+                }
+            )
+    return {"installed": installed}
+
+
 def plugin_entry(selector: str, codex_bin: str) -> dict[str, Any] | None:
-    readback = command_json([codex_bin, "plugin", "list", "--json"], timeout=120)
+    try:
+        readback: Any = codex_local_plugin_list(codex_bin, timeout=15)
+    except ReleaseError:
+        readback = command_json([codex_bin, "plugin", "list", "--json"], timeout=15)
     installed = readback.get("installed") if isinstance(readback, dict) else None
     if not isinstance(installed, list):
         raise ReleaseError("Codex plugin list has no installed array")
@@ -1119,6 +1251,11 @@ def profile_delta(
     user_bytes = user_path.read_bytes() if user_path.is_file() else None
     changed = before_bytes != after_bytes
     merge_required = changed and user_bytes != after_bytes
+    user_contains_default = (
+        user_bytes is not None
+        and after_bytes is not None
+        and after_bytes.strip() in user_bytes
+    )
     diff = ""
     if changed and before_bytes is not None and after_bytes is not None:
         diff = "".join(
@@ -1137,8 +1274,10 @@ def profile_delta(
         else "default_profile_unchanged"
     )
     return {
+        "target_host": "codex",
         "status": status,
         "profile_merge_required": merge_required,
+        "user_contains_current_default": user_contains_default,
         "user_profile_path": str(user_path),
         "user_profile_sha256": sha256_bytes(user_bytes) if user_bytes is not None else None,
         "previous_default_sha256": sha256_bytes(before_bytes) if before_bytes is not None else None,

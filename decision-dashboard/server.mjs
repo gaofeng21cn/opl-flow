@@ -8,6 +8,7 @@ import {
 } from '@modelcontextprotocol/ext-apps/server';
 import { z } from 'zod';
 import { execFile } from 'node:child_process';
+import { readFileSync } from 'node:fs';
 import { readFile } from 'node:fs/promises';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -17,9 +18,21 @@ const packageRoot = resolve(root, '..');
 const defaultAdapter = resolve(packageRoot, 'scripts/opl_app_contribution.py');
 const defaultHtmlPath = resolve(root, 'index.html');
 
+function readPackageVersion() {
+  for (const candidate of [resolve(packageRoot, 'opl-package.json'), resolve(root, 'package.json')]) {
+    try {
+      const parsed = JSON.parse(readFileSync(candidate, 'utf8'));
+      if (typeof parsed?.version === 'string' && parsed.version.trim()) {
+        return parsed.version.trim();
+      }
+    } catch {}
+  }
+  return '0.1.82';
+}
+
 export const RESOURCE_URI = 'ui://opl-flow/decision-dashboard.html';
 export const SERVER_NAME = 'opl-flow-decision-dashboard';
-export const SERVER_VERSION = '0.1.81';
+export const SERVER_VERSION = readPackageVersion();
 
 const TAB_VALUES = [
   'needs_action',

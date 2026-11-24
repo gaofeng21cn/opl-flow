@@ -9,5 +9,14 @@
       "tests.test_package_release"
     ]
   ],
-  "version_files": []
+  "version_files": [
+    {
+      "path": "decision-dashboard/package.json",
+      "kind": "json"
+    },
+    {
+      "path": "decision-dashboard/package-lock.json",
+      "kind": "json"
+    }
+  ]
 }

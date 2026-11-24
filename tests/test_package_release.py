@@ -1445,5 +1445,85 @@ class EnvironmentApprovalTests(unittest.TestCase):
         self.assertEqual(self.posts, [])
 
 
+class CodexLocalPluginReadbackAndProfileTests(unittest.TestCase):
+    def test_plugin_entry_reads_app_server_stdio_and_skips_notifications(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            script = Path(temporary) / "fake_codex.py"
+            script.write_text(
+                "\n".join(
+                    [
+                        "import json, sys",
+                        "for raw in sys.stdin:",
+                        "    msg = json.loads(raw)",
+                        "    mid = msg.get('id')",
+                        "    if msg.get('method') == 'initialize':",
+                        "        print(json.dumps({'method': 'server/ready', 'params': {}}), flush=True)",
+                        "        print(json.dumps({'id': mid, 'result': {'capabilities': {}}}), flush=True)",
+                        "    elif msg.get('method') == 'plugin/list':",
+                        "        assert msg.get('params') == {'marketplaceKinds': ['local']}",
+                        "        print(json.dumps({'id': mid, 'result': {",
+                        "            'marketplaceLoadErrors': [],",
+                        "            'marketplaces': [{",
+                        "                'name': 'opl-flow',",
+                        "                'plugins': [{",
+                        "                    'id': 'opl-flow@opl-flow',",
+                        "                    'version': '0.1.82',",
+                        "                    'localVersion': '0.1.82',",
+                        "                    'installed': True,",
+                        "                    'enabled': True,",
+                        "                    'source': {'type': 'local', 'path': '/tmp/opl-flow-carrier'}",
+                        "                }, {",
+                        "                    'id': 'other@market',",
+                        "                    'version': '0.1.0',",
+                        "                    'installed': False,",
+                        "                    'enabled': False,",
+                        "                    'source': {'type': 'remote'}",
+                        "                }]",
+                        "            }]",
+                        "        }}), flush=True)",
+                    ]
+                ),
+                encoding="utf-8",
+            )
+            fake_bin = Path(temporary) / "codex"
+            fake_bin.write_text(f"#!/bin/sh\nexec {json.dumps(sys.executable)} {json.dumps(str(script))} \"$@\"\n", encoding="utf-8")
+            fake_bin.chmod(0o755)
+            entry = release.plugin_entry("opl-flow@opl-flow", str(fake_bin))
+            self.assertIsNotNone(entry)
+            assert entry is not None
+            self.assertEqual(entry["pluginId"], "opl-flow@opl-flow")
+            self.assertEqual(entry["version"], "0.1.82")
+            self.assertTrue(entry["enabled"])
+            self.assertEqual(entry["source"]["path"], "/tmp/opl-flow-carrier")
+
+    def test_plugin_entry_falls_back_to_legacy_plugin_list_when_app_server_fails(self) -> None:
+        with (
+            patch.object(release, "codex_local_plugin_list", side_effect=release.ReleaseError("unsupported")),
+            patch.object(
+                release,
+                "command_json",
+                return_value={
+                    "installed": [
+                        {"pluginId": "opl-flow@opl-flow", "version": "0.1.82", "enabled": True}
+                    ]
+                },
+            ) as legacy,
+        ):
+            entry = release.plugin_entry("opl-flow@opl-flow", "codex")
+        self.assertIsNotNone(entry)
+        legacy.assert_called_once_with(["codex", "plugin", "list", "--json"], timeout=15)
+
+    def test_profile_delta_recognizes_codex_host_and_appended_local_policies(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            default_text = b"# Default Profile\nShared rule.\n"
+            user_path = root / "AGENTS.md"
+            user_path.write_bytes(default_text + b"\n# Local Only\nPrivate rule.\n")
+            delta = release.profile_delta(("prev", default_text), ("curr", default_text), user_path)
+            self.assertEqual(delta["target_host"], "codex")
+            self.assertFalse(delta["profile_merge_required"])
+            self.assertTrue(delta["user_contains_current_default"])
+
+
 if __name__ == "__main__":
     unittest.main()

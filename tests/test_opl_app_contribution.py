@@ -242,7 +242,9 @@ class OplAppContributionTests(unittest.TestCase):
                     },
                 }
             )
+            pkg_version = json.loads((REPO_ROOT / "opl-package.json").read_text(encoding="utf-8"))["version"]
             self.assertEqual(init["result"]["serverInfo"]["name"], "opl-flow-decision-dashboard")
+            self.assertEqual(init["result"]["serverInfo"]["version"], pkg_version)
             proc.stdin.write(json.dumps({"jsonrpc": "2.0", "method": "notifications/initialized"}) + "\n")
             proc.stdin.flush()
 
