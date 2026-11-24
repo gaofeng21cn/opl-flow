@@ -248,6 +248,19 @@ def create_issue(
     return payload
 
 
+def add_dependency(
+    root: Path,
+    bd: str,
+    issue_id: str,
+    depends_on_id: str,
+    *,
+    dep_type: str = "blocks",
+    runner: Runner | None = None,
+) -> None:
+    execute = runner or run
+    execute([bd, "dep", "add", issue_id, depends_on_id, "--type", dep_type], root)
+
+
 def status(root: Path, bd: str, *, runner: Runner | None = None) -> dict[str, Any]:
     execute = runner or run
     payload = execute([bd, "status", "--no-activity", "--json"], root, json_output=True)

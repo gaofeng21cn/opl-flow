@@ -90,6 +90,31 @@
       "minLength": 1,
       "maxLength": 512,
       "pattern": "^[^\\u0000\\r\\n]+$"
+    },
+    "budget_usage": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "elapsed_seconds": {
+          "type": "number",
+          "minimum": 0
+        },
+        "tokens_used": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "estimated_cost_usd": {
+          "type": "number",
+          "minimum": 0
+        }
+      }
+    },
+    "checkpoint_digests": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "string",
+        "pattern": "^[0-9a-f]{64}$"
+      }
     }
   },
   "allOf": [

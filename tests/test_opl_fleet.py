@@ -27,7 +27,7 @@ SPEC.loader.exec_module(fleet)
 
 
 # --- patch seam helpers ------------------------------------------------
-# The implementation lives in opl_fleet_parts.* domain modules.  A public
+# The implementation lives in fleet.* domain modules.  A public
 # symbol may be bound (defined or imported) by several modules plus the
 # facade.  patch_fleet/set_fleet discover every current binding by object
 # identity at patch time, so the original `fleet.*` patch/assignment
@@ -48,7 +48,7 @@ FLEET_PART_MODULES = (
 
 
 def _fleet_modules():
-    parts = sys.modules["opl_fleet_parts"]
+    parts = sys.modules["fleet"]
     return [fleet, *(getattr(parts, mod_name) for mod_name in FLEET_PART_MODULES)]
 
 
@@ -57,7 +57,7 @@ def _binding_modules(name):
         # The facade proxies CONTROL_ROOT dynamically through __getattr__;
         # fleet_common is the single mutable owner and must not get a stale
         # static copy on the facade.
-        return [sys.modules["opl_fleet_parts"].fleet_common]
+        return [sys.modules["fleet"].fleet_common]
     value = getattr(fleet, name)
     return [
         mod
@@ -382,7 +382,7 @@ class CodexFleetTests(unittest.TestCase):
         with (
             patch_fleet("manifest", return_value={"repository": "example/fleet"}),
             patch_fleet("run", side_effect=[failed, succeeded]) as command,
-            mock.patch("opl_fleet_parts.fleet_reconcile.time.sleep") as sleep,
+            mock.patch("fleet.fleet_reconcile.time.sleep") as sleep,
         ):
             payload = fleet.fetch_state_file("ASSETS.json")
         self.assertEqual(payload, succeeded.stdout)
@@ -398,7 +398,7 @@ class CodexFleetTests(unittest.TestCase):
         with (
             patch_fleet("manifest", return_value={"repository": "example/fleet"}),
             patch_fleet("run", side_effect=[timed_out, succeeded]) as command,
-            mock.patch("opl_fleet_parts.fleet_reconcile.time.sleep") as sleep,
+            mock.patch("fleet.fleet_reconcile.time.sleep") as sleep,
         ):
             payload = fleet.fetch_state_file("ASSETS.json")
         self.assertEqual(payload, succeeded.stdout)
@@ -411,7 +411,7 @@ class CodexFleetTests(unittest.TestCase):
         with (
             patch_fleet("manifest", return_value={"repository": "example/fleet"}),
             patch_fleet("run", side_effect=timed_out) as command,
-            mock.patch("opl_fleet_parts.fleet_reconcile.time.sleep") as sleep,
+            mock.patch("fleet.fleet_reconcile.time.sleep") as sleep,
         ):
             with self.assertRaisesRegex(
                 fleet.FleetError,
@@ -428,7 +428,7 @@ class CodexFleetTests(unittest.TestCase):
         with (
             patch_fleet("manifest", return_value={"repository": "example/fleet"}),
             patch_fleet("run", return_value=failed) as command,
-            mock.patch("opl_fleet_parts.fleet_reconcile.time.sleep") as sleep,
+            mock.patch("fleet.fleet_reconcile.time.sleep") as sleep,
         ):
             with self.assertRaisesRegex(
                 fleet.FleetError,
@@ -3946,7 +3946,7 @@ class WorkspaceProfileTests(unittest.TestCase):
                     fleet.validate_workspace_profiles(payload)
 
     def test_nested_repository_bootstrap_preserves_path_and_commit(self) -> None:
-        workspace = sys.modules["opl_fleet_parts"].fleet_workspace
+        workspace = sys.modules["fleet"].fleet_workspace
         payload = self.profile_catalog()
         profile = payload["profiles"]["test-profile"]
         profile["repositories"][0]["directory"] = "app/project"
@@ -3970,7 +3970,7 @@ class WorkspaceProfileTests(unittest.TestCase):
             self.assertEqual(actual, commit)
 
     def test_nested_repository_rejects_symlink_parent_and_overlapping_roots(self) -> None:
-        workspace = sys.modules["opl_fleet_parts"].fleet_workspace
+        workspace = sys.modules["fleet"].fleet_workspace
         payload = self.profile_catalog()
         spec = payload["profiles"]["test-profile"]["repositories"][0]
         spec["directory"] = "app/project"
@@ -3990,7 +3990,7 @@ class WorkspaceProfileTests(unittest.TestCase):
             fleet.validate_workspace_profiles(payload)
 
     def test_workspace_accepts_equivalent_github_ssh_remote(self) -> None:
-        workspace = sys.modules["opl_fleet_parts"].fleet_workspace
+        workspace = sys.modules["fleet"].fleet_workspace
         spec = self.profile_catalog()["profiles"]["test-profile"]["repositories"][0]
         for remote in ("git@github.com:example/project.git", "ssh://ssh.github.com:443/example/project.git"):
             with self.subTest(remote=remote), tempfile.TemporaryDirectory() as temp:
@@ -4014,7 +4014,7 @@ class WorkspaceProfileTests(unittest.TestCase):
 
     def test_ledger_readback_delegates_and_preserves_public_fields(self) -> None:
         profile = self.profile_catalog()["profiles"]["test-profile"]
-        workspace_module = sys.modules["opl_fleet_parts"].fleet_workspace
+        workspace_module = sys.modules["fleet"].fleet_workspace
         root = Path("/unused/workspace")
         expected = {"role": "maintainer", "state": "CURRENT", "fresh_pull": True, "readable": True}
         with mock.patch.object(workspace_module.opl_ledger, "workspace_readback", return_value=expected) as read:
@@ -4024,7 +4024,7 @@ class WorkspaceProfileTests(unittest.TestCase):
 
     def test_workspace_sync_delegates_storage_to_ledger(self) -> None:
         profile = self.profile_catalog()["profiles"]["test-profile"]
-        workspace_module = sys.modules["opl_fleet_parts"].fleet_workspace
+        workspace_module = sys.modules["fleet"].fleet_workspace
         root = Path("/unused/workspace")
         with mock.patch.object(workspace_module.opl_ledger, "sync_workspace_ledger") as sync:
             fleet.sync_ledger(profile, root=root)
@@ -4032,7 +4032,7 @@ class WorkspaceProfileTests(unittest.TestCase):
 
     def test_workspace_sync_preserves_ledger_failure(self) -> None:
         profile = self.profile_catalog()["profiles"]["test-profile"]
-        workspace_module = sys.modules["opl_fleet_parts"].fleet_workspace
+        workspace_module = sys.modules["fleet"].fleet_workspace
         with mock.patch.object(
             workspace_module.opl_ledger, "sync_workspace_ledger",
             side_effect=workspace_module.opl_ledger.LedgerError("workspace ledger pull failed"),
@@ -4055,7 +4055,7 @@ class WorkspaceProfileTests(unittest.TestCase):
             patch_fleet("profile_workspace_root", return_value=Path("/tmp/workspace")),
             patch_fleet("workspace_readback", return_value=before),
             mock.patch.object(
-                sys.modules["opl_fleet_parts"].fleet_workspace,
+                sys.modules["fleet"].fleet_workspace,
                 "_clone_missing",
             ) as clone,
         ):
@@ -4092,7 +4092,7 @@ class WorkspaceProfileTests(unittest.TestCase):
             "worktree_count": 1,
             "state": "CURRENT",
         }
-        workspace_module = sys.modules["opl_fleet_parts"].fleet_workspace
+        workspace_module = sys.modules["fleet"].fleet_workspace
         with (
             patch_fleet("workspace_profile", return_value=profile),
             patch_fleet("profile_workspace_root", return_value=Path("/tmp/workspace")),
@@ -4175,7 +4175,7 @@ class OplFleetFacadeTests(unittest.TestCase):
     """Characterization of the facade: re-export surface, CLI contract, entry."""
 
     def test_facade_reexports_key_external_surface(self) -> None:
-        parts = sys.modules["opl_fleet_parts"]
+        parts = sys.modules["fleet"]
         for name in (
             "FleetError",
             "main",
@@ -4200,7 +4200,7 @@ class OplFleetFacadeTests(unittest.TestCase):
         self.assertIs(fleet.STATE_ROOT, parts.fleet_common.STATE_ROOT)
 
     def test_patch_fleet_hits_every_current_binding_and_restores(self) -> None:
-        parts = sys.modules["opl_fleet_parts"]
+        parts = sys.modules["fleet"]
         bound_modules = {
             "facade": fleet,
             "owner": parts.fleet_reconcile,

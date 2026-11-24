@@ -1,6 +1,6 @@
 # Read-only workspace inventory
 
-`scripts/opl_fleet_parts/workspace_inventory.py` discovers normal Git checkouts
+`scripts/fleet/workspace_inventory.py` discovers normal Git checkouts
 and linked worktrees beneath caller-selected local roots. It groups independent
 clones by normalized remote identity and distinguishes them from worktrees that
 share the same Git common directory. Remote credentials are never returned.

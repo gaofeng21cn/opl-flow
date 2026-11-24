@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import argparse
+import getpass
 import json
 import os
 import shutil
@@ -13,8 +14,8 @@ from pathlib import Path
 from typing import Any, Iterable
 
 try:
-    from . import opl_ledger, opl_execution
-    from .opl_fleet_parts import fleet_execution
+    from . import opl_codex_bridge, opl_events, opl_execution, opl_ledger, opl_service, opl_supervisor
+    from .fleet import fleet_execution
     from .opl_task_owner import (
         TaskOwnerError,
         claim as claim_owner_migration,
@@ -26,8 +27,8 @@ try:
         verify_target as verify_owner_migration,
     )
 except ImportError:  # Direct script execution.
-    import opl_ledger, opl_execution
-    from opl_fleet_parts import fleet_execution
+    import opl_codex_bridge, opl_events, opl_execution, opl_ledger, opl_service, opl_supervisor
+    from fleet import fleet_execution
     from opl_task_owner import (
         TaskOwnerError,
         claim as claim_owner_migration,
@@ -827,6 +828,217 @@ def parser() -> argparse.ArgumentParser:
     fleet.add_argument("--instance")
     fleet.add_argument("--fleet-bin")
     fleet.add_argument("fleet_args", nargs=argparse.REMAINDER)
+
+    supervisor = commands.add_parser("supervisor")
+    supervisor_actions = supervisor.add_subparsers(dest="supervisor_action", required=True)
+    sup_plan = supervisor_actions.add_parser("plan")
+    sup_plan.add_argument("--instance")
+    sup_plan.add_argument("--bd-bin")
+    sup_plan.add_argument("--git-bin")
+    sup_plan.add_argument("--cursor-file", type=Path)
+    sup_plan.add_argument("--observations-json")
+    sup_plan.add_argument("--worktree-ledger-json")
+    sup_plan.add_argument("--authorized-accounts")
+    sup_plan.add_argument("--event-state-dir", type=Path)
+    sup_plan.add_argument("--save-cursor", action="store_true")
+    sup_obs = supervisor_actions.add_parser("sync-obsidian")
+    sup_obs.add_argument("--instance")
+    sup_obs.add_argument("--bd-bin")
+    sup_obs.add_argument("--vault-dir", type=Path, required=True)
+    sup_obs.add_argument("--expected-hashes-json")
+    sup_obs.add_argument("--dry-run", action="store_true")
+
+    event = commands.add_parser("event")
+    event_actions = event.add_subparsers(dest="event_action", required=True)
+    ev_emit = event_actions.add_parser("emit")
+    ev_emit.add_argument("--instance")
+    ev_emit.add_argument("--state-dir", type=Path)
+    ev_emit.add_argument("--type", required=True, choices=sorted(opl_events.EVENT_TYPES))
+    ev_emit.add_argument("--objective", required=True)
+    ev_emit.add_argument("--source", required=True)
+    ev_emit.add_argument("--idempotency-key", required=True)
+    ev_emit.add_argument("--parent")
+    ev_emit.add_argument("--attempt")
+    ev_emit.add_argument("--payload-json")
+    ev_list = event_actions.add_parser("list")
+    ev_list.add_argument("--instance")
+    ev_list.add_argument("--state-dir", type=Path)
+    ev_list.add_argument("--status", choices=sorted(opl_events.EVENT_STATUSES))
+    ev_list.add_argument("--objective")
+    ev_list.add_argument("--parent")
+    ev_claim = event_actions.add_parser("claim")
+    ev_claim.add_argument("--instance")
+    ev_claim.add_argument("--state-dir", type=Path)
+    ev_claim.add_argument("--consumer", required=True)
+    ev_claim.add_argument("--objective")
+    ev_claim.add_argument("--parent")
+    ev_claim.add_argument("--limit", type=int, default=50)
+    ev_claim.add_argument("--lease-seconds", type=int, default=300)
+    ev_ack = event_actions.add_parser("ack")
+    ev_ack.add_argument("--instance")
+    ev_ack.add_argument("--state-dir", type=Path)
+    ev_ack.add_argument("--claim-token", required=True)
+    ev_ack.add_argument("--event-ids", required=True)
+    ev_ack.add_argument("--outcome", choices=("acked", "failed_retryable", "dead_letter"), default="acked")
+    ev_ack.add_argument("--error")
+
+    intake = commands.add_parser("intake")
+    intake_actions = intake.add_subparsers(dest="intake_action", required=True)
+    intake_submit = intake_actions.add_parser("submit")
+    intake_submit.add_argument("--instance")
+    intake_submit.add_argument("--bd-bin")
+    intake_submit.add_argument("--state-dir", type=Path)
+    intake_submit.add_argument("--title", required=True)
+    intake_submit.add_argument("--scope", required=True)
+    intake_submit.add_argument("--parent")
+    intake_submit.add_argument("--write-set", default="")
+    intake_submit.add_argument("--priority", default="2")
+    intake_submit.add_argument("--execution-mode", choices=("backlog", "active"), default="backlog")
+    intake_submit.add_argument("--requirements-json")
+    intake_submit.add_argument("--depends-on", default="")
+    intake_submit.add_argument("--external-ref")
+
+    graph = commands.add_parser("graph")
+    graph_actions = graph.add_subparsers(dest="graph_action", required=True)
+    graph_import = graph_actions.add_parser("import")
+    graph_import.add_argument("--instance")
+    graph_import.add_argument("--bd-bin")
+    graph_import.add_argument("--state-dir", type=Path)
+    graph_import.add_argument("--graph-json", required=True)
+    graph_eval = graph_actions.add_parser("evaluate")
+    graph_eval.add_argument("--instance")
+    graph_eval.add_argument("--bd-bin")
+    graph_eval.add_argument("--git-bin")
+    graph_eval.add_argument("--root-objective")
+    graph_eval.add_argument("--event-state-dir", type=Path)
+    graph_eval.add_argument("--worktree-ledger-json")
+    graph_eval.add_argument("--human", action="store_true")
+
+    router = commands.add_parser("router")
+    router_actions = router.add_subparsers(dest="router_action", required=True)
+    router_tick_p = router_actions.add_parser("tick")
+    router_tick_p.add_argument("--instance")
+    router_tick_p.add_argument("--bd-bin")
+    router_tick_p.add_argument("--git-bin")
+    router_tick_p.add_argument("--event-state-dir", type=Path)
+    router_tick_p.add_argument("--cursor-file", type=Path)
+    router_tick_p.add_argument("--observations-json")
+    router_tick_p.add_argument("--worktree-ledger-json")
+    router_tick_p.add_argument("--control-hook-json")
+    router_tick_p.add_argument("--use-codex-bridge", action="store_true")
+    router_tick_p.add_argument("--codex-bin")
+    router_tick_p.add_argument("--model")
+    router_tick_p.add_argument("--sandbox", default="workspace-write")
+    router_tick_p.add_argument("--dry-run", action="store_true")
+    router_watch_p = router_actions.add_parser("watch")
+    router_watch_p.add_argument("--instance")
+    router_watch_p.add_argument("--bd-bin")
+    router_watch_p.add_argument("--git-bin")
+    router_watch_p.add_argument("--interval", type=float, default=15.0)
+    router_watch_p.add_argument("--max-iterations", type=int)
+    router_watch_p.add_argument("--event-state-dir", type=Path)
+    router_watch_p.add_argument("--cursor-file", type=Path)
+    router_watch_p.add_argument("--control-hook-json")
+    router_watch_p.add_argument("--use-codex-bridge", action="store_true")
+    router_watch_p.add_argument("--codex-bin")
+    router_watch_p.add_argument("--model")
+    router_watch_p.add_argument("--sandbox", default="workspace-write")
+    router_inst_p = router_actions.add_parser("install-service")
+    router_inst_p.add_argument("--instance")
+    router_inst_p.add_argument("--interval", type=float, default=15.0)
+    router_inst_p.add_argument("--use-codex-bridge", action=argparse.BooleanOptionalAction, default=True)
+    router_inst_p.add_argument("--codex-bin")
+    router_inst_p.add_argument("--model")
+    router_inst_p.add_argument("--control-hook-json")
+    router_inst_p.add_argument("--event-state-dir", type=Path)
+    router_inst_p.add_argument("--cursor-file", type=Path)
+    router_inst_p.add_argument("--install-cli", action="store_true")
+    router_inst_p.add_argument("--dry-run", action="store_true")
+    router_uninst_p = router_actions.add_parser("uninstall-service")
+    router_uninst_p.add_argument("--instance")
+    router_uninst_p.add_argument("--dry-run", action="store_true")
+    router_srv_st = router_actions.add_parser("service-status")
+    router_srv_st.add_argument("--instance")
+    router_srv_st.add_argument("--human", action="store_true")
+
+    inbox = commands.add_parser("inbox")
+    inbox_actions = inbox.add_subparsers(dest="inbox_action", required=True)
+    inbox_list = inbox_actions.add_parser("list")
+    inbox_list.add_argument("--instance")
+    inbox_list.add_argument("--bd-bin")
+    inbox_list.add_argument("--git-bin")
+    inbox_list.add_argument("--event-state-dir", type=Path)
+    inbox_list.add_argument("--human", action="store_true")
+    inbox_sub = inbox_actions.add_parser("submit")
+    inbox_sub.add_argument("--instance")
+    inbox_sub.add_argument("--bd-bin")
+    inbox_sub.add_argument("--state-dir", type=Path)
+    inbox_sub.add_argument("--objective")
+    inbox_sub.add_argument("--title")
+    inbox_sub.add_argument("--scope")
+    inbox_sub.add_argument("--comment")
+    inbox_sub.add_argument("--parent")
+    inbox_sub.add_argument("--write-set", default="")
+    inbox_sub.add_argument("--priority", default="2")
+    inbox_sub.add_argument("--execution-mode", choices=("backlog", "active"), default="backlog")
+    inbox_sub.add_argument("--requirements-json")
+    inbox_sub.add_argument("--depends-on", default="")
+    inbox_app = inbox_actions.add_parser("approve-archive")
+    inbox_app.add_argument("bead_id")
+    inbox_app.add_argument("--instance")
+    inbox_app.add_argument("--bd-bin")
+    inbox_app.add_argument("--approved-by", required=True)
+
+    # Human-first ergonomic top-level verbs
+    up_p = commands.add_parser("up", help="Start background zero-token event router")
+    up_p.add_argument("--instance")
+    up_p.add_argument("--bd-bin")
+    up_p.add_argument("--git-bin")
+    up_p.add_argument("--interval", type=float, default=15.0)
+    up_p.add_argument("--codex-bin")
+    up_p.add_argument("--model")
+    up_p.add_argument("--foreground", action="store_true")
+    up_p.add_argument("--max-iterations", type=int)
+    up_p.add_argument("--install-cli", action="store_true")
+    up_p.add_argument("--dry-run", action="store_true")
+    up_p.add_argument("--json", action="store_true")
+
+    down_p = commands.add_parser("down", help="Stop background event router")
+    down_p.add_argument("--instance")
+    down_p.add_argument("--dry-run", action="store_true")
+    down_p.add_argument("--json", action="store_true")
+
+    ps_p = commands.add_parser("ps", help="Show human-readable status, NEEDS_ACTION, and SAFE_TO_ARCHIVE")
+    ps_p.add_argument("--instance")
+    ps_p.add_argument("--bd-bin")
+    ps_p.add_argument("--git-bin")
+    ps_p.add_argument("--event-state-dir", type=Path)
+    ps_p.add_argument("--json", action="store_true")
+
+    send_p = commands.add_parser("send", help="Submit a new task or send follow-up to an existing task")
+    send_p.add_argument("message")
+    send_p.add_argument("--instance")
+    send_p.add_argument("--bd-bin")
+    send_p.add_argument("--git-bin")
+    send_p.add_argument("--to", dest="objective")
+    send_p.add_argument("--title")
+    send_p.add_argument("--parent")
+    send_p.add_argument("--write-set", default="")
+    send_p.add_argument("--priority", default="2")
+    send_p.add_argument("--execution-mode", choices=("backlog", "active"), default="backlog")
+    send_p.add_argument("--state-dir", type=Path)
+    send_p.add_argument("--now", action="store_true")
+    send_p.add_argument("--use-codex-bridge", action="store_true")
+    send_p.add_argument("--codex-bin")
+    send_p.add_argument("--model")
+    send_p.add_argument("--json", action="store_true")
+
+    approve_p = commands.add_parser("approve", help="Approve archiving a completed SAFE_TO_ARCHIVE task")
+    approve_p.add_argument("bead_id")
+    approve_p.add_argument("--instance")
+    approve_p.add_argument("--bd-bin")
+    approve_p.add_argument("--by", dest="approved_by")
+    approve_p.add_argument("--json", action="store_true")
     return root
 
 
@@ -872,7 +1084,395 @@ def main(argv: list[str] | None = None) -> int:
             ).returncode
         root = instance_root(args.instance)
         assert root is not None
+        if args.command == "up":
+            if args.foreground:
+                bd = executable("bd", args.bd_bin)
+                hook_argv = opl_events.default_codex_control_hook(
+                    instance_root=root,
+                    flow_root=flow_root(),
+                    codex_bin=args.codex_bin,
+                    model=args.model,
+                    dry_run=args.dry_run,
+                )
+                result = opl_events.router_watch(
+                    root,
+                    bd,
+                    interval_seconds=args.interval,
+                    max_iterations=args.max_iterations,
+                    snapshot_fn=lambda: supervisor_snapshot(root, bd, args.git_bin),
+                    control_hook_argv=hook_argv,
+                    runner=run,
+                )
+            else:
+                result = opl_service.install_router_service(
+                    root,
+                    flow_root=flow_root(),
+                    interval_seconds=args.interval,
+                    use_codex_bridge=True,
+                    codex_bin=args.codex_bin,
+                    model=args.model,
+                    dry_run=args.dry_run,
+                )
+                if args.install_cli:
+                    result["cli_wrapper"] = opl_service.install_cli_wrapper(
+                        flow_root=flow_root(),
+                        dry_run=args.dry_run,
+                    )
+            if args.json or args.foreground:
+                print(json.dumps(result, ensure_ascii=False, indent=2, sort_keys=True))
+            else:
+                mode_hint = "（dry-run 预览）" if args.dry_run else "已启动后台事件驱动引擎"
+                print(f"OPL Flow {mode_hint}\n  服务标识: {result['label']}\n  服务文件: {result['service_path']}\n  日志目录: {result['log_dir']}\n  常用命令: ps 查看面板 | send \"任务描述\" 投递新任务 | down 停止")
+            return 0
+        if args.command == "down":
+            result = opl_service.uninstall_router_service(root, dry_run=args.dry_run)
+            if args.json:
+                print(json.dumps(result, ensure_ascii=False, indent=2, sort_keys=True))
+            else:
+                print(f"OPL Flow 后台事件引擎已停止（{result['label']}）")
+            return 0
+        if args.command == "router" and args.router_action in {"install-service", "uninstall-service", "service-status"}:
+            if args.router_action == "install-service":
+                hook_argv = read_json_argument(args.control_hook_json, "control hook") if args.control_hook_json else None
+                result = opl_service.install_router_service(
+                    root,
+                    flow_root=flow_root(),
+                    interval_seconds=args.interval,
+                    use_codex_bridge=args.use_codex_bridge,
+                    codex_bin=args.codex_bin,
+                    model=args.model,
+                    control_hook_argv=hook_argv,
+                    event_state_dir=args.event_state_dir,
+                    cursor_file=args.cursor_file,
+                    dry_run=args.dry_run,
+                )
+                if args.install_cli:
+                    result["cli_wrapper"] = opl_service.install_cli_wrapper(
+                        flow_root=flow_root(),
+                        dry_run=args.dry_run,
+                    )
+            elif args.router_action == "uninstall-service":
+                result = opl_service.uninstall_router_service(root, dry_run=args.dry_run)
+            else:
+                result = opl_service.router_service_status(root)
+                if args.human:
+                    state_txt = "运行中" if result["running"] else ("已安装未启动" if result["installed"] else "未安装")
+                    print(f"【Router 服务】{state_txt} | {result['label']} | {result['service_path']}")
+                    return 0
+            print(json.dumps(result, ensure_ascii=False, indent=2, sort_keys=True))
+            return 0
+        if args.command == "event":
+            event_dir = args.state_dir or opl_events.default_event_state_dir(root)
+            if args.event_action == "emit":
+                payload = read_json_argument(args.payload_json, "event payload") if args.payload_json else None
+                result = opl_events.emit_event(
+                    event_dir,
+                    event_type=args.type,
+                    objective_id=args.objective,
+                    source=args.source,
+                    idempotency_key=args.idempotency_key,
+                    parent_objective_id=args.parent,
+                    attempt_id=args.attempt,
+                    payload=payload,
+                )
+            elif args.event_action == "list":
+                result = {
+                    "schema": "opl_workflow_event_list.v1",
+                    "events": opl_events.list_events(
+                        event_dir,
+                        status=args.status,
+                        objective_id=args.objective,
+                        parent_objective_id=args.parent,
+                    ),
+                }
+            elif args.event_action == "claim":
+                result = opl_events.claim_events(
+                    event_dir,
+                    consumer_id=args.consumer,
+                    objective_id=args.objective,
+                    parent_objective_id=args.parent,
+                    limit=args.limit,
+                    lease_seconds=args.lease_seconds,
+                )
+            else:
+                event_ids = [item.strip() for item in args.event_ids.split(",") if item.strip()]
+                result = opl_events.ack_events(
+                    event_dir,
+                    event_ids=event_ids,
+                    claim_token=args.claim_token,
+                    outcome=args.outcome,
+                    error=args.error,
+                )
+            print(json.dumps(result, ensure_ascii=False, indent=2, sort_keys=True))
+            return 0
         bd = executable("bd", args.bd_bin)
+        if args.command == "ps":
+            snap = supervisor_snapshot(root, bd, args.git_bin)
+            ev_dir = args.event_state_dir or opl_events.default_event_state_dir(root)
+            active_dir = ev_dir if opl_events.inbox_paths(ev_dir)[0].exists() else None
+            summary = opl_events.list_inbox_summary(snap, state_dir=active_dir)
+            svc = opl_service.router_service_status(root)
+            if args.json:
+                print(json.dumps({"schema": "opl_ps.v1", "service": svc, "inbox": summary}, ensure_ascii=False, indent=2, sort_keys=True))
+            else:
+                print(opl_events.format_inbox_human(summary, service_status=svc))
+            return 0
+        if args.command == "send":
+            ev_dir = args.state_dir or opl_events.default_event_state_dir(root)
+            if args.objective:
+                digest = __import__("hashlib").sha256(args.message.encode("utf-8")).hexdigest()[:12]
+                res = opl_events.emit_event(
+                    ev_dir,
+                    event_type="human_comment",
+                    objective_id=args.objective,
+                    source="cli:send",
+                    idempotency_key=f"send-comment:{args.objective}:{digest}",
+                    payload={"signal": "send_human_comment", "summary": args.message[:200]},
+                )
+                target_id = args.objective
+                human_msg = f"已向目标 [{target_id}] 投递后续指示（event_id={res['event']['event_id']}）"
+            else:
+                auto_title = args.title or args.message.strip().splitlines()[0][:60]
+                ws = [item.strip() for item in args.write_set.split(",") if item.strip()]
+                res = opl_events.intake_objective(
+                    root,
+                    bd,
+                    title=auto_title,
+                    scope=args.message.strip(),
+                    parent=args.parent,
+                    write_set=ws,
+                    priority=args.priority,
+                    execution_mode=args.execution_mode,
+                    state_dir=ev_dir,
+                    runner=run,
+                )
+                target_id = res["bead"]["id"]
+                human_msg = f"已创建目标 [{target_id}]《{auto_title}》并进入事件队列"
+            tick_res = None
+            if args.now:
+                hook_argv = (
+                    opl_events.default_codex_control_hook(
+                        instance_root=root,
+                        flow_root=flow_root(),
+                        codex_bin=args.codex_bin,
+                        model=args.model,
+                    )
+                    if args.use_codex_bridge
+                    else None
+                )
+                tick_res = opl_events.router_tick(
+                    root,
+                    bd,
+                    state_dir=ev_dir,
+                    snapshot_fn=lambda: supervisor_snapshot(root, bd, args.git_bin),
+                    control_hook_argv=hook_argv,
+                    runner=run,
+                )
+            if args.json:
+                print(json.dumps({"send": res, **({"router_tick": tick_res} if tick_res is not None else {})}, ensure_ascii=False, indent=2, sort_keys=True))
+            else:
+                print(human_msg)
+            return 0
+        if args.command == "approve":
+            approver = args.approved_by or getpass.getuser()
+            receipt = opl_events.approve_archive(root, bd, args.bead_id, approved_by=approver, runner=run)
+            if args.json:
+                print(json.dumps(receipt, ensure_ascii=False, indent=2, sort_keys=True))
+            else:
+                print(f"已确认归档授权：[{receipt['bead_id']}] (批准人: {receipt['approved_by']})")
+            return 0
+        if args.command == "supervisor":
+            if args.supervisor_action == "plan":
+                snap = supervisor_snapshot(root, bd, args.git_bin)
+                c_path = args.cursor_file or opl_supervisor.default_cursor_path(root)
+                cursor = opl_supervisor.load_cursor(c_path)
+                obs = read_json_argument(args.observations_json, "observations") if args.observations_json else {}
+                wt_ledger = read_json_argument(args.worktree_ledger_json, "worktree ledger") if args.worktree_ledger_json else None
+                accounts = (
+                    [a.strip() for a in args.authorized_accounts.split(",") if a.strip()]
+                    if args.authorized_accounts
+                    else obs.get("authorized_accounts")
+                )
+                pending_events = None
+                if args.event_state_dir is not None:
+                    pending_events = opl_events.list_events(args.event_state_dir, status="pending")
+                plan = opl_supervisor.detect_changes(
+                    snap,
+                    cursor=cursor,
+                    threads=obs.get("threads"),
+                    linear_issues=obs.get("linear_issues"),
+                    linear_comments=obs.get("linear_comments"),
+                    pending_events=pending_events,
+                    worktree_ledger=wt_ledger,
+                    authorized_accounts=accounts,
+                    now=obs.get("now"),
+                )
+                if args.event_state_dir is not None:
+                    for ev in plan["events"]:
+                        if "event_id" in ev and ev.get("status"):
+                            continue
+                        opl_events.emit_event(
+                            args.event_state_dir,
+                            event_type=ev["event_type"],
+                            objective_id=ev["objective_id"],
+                            source=ev["source"],
+                            idempotency_key=ev["idempotency_key"],
+                            payload=ev.get("payload"),
+                            now=ev.get("created_at"),
+                        )
+                if args.save_cursor:
+                    opl_supervisor.save_cursor(c_path, plan["next_cursor"])
+                print(json.dumps(plan, ensure_ascii=False, indent=2, sort_keys=True))
+                if plan["validation_errors"]:
+                    return 3
+                return 2 if plan["wake_agent"] else 0
+            issues = opl_ledger.list_issues(root, bd, runner=run)
+            expected_hashes = read_json_argument(args.expected_hashes_json, "expected hashes") if args.expected_hashes_json else None
+            result = opl_supervisor.sync_obsidian_archive(
+                args.vault_dir,
+                issues,
+                expected_hashes=expected_hashes,
+                dry_run=args.dry_run,
+            )
+            print(json.dumps(result, ensure_ascii=False, indent=2, sort_keys=True))
+            return 0
+        if args.command == "intake":
+            ws = [item.strip() for item in args.write_set.split(",") if item.strip()]
+            deps = [item.strip() for item in args.depends_on.split(",") if item.strip()]
+            reqs = read_json_argument(args.requirements_json, "execution requirements") if args.requirements_json else None
+            result = opl_events.intake_objective(
+                root,
+                bd,
+                title=args.title,
+                scope=args.scope,
+                parent=args.parent,
+                write_set=ws,
+                priority=args.priority,
+                execution_mode=args.execution_mode,
+                requirements=reqs,
+                depends_on=deps,
+                external_ref=args.external_ref,
+                state_dir=args.state_dir,
+                runner=run,
+            )
+            print(json.dumps(result, ensure_ascii=False, indent=2, sort_keys=True))
+            return 0
+        if args.command == "graph":
+            if args.graph_action == "import":
+                spec = read_json_argument(args.graph_json, "graph spec")
+                result = opl_events.import_task_graph(root, bd, spec, state_dir=args.state_dir, runner=run)
+            else:
+                snap = supervisor_snapshot(root, bd, args.git_bin)
+                ev_dir = args.event_state_dir or opl_events.default_event_state_dir(root)
+                pending = opl_events.list_events(ev_dir, status="pending") if opl_events.inbox_paths(ev_dir)[0].exists() else []
+                wt_ledger = read_json_argument(args.worktree_ledger_json, "worktree ledger") if args.worktree_ledger_json else None
+                result = opl_events.evaluate_control_turn(
+                    snap,
+                    root_objective_id=args.root_objective,
+                    pending_events=pending,
+                    worktree_ledger=wt_ledger,
+                )
+                if args.human:
+                    print(opl_events.format_control_turn_human(result))
+                    return 0
+            print(json.dumps(result, ensure_ascii=False, indent=2, sort_keys=True))
+            return 0
+        if args.command == "router":
+            hook_argv = read_json_argument(args.control_hook_json, "control hook") if args.control_hook_json else None
+            if hook_argv is not None and (not isinstance(hook_argv, list) or not all(isinstance(x, str) for x in hook_argv)):
+                raise WorkflowError("control-hook-json must be a JSON string array")
+            if hook_argv is None and getattr(args, "use_codex_bridge", False):
+                hook_argv = opl_events.default_codex_control_hook(
+                    instance_root=root,
+                    flow_root=flow_root(),
+                    codex_bin=args.codex_bin,
+                    model=args.model,
+                    sandbox=args.sandbox,
+                    dry_run=getattr(args, "dry_run", False),
+                )
+            if args.router_action == "tick":
+                obs = read_json_argument(args.observations_json, "observations") if args.observations_json else None
+                wt_ledger = read_json_argument(args.worktree_ledger_json, "worktree ledger") if args.worktree_ledger_json else None
+                result = opl_events.router_tick(
+                    root,
+                    bd,
+                    state_dir=args.event_state_dir,
+                    cursor_path=args.cursor_file,
+                    observations=obs,
+                    worktree_ledger=wt_ledger,
+                    snapshot_fn=lambda: supervisor_snapshot(root, bd, args.git_bin),
+                    control_hook_argv=hook_argv,
+                    dry_run=args.dry_run,
+                    runner=run,
+                )
+            else:
+                result = opl_events.router_watch(
+                    root,
+                    bd,
+                    interval_seconds=args.interval,
+                    max_iterations=args.max_iterations,
+                    state_dir=args.event_state_dir,
+                    cursor_path=args.cursor_file,
+                    snapshot_fn=lambda: supervisor_snapshot(root, bd, args.git_bin),
+                    control_hook_argv=hook_argv,
+                    runner=run,
+                )
+            print(json.dumps(result, ensure_ascii=False, indent=2, sort_keys=True))
+            return 0
+        if args.command == "inbox":
+            if args.inbox_action == "list":
+                snap = supervisor_snapshot(root, bd, args.git_bin)
+                ev_dir = args.event_state_dir or opl_events.default_event_state_dir(root)
+                active_dir = ev_dir if opl_events.inbox_paths(ev_dir)[0].exists() else None
+                result = opl_events.list_inbox_summary(snap, state_dir=active_dir)
+                if args.human:
+                    print(opl_events.format_inbox_human(result, service_status=opl_service.router_service_status(root)))
+                    return 0
+            elif args.inbox_action == "submit":
+                if args.objective:
+                    if not args.comment:
+                        raise WorkflowError("inbox submit with --objective requires --comment")
+                    ev_dir = args.state_dir or opl_events.default_event_state_dir(root)
+                    key_digest = __import__("hashlib").sha256(args.comment.encode("utf-8")).hexdigest()[:12]
+                    result = opl_events.emit_event(
+                        ev_dir,
+                        event_type="human_comment",
+                        objective_id=args.objective,
+                        parent_objective_id=args.parent,
+                        source="cli:inbox",
+                        idempotency_key=f"inbox-comment:{args.objective}:{key_digest}",
+                        payload={"signal": "inbox_human_comment", "summary": args.comment[:200]},
+                    )
+                else:
+                    if not args.title or not args.scope:
+                        raise WorkflowError("inbox submit without --objective requires --title and --scope")
+                    ws = [item.strip() for item in args.write_set.split(",") if item.strip()]
+                    deps = [item.strip() for item in args.depends_on.split(",") if item.strip()]
+                    reqs = read_json_argument(args.requirements_json, "execution requirements") if args.requirements_json else None
+                    result = opl_events.intake_objective(
+                        root,
+                        bd,
+                        title=args.title,
+                        scope=args.scope,
+                        parent=args.parent,
+                        write_set=ws,
+                        priority=args.priority,
+                        execution_mode=args.execution_mode,
+                        requirements=reqs,
+                        depends_on=deps,
+                        state_dir=args.state_dir,
+                        runner=run,
+                    )
+            else:
+                result = opl_events.approve_archive(
+                    root,
+                    bd,
+                    args.bead_id,
+                    approved_by=args.approved_by,
+                    runner=run,
+                )
+            print(json.dumps(result, ensure_ascii=False, indent=2, sort_keys=True))
+            return 0
         if args.ledger_command == "owner":
             result = owner_migration_command(root, bd, args)
         elif args.ledger_command == "init":
@@ -885,7 +1485,7 @@ def main(argv: list[str] | None = None) -> int:
         if args.ledger_command == "supervisor-snapshot" and result["validation_errors"]:
             return 3
         return 0
-    except (WorkflowError, opl_execution.ExecutionError) as exc:
+    except (WorkflowError, opl_execution.ExecutionError, opl_supervisor.SupervisorError, opl_events.EventControlError, opl_ledger.LedgerError, opl_codex_bridge.BridgeError, opl_service.ServiceError) as exc:
         print(f"ERROR: {exc}", file=sys.stderr)
         return 1
 

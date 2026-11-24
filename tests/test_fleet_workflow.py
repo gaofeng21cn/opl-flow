@@ -8,8 +8,8 @@ import unittest
 from unittest import mock
 
 from tests.test_opl_fleet import fictional_registry, fleet, git
-from opl_fleet_parts import fleet_common as common
-from opl_fleet_parts import fleet_workflow as workflow
+from fleet import fleet_common as common
+from fleet import fleet_workflow as workflow
 
 
 class FleetWorkflowTests(unittest.TestCase):

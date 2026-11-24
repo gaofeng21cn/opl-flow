@@ -87,6 +87,10 @@ Obsidian + Bases / Linear split and task granularity.
 11. After one coherent mutation, run `bd dolt push`, then pull and read the
    affected Beads again. A real no-change result is valid; unknown parity is
    not.
+12. Optionally activate the local zero-token background event router and CLI
+   wrapper (`python3 scripts/opl_workflow.py up --instance <instance> --install-cli`),
+   then verify `router service-status` and `ps`. No event wakes zero `codex exec`
+   control turns; hourly `OPL Flow Supervisor` remains only as an exception fallback.
 
 ## Fresh Acceptance
 

@@ -9,8 +9,8 @@ import unittest
 from unittest import mock
 
 from tests.test_opl_fleet import fleet
-from opl_fleet_parts import fleet_common as common
-from opl_fleet_parts import fleet_cli as cli
+from fleet import fleet_common as common
+from fleet import fleet_cli as cli
 
 
 class FleetBoundaryTests(unittest.TestCase):
@@ -103,7 +103,7 @@ class FleetBoundaryTests(unittest.TestCase):
             execute.assert_not_called()
 
     def test_all_fleet_module_dependencies_are_acyclic(self):
-        root = Path(fleet.__file__).parent / "opl_fleet_parts"
+        root = Path(fleet.__file__).parent / "fleet"
         files = {path.stem: path for path in root.glob("*.py")}
         graph = {name: set() for name in files}
         for name, path in files.items():

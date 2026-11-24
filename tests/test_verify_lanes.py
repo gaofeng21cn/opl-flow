@@ -24,15 +24,15 @@ class VerifyLaneTests(unittest.TestCase):
     def test_required_files_cover_every_fleet_runtime_module(self) -> None:
         self.assertEqual(check_required_files(REPO_ROOT), [])
         runtime_modules = (
-            "scripts/opl_fleet_parts/__init__.py",
-            "scripts/opl_fleet_parts/fleet_cli.py",
-            "scripts/opl_fleet_parts/fleet_common.py",
-            "scripts/opl_fleet_parts/fleet_dispatch.py",
-            "scripts/opl_fleet_parts/fleet_features.py",
-            "scripts/opl_fleet_parts/fleet_lease.py",
-            "scripts/opl_fleet_parts/fleet_reconcile.py",
-            "scripts/opl_fleet_parts/fleet_runner.py",
-            "scripts/opl_fleet_parts/fleet_workspace.py",
+            "scripts/fleet/__init__.py",
+            "scripts/fleet/fleet_cli.py",
+            "scripts/fleet/fleet_common.py",
+            "scripts/fleet/fleet_dispatch.py",
+            "scripts/fleet/fleet_features.py",
+            "scripts/fleet/fleet_lease.py",
+            "scripts/fleet/fleet_reconcile.py",
+            "scripts/fleet/fleet_runner.py",
+            "scripts/fleet/fleet_workspace.py",
             "scripts/opl_task_owner.py",
         )
         with tempfile.TemporaryDirectory() as temp_dir:

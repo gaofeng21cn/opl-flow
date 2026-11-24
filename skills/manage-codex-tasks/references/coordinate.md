@@ -70,6 +70,14 @@
 
 ## 建立执行图
 
+大项目不再另建常驻轮询总控对话或二次对账：直接通过 `opl_workflow.py graph import` 把 Epic 与并行切片写入 Beads/Dolt，并以 `opl_workflow.py graph evaluate`、`opl_workflow.py router tick` 和 `opl_workflow.py inbox` 驱动无状态控制轮次。
+
+```bash
+python3 scripts/opl_workflow.py graph import --instance <instance> --graph-json @graph.json
+python3 scripts/opl_workflow.py router tick --instance <instance>
+python3 scripts/opl_workflow.py inbox list --instance <instance>
+```
+
 1. 从可用的 fresh thread readback、远端主线和机器合同重建当前事实。不要从过期标题、旧回执或历史 ledger 推断 owner。
 2. 为每个对话记录 `thread_id`、`objective_id`、该切片的 owner、execution owner、精确 write set、当前 authority、具体 `next_action`、integration plan 和 completion gaps。
 3. 保证每个切片只有一个 owner；同一 objective 可拆成多个独立切片并行。子智能体只承担边界清楚的只读审计、测试、研究或独立实现，父对话仍负责最终验收和吸收。

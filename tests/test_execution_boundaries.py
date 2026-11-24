@@ -10,7 +10,7 @@ import unittest
 from unittest import mock
 
 from scripts import opl_execution as execution
-from scripts.opl_fleet_parts import fleet_execution
+from scripts.fleet import fleet_execution
 from tests.test_opl_fleet import fleet, patch_fleet
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -115,7 +115,102 @@ class ExecutionBoundaryTests(unittest.TestCase):
         self.assertNotIn('input_refs',json.dumps(stored))
 
     def test_ledger_and_owner_core_do_not_import_fleet(self):
-        for filename in ('opl_ledger.py','opl_task_owner.py','opl_execution.py'):
+        for filename in ('opl_ledger.py','opl_task_owner.py','opl_execution.py','opl_supervisor.py','opl_events.py','opl_codex_bridge.py','opl_service.py'):
             tree = ast.parse((ROOT/'scripts'/filename).read_text())
             imports = [node.module or '' for node in ast.walk(tree) if isinstance(node,ast.ImportFrom)]
             self.assertFalse(any('fleet' in name for name in imports), filename)
+
+    def test_additive_handoff_envelope_and_resumability_validation(self):
+        rich = handoff()
+        rich['objective_revision'] = 3
+        rich['write_set'] = ['scripts/opl_execution.py', 'tests/test_execution_boundaries.py']
+        rich['envelope'] = {
+            'allowed_write_paths': ['scripts', 'tests'],
+            'allowed_tools': ['python3', 'unittest'],
+            'allow_network': False,
+            'allow_destructive': False,
+            'max_duration_seconds': 600,
+            'max_tokens': 50000,
+            'max_cost_usd': 1.5,
+            'credential_refs': ['cred:github/opl-bot'],
+        }
+        rich['resumability'] = {
+            'checkpointable': True,
+            'heartbeat_interval_seconds': 30,
+            'max_stale_seconds': 180,
+            'interruptible_phase': 'interruptible',
+            'resume_command_ref': 'opl-flow:resume/attempt-1',
+        }
+        self.assertEqual(execution.validate_handoff(rich), rich)
+        # Binding stays sanitized and excludes scope/input_refs/envelope/resumability
+        binding = execution.handoff_binding(rich)
+        self.assertEqual(set(binding), {'attempt_id', 'objective_id', 'owner_id', 'handoff_sha256'})
+
+        # Minimal 8-field handoff remains strictly backwards compatible
+        self.assertEqual(execution.validate_handoff(handoff()), handoff())
+
+    def test_pre_execution_envelope_enforcement_and_secret_rejection(self):
+        rich = handoff()
+        rich['write_set'] = ['docs/secret-leak.md']
+        rich['envelope'] = {
+            'allowed_write_paths': ['scripts'],
+            'allowed_tools': ['python3'],
+            'allow_network': False,
+            'allow_destructive': False,
+            'max_duration_seconds': 300,
+            'max_tokens': 1000,
+            'max_cost_usd': 0.25,
+            'credential_refs': ['cred:linear/bot'],
+        }
+        with self.assertRaisesRegex(execution.ExecutionError, 'allowed_write_paths'):
+            execution.enforce_pre_execution_envelope(rich)
+
+        rich['write_set'] = ['scripts/foo.py']
+        with self.assertRaisesRegex(execution.ExecutionError, 'max_duration_seconds'):
+            execution.enforce_pre_execution_envelope(rich, ttl_seconds=900)
+        with self.assertRaisesRegex(execution.ExecutionError, 'allowed_tools'):
+            execution.enforce_pre_execution_envelope(rich, requested_tools=['curl'])
+        with self.assertRaisesRegex(execution.ExecutionError, 'network'):
+            execution.enforce_pre_execution_envelope(rich, requires_network=True)
+        with self.assertRaisesRegex(execution.ExecutionError, 'destructive'):
+            execution.enforce_pre_execution_envelope(rich, destructive=True)
+
+        summary = execution.enforce_pre_execution_envelope(rich, ttl_seconds=200, requested_tools=['python3'])
+        self.assertTrue(summary['enforced'])
+        self.assertEqual(summary['credential_ref_count'], 1)
+
+        bad_cred = handoff()
+        bad_cred['envelope'] = {'credential_refs': ['ghp_supersecret123456']}
+        with self.assertRaisesRegex(execution.ExecutionError, 'secret'):
+            execution.validate_handoff(bad_cred)
+
+        bad_path = handoff()
+        bad_path['write_set'] = ['../escape.py']
+        with self.assertRaisesRegex(execution.ExecutionError, 'traverse'):
+            execution.validate_handoff(bad_path)
+
+    def test_budget_evaluation_and_sanitize_check(self):
+        rich = handoff()
+        rich['envelope'] = {'max_duration_seconds': 100, 'max_tokens': 500, 'max_cost_usd': 0.5}
+        result = {
+            'schema': 'opl_worker_result.v1',
+            'binding': execution.handoff_binding(rich),
+            'outcome': 'completed',
+            'artifact_refs': ['git:example/project@def'],
+            'checkpoint_refs': [],
+            'remaining': [],
+            'next_action': 'Verify',
+            'budget_usage': {'elapsed_seconds': 120, 'tokens_used': 600, 'estimated_cost_usd': 0.2},
+            'checkpoint_digests': {'git:example/project@def': 'a' * 64},
+        }
+        self.assertEqual(execution.validate_result(result, rich), result)
+        eval_res = execution.evaluate_budget_usage(rich, result)
+        self.assertFalse(eval_res['within_budget'])
+        self.assertEqual(len(eval_res['violations']), 2)
+
+        # Normal IDs like task-1 / disk-check must pass sanitize_check
+        execution.sanitize_check({'objective_id': 'task-1', 'check': 'disk-ok'})
+        with self.assertRaisesRegex(execution.ExecutionError, 'forbidden privacy'):
+            execution.sanitize_check({'nested': {'prompt': 'raw user text'}})
+        with self.assertRaisesRegex(execution.ExecutionError, 'secret'):
+            execution.sanitize_check({'note': 'token=sk-1234567890abcdef'})

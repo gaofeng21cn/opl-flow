@@ -1,0 +1,306 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/gaofeng21cn/opl-flow/contracts/workflow-events.schema.json",
+  "title": "OPL Flow workflow events, supervisor episode plan, and control turn plan",
+  "oneOf": [
+    {
+      "$ref": "#/$defs/workflowEvent"
+    },
+    {
+      "$ref": "#/$defs/supervisorEpisodePlan"
+    },
+    {
+      "$ref": "#/$defs/controlTurnPlan"
+    }
+  ],
+  "$defs": {
+    "boundedString": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 512,
+      "pattern": "^[^\\u0000\\r\\n]+$"
+    },
+    "sanitizedPayload": {
+      "type": "object",
+      "propertyNames": {
+        "not": {
+          "enum": [
+            "prompt",
+            "response",
+            "content",
+            "conversation_content",
+            "raw_prompt",
+            "raw_response",
+            "raw_content",
+            "session_id",
+            "local_path",
+            "interface",
+            "interface_name",
+            "address",
+            "network_address",
+            "credential",
+            "secret",
+            "raw_log"
+          ]
+        }
+      }
+    },
+    "workflowEvent": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema",
+        "event_id",
+        "idempotency_key",
+        "event_type",
+        "objective_id",
+        "source",
+        "created_at",
+        "status"
+      ],
+      "properties": {
+        "schema": {
+          "const": "opl_workflow_event.v1"
+        },
+        "event_id": {
+          "$ref": "#/$defs/boundedString"
+        },
+        "idempotency_key": {
+          "$ref": "#/$defs/boundedString"
+        },
+        "event_type": {
+          "enum": [
+            "human_intake",
+            "human_comment",
+            "worker_callback",
+            "review_due",
+            "external_unblocked",
+            "owner_drift",
+            "executor_lost",
+            "write_set_conflict"
+          ]
+        },
+        "objective_id": {
+          "$ref": "#/$defs/boundedString"
+        },
+        "parent_objective_id": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 512
+        },
+        "attempt_id": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 512
+        },
+        "source": {
+          "$ref": "#/$defs/boundedString"
+        },
+        "created_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "status": {
+          "enum": [
+            "pending",
+            "claimed",
+            "acked",
+            "failed_retryable",
+            "dead_letter"
+          ]
+        },
+        "claim_token": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "claim_expires_at": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "claimed_by": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "retry_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "last_error": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "updated_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "payload": {
+          "$ref": "#/$defs/sanitizedPayload"
+        }
+      }
+    },
+    "supervisorEpisodePlan": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema",
+        "wake_agent",
+        "notification",
+        "reason",
+        "events",
+        "linear_actions",
+        "obsidian_actions",
+        "title_projections",
+        "counters",
+        "validation_errors",
+        "next_cursor"
+      ],
+      "properties": {
+        "schema": {
+          "const": "opl_supervisor_episode_plan.v1"
+        },
+        "wake_agent": {
+          "type": "boolean"
+        },
+        "notification": {
+          "enum": [
+            "NOTIFY",
+            "DONT_NOTIFY"
+          ]
+        },
+        "reason": {
+          "$ref": "#/$defs/boundedString"
+        },
+        "events": {
+          "type": "array",
+          "items": {
+            "type": "object"
+          }
+        },
+        "linear_actions": {
+          "type": "array",
+          "items": {
+            "type": "object"
+          }
+        },
+        "obsidian_actions": {
+          "type": "array",
+          "items": {
+            "type": "object"
+          }
+        },
+        "title_projections": {
+          "type": "array",
+          "items": {
+            "type": "object"
+          }
+        },
+        "counters": {
+          "type": "object"
+        },
+        "validation_errors": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "next_cursor": {
+          "type": "object"
+        }
+      }
+    },
+    "controlTurnPlan": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema",
+        "root_objective_id",
+        "trigger_event_ids",
+        "graph_summary",
+        "callbacks_processed",
+        "fan_out_batch",
+        "integration_queue",
+        "needs_repair",
+        "blocked_or_waiting",
+        "needs_agent_reasoning",
+        "recommended_actions"
+      ],
+      "properties": {
+        "schema": {
+          "const": "opl_control_turn_plan.v1"
+        },
+        "root_objective_id": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "trigger_event_ids": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "graph_summary": {
+          "type": "object"
+        },
+        "callbacks_processed": {
+          "type": "array",
+          "items": {
+            "type": "object"
+          }
+        },
+        "fan_out_batch": {
+          "type": "array",
+          "items": {
+            "type": "object"
+          }
+        },
+        "integration_queue": {
+          "type": "array",
+          "items": {
+            "type": "object"
+          }
+        },
+        "needs_repair": {
+          "type": "array",
+          "items": {
+            "type": "object"
+          }
+        },
+        "blocked_or_waiting": {
+          "type": "array",
+          "items": {
+            "type": "object"
+          }
+        },
+        "needs_agent_reasoning": {
+          "type": "boolean"
+        },
+        "recommended_actions": {
+          "type": "array",
+          "items": {
+            "type": "object"
+          }
+        },
+        "validation_errors": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    }
+  }
+}

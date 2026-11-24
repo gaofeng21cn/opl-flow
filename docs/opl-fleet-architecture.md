@@ -243,7 +243,7 @@ remote-mismatch, active-worktree, or stale-control states fail closed.
 The owner migration state machine is implemented by `scripts/opl_task_owner.py`
 and exposed by `scripts/opl_workflow.py ledger owner`. Workspace validation,
 bootstrap, synchronization, and claim preflight are implemented by
-`scripts/opl_fleet_parts/fleet_workspace.py`:
+`scripts/fleet/fleet_workspace.py`:
 
 ```text
 source_checkpointed -> target_preflighted -> target_acknowledged
@@ -265,20 +265,26 @@ are not copied between nodes.
 
 ## Design Gaps
 
-The following are design goals, not claims about shipped or installed behavior.
-Workspace and owner continuity above already have source implementations;
-their per-node availability is established by fresh operation readback.
+Source contracts and reusable engine modules now implement the local control
+surfaces listed below (`contracts/worker-handoff.schema.json`,
+`contracts/workflow-events.schema.json`, `contracts/fleet-attempt-telemetry.schema.json`,
+`scripts/opl_execution.py`, `scripts/opl_supervisor.py`, `scripts/opl_events.py`,
+`scripts/fleet/fleet_attempts.py`, `scripts/fleet/fleet_queue.py`, and
+`scripts/fleet/fleet_adapter.py`). Cross-repository consumer adoption (such as
+`opl-fleet-agent` daemon ingestion, Cockpit UI rendering, and per-node runtime
+readback) remains a separate consumer/deployment boundary rather than claimed
+installed behavior.
 
-| Rank | Capability | Why it matters | Smallest owner-correct implementation |
+| Rank | Capability | Source status in `opl-flow` | Remaining consumer / runtime boundary |
 | --- | --- | --- | --- |
-| Extension | Richer execution admission | Shared Worker handoff/result contracts and lease bindings now cover identity, scope and context references; objective revision and fine-grained write permissions are not yet part of resource admission | Extend the existing handoff only when a real executor needs those fields |
-| Extension | Context and artifact restoration | Handoffs and results carry owner-managed references; automatic restoration and per-artifact digest verification remain adapter-specific | Add restoration to the relevant executor without making Fleet a blob store |
-| Strong | Permission and budget envelope | Agent work needs bounded authority as well as bounded compute | Bind opaque credential references, capability scopes, time/token/cost/resource limits, and terminal budget use into each attempt without exposing secret values |
-| Strong | Dynamic task groups and fan-out/fan-in | A control Agent must refine and execute several coordinated slices, not only select one node | Let the Ledger own the graph and child objectives; add group dispatch receipts over existing single-node transactions after a real consumer proves the shape |
-| Worth exploring | Resumability and preemption contract | A lease can expire without proving whether an Agent task can resume safely | Declare checkpointability, heartbeat, interruption phase, resume command, and maximum stale interval per attempt |
-| Worth exploring | Attempt-aware observability | Host telemetry alone cannot explain task migration, stalls, or repeated failure | Emit sanitized attempt IDs, phases, timestamps, and result classes; keep prompts, outputs, paths, and secrets out of telemetry |
-| Worth exploring | Queueing and backpressure | Contention will eventually exceed direct selection plus leases | Add a durable queue only when simultaneous demand proves it necessary; until then, keep queue intent in the Ledger |
-| Speculative | Cost, energy, locality, and speculative execution | Useful at larger scale but not required to prove the product | Add policy inputs after task duration and failure data exist; do not build an optimizer from assumptions |
+| Extension | Richer execution admission | Implemented in `opl_execution.py` and `fleet_adapter.py` (`objective_revision`, `write_set`, pre-execution `envelope` gates) | Enforce inside remote host sandboxes and native Codex App carrier hooks |
+| Extension | Context and artifact restoration | Implemented in `fleet_adapter.py` (`restore_handoff_context` with path-traversal and sha256 digest checks) | Extend remote artifact blob fetchers only if owner-managed Git/files prove insufficient |
+| Strong | Permission and budget envelope | Implemented in `contracts/worker-handoff.schema.json`, `opl_execution.py`, and `fleet_attempts.py` (`enforce_pre_execution_envelope`, `evaluate_budget_usage`) | Wire host-level token metering from Codex App/CLI runtime |
+| Strong | Dynamic task groups and fan-out/fan-in | Implemented in `opl_events.py` (`import_task_graph`, `evaluate_control_turn`) and `fleet_adapter.py` (`dispatch group plan|run|status`) | Attach live Codex App thread webhook/hook triggers on target hosts |
+| Worth exploring | Resumability and preemption contract | Implemented in `fleet_attempts.py` (`heartbeat`, `plan_preemption`, `suspend`, `stale-check`) | Adopt resume commands in long-running external runners |
+| Worth exploring | Attempt-aware observability | Implemented in `contracts/fleet-attempt-telemetry.schema.json` and `fleet_attempts.observe_attempts` (`attempt observe`) | Ingest `opl_fleet_attempt_telemetry.v1` in `opl-fleet-agent` and Ambient Ops Cockpit |
+| Worth exploring | Queueing and backpressure | Implemented in `fleet_queue.py` (`queue plan`) over Beads slices and Fleet leases | Tune live workload weights from historical execution duration |
+| Speculative | Cost, energy, locality, and speculative execution | Design goal only | Add policy inputs only after multi-node duration and failure telemetry exist |
 
 ## What Not To Build
 
@@ -323,6 +329,10 @@ Fleet configuration/Git primitives live in `fleet_control.py`; reconciliation
 and Profile delivery depend on that base without circular imports. Ledger
 bootstrap and sync delegate to `opl_ledger.py`. Fleet receipt translation lives
 in `fleet_execution.py`, leaving task-owner transitions carrier-neutral.
+Sanitized attempt lifecycle, preemption, and `opl_fleet_attempt_telemetry.v1`
+observation live in `fleet_attempts.py`; priority queueing lives in `fleet_queue.py`;
+unified single-transaction execution (`dispatch run|complete`), context restoration,
+and fan-out/fan-in group orchestration (`dispatch group`) live in `fleet_adapter.py`.
 
 Dispatch can bind a shared Worker handoff through `--handoff-json`. Only the
 attempt/objective/owner identifiers and digest enter the lease store. Execution

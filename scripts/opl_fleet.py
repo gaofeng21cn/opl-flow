@@ -3,7 +3,7 @@
 
 Facade that re-exports the supported OPL Fleet callable/constant surface and
 keeps the CLI entry point, while the implementation lives in medium-grained
-domain modules under scripts/opl_fleet_parts/.  The retained stdlib imports
+domain modules under scripts/fleet/.  The retained stdlib imports
 are part of the test patch seam (fleet.<module>), not a public API contract.
 """
 
@@ -23,7 +23,7 @@ from typing import Any
 
 from fleet_inventory import collect_inventory, validate_inventory
 
-from opl_fleet_parts import (
+from fleet import (
     fleet_common,
 )
 
@@ -63,16 +63,16 @@ REPOSITORY_FETCH_TIMEOUT_SECONDS = fleet_common.REPOSITORY_FETCH_TIMEOUT_SECONDS
 _INSTANCE_OWNER = fleet_common._INSTANCE_OWNER
 FleetError = fleet_common.FleetError
 
-from opl_fleet_parts.fleet_common import (
+from fleet.fleet_common import (
     configure_instance, install_fleet_command, write_instance_pointer, run, read_json, sha256_file, atomic_json, effective_codex_home,
     normalize_node_id, node_identity, utc_now, parse_utc, parse_requirements, dispatch_adapter,
 )
 
-from opl_fleet_parts.fleet_control import (
+from fleet.fleet_control import (
     manifest, managed_repository_owner, node_registry, control_commit, checkout_commit, update_checkout, update_flow, update_control, github_repository_from_remote, git_value, restart_after_flow_update, github_head,
 )
 
-from opl_fleet_parts.fleet_reconcile import (
+from fleet.fleet_reconcile import (
     pet_manifest, pet_files_match, reconcile_pets, workspace_root, reconcile_repository,
     reconcile_workspace_repositories, fleet_repositories, validated_control_checkout,
     install_runner, fetch_skill_reference, reconcile_flow_experience_baseline,
@@ -83,7 +83,7 @@ from opl_fleet_parts.fleet_reconcile import (
     reconcile, join, fetch_state_file, remote_asset_catalog,
 )
 
-from opl_fleet_parts.fleet_workspace import (
+from fleet.fleet_workspace import (
     PROFILE_SCHEMA, PROFILE_PATH, canonical_json_digest, validate_workspace_profiles,
     workspace_profile_catalog, workspace_profile, profile_workspace_root,
     profile_environment_contract, profile_environment_fingerprint,
@@ -91,33 +91,49 @@ from opl_fleet_parts.fleet_workspace import (
     workspace_command,
 )
 
-from opl_fleet_parts.fleet_workflow import (
+from fleet.fleet_workflow import (
     workflow_status, reconcile_workflow, set_flagship, record_projection, workflow_command,
 )
 
-from opl_fleet_parts.fleet_features import (
+from fleet.fleet_features import (
     inventory_is_fresh, inventory_age_seconds, parse_memory_bytes, gpu_profiles, matching_gpus, node_features,
 )
 
-from opl_fleet_parts.fleet_lease import (
+from fleet.fleet_lease import (
     lease_paths, empty_lease_store, validate_owner_id, validate_role, validate_admission, validate_lease, validate_lease_store, lease_lock,
     read_lease_store, write_lease_store, lease_is_expired, audit_lease, reap_expired_leases, public_lease, active_lease_map, validate_ttl,
     build_lease, acquire_lease_record, assert_lease_cas, renew_lease_record, release_lease_record, select_nodes,
 )
 
-from opl_fleet_parts.fleet_runner import (
+from fleet.fleet_runner import (
     validate_work_volume_route, read_routes, validate_runner_control, tailscale_online, work_volume_status, doctor_result, data_job_admission, controller_guard, runner_role_nodes,
     assert_runner_role_node, assert_runner_role_workload, assert_lease_admission, build_admission_receipt, verify_lease_record, runner_transaction_path, runner_binding, runner_control_route,
     runner_control_call, github_runner_state, wait_runner_state, wait_runner_processes, read_runner_transaction, runner_transaction_from_lease, confirm_runner_shutdown, fleet_runner_start,
     fleet_runner_stop, fleet_runner_renew, fleet_runner_status,
 )
 
-from opl_fleet_parts.fleet_dispatch import (
+from fleet.fleet_dispatch import (
     validate_execution_requirements, read_execution_requirements, request_value, dispatch_adapter_from_args, dispatch_request, dispatch_candidates, dispatch_plan_payload, dispatch_lease,
     fleet_dispatch_plan, fleet_dispatch_acquire, fleet_dispatch_verify, validate_execution_argv, validate_execution_result, execute_ssh_session, validate_data_job_artifact_path, fetch_data_job_artifact, run_data_job, fleet_dispatch_execute, fleet_dispatch_release,
 )
 
-from opl_fleet_parts.fleet_cli import (
+from fleet.fleet_attempts import (
+    ATTEMPTS_SCHEMA, TELEMETRY_SCHEMA, ATTEMPT_STATES, attempt_paths, read_attempt_store,
+    record_attempt_start, get_attempt, list_attempts, heartbeat_attempt, finish_attempt,
+    plan_preemption, suspend_attempt, check_stale_attempts, observe_attempts,
+)
+
+from fleet.fleet_queue import (
+    QUEUE_PLAN_SCHEMA, score_queue_item, plan_queue,
+)
+
+from fleet.fleet_adapter import (
+    CONTEXT_SCHEMA, LAUNCH_ENVELOPE_SCHEMA, GROUP_RECEIPT_SCHEMA,
+    restore_handoff_context, dispatch_run, dispatch_complete,
+    dispatch_group_plan, dispatch_group_run, dispatch_group_status,
+)
+
+from fleet.fleet_cli import (
     fleet_status, fleet_assets, fleet_nodes, fleet_select, fleet_doctor, fleet_data_job_run, fleet_lease_show, fleet_lease_acquire, fleet_lease_verify,
     fleet_lease_renew, fleet_lease_release, fleet_lease_reap, parse_args, main,
 )

@@ -142,7 +142,7 @@ and compact status; ordinary task and Dolt operations remain direct `bd`
 commands. Flow does not add another replication protocol.
 
 Workspace currentness and owner transfer are implemented in
-`scripts/opl_fleet_parts/fleet_workspace.py` and `scripts/opl_task_owner.py`,
+`scripts/fleet/fleet_workspace.py` and `scripts/opl_task_owner.py`,
 exposed through `scripts/opl_workflow.py`. Fleet's
 [architecture](opl-fleet-architecture.md) owns their contract; the
 [migration procedure](../skills/manage-codex-tasks/references/migrate-owner.md)
@@ -179,10 +179,29 @@ Ledger, Worker and Fleet operations; the Ledger does not dispatch work.
   permissions, synchronization and metadata write/readback. Workflow and Fleet
   workspace commands delegate through this adapter; Fleet never implements a
   second Beads writer.
-- `scripts/opl_execution.py` owns carrier-neutral handoff/result validation and
-  admission evidence. It performs no I/O. `opl_task_owner.py` consumes those
-  neutral records; the Workflow entry translates existing Fleet receipts through
-  `fleet_execution.py` before calling the owner transitions.
+- `scripts/opl_execution.py` owns carrier-neutral handoff/result validation,
+  pre-execution permission/budget envelope enforcement, budget evaluation,
+  privacy sanitization checks, and admission evidence. It performs no I/O.
+  `opl_task_owner.py` consumes those neutral records; the Workflow entry
+  translates existing Fleet receipts through `fleet_execution.py` before
+  calling the owner transitions.
+- `scripts/opl_supervisor.py` owns deterministic Phase A change detection
+  (`supervisor plan`), Beads-to-Linear status projection, title prefix
+  projection, and conflict-safe Obsidian archive synchronization
+  (`supervisor sync-obsidian`) without invoking an LLM or importing Fleet.
+- `scripts/opl_events.py` owns the sanitized idempotent event inbox/callback
+  spool (`event emit|list|claim|ack`), unified manual intake (`intake submit`),
+  idempotent Beads task graph import (`graph import`), stateless logical
+  control-turn evaluation (`graph evaluate`), event-driven router ticks/watch
+  (`router tick|watch`), the unified human decision inbox (`inbox list|submit|approve-archive`),
+  and the ergonomic human-first CLI verbs (`up`, `down`, `ps`, `send`, `approve`, plus `--human`).
+- `scripts/opl_codex_bridge.py` provides the default zero-Fleet `codex exec`
+  bridge for stateless control turns (`control`, outputting `opl_control_turn_receipt.v1`)
+  and bounded worker slices (`worker`, outputting validated `opl_worker_result.v1`)
+  without `--dangerously-bypass-approvals-and-sandbox`.
+- `scripts/opl_service.py` owns cross-platform background router service
+  installation/removal (`launchd` on macOS, `systemd --user` on Linux) and the
+  `opl-flow` CLI wrapper without importing Fleet.
 - Fleet configuration and Git primitives live in `fleet_control.py`, below
   reconciliation and Profile delivery. These modules have no reverse import.
 - Worktree custody records identify the local custodian, executor, task reference
@@ -201,19 +220,22 @@ Instance needs a separate OS user or a deliberate node migration.
 ### Worker Handoff And Return
 
 A handoff contains `attempt_id`, `objective_id`, `owner_id`, `scope`, input and
-checkpoint references, and `expected_result`. It refers to owner-managed data;
-raw conversations and credentials stay with their owners. A result binds the
-same handoff and reports `checkpoint`, `completed`, `blocked` or `unknown`,
-artifact/checkpoint references, remaining work and the next action. `completed`
-means this execution slice returned evidence; the current Ledger owner still
-accepts the objective result.
+checkpoint references, and `expected_result`, plus optional additive
+`objective_revision`, `write_set`, `envelope` (allowed paths, tools, network/destructive
+guards, duration/token/cost budgets, and opaque `cred:` references), and
+`resumability` metadata (`checkpointable`, heartbeat/stale intervals, interruptible phase).
+It refers to owner-managed data; raw conversations and credentials stay with their owners.
+A result binds the same handoff and reports `checkpoint`, `completed`, `blocked` or `unknown`,
+artifact/checkpoint references, remaining work, the next action, and optional
+`budget_usage` / `checkpoint_digests`. `completed` means this execution slice returned
+evidence; the current Ledger owner still accepts the objective result.
 
 ```bash
 python3 scripts/opl_workflow.py worker handoff --handoff-json handoff.json
 python3 scripts/opl_workflow.py worker result \
   --handoff-json handoff.json --result-json result.json
-python3 scripts/opl_fleet.py dispatch acquire --adapter local-codex \
-  --owner-task <objective-id> --handoff-json @handoff.json
+python3 scripts/opl_fleet.py dispatch run --adapter local-codex \
+  --owner-task <objective-id> --handoff-json @handoff.json --use-codex-bridge
 ```
 
 Managed dispatch accepts the same `--handoff-json`. The lease stores only the

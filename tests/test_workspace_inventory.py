@@ -4,7 +4,7 @@ import subprocess
 import tempfile
 import unittest
 
-from scripts.opl_fleet_parts.workspace_inventory import discover_checkouts, inventory, repository_identity
+from scripts.fleet.workspace_inventory import discover_checkouts, inventory, repository_identity
 
 
 def git(path, *args):

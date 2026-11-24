@@ -1,0 +1,186 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/gaofeng21cn/opl-flow/contracts/fleet-attempt-telemetry.schema.json",
+  "title": "OPL Fleet sanitized attempt telemetry observation",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "access",
+    "authority",
+    "observed_at",
+    "node_id",
+    "attempts",
+    "forbidden_fields"
+  ],
+  "properties": {
+    "schema": {
+      "const": "opl_fleet_attempt_telemetry.v1"
+    },
+    "access": {
+      "const": "read_only"
+    },
+    "authority": {
+      "const": "observation_only"
+    },
+    "observed_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "node_id": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "pattern": "^[a-z0-9][a-z0-9-]{0,62}$"
+    },
+    "attempts": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/attemptTelemetryRecord"
+      }
+    },
+    "forbidden_fields": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "const": [
+        "prompt",
+        "response",
+        "content",
+        "conversation_content",
+        "raw_prompt",
+        "raw_response",
+        "raw_content",
+        "session_id",
+        "local_path",
+        "interface",
+        "interface_name",
+        "address",
+        "network_address",
+        "credential",
+        "secret",
+        "raw_log"
+      ]
+    }
+  },
+  "$defs": {
+    "attemptTelemetryRecord": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "attempt_id",
+        "objective_id",
+        "owner_id",
+        "adapter",
+        "node_id",
+        "phase",
+        "state",
+        "started_at",
+        "last_heartbeat_at",
+        "updated_at",
+        "resumable",
+        "interruptible",
+        "result_class"
+      ],
+      "properties": {
+        "attempt_id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 512
+        },
+        "objective_id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 512
+        },
+        "owner_id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 512
+        },
+        "adapter": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 64
+        },
+        "node_id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 64
+        },
+        "phase": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 64
+        },
+        "state": {
+          "enum": [
+            "admitted",
+            "running",
+            "checkpointed",
+            "suspended_checkpointed",
+            "completed",
+            "blocked",
+            "stale_unknown",
+            "unknown"
+          ]
+        },
+        "started_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "last_heartbeat_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "updated_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "resumable": {
+          "type": "boolean"
+        },
+        "interruptible": {
+          "type": "boolean"
+        },
+        "result_class": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 64
+        },
+        "blocker_code": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 128
+        },
+        "budget_usage": {
+          "type": [
+            "object",
+            "null"
+          ],
+          "additionalProperties": false,
+          "properties": {
+            "elapsed_seconds": {
+              "type": "number",
+              "minimum": 0
+            },
+            "tokens_used": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "estimated_cost_usd": {
+              "type": "number",
+              "minimum": 0
+            }
+          }
+        }
+      }
+    }
+  }
+}

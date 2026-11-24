@@ -16,7 +16,7 @@ import socket
 import subprocess
 import tempfile
 
-# Layout: scripts/opl_fleet_parts/fleet_common.py -> scripts/ -> repo root.
+# Layout: scripts/fleet/fleet_common.py -> scripts/ -> repo root.
 SCRIPTS_DIR = Path(__file__).resolve().parent.parent
 FLOW_ROOT = SCRIPTS_DIR.parent
 FLEET_ENTRY_SCRIPT = SCRIPTS_DIR / "opl_fleet.py"

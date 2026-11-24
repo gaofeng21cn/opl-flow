@@ -14,6 +14,14 @@ from .fleet_reconcile import fetch_state_file, fleet_repositories, join, reconci
 from .fleet_lease import acquire_lease_record, active_lease_map, lease_lock, public_lease, read_lease_store, reap_expired_leases, release_lease_record, renew_lease_record, select_nodes, write_lease_store
 from .fleet_runner import assert_lease_admission, assert_runner_role_node, assert_runner_role_workload, build_admission_receipt, controller_guard, doctor_result, fleet_runner_renew, fleet_runner_start, fleet_runner_status, fleet_runner_stop, verify_lease_record
 from .fleet_dispatch import dispatch_adapter_from_args, fleet_dispatch_acquire, fleet_dispatch_execute, fleet_dispatch_plan, fleet_dispatch_release, fleet_dispatch_verify, run_data_job, validate_execution_argv
+from .fleet_attempts import check_stale_attempts, get_attempt, heartbeat_attempt, list_attempts, observe_attempts, plan_preemption, suspend_attempt
+from .fleet_queue import plan_queue
+from .fleet_adapter import dispatch_complete, dispatch_group_plan, dispatch_group_run, dispatch_group_status, dispatch_run
+
+try:
+    from .. import opl_events
+except ImportError:  # Direct script execution.
+    import opl_events
 from .fleet_workspace import workspace_command
 from .fleet_workflow import workflow_command, workflow_status, set_flagship
 
@@ -489,6 +497,88 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     dispatch_release_parser = dispatch_subparsers.add_parser("release")
     dispatch_release_parser.add_argument("dispatch_id")
     dispatch_release_parser.add_argument("--owner-task", required=True)
+    dispatch_run_parser = dispatch_subparsers.add_parser(
+        "run",
+        help="run unified single-transaction dispatch across adapters",
+    )
+    add_dispatch_request_arguments(dispatch_run_parser, owner=True)
+    dispatch_run_parser.add_argument("--argv-json")
+    dispatch_run_parser.add_argument("--executor-cmd-json")
+    dispatch_run_parser.add_argument("--mode", choices=("execute", "envelope"), default="execute")
+    dispatch_run_parser.add_argument("--cwd")
+    dispatch_run_parser.add_argument("--timeout-seconds", type=int, default=900)
+    dispatch_run_parser.add_argument("--workspace-root", type=Path)
+    dispatch_run_parser.add_argument("--runtime-dir", type=Path)
+    dispatch_run_parser.add_argument("--callback-state-dir", type=Path)
+    dispatch_run_parser.add_argument("--group-id")
+    dispatch_run_parser.add_argument("--verify-git", action="store_true")
+    dispatch_run_parser.add_argument("--use-codex-bridge", action="store_true")
+    dispatch_run_parser.add_argument("--codex-bin")
+    dispatch_run_parser.add_argument("--model")
+    dispatch_run_parser.add_argument("--sandbox", choices=("read-only", "workspace-write", "danger-full-access"))
+    dispatch_run_parser.add_argument("--worktree", action="store_true")
+    dispatch_complete_parser = dispatch_subparsers.add_parser(
+        "complete",
+        help="validate worker result, release lease, and emit callback for async dispatch",
+    )
+    dispatch_complete_parser.add_argument("--attempt-id")
+    dispatch_complete_parser.add_argument("--dispatch-id")
+    dispatch_complete_parser.add_argument("--handoff-json", required=True)
+    dispatch_complete_parser.add_argument("--result-json", required=True)
+    dispatch_complete_parser.add_argument("--callback-state-dir", type=Path)
+    dispatch_group_parser = dispatch_subparsers.add_parser(
+        "group",
+        help="plan, execute, or inspect fan-out/fan-in dispatch groups",
+    )
+    dispatch_group_actions = dispatch_group_parser.add_subparsers(dest="group_action", required=True)
+    group_plan = dispatch_group_actions.add_parser("plan")
+    group_plan.add_argument("--group-json", required=True)
+    group_plan.add_argument("--max-concurrent", type=int)
+    group_plan.add_argument("--max-local-concurrent", type=int)
+    group_run = dispatch_group_actions.add_parser("run")
+    group_run.add_argument("--group-json", required=True)
+    group_run.add_argument("--max-concurrent", type=int)
+    group_run.add_argument("--max-local-concurrent", type=int)
+    group_run.add_argument("--workspace-root", type=Path)
+    group_run.add_argument("--runtime-dir", type=Path)
+    group_run.add_argument("--callback-state-dir", type=Path)
+    group_status = dispatch_group_actions.add_parser("status")
+    group_status.add_argument("group_id")
+
+    attempt_parser = subparsers.add_parser("attempt", help="manage and observe sanitized execution attempts")
+    attempt_actions = attempt_parser.add_subparsers(dest="attempt_action", required=True)
+    attempt_status = attempt_actions.add_parser("status")
+    attempt_status.add_argument("attempt_id", nargs="?")
+    attempt_status.add_argument("--node-id")
+    attempt_status.add_argument("--objective-id")
+    attempt_status.add_argument("--group-id")
+    attempt_status.add_argument("--state")
+    attempt_observe = attempt_actions.add_parser("observe")
+    attempt_observe.add_argument("--node-id")
+    attempt_hb = attempt_actions.add_parser("heartbeat")
+    attempt_hb.add_argument("attempt_id")
+    attempt_hb.add_argument("--phase")
+    attempt_hb.add_argument("--checkpoint-ref")
+    attempt_hb.add_argument("--budget-json")
+    attempt_hb.add_argument("--renew-lease", action="store_true")
+    attempt_hb.add_argument("--lease-ttl-seconds", type=int)
+    attempt_preempt = attempt_actions.add_parser("preempt-plan")
+    attempt_preempt.add_argument("node_id")
+    attempt_preempt.add_argument("--incoming-priority", type=int, required=True)
+    attempt_suspend = attempt_actions.add_parser("suspend")
+    attempt_suspend.add_argument("attempt_id")
+    attempt_suspend.add_argument("--checkpoint-ref", required=True)
+    attempt_suspend.add_argument("--reason", default="preempted")
+    attempt_suspend.add_argument("--no-release-lease", dest="release_lease", action="store_false", default=True)
+    attempt_stale = attempt_actions.add_parser("stale-check")
+    attempt_stale.add_argument("--callback-state-dir", type=Path)
+
+    queue_parser = subparsers.add_parser("queue", help="priority queueing and backpressure planning")
+    queue_actions = queue_parser.add_subparsers(dest="queue_action", required=True)
+    queue_plan = queue_actions.add_parser("plan")
+    queue_plan.add_argument("--requests-json", required=True)
+    queue_plan.add_argument("--max-concurrent", type=int)
+    queue_plan.add_argument("--max-local-concurrent", type=int)
     runner_parser = subparsers.add_parser("runner")
     runner_subparsers = runner_parser.add_subparsers(
         dest="runner_action",
@@ -601,16 +691,32 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     record_parser.add_argument("--payload-b64", required=True)
     return parser.parse_args(argv)
 
+def _read_json_arg(value: str, label: str) -> Any:
+    source = value
+    if value.startswith("@"):
+        path = Path(value[1:]).expanduser()
+        if not path.is_file():
+            raise FleetError(f"{label} file does not exist: {path}")
+        source = path.read_text(encoding="utf-8")
+    try:
+        return json.loads(source)
+    except json.JSONDecodeError as exc:
+        raise FleetError(f"{label} must be valid JSON") from exc
+
+
 def writes_instance_state(args: argparse.Namespace) -> bool:
     """Bind the shared node namespace before its first write, even without join."""
+    if args.action == "dispatch" and getattr(args, "dispatch_action", None) == "group":
+        return getattr(args, "group_action", None) == "run"
     mutations = {
         "workflow": ("workflow_action", {"sync", "record-projection"}),
         "flagship": ("flagship_action", {"set"}),
         "repos": ("repos_action", {"sync"}),
         "workspace": ("workspace_action", {"bootstrap", "sync", "claim-check"}),
-        "dispatch": ("dispatch_action", {"acquire", "execute", "release"}),
+        "dispatch": ("dispatch_action", {"acquire", "execute", "release", "run", "complete"}),
         "lease": ("lease_action", {"acquire", "renew", "release", "reap"}),
         "runner": ("runner_action", {"start", "stop", "renew"}),
+        "attempt": ("attempt_action", {"heartbeat", "suspend", "stale-check"}),
     }
     if args.action in {"join", "reconcile", "record", "data-job"}:
         return True
@@ -622,7 +728,7 @@ def main(argv: list[str] | None = None) -> int:
     args = parse_args(argv)
     local_dispatch = (
         args.action == "dispatch"
-        and args.dispatch_action in {"plan", "acquire"}
+        and args.dispatch_action in {"plan", "acquire", "run"}
         and dispatch_adapter_from_args(args) == "local-codex"
     )
     instance = None if local_dispatch else configure_instance(args.instance)
@@ -682,7 +788,143 @@ def main(argv: list[str] | None = None) -> int:
             return fleet_dispatch_verify(args)
         if args.dispatch_action == "execute":
             return fleet_dispatch_execute(args)
-        return fleet_dispatch_release(args)
+        if args.dispatch_action == "release":
+            return fleet_dispatch_release(args)
+        if args.dispatch_action == "run":
+            handoff = _read_json_arg(args.handoff_json, "worker handoff") if args.handoff_json else None
+            if handoff is None:
+                raise FleetError("dispatch run requires --handoff-json")
+            reqs = _read_json_arg(args.requirements_json, "execution requirements") if args.requirements_json else None
+            argv_list = _read_json_arg(args.argv_json, "argv") if args.argv_json else None
+            exec_cmd = _read_json_arg(args.executor_cmd_json, "executor_cmd") if args.executor_cmd_json else None
+            result = dispatch_run(
+                handoff=handoff,
+                requirements=reqs,
+                adapter=args.adapter,
+                node_id=args.node_id,
+                role=args.role,
+                owner_task=args.owner_task,
+                owner_thread=args.owner_thread,
+                owner_run=args.owner_run,
+                argv=argv_list,
+                executor_cmd=exec_cmd,
+                mode=args.mode,
+                cwd=args.cwd,
+                timeout_seconds=args.timeout_seconds,
+                workspace_root=args.workspace_root,
+                runtime_dir=args.runtime_dir,
+                callback_state_dir=args.callback_state_dir,
+                group_id=args.group_id,
+                verify_git=args.verify_git,
+                preempt_lease_id=args.preempt_lease_id,
+                preempt_generation=args.preempt_generation,
+                preempt_nonce=args.preempt_nonce,
+                use_codex_bridge=args.use_codex_bridge,
+                codex_bin=args.codex_bin,
+                model=args.model,
+                use_worktree=args.worktree,
+                sandbox=args.sandbox,
+            )
+            print(json.dumps(result, indent=2, sort_keys=True))
+            return 1 if result.get("status") == "unknown" else 0
+        if args.dispatch_action == "complete":
+            handoff = _read_json_arg(args.handoff_json, "worker handoff")
+            worker_res = _read_json_arg(args.result_json, "worker result")
+            result = dispatch_complete(
+                handoff=handoff,
+                result=worker_res,
+                attempt_id=args.attempt_id,
+                dispatch_id=args.dispatch_id,
+                callback_state_dir=args.callback_state_dir,
+            )
+            print(json.dumps(result, indent=2, sort_keys=True))
+            return 1 if result.get("status") == "unknown" else 0
+        if args.dispatch_action == "group":
+            if args.group_action == "status":
+                result = dispatch_group_status(args.group_id)
+            else:
+                group_spec = _read_json_arg(args.group_json, "group dispatch spec")
+                if args.group_action == "plan":
+                    result = dispatch_group_plan(
+                        group_spec,
+                        max_concurrent=args.max_concurrent,
+                        max_local_concurrent=args.max_local_concurrent,
+                    )
+                else:
+                    result = dispatch_group_run(
+                        group_spec,
+                        max_concurrent=args.max_concurrent,
+                        max_local_concurrent=args.max_local_concurrent,
+                        workspace_root=args.workspace_root,
+                        runtime_dir=args.runtime_dir,
+                        callback_state_dir=args.callback_state_dir,
+                    )
+            print(json.dumps(result, indent=2, sort_keys=True))
+            return 0
+    if args.action == "attempt":
+        if args.attempt_action == "status":
+            if args.attempt_id:
+                rec = get_attempt(args.attempt_id)
+                if rec is None:
+                    raise FleetError(f"attempt not found: {args.attempt_id}")
+                result: Any = rec
+            else:
+                result = {
+                    "schema": "opl_fleet_attempts_list.v1",
+                    "attempts": list_attempts(
+                        node_id=args.node_id,
+                        objective_id=args.objective_id,
+                        group_id=args.group_id,
+                        state=args.state,
+                    ),
+                }
+        elif args.attempt_action == "observe":
+            result = observe_attempts(node_id=args.node_id)
+        elif args.attempt_action == "heartbeat":
+            budget = _read_json_arg(args.budget_json, "budget usage") if args.budget_json else None
+            result = heartbeat_attempt(
+                args.attempt_id,
+                phase=args.phase,
+                checkpoint_ref=args.checkpoint_ref,
+                budget_usage=budget,
+                renew_lease=args.renew_lease,
+                lease_ttl_seconds=args.lease_ttl_seconds,
+            )
+        elif args.attempt_action == "preempt-plan":
+            result = plan_preemption(args.node_id, incoming_priority=args.incoming_priority)
+        elif args.attempt_action == "suspend":
+            result = suspend_attempt(
+                args.attempt_id,
+                checkpoint_ref=args.checkpoint_ref,
+                reason=args.reason,
+                release_lease=args.release_lease,
+            )
+        else:
+            result = check_stale_attempts()
+            if args.callback_state_dir is not None:
+                for stale in result.get("stale_attempts", []):
+                    opl_events.emit_event(
+                        args.callback_state_dir,
+                        event_type="executor_lost",
+                        objective_id=stale["objective_id"],
+                        attempt_id=stale["attempt_id"],
+                        source="fleet:stale-check",
+                        idempotency_key=f"stale:{stale['attempt_id']}:{stale['updated_at']}",
+                        payload={"signal": "attempt_heartbeat_stale", "node_id": stale["node_id"]},
+                    )
+        print(json.dumps(result, indent=2, sort_keys=True))
+        return 0
+    if args.action == "queue":
+        items = _read_json_arg(args.requests_json, "queue requests")
+        if not isinstance(items, list):
+            raise FleetError("queue requests must be a JSON array")
+        result = plan_queue(
+            items,
+            max_concurrent=args.max_concurrent,
+            max_local_concurrent=args.max_local_concurrent,
+        )
+        print(json.dumps(result, indent=2, sort_keys=True))
+        return 0
     if args.action == "runner":
         if args.runner_action == "start":
             return fleet_runner_start(args)

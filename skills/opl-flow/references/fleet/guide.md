@@ -81,8 +81,9 @@ Choose the narrow command family:
   Profile projection. See the authoring and delivery boundary below.
 - `select`: choose a node from fresh capabilities and policy.
 - `lease`: acquire, verify, renew, release, or reconcile protected capacity.
-- `dispatch`: plan, acquire, verify, execute, or release one adapter-bound
-  execution transaction.
+- `dispatch`: plan, acquire, verify, execute, run (single-transaction adapter, supporting `--use-codex-bridge`), complete, group (`plan|run|status`), or release one adapter-bound execution transaction.
+- `attempt`: inspect, observe (`opl_fleet_attempt_telemetry.v1`), heartbeat, evaluate preemption (`preempt-plan`), gracefully suspend (`suspend`), or detect stale attempts (`stale-check`).
+- `queue`: compute priority queueing and backpressure plans (`queue plan`) over ready slices and active leases.
 - `data-job`: run a lightweight per-node task and optionally fetch one
   HOME-relative artifact directory without reserving compute capacity.
 - `runner`: execute the guarded runner transaction.

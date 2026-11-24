@@ -64,6 +64,107 @@
         "maxLength": 512,
         "pattern": "^[^\\u0000\\r\\n]+$"
       }
+    },
+    "objective_revision": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "write_set": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 512,
+        "pattern": "^[^\\u0000\\r\\n]+$"
+      }
+    },
+    "envelope": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "allowed_write_paths": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 512,
+            "pattern": "^[^\\u0000\\r\\n]+$"
+          }
+        },
+        "allowed_tools": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128,
+            "pattern": "^[^\\u0000\\r\\n]+$"
+          }
+        },
+        "allow_network": {
+          "type": "boolean"
+        },
+        "allow_destructive": {
+          "type": "boolean"
+        },
+        "max_duration_seconds": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 86400
+        },
+        "max_tokens": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "max_cost_usd": {
+          "type": "number",
+          "minimum": 0
+        },
+        "credential_refs": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "pattern": "^cred:[a-z0-9][a-z0-9._:/-]{0,127}$"
+          }
+        }
+      }
+    },
+    "resumability": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "checkpointable"
+      ],
+      "properties": {
+        "checkpointable": {
+          "type": "boolean"
+        },
+        "heartbeat_interval_seconds": {
+          "type": "integer",
+          "minimum": 10,
+          "maximum": 3600
+        },
+        "max_stale_seconds": {
+          "type": "integer",
+          "minimum": 30,
+          "maximum": 86400
+        },
+        "interruptible_phase": {
+          "enum": [
+            "interruptible",
+            "non-interruptible"
+          ]
+        },
+        "resume_command_ref": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 512,
+          "pattern": "^[^\\u0000\\r\\n]+$"
+        }
+      }
     }
   }
 }

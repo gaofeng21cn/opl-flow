@@ -1,0 +1,64 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/gaofeng21cn/opl-flow/contracts/control-turn-receipt.schema.json",
+  "title": "OPL Flow stateless control turn receipt",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "root_objective_id",
+    "status",
+    "actions_taken",
+    "dispatched_attempts",
+    "needs_human_action",
+    "summary",
+    "next_step"
+  ],
+  "properties": {
+    "schema": {
+      "type": "string",
+      "enum": [
+        "opl_control_turn_receipt.v1"
+      ]
+    },
+    "root_objective_id": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "completed",
+        "dispatched",
+        "waiting_user",
+        "blocked",
+        "noop"
+      ]
+    },
+    "actions_taken": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "dispatched_attempts": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "needs_human_action": {
+      "type": "boolean"
+    },
+    "summary": {
+      "type": "string",
+      "minLength": 1
+    },
+    "next_step": {
+      "type": "string",
+      "minLength": 1
+    }
+  }
+}

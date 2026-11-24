@@ -83,7 +83,14 @@ runtime owner on every heartbeat.
      --instance <instance>
    python3 scripts/opl_workflow.py ledger supervisor-snapshot \
      --instance <instance>
+   python3 scripts/opl_workflow.py supervisor plan \
+     --instance <instance> --save-cursor
    ```
+
+   `supervisor plan` performs the deterministic Phase A diff in code (`scripts/opl_supervisor.py`):
+   exit `0` (`wake_agent=false`, `notification="DONT_NOTIFY"`) ends the episode with zero Agent
+   expansion; exit `2` (`wake_agent=true`) emits sanitized change events so Phase B expands only
+   those objects; exit `3` signals fail-closed control-plane drift.
 
 3. Treat a snapshot `validation_errors` entry or exit `3` as control-plane
    drift. Fail closed for that affected Bead; do not guess a status or mapping.
@@ -334,8 +341,9 @@ Write owner, execution thread, current slice, first blocker, next action,
 remaining, and terminal/readback facts to Beads. Run `bd dolt push` only when
 Beads changed, then pull/read back parity. Narrowly update Linear only when a
 projected field changed. Synchronize changed facts to the corresponding
-Obsidian record with read-before-write, preserved manual additions, and exact
-note/Bases readback. On failure retain that pending archive update; do not
+Obsidian record using `python3 scripts/opl_workflow.py supervisor sync-obsidian --instance <instance> --vault-dir <vault>`
+(read-before-write with expected-hash conflict protection, preserved manual additions, and exact
+note/Bases readback). On failure retain that pending archive update; do not
 consume its event or claim full alignment. Completed history is archived in
 Obsidian before any separately authorized Linear-copy retirement.
 

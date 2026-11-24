@@ -47,6 +47,12 @@ decision, lease, dispatch, completion verdict, or native lifecycle action. A Hos
 adapter may validate and project the response, while the native Agent remains the
 source of the observation and the platform remains the process lifecycle owner.
 
+An additive read-only attempt telemetry contract, `opl_fleet_attempt_telemetry.v1`
+(`contracts/fleet-attempt-telemetry.schema.json`), extends `observation_only`
+visibility to execution attempt lifecycles (`attempt observe`) without exposing
+prompts, responses, conversation contents, session IDs, local paths, addresses,
+credentials, or raw logs.
+
 ## Three Modes
 
 - **Local:** the Agent reads local Codex usage and host telemetry and renders it
