@@ -20,7 +20,12 @@ feature belongs in the canonical owner.
 Apply the caller's confirmed author tiers before proposal review: owner-operated
 accounts go directly to merge without third-party product-intent proof;
 explicit repository partners receive trust-first SSOT review; other contributors
-must substantiate nontrivial Debug, behavior changes, and features themselves.
+start from cautious skepticism, require reading the target repository's product
+design principles before judging non-Debug behavior/feature changes, and separate
+whether a PR merges as-is from whether the underlying user problem deserves
+autonomous convergence. Progress autonomously wherever safe and clearly product-aligned,
+minimize human escalation to truly necessary design/irreversible choices, and post
+an evidence-bearing public reply to the submitter for every decided Issue or PR.
 Use [decision-contract.md](decision-contract.md) for the exact scope, evidence,
 and close-and-resubmit rules. Trust scope and GitHub permissions are separate.
 

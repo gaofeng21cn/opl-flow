@@ -33,25 +33,34 @@ the proposal's evidence and product fit.
   proportionate verification. Do not mechanically impose third-party Issue
   prerequisites. Resolve concrete conflicts rather than accepting every change.
 - `third_party`: everyone else, including a partner outside their named
-  repository scope. Start from skepticism of the proposal's diagnosis and
-  necessity. Only an easily reproducible, clearly understood Debug fix that
-  restores intended behavior may proceed without an Issue. Unreproduced Debug,
-  intentional behavior changes, and new capabilities require a substantive
-  linked Issue and supporting evidence. The submitter must demonstrate why a
-  behavior change or core feature is necessary; the maintainer independently
-  decides whether it belongs in the current product.
+  repository scope. Start from skepticism of the proposal's diagnosis, patch
+  scope, and necessity. Before judging any non-Debug behavior change or new
+  feature, read the target repository's product design principles, positioning,
+  architecture/contracts, and non-goals (`README.md`, `AGENTS.md`,
+  `docs/architecture.md`, and canonical contracts). Only an easily reproducible,
+  clearly understood Debug fix that restores intended behavior may proceed
+  without an Issue. Unreproduced Debug, intentional behavior changes, and new
+  capabilities require a substantive linked Issue and supporting evidence.
 
 Names such as `fix`, `compatibility`, or `alignment` do not establish that a
 change is Debug. A disputed product design can be intentional. Compare actual
-before/after behavior with the latest SSOT and separate real defect correction
-from added restrictions, changed defaults, expanded permissions, or features.
-An Issue link, edited contract, generated test, green CI, or mergeability does
-not establish necessity. Do not invent a requirement or complete the
-submitter's missing justification in order to absorb their proposal.
+before/after behavior with the latest SSOT and design philosophy, and separate
+real defect correction from added restrictions, changed defaults, expanded
+permissions, default-path coupling, or features. An Issue link, edited contract,
+generated test, green CI, or mergeability does not establish necessity. Do not
+invent a requirement or absorb an unsubstantiated implementation as-is.
 
-For third-party proposals missing a required Issue, explanation, or evidence,
-explain the precise gap and close the PR under the caller's authorization;
-invite the contributor to complete the Issue and submit a new focused PR.
+Separate **whether this PR can merge as-is** from **whether the underlying user
+problem is valid**. Even when a third-party PR lacks required evidence or oversteps
+the product design, independently check whether the contributor surfaced a real,
+valuable user problem. When the underlying problem is genuine, aligns with the
+repository's design principles, and carries low risk with a clean boundary, prefer
+autonomous forward progress within caller authorization (converging via a bounded
+fix, explicit opt-in default-off path, successor PR, or existing Issue tracking)
+rather than dropping the signal solely because the contributor's write-up was
+incomplete. Otherwise, explain the precise evidence or design-philosophy gap and
+close the PR under the caller's authorization, inviting a complete Issue or
+narrow focused PR. Reserve human escalation strictly for truly necessary choices.
 An Issue is an input to judgment, not automatic feature approval. Authentication,
 transport, quota, or tooling failures on the maintainer's side are unknown
 observations and never grounds for that closure.
@@ -91,12 +100,17 @@ Classify the item:
 
 - `actionable_auto`: the applicable trust-tier path admits the work, one owner
   and writable lane exist, and the actual permission and verification boundaries
-  are satisfied. Owner-operated intent needs no independent necessity proof.
-  A partner's change needs an SSOT check. A third-party change needs either a
-  clearly reproduced defect or an independently justified Issue-backed proposal.
-- `actionable_manual`: the target is reasonable but needs product/policy
-  choice, third-party branch work, approval, release/install/publication,
-  secret, external input, or an irreversible operation.
+  are satisfied. This is the preferred autonomous-progression path whenever a
+  proposal is a clear reproducible Debug fix or a clearly product-aligned,
+  low-risk bounded improvement (including converging a valid underlying problem
+  via a bounded fix or successor PR). Owner-operated intent needs no independent
+  necessity proof; partner changes need an SSOT check; third-party changes need
+  either a clearly reproduced defect or an independently verified product-aligned
+  and justified target. Minimize unnecessary human escalation.
+- `actionable_manual`: reserve strictly for genuinely necessary human decisions—core
+  product philosophy or roadmap shifts, conflicting high-impact design philosophies,
+  third-party branch-only work without maintainer route, approval,
+  release/install/publication, secret, external input, or irreversible changes.
 - `needs_evidence`: the target, current reproduction, or proposed route is not
   proven. Name the smallest missing evidence.
 - `already_integrated`: canonical main contains the same semantics, supported
@@ -150,8 +164,14 @@ result=<returned id/state>
 postcondition=<fresh exact readback including language consistency>
 ```
 
-Use one evidence-bearing comment, not daily progress comments. For a third-party
-PR classified `needs_evidence`, `not_actionable`, `duplicate_or_superseded`, or
-superscoped, the caller may authorize comment-then-close as one operation.
-Explain concrete re-entry conditions and welcome a narrow new PR, issue, or
-maintainer reopen. This does not authorize approve, merge, push, or fork edits.
+Every decided Issue or PR must receive a direct, concrete, evidence-bearing
+public reply to its submitter (using one consolidated reply rather than daily
+progress comments). Match the submitter's language (`artifact_language`), cite the
+verified facts, product-design fit, and concrete gaps or disposition/follow-up
+path, and never expose private trust registers, partner scopes, or internal tier
+labels. For a third-party PR classified `needs_evidence`, `not_actionable`,
+`duplicate_or_superseded`, or superscoped, the caller may authorize
+comment-then-close as one operation—explaining concrete re-entry conditions (or
+where the valid underlying issue is tracked) and welcoming a narrow new PR, issue,
+or maintainer reopen. Follow every reply/close with exact readback. This does not
+authorize approve, merge, push, or fork edits.
