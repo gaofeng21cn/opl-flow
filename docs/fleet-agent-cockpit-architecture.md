@@ -19,7 +19,7 @@ OPL Fleet is one control plane with deliberately separate observation products:
 | Product term | Current implementation | Responsibility |
 | --- | --- | --- |
 | OPL Fleet Controller | OPL Flow plus one private OPL Instance | Node registry, policy, fresh doctor/admission, leases, dispatch, and execution adapter selection |
-| OPL Fleet Agent | `opl-fleet-agent` | Node-local observation, doctor, execution constraints, sanitized receipts, Codex Telemetry, and the Host dashboard |
+| OPL Fleet Agent | `opl-fleet-agent` | Node-local observation, doctor, execution constraints, sanitized receipts, local Codex and (on macOS) Antigravity telemetry, and the Host dashboard |
 | OPL Fleet Telemetry Gateway | `ambient-ops` Docker service | Authenticated allowlisted ingest, fleet aggregation, history, and read-only status projection |
 | OPL Fleet Cockpit · Ambient Ops | `ambient-ops` Web, Android, and iOS clients | Fleet/Host visualization, router network visualization, and display preferences |
 
@@ -55,7 +55,7 @@ credentials, or raw logs.
 
 ## Three Modes
 
-- **Local:** the Agent reads local Codex usage and host telemetry and renders it
+- **Local:** the Agent reads local Codex and (on macOS) Antigravity telemetry plus host metrics and renders them
   locally. No telemetry upload is required.
 - **Direct:** a Cockpit reads one Agent's read-only LAN endpoint. The Agent remains
   the source of that Host projection.
@@ -68,11 +68,10 @@ available while also reporting to a Gateway.
 
 ## Identity Stability
 
-The Agent identity cutover is complete. The admitted node product is
-`OPL Fleet Agent`, its implementation identifier is `opl-fleet-agent`, its macOS
-bundle identifier is `io.github.gaofeng21cn.opl-fleet-agent`, and Direct discovery
-uses `_opl-fleet-agent._tcp.local`. Consumers do not read or normalize the retired
-Agent identity.
+The admitted node product is `OPL Fleet Agent`, its implementation identifier is
+`opl-fleet-agent`, its macOS bundle identifier is
+`io.github.gaofeng21cn.opl-fleet-agent`, and Direct discovery uses
+`_opl-fleet-agent._tcp.local`.
 
 `OPL Fleet Cockpit · Ambient Ops` keeps its own bounded Gateway implementation
 alias and `_ambient-ops._tcp.local` discovery service. Repository URLs, Cockpit

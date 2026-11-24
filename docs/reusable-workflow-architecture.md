@@ -157,18 +157,15 @@ overrides explicit local preferences. Independent task worktrees preserve
 recoverable work, then integrate against current canonical source through
 [task coordination](../skills/manage-codex-tasks/references/coordinate.md).
 
-Framework owns Package activation, Profile materialization, capability
-projection, and carrier readback. Installation, setup, and repair deploy
-capabilities; only explicit `start` creates the Dashboard and Supervisor.
-[Machine setup](new-machine-codex-setup.md) owns the user procedure;
-[Package release](../skills/opl-flow/references/package-release.md) owns publisher
-steps. Source checks, immutable publication, installed carrier state, and
-new-executor callability remain separate evidence surfaces.
+Framework owns Package activation, Profile materialization, and carrier readback;
+[capability governance](capability-governance.md) owns policy composition,
+[machine setup](new-machine-codex-setup.md) owns user onboarding and verification,
+and [Package release](../skills/opl-flow/references/package-release.md) owns
+publisher steps. Source checks, immutable publication, installed carrier state,
+and new-executor callability remain separate evidence surfaces.
 
 Each node installs from current component owners and uses compatible versions.
 There is no controller-version lockstep or node-to-node payload copier.
-Superseded repository names and finished migration phases remain in Git
-history; the current architecture has no compatibility identity catalog.
 
 ## Implemented Module Boundaries
 
@@ -206,9 +203,7 @@ Ledger, Worker and Fleet operations; the Ledger does not dispatch work.
   reconciliation and Profile delivery. These modules have no reverse import.
 - Worktree custody records identify the local custodian, executor, task reference
   and cleanup state. They never assign the Ledger execution owner or declare a
-  task complete. Version 1 records are read into the explicit version 2 custody
-  representation; the next normal write saves only version 2. Existing CLI
-  arguments remain aliases for the custody fields.
+  task complete.
 
 The physical owners remain unchanged: Beads/Dolt in the private Instance,
 Fleet node configuration and state in the existing per-user directories,

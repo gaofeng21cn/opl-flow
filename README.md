@@ -109,7 +109,7 @@ catalog. Flow does not inject a hidden prompt.
 | Private OPL Instance | Private Ledger, topology, policy, operations, and personal overlays |
 
 Fleet workspace and owner-migration contracts are implemented in source.
-The [read-only checkout inventory](docs/workspace-inventory.md) discovers
+The [read-only checkout inventory](docs/opl-fleet-architecture.md#read-only-workspace-inventory) discovers
 independent clones, linked worktrees, and undeclared sources without enrolling
 them into maintenance or changing Git state.
 A particular node, migration, or installed Package still requires its own fresh

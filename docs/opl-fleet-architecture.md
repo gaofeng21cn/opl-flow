@@ -263,7 +263,35 @@ write. Repository bytes come from canonical Git remotes; private credentials,
 sessions, chat text, worktrees, binaries, caches, logs, and local absolute paths
 are not copied between nodes.
 
-## Design Gaps
+## Read-only Workspace Inventory
+
+`scripts/fleet/workspace_inventory.py` discovers normal Git checkouts and linked
+worktrees beneath caller-selected local roots. It groups independent clones by
+normalized remote identity and distinguishes them from worktrees sharing the
+same Git common directory, never returning remote credentials.
+
+The caller supplies its existing maintenance profile and optional custody
+receipts. Discovery does not enroll repositories into that profile, fetch,
+update, remove, or claim ownership of any checkout. A custody receipt identifies
+its recorded owner; it does not establish an actively executing chat.
+
+The scan stops at checkout roots and skips dependency, build, and model trees,
+symlinks, and cross-filesystem children, deduplicating overlapping scan roots.
+Unreadable or invalid Git checkouts remain explicit failures, while missing
+declared paths and unregistered checkouts remain separate findings. Size
+measurement is opt-in, uses allocated directory blocks (without estimating
+reclaimable space across overlapping hard links or APFS clones), and binds any
+later cleanup to a fresh reviewed exact set with source, caller, custody, and
+recovery evidence.
+
+Keep one stable primary checkout per maintained repository, and use the native
+Codex worktree/Handoff path or Git worktree lifecycle for parallel work. On task
+completion, retain useful results and necessary evidence, verify canonical
+absorption or explicit retirement, then close the owned worktree. Build output
+and evidence belong to their owning project outside worktree pools, and
+third-party patch checkouts remain temporary task inputs.
+
+## Remaining Consumer And Runtime Boundaries
 
 Source contracts and reusable engine modules now implement the local control
 surfaces listed below (`contracts/worker-handoff.schema.json`,
@@ -275,16 +303,16 @@ surfaces listed below (`contracts/worker-handoff.schema.json`,
 readback) remains a separate consumer/deployment boundary rather than claimed
 installed behavior.
 
-| Rank | Capability | Source status in `opl-flow` | Remaining consumer / runtime boundary |
-| --- | --- | --- | --- |
-| Extension | Richer execution admission | Implemented in `opl_execution.py` and `fleet_adapter.py` (`objective_revision`, `write_set`, pre-execution `envelope` gates) | Enforce inside remote host sandboxes and native Codex App carrier hooks |
-| Extension | Context and artifact restoration | Implemented in `fleet_adapter.py` (`restore_handoff_context` with path-traversal and sha256 digest checks) | Extend remote artifact blob fetchers only if owner-managed Git/files prove insufficient |
-| Strong | Permission and budget envelope | Implemented in `contracts/worker-handoff.schema.json`, `opl_execution.py`, and `fleet_attempts.py` (`enforce_pre_execution_envelope`, `evaluate_budget_usage`) | Wire host-level token metering from Codex App/CLI runtime |
-| Strong | Dynamic task groups and fan-out/fan-in | Implemented in `opl_events.py` (`import_task_graph`, `evaluate_control_turn`) and `fleet_adapter.py` (`dispatch group plan|run|status`) | Attach live Codex App thread webhook/hook triggers on target hosts |
-| Worth exploring | Resumability and preemption contract | Implemented in `fleet_attempts.py` (`heartbeat`, `plan_preemption`, `suspend`, `stale-check`) | Adopt resume commands in long-running external runners |
-| Worth exploring | Attempt-aware observability | Implemented in `contracts/fleet-attempt-telemetry.schema.json` and `fleet_attempts.observe_attempts` (`attempt observe`) | Ingest `opl_fleet_attempt_telemetry.v1` in `opl-fleet-agent` and Ambient Ops Cockpit |
-| Worth exploring | Queueing and backpressure | Implemented in `fleet_queue.py` (`queue plan`) over Beads slices and Fleet leases | Tune live workload weights from historical execution duration |
-| Speculative | Cost, energy, locality, and speculative execution | Design goal only | Add policy inputs only after multi-node duration and failure telemetry exist |
+| Capability | Source status in `opl-flow` | Remaining consumer / runtime boundary |
+| --- | --- | --- |
+| Richer execution admission | Implemented in `opl_execution.py` and `fleet_adapter.py` (`objective_revision`, `write_set`, pre-execution `envelope` gates) | Enforce inside remote host sandboxes and native Codex App carrier hooks |
+| Context and artifact restoration | Implemented in `fleet_adapter.py` (`restore_handoff_context` with path-traversal and sha256 digest checks) | Extend remote artifact blob fetchers only if owner-managed Git/files prove insufficient |
+| Permission and budget envelope | Implemented in `contracts/worker-handoff.schema.json`, `opl_execution.py`, and `fleet_attempts.py` (`enforce_pre_execution_envelope`, `evaluate_budget_usage`) | Wire host-level token metering from Codex App/CLI runtime |
+| Dynamic task groups and fan-out/fan-in | Implemented in `opl_events.py` (`import_task_graph`, `evaluate_control_turn`) and `fleet_adapter.py` (`dispatch group plan|run|status`) | Attach live Codex App thread webhook/hook triggers on target hosts |
+| Resumability and preemption contract | Implemented in `fleet_attempts.py` (`heartbeat`, `plan_preemption`, `suspend`, `stale-check`) | Adopt resume commands in long-running external runners |
+| Attempt-aware observability | Implemented in `contracts/fleet-attempt-telemetry.schema.json` and `fleet_attempts.observe_attempts` (`attempt observe`) | Ingest `opl_fleet_attempt_telemetry.v1` in `opl-fleet-agent` and Ambient Ops Cockpit |
+| Queueing and backpressure | Implemented in `fleet_queue.py` (`queue plan`) over Beads slices and Fleet leases | Tune live workload weights from historical execution duration |
+| Cost, energy, locality, and speculative execution | Design goal only | Add policy inputs only after multi-node duration and failure telemetry exist |
 
 ## What Not To Build
 
@@ -320,24 +348,23 @@ The positioning is real only when these behaviors are demonstrated:
 7. Fleet receipts and telemetry disclose no prompts, conversations,
    credentials, private routes, raw logs, or exhaustive machine state.
 
-Until those surfaces have fresh source and runtime evidence, documentation must
-label them as active work or roadmap rather than implemented capability.
+Until cross-repository consumer readback lands, documentation distinguishes
+implemented `opl-flow` source contracts from installed node or runtime
+acceptance.
 
 ## Module And Storage Boundaries
 
-Fleet configuration/Git primitives live in `fleet_control.py`; reconciliation
-and Profile delivery depend on that base without circular imports. Ledger
-bootstrap and sync delegate to `opl_ledger.py`. Fleet receipt translation lives
-in `fleet_execution.py`, leaving task-owner transitions carrier-neutral.
-Sanitized attempt lifecycle, preemption, and `opl_fleet_attempt_telemetry.v1`
-observation live in `fleet_attempts.py`; priority queueing lives in `fleet_queue.py`;
-unified single-transaction execution (`dispatch run|complete`), context restoration,
-and fan-out/fan-in group orchestration (`dispatch group`) live in `fleet_adapter.py`.
-
-Dispatch can bind a shared Worker handoff through `--handoff-json`. Only the
-attempt/objective/owner identifiers and digest enter the lease store. Execution
-results remain transport evidence until accepted by the Ledger owner. See
-[Worker exchange](reusable-workflow-architecture.md#worker-handoff-and-return).
+Core non-Fleet engines and the Worker handoff contract belong to
+[Workflow architecture](reusable-workflow-architecture.md#implemented-module-boundaries).
+Within `scripts/fleet/`, `fleet_control.py` holds Fleet configuration and Git
+primitives below reconciliation and Profile delivery; `fleet_workspace.py` and
+`workspace_inventory.py` handle checkout validation, bootstrap, and read-only
+discovery; `fleet_execution.py` translates Fleet receipts; `fleet_attempts.py`
+manages sanitized attempt lifecycle, preemption, and `opl_fleet_attempt_telemetry.v1`
+observation; `fleet_queue.py` computes priority queueing; and `fleet_adapter.py`
+provides unified dispatch (`dispatch run|complete|group`) and context restoration.
+See [Worker exchange](reusable-workflow-architecture.md#worker-handoff-and-return)
+for `--handoff-json` payload/lease boundaries.
 
 Local node identity, routes, leases and receipts share one Instance binding.
 The existing private Instance pointer is checked even for explicit Instance

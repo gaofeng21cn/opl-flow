@@ -34,7 +34,6 @@ Development methods, lenses, and specialists are internal Package references,
 not another recommendation catalog or a set of independently discoverable
 Skills. `software-development` loads one focused group only after the task
 matches; `manage-codex-tasks` does the same for coordination and recovery.
-DeepSeek Harness remains a provenance source, not runtime or policy authority.
 
 This is the lowest-cognition architecture because a default capability change
 has one authoring location and only generated consumers:
@@ -89,84 +88,29 @@ The three status planes are intentionally independent:
 `experience_baseline=degraded` must not be translated into
 `package_operational=unavailable`.
 
-## Bundle Selection
+## Bundle And Tier Governance
 
 The `capability_bundles`, `experience_baseline`, and `compatible_optional`
-fields in [workflow-policy.json](../contracts/workflow-policy.json) own the
-current membership, install intent, and readiness adapter. This document does
-not maintain another inventory.
+fields in [workflow-policy.json](../contracts/workflow-policy.json) own current
+membership, install intent, distribution selection, and readiness adapters.
+This document does not maintain a duplicate capability inventory.
 
-`offline_bundle=full` is the only Flow-owned Full selection signal. App source
-manifests may provide version or repository hints for a selected adapter, but
-they cannot add an item to the policy-derived plan.
-
-Stacked-PR and GIF support remain internal `software-development` references.
-Their external executables are baseline dependencies instead of copied tool
-payloads: Framework installs and reads back the official `gh-stack` extension,
-and considers `cli:ffmpeg` ready only when both `ffmpeg` and `ffprobe` run.
-
-## Agent Reach
-
-Agent Reach is part of the Codex experience baseline, not a Flow runtime
-dependency.
-
-- Flow declares both its Skill entrypoint and CLI/doctor readiness.
-- Framework uses the owner CLI for managed setup and repair.
-- Readiness checks cover the Skill payload, CLI version, `doctor --json`, and
-  the core channels defined by the owner adapter.
-- Missing or unhealthy Agent Reach sets the internet-research bundle and
-  `experience_baseline` to `degraded`, while Flow remains operational.
-- `opl system initialize --json` derives `recommended_skills` from the
-  installed Flow strategy projection, so App first-run sees Agent Reach without
-  an App-owned catalog.
-
-Credentials and authenticated optional channels remain user/provider owned and
-are never bundled.
-
-## Development Skills And OPL Skills
-
-Modern Web Guidance is an external web-platform experience-baseline capability.
-Flow's Profile routes every web and frontend task through it; its owner supplies
-the Skill, CLI, and updates. Framework observes the existing Skill payload and
-reports missing readiness, while the upstream installer owns its files. The
-Skill's browser-compatibility guidance complements, rather than replaces,
-project requirements and rendered interaction checks. Offline Full distribution
-is not selected for this capability.
-
-Impeccable is an external interface-design experience-baseline capability,
-declared in the policy rather than copied into the three-router payload. Its
-upstream installer/update command owns its Skill and engine. Framework observes
-the original Skill payload and exposes missing readiness with the owner repair
-route; Flow's Profile and development router select its relevant design,
-critique, audit, polish, or adaptation playbook when useful. Browser/native
-tools retain rendered and interaction verification. Design-detector findings
-remain evidence for contextual judgment. Hooks are opt-in, and offline Full
-distribution is not selected for this capability.
-
-All OPL-owned software-development capability belongs in OPL Flow and shares
-one Plugin lifecycle. Discovery is deliberately limited to three routers:
-
-- `opl-flow`: Profile, capability baseline, Package, Ledger, and Fleet;
-- `software-development`: delivery, review, architecture and simplification,
-  systems/reliability, docs, GitHub, prototype, browser evidence, and
-  production changes;
-- `manage-codex-tasks`: coordination, integration, recovery, archive-readiness,
-  and execution-owner migration.
-
-Former direct-entry Skills are preserved only as focused references and scripts
-under those routers. They have no aliases or independent trigger metadata. OPL
-Skills retains only non-development reusable workflows and has no development
-preset or second installation route.
-
-## Optional Obsidian Authoring
-
-The optional `obsidian-authoring` bundle uses the upstream
-[`kepano/obsidian-skills`](https://github.com/kepano/obsidian-skills) source for
-Markdown, Bases, CLI, and Canvas operations. Its absence is normal; it adds no
-default install, offline payload, or repair obligation. A user who already has
-a Markdown vault can select these skills without adopting another knowledge
-store or community plugin. Vault-specific content rules and Framework
-knowledge-source permissions remain owned by their existing authorities.
+- **External owners and readiness:** External baseline tools and Skills keep
+  their upstream source, installer, and update channels. Framework checks
+  declared payload/CLI readiness and invokes owner-supported repair adapters
+  when managed; missing baseline capabilities degrade `experience_baseline`
+  without disabling Flow, Ledger, or core Skills. Credentials and authenticated
+  channels remain user/provider owned and are never bundled.
+- **Optional enhancements:** `compatible_optional` entries carry no default
+  install, offline payload, or repair obligation; their absence is normal.
+- **Full selection:** `offline_bundle=full` is the only Flow-owned Full
+  selection signal. App source manifests may provide version or repository hints
+  for a selected adapter, but they cannot add items to the policy-derived plan.
+- **Three-router discovery boundary:** All OPL-owned software-development
+  capability shares one Plugin lifecycle with discovery strictly limited to
+  `opl-flow`, `software-development`, and `manage-codex-tasks`; internal
+  methods remain unaliased references under those routers. Non-development
+  reusable workflows remain separate in [OPL Skills](https://github.com/gaofeng21cn/opl-skills).
 
 ## Model And Profile
 
@@ -188,18 +132,31 @@ Flow never injects a hidden base prompt.
 
 ## Install, Setup, And Start
 
-Package installation, update, and repair deploy capabilities only. They may
-install the Flow Plugin/Profile/router Skills and materialize the current
-experience baseline. They must not create a Dashboard, Bead, Linear Project,
-or Automation.
+Package installation, update, and `$opl-flow setup` deploy or repair
+capabilities only; only explicit `$opl-flow start` creates or reuses the Ledger
+Dashboard, Bead, Linear projection, and `OPL Flow Supervisor`. See
+[machine setup](new-machine-codex-setup.md) for operator commands.
 
-- `$opl-flow setup` establishes or repairs the Codex experience baseline and
-  optional enhancement selection.
-- `$opl-flow start` is the explicit formal onboarding action. It idempotently
-  creates or reuses the Dashboard task, unique Ledger Bead, registered Linear
-  project projection, and one hourly `OPL Flow Supervisor`.
+## Executor Compatibility
 
-Installing Flow never implies that `start` has run.
+The production route is Codex-first: Codex Plugin Manager is the native
+Plugin/config/cache carrier and Codex CLI supplies execution, while Framework
+owns OPL Package installation and reconciliation across that carrier.
+
+Flow's Package identity, Profile intent, public status, and public actions do
+not embed Codex-private session fields. Neutral-contract tests establish that
+boundary; they do not certify a second executor or carrier. No parallel Claude
+or other external executor product is supported here; a future executor
+requires an explicit product decision and a real adapter with its own readback.
+
+Flow is optional. Removing it must leave Base, App, ordinary Codex, other
+Packages, and domain work usable, and Flow never injects hidden base prompts
+or overrides repository instructions and explicit user preferences. Changing an
+executor preserves the stable Package identity and user-owned Profile,
+preferences, and tasks; a missing executor adapter is a route-specific failure,
+not disappearance of the Package or user data. Standard and Full consume the
+same Flow policy through Framework, while assembly and release qualification
+remain App-owned.
 
 ## Carrier And App Profile
 
