@@ -287,23 +287,28 @@ selected a capability.
 
 ## Runtime Hygiene & Startup Budget
 
-Keep the local Codex startup surface lean and avoid silent context-tax creep:
+Keep the Codex startup surface both full-capability for first-party OPL products and lean against third-party bloat:
 
-- **MCP discipline**: Keep always-on `mcp_servers` concise (target <=4–5
-  high-frequency servers). Prefer a local CLI + Skill over an idle MCP server,
-  and isolate domain or infrequently used MCP servers into `--profile` overlays
-  instead of leaving every server enabled globally.
-- **Single Skill source & lean plugins**: Maintain one physical copy per global
-  Skill (never duplicate the same Skill across `~/.codex/skills` and
-  `~/.agents/skills`), split bulky Skill detail out of `SKILL.md` into
-  on-demand `references/`, and disable vertical plugins that are not active in
-  current daily work.
-- **Tiered reasoning & milestone handoffs**: Calibrate default
-  `model_reasoning_effort` to the dominant interactive workload (e.g., `high`
-  or `xhigh` for routine coding, reserving `ultra`/`max` for deep architecture,
-  and keeping deterministic `deepseek-flash` maintenance automations at
-  `low`/`medium`). Hand off long interactive sessions around 150k–200k tokens
-  to limit repeated compactions.
-- **Workspace hygiene**: Prune orphan transient `~/.codex/.tmp/git-*` directories
-  older than 7 days and dead `[projects.*]` entries whose paths no longer exist
-  on disk, while never mutating or vacuuming live SQLite state files.
+- **Preserve OPL ecosystem & official runtimes (zero degradation)**: Keep all
+  first-party OPL domain plugins (built on the 1-router-skill pattern with
+  concise <=200-char descriptions and `references/` split) and the two unified
+  lazy-started OPL MCP gateways (`opl-connect` progressive discovery +
+  `opl-apps` MiniApp host) enabled globally so OPL App and Codex App maintain
+  full capability parity. Keep official app-managed bundled runtimes
+  (`browser`, `chrome`, `computer-use`, `unified-computer-use`,
+  `codex-app-tools`) enabled.
+- **Prune third-party & non-core bloat instead**: Keep non-OPL-App standalone
+  MCPs (`glkvm-native`, `sentrux`, `qwennote`, `box`, `xiaohongshu-*`, etc.) in
+  `--profile` overlays instead of global always-on `mcp_servers`; uninstall
+  unused `AVAILABLE` third-party remote plugins via
+  `codex plugin remove <id>@openai-curated-remote`; exclude monolithic external
+  scene templates (e.g. `officecli-pitch-deck`, `officecli-academic-paper`)
+  from default baseline; maintain one physical copy per global Skill (no
+  duplicates across `~/.codex/skills` and `~/.agents/skills`).
+- **Tiered reasoning, modern multi-agent & workspace hygiene**: Calibrate
+  default `model_reasoning_effort` to the dominant interactive workload (`high`
+  or `xhigh` for routine coding, reserving `ultra`/`max` on demand and keeping
+  deterministic `deepseek-flash` maintenance automations at `low`/`medium`),
+  enable `multi_agent_v2`, hand off long sessions around 150k–200k tokens, and
+  prune orphan `~/.codex/.tmp/git-*` (>7 days) and dead `[projects.*]`
+  entries without mutating live SQLite state files.
