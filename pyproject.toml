@@ -1,6 +1,6 @@
 [project]
 name = "opl-flow"
-version = "0.1.88"
+version = "0.1.89"
 description = "OPL Flow local-first workflow profile, event controller, and fleet runtime"
 requires-python = ">=3.12"
 dependencies = [

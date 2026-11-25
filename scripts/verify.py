@@ -393,8 +393,6 @@ def check_workflow_policy(repo_root: Path) -> list[str]:
         "impeccable", "modern-web-guidance",
         "agent-reach",
         "officecli", "officecli-docx", "officecli-pptx", "officecli-xlsx",
-        "officecli-academic-paper", "officecli-data-dashboard",
-        "officecli-financial-model", "officecli-pitch-deck",
         "mineru-document-extractor",
     }
     if baseline_ids != expected:
@@ -418,14 +416,10 @@ def check_workflow_policy(repo_root: Path) -> list[str]:
             "https://github.com/Panniantong/Agent-Reach",
             "agent_reach/skill",
         ),
-        "officecli": (officecli_source, "."),
+        "officecli": (officecli_source, "skills/officecli"),
         "officecli-docx": (officecli_source, "skills/officecli-docx"),
         "officecli-pptx": (officecli_source, "skills/officecli-pptx"),
         "officecli-xlsx": (officecli_source, "skills/officecli-xlsx"),
-        "officecli-academic-paper": (officecli_source, "skills/officecli-academic-paper"),
-        "officecli-data-dashboard": (officecli_source, "skills/officecli-data-dashboard"),
-        "officecli-financial-model": (officecli_source, "skills/officecli-financial-model"),
-        "officecli-pitch-deck": (officecli_source, "skills/officecli-pitch-deck"),
         "mineru-document-extractor": (
             "https://github.com/gaofeng21cn/one-person-lab-app",
             "assets/companion-skills/mineru-document-extractor",

@@ -3,7 +3,7 @@
   "schema": "opl_flow_workflow_policy.v4",
   "package": {
     "id": "opl-flow",
-    "version": "0.1.88",
+    "version": "0.1.89",
     "owner": "opl-flow",
     "kind": "workflow_profile"
   },
@@ -221,7 +221,7 @@
       "conflict_policy": "managed_reconcile",
       "credential_policy": "none",
       "source": "https://github.com/iOfficeAI/OfficeCLI",
-      "source_path": "."
+      "source_path": "skills/officecli"
     },
     {
       "id": "officecli-docx",
@@ -270,70 +270,6 @@
       "credential_policy": "none",
       "source": "https://github.com/iOfficeAI/OfficeCLI",
       "source_path": "skills/officecli-xlsx"
-    },
-    {
-      "id": "officecli-academic-paper",
-      "kind": "codex_skill",
-      "owner": "iofficeai",
-      "bundle_id": "office-authoring",
-      "install_source": "owner_skills_cli",
-      "lifecycle_owner": "iofficeai",
-      "online_install_default": true,
-      "offline_bundle": "none",
-      "activation": "task_routed",
-      "readiness_adapter": "codex_skill_payload",
-      "conflict_policy": "managed_reconcile",
-      "credential_policy": "none",
-      "source": "https://github.com/iOfficeAI/OfficeCLI",
-      "source_path": "skills/officecli-academic-paper"
-    },
-    {
-      "id": "officecli-data-dashboard",
-      "kind": "codex_skill",
-      "owner": "iofficeai",
-      "bundle_id": "office-authoring",
-      "install_source": "owner_skills_cli",
-      "lifecycle_owner": "iofficeai",
-      "online_install_default": true,
-      "offline_bundle": "none",
-      "activation": "task_routed",
-      "readiness_adapter": "codex_skill_payload",
-      "conflict_policy": "managed_reconcile",
-      "credential_policy": "none",
-      "source": "https://github.com/iOfficeAI/OfficeCLI",
-      "source_path": "skills/officecli-data-dashboard"
-    },
-    {
-      "id": "officecli-financial-model",
-      "kind": "codex_skill",
-      "owner": "iofficeai",
-      "bundle_id": "office-authoring",
-      "install_source": "owner_skills_cli",
-      "lifecycle_owner": "iofficeai",
-      "online_install_default": true,
-      "offline_bundle": "none",
-      "activation": "task_routed",
-      "readiness_adapter": "codex_skill_payload",
-      "conflict_policy": "managed_reconcile",
-      "credential_policy": "none",
-      "source": "https://github.com/iOfficeAI/OfficeCLI",
-      "source_path": "skills/officecli-financial-model"
-    },
-    {
-      "id": "officecli-pitch-deck",
-      "kind": "codex_skill",
-      "owner": "iofficeai",
-      "bundle_id": "office-authoring",
-      "install_source": "owner_skills_cli",
-      "lifecycle_owner": "iofficeai",
-      "online_install_default": true,
-      "offline_bundle": "none",
-      "activation": "task_routed",
-      "readiness_adapter": "codex_skill_payload",
-      "conflict_policy": "managed_reconcile",
-      "credential_policy": "none",
-      "source": "https://github.com/iOfficeAI/OfficeCLI",
-      "source_path": "skills/officecli-pitch-deck"
     },
     {
       "id": "mineru-document-extractor",
@@ -545,10 +481,6 @@
         "codex_skill:officecli-docx",
         "codex_skill:officecli-pptx",
         "codex_skill:officecli-xlsx",
-        "codex_skill:officecli-academic-paper",
-        "codex_skill:officecli-data-dashboard",
-        "codex_skill:officecli-financial-model",
-        "codex_skill:officecli-pitch-deck",
         "cli:officecli"
       ],
       "online_materialization": "members_marked_default",

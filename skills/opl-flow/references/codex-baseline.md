@@ -40,7 +40,7 @@ The baseline is grouped as:
 | Bundle | Default behavior | Absence |
 | --- | --- | --- |
 | Internet research | Agent Reach Skill + CLI/doctor | degraded, owner repair offered |
-| Office authoring | OfficeCLI Skill family + CLI | degraded, Framework repair offered |
+| Office authoring | 4 core OfficeCLI Skills (`officecli`, `officecli-docx`, `officecli-pptx`, `officecli-xlsx`) + `cli:officecli` | degraded, Framework repair offered |
 | Document extraction | MinerU extractor Skill + CLI | degraded, Framework repair offered |
 | Web guidance and interface design | Modern Web Guidance + Impeccable Skills | degraded, owner repair offered |
 
@@ -196,6 +196,15 @@ The carrier must not overwrite an unknown existing Profile.
 The experience baseline covers internet research, Office documents, document
 extraction, and web/interface work. Apply each capability to its routed tasks.
 
+For Office authoring, default installation and baseline checks cover only the 4
+lean core skills (`officecli`, `officecli-docx`, `officecli-pptx`,
+`officecli-xlsx`) plus `cli:officecli` (`skills/officecli` canonical source
+layout). Monolithic upstream scene templates (`officecli-pitch-deck`,
+`officecli-academic-paper`, `officecli-data-dashboard`,
+`officecli-financial-model`, `officecli-word-form`) are opt-in only and
+excluded from the default baseline so they do not inflate the session startup
+skill catalog.
+
 Modern Web Guidance is required at the start of web and frontend tasks. Use its
 search or modernization workflow as applicable, and judge recommendations
 against the project's browser support, existing design, and rendered behavior.
@@ -275,3 +284,26 @@ For Full distribution, read the Framework-generated
 `opl_flow_capability_build_lock.v1`. Do not derive Full payload selection from
 an App source manifest; it provides resolution hints only after Flow has
 selected a capability.
+
+## Runtime Hygiene & Startup Budget
+
+Keep the local Codex startup surface lean and avoid silent context-tax creep:
+
+- **MCP discipline**: Keep always-on `mcp_servers` concise (target <=4–5
+  high-frequency servers). Prefer a local CLI + Skill over an idle MCP server,
+  and isolate domain or infrequently used MCP servers into `--profile` overlays
+  instead of leaving every server enabled globally.
+- **Single Skill source & lean plugins**: Maintain one physical copy per global
+  Skill (never duplicate the same Skill across `~/.codex/skills` and
+  `~/.agents/skills`), split bulky Skill detail out of `SKILL.md` into
+  on-demand `references/`, and disable vertical plugins that are not active in
+  current daily work.
+- **Tiered reasoning & milestone handoffs**: Calibrate default
+  `model_reasoning_effort` to the dominant interactive workload (e.g., `high`
+  or `xhigh` for routine coding, reserving `ultra`/`max` for deep architecture,
+  and keeping deterministic `deepseek-flash` maintenance automations at
+  `low`/`medium`). Hand off long interactive sessions around 150k–200k tokens
+  to limit repeated compactions.
+- **Workspace hygiene**: Prune orphan transient `~/.codex/.tmp/git-*` directories
+  older than 7 days and dead `[projects.*]` entries whose paths no longer exist
+  on disk, while never mutating or vacuuming live SQLite state files.
