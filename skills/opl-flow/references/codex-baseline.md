@@ -287,28 +287,32 @@ selected a capability.
 
 ## Runtime Hygiene & Startup Budget
 
-Keep the Codex startup surface both full-capability for first-party OPL products and lean against third-party bloat:
+Keep the Codex startup surface both full-capability for first-party OPL products and official runtimes, and lean against genuine third-party bloat:
 
-- **Preserve OPL ecosystem & official runtimes (zero degradation)**: Keep all
-  first-party OPL domain plugins (built on the 1-router-skill pattern with
-  concise <=200-char descriptions and `references/` split) and the two unified
-  lazy-started OPL MCP gateways (`opl-connect` progressive discovery +
+- **Preserve OPL ecosystem, official runtimes & active user MCPs (zero degradation)**:
+  Keep all first-party OPL domain plugins (built on the 1-router-skill pattern
+  with concise <=200-char descriptions and `references/` split) and the two
+  unified lazy-started OPL MCP gateways (`opl-connect` progressive discovery +
   `opl-apps` MiniApp host) enabled globally so OPL App and Codex App maintain
-  full capability parity. Keep official app-managed bundled runtimes
-  (`browser`, `chrome`, `computer-use`, `unified-computer-use`,
-  `codex-app-tools`) enabled.
-- **Prune third-party & non-core bloat instead**: Keep non-OPL-App standalone
-  MCPs (`glkvm-native`, `sentrux`, `qwennote`, `box`, `xiaohongshu-*`, etc.) in
-  `--profile` overlays instead of global always-on `mcp_servers`; uninstall
-  unused `AVAILABLE` third-party remote plugins via
-  `codex plugin remove <id>@openai-curated-remote`; exclude monolithic external
-  scene templates (e.g. `officecli-pitch-deck`, `officecli-academic-paper`)
-  from default baseline; maintain one physical copy per global Skill (no
-  duplicates across `~/.codex/skills` and `~/.agents/skills`).
-- **Tiered reasoning, modern multi-agent & workspace hygiene**: Calibrate
-  default `model_reasoning_effort` to the dominant interactive workload (`high`
-  or `xhigh` for routine coding, reserving `ultra`/`max` on demand and keeping
-  deterministic `deepseek-flash` maintenance automations at `low`/`medium`),
+  full capability parity. Keep all official OpenAI bundled and primary-runtime
+  plugins enabled (`browser`, `chrome`, `computer-use`, `unified-computer-use`,
+  `codex-app-tools`, `latex`, `visualize`, `documents`, `pdf`, `spreadsheets`,
+  `presentations`, `template-creator`). Keep active first-party or
+  skill-referenced user MCPs enabled globally in `config.toml` rather than
+  moving them exclusively into CLI `--profile` overlays, because Codex App GUI
+  sessions do not pass CLI `--profile` flags.
+- **Prune verified zero-use third-party & structural bloat instead**: Disable
+  only verified zero-use external remote MCPs; uninstall unused `AVAILABLE`
+  third-party remote plugins via `codex plugin remove <id>@openai-curated-remote`;
+  exclude monolithic external scene templates (e.g. `officecli-pitch-deck`,
+  `officecli-academic-paper`) from the default baseline while keeping the lean
+  core skills; maintain one physical copy per global Skill (no duplicates across
+  `~/.codex/skills` and `~/.agents/skills`).
+- **Reasoning calibration, modern multi-agent & workspace hygiene**: Respect
+  the user's configured interactive `model_reasoning_effort` (for example
+  `xhigh`/`ultra`/`max`), and keep low-cost maintenance automation models (such
+  as `deepseek-flash`) at `max` unless cost or latency requires throttling;
   enable `multi_agent_v2`, hand off long sessions around 150k–200k tokens, and
-  prune orphan `~/.codex/.tmp/git-*` (>7 days) and dead `[projects.*]`
-  entries without mutating live SQLite state files.
+  prune orphan `~/.codex/.tmp/git-*` (>7 days), stale/broken local
+  `[marketplaces.*]` paths, and dead `[projects.*]` entries without mutating
+  live SQLite state files.
