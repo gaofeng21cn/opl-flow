@@ -642,7 +642,6 @@ class CodexFleetTests(unittest.TestCase):
             fleet.reconcile_workspace_repositories(fetch=False, apply=True)
 
     def test_reconcile_marks_repository_attention_without_leaking_names(self) -> None:
-        expected = receipt()
         with (
             patch_fleet("run"),
             patch_fleet("control_commit", return_value="a" * 40),
@@ -673,28 +672,32 @@ class CodexFleetTests(unittest.TestCase):
     "runner_call",
                 return_value={"ok": True, "result": {"ok": True, "drift": []}},
             ),
-            patch_fleet("build_receipt", return_value=expected),
+            patch_fleet("build_receipt", side_effect=[receipt(), receipt()]),
             patch_fleet(
     "reconcile_workspace_repositories",
                 return_value={
                     "state": "ATTENTION",
-                    "repositories": [{"repository": "private/name"}],
+                    "repositories": [{"repository": "private/name", "state": "DIRTY"}],
                 },
-            ),
+            ) as repos,
             patch_fleet("collect_inventory", return_value={}),
             patch_fleet("node_registry", return_value={}),
             patch_fleet("atomic_json") as atomic_json,
         ):
             result = fleet.reconcile(report=False, install_required=False)
-        install_runner.assert_called_once_with({}, "a" * 40)
-        fetch_reference.assert_called_once_with({}, "b" * 40)
-        reconcile_baseline.assert_called_once_with()
+            install_runner.assert_called_once_with({}, "a" * 40)
+            fetch_reference.assert_called_once_with({}, "b" * 40)
+            reconcile_baseline.assert_called_once_with()
+            repos.return_value["repositories"][0]["state"] = "TASK_BRANCH"
+            task_branch_result = fleet.reconcile(report=False, install_required=False)
         self.assertEqual(result["state"], "UPDATE_REQUIRED")
         self.assertEqual(
             result["drift"],
             ["development-repositories.attention"],
         )
         self.assertNotIn("private/name", json.dumps(result))
+        self.assertEqual(task_branch_result["state"], "CURRENT")
+        self.assertEqual(task_branch_result["drift"], [])
 
     def test_effective_codex_home_uses_windows_profile_in_wsl(self) -> None:
         def fake_run(command: list[str], **_: object) -> object:
@@ -3244,14 +3247,24 @@ class CodexFleetTests(unittest.TestCase):
                     },
                     "skills": ["helper"],
                 },
+                "upstream-skill": {
+                    "required": True,
+                    "ownership": "external",
+                    "install": {
+                        "kind": "codex-skill-installer",
+                        "command": "python ~/.codex/skills/.system/skill-installer/scripts/"
+                        "install-skill-from-github.py --repo example/skills --path skills/upstream",
+                    },
+                    "skills": ["upstream"],
+                },
             },
         }
         with (
-            patch_fleet("skill_present", side_effect=[False, False]),
+            patch_fleet("skill_present", side_effect=[False, False, False]),
             patch_fleet("run") as command,
         ):
             actions = fleet.install_missing_owner_skills(reference)
-        self.assertEqual(actions, ["codex-bundled", "owner-skill"])
+        self.assertEqual(actions, ["codex-bundled", "owner-skill", "upstream-skill"])
         command.assert_not_called()
 
     def test_flow_experience_baseline_repair_runs_only_when_degraded(self) -> None:

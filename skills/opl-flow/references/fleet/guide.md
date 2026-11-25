@@ -90,6 +90,12 @@ Choose the narrow command family:
 - `join` or `reconcile`: enroll or update node-local behavior through the
   Instance policy and owner routes.
 
+Repository inspection reports active task branches as `TASK_BRANCH` and
+preserves their worktrees. Those branches can coexist with a current node.
+Workspace admission still checks the specific checkout requested by a task.
+Missing required skills with a reference-only installer appear as owner actions
+in the node receipt.
+
 Read `python3 scripts/opl_fleet.py <command> --help` for exact options rather
 than guessing flags.
 

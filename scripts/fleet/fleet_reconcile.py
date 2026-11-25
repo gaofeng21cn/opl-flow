@@ -710,12 +710,11 @@ def install_missing_owner_skills(
         ]
         if not missing:
             continue
-        if entry["ownership"] == "codex":
-            owner_actions.append(str(package))
-            continue
-        # The Skills CLI global route is not the canonical local root. Keep it
-        # as an owner hint only.
-        if entry.get("install", {}).get("kind") == "skills-cli":
+        if entry["ownership"] == "codex" or entry.get("install", {}).get("kind") in {
+            "codex-skill-installer",
+            "skills-cli",
+        }:
+            # The Instance lists these routes for the skill owner or operator.
             owner_actions.append(str(package))
             continue
         if command[:3] != ["npx", "skills", "add"] and not owner_native_opl:
@@ -1367,7 +1366,10 @@ def reconcile(*, report: bool, install_required: bool) -> dict[str, Any]:
         receipt["state"] = "UPDATE_REQUIRED"
     repository_report = reconcile_workspace_repositories(fetch=True, apply=True)
     atomic_json(STATE_ROOT / "repositories.json", repository_report)
-    if repository_report["state"] != "CURRENT":
+    if any(
+        repository.get("state") not in {"CURRENT", "UPDATED", "TASK_BRANCH"}
+        for repository in repository_report["repositories"]
+    ):
         receipt["drift"].append("development-repositories.attention")
         receipt["state"] = "UPDATE_REQUIRED"
     inventory = collect_inventory(node_id, spec, node_registry())
