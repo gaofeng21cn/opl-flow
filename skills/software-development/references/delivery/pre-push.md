@@ -28,6 +28,8 @@ it.
 - Run real-provider or end-to-end checks only when credentials and authority are
   available; never expose secrets or call an unavailable check passed.
 
+Treat local warm-cache validation as the primary feedback loop so remote CI serves as clean-room verification, cross-platform coverage, or protected publication rather than a remote debugger. Keep ordinary push/PR workflows scoped with paths and concurrency cancellation on hosted runners, and reserve self-hosted runners strictly for irreplaceable hardware, VM, or private-cost constraints without bouncing caches or large build artifacts between local and remote.
+
 Do not repeat a passing check only because commit or push follows. Run a full
 local rehearsal only when the user requests it, a CI failure requires it, or no
 narrower set credibly covers a genuinely cross-cutting diff.
