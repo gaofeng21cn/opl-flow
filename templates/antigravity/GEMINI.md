@@ -9,4 +9,6 @@
 - **长任务主动分段与压缩**：跨多阶段或上下文预计逼近 150k～200k tokens 时，在里程碑交接点主动提醒使用 `/compact` 或新开会话承接下一阶段，保持 Prompt Cache 命中率与低 TTFT。
 - **Swarm 派活自带工具契约**：AntiGravity 不会向 Swarm Worker 挂载 MCP、用户 Rules 与 `SessionStart` 快照。调用 `swarm add` 派发编码或审计 Worker 时，Brief 必须同时写清：① 文件/模块所有权边界（并发写使用 `workspace: "share"`）；② `agy-fast --cli` 最小可执行命令样例（如已安装 `agy-fast`）；③ 明确验收命令与交付标准。
 - **编排模式选型与共享文档防冲突**：多模块深度编码、探索与评审优先 `/teamwork`（继承 `agy-fast` MCP）；仅需独立 `worktree`/`share` 长时并行或异构模型分工时用 `/swarm`，并强制看板发帖 ≤15 行 / ≤1.5 KB；共享状态文件（如 `BRIEFING.md`/`progress.md`）按模块分片写入后由单一汇总者归并，避免并发 patch 失配。
+- **非交互终端防卡死与单轮合并纪律**：不在 Agent 非交互终端中运行可能触发 `[y/n]` 或 `sudo` 密码提示的命令；发现后台任务无进展先查日志确认是否卡在交互提示并立即清理改走非交互路径（或交由用户在交互终端执行）；紧密耦合的验证/收尾步骤合并为单条自包含非交互命令执行。
+- **本地优先验证再推送（Local-First CI）**：改动先在本地热缓存运行最窄必要验证修复后再 `git push`，不把 GitHub Actions 当远程调试循环，不在自托管与云端之间来回传输大体积构建缓存。
 - **保持常驻上下文极简**：全局 `GEMINI.md` 只放跨项目通用纪律（远低于 24 KB 单文件上限）；项目事实放仓库 `AGENTS.md`，重复多步流程沉淀为按需加载的 Skill，低频外部集成避免常驻全局 `eager` MCP。
