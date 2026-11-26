@@ -1,7 +1,7 @@
 {
   "schema": "opl_flow_antigravity_baseline.v1",
   "owner": "opl-flow",
-  "description": "Reusable AntiGravity experience baseline: minimal resident plugins, progressive-disclosure skills, prompt-cache and Swarm hygiene rules, and opt-in read-only weekly audit.",
+  "description": "Reusable AntiGravity experience baseline: minimal resident plugins, progressive-disclosure skills, prompt-cache and Swarm hygiene rules, optional PreToolUse guard, and opt-in read-only weekly audit.",
   "rule_budgets": {
     "per_file_bytes_cap": 24000,
     "warn_bytes": 16384,
@@ -55,6 +55,20 @@
       "required": true
     },
     {
+      "id": "third-party-audit-triage",
+      "source": "bundled_template",
+      "template_path": "templates/antigravity/third-party-audit-triage.md",
+      "target_rel": "config/skills/third-party-audit-triage/SKILL.md",
+      "required": true
+    },
+    {
+      "id": "project-vision-and-gap-review",
+      "source": "bundled_template",
+      "template_path": "templates/antigravity/project-vision-and-gap-review.md",
+      "target_rel": "config/skills/project-vision-and-gap-review/SKILL.md",
+      "required": true
+    },
+    {
       "id": "impeccable",
       "source": "external_owner_or_shared_agents_dir",
       "shared_agents_rel": ".agents/skills/impeccable",
@@ -70,6 +84,14 @@
       "reason": "Avoid loading both the standalone skill symlink and the official plugin."
     }
   ],
+  "optional_pretool_guard": {
+    "hook_id": "agy-env-pretool-guard",
+    "matcher": "run_command|mcp_tool|mcp_agy-fast_fast_run_checks",
+    "template_path": "templates/antigravity/agy-pretool-guard.mjs",
+    "script_target_rel": "config/scripts/agy-pretool-guard.mjs",
+    "hooks_target_rel": "config/hooks.json",
+    "timeout": 5
+  },
   "optional_weekly_audit": {
     "sidecar_id": "weekly-agy-env-audit",
     "display_name": "AntiGravity Weekly Environment Audit",

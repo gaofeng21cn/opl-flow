@@ -5,6 +5,8 @@
 ## AntiGravity 会话与 Prompt Cache 效率纪律
 - **控制 Plan Mode 切换频率**：进出 Plan Mode 会改动系统前缀并直接击穿 Prompt Cache。简单或边界明确的改动不进入 Plan Mode；复杂方案只进入一次，定稿后一次性退出并连续执行，避免在实现阶段反复进出。
 - **排障截图与长编码会话隔离**：不要在长编码会话（>150k tokens）中直接 `read_file` 图片，视觉检查统一委托独立 `research` 子代理返回纯文本结论。若用户贴图排障且当前会话已处于长上下文，主动提醒后续深度重构建议新开会话或执行 `/compact`，避免单张截图拖慢后续数百轮推理。
+- **视觉/看图子代理同样短生命周期隔离**：带图质检子代理每次只审 1～3 帧即返回纯文本结论并结束，绝不让含图子代理滚成 >100k tokens 的长上下文。
 - **长任务主动分段与压缩**：跨多阶段或上下文预计逼近 150k～200k tokens 时，在里程碑交接点主动提醒使用 `/compact` 或新开会话承接下一阶段，保持 Prompt Cache 命中率与低 TTFT。
 - **Swarm 派活自带工具契约**：AntiGravity 不会向 Swarm Worker 挂载 MCP、用户 Rules 与 `SessionStart` 快照。调用 `swarm add` 派发编码或审计 Worker 时，Brief 必须同时写清：① 文件/模块所有权边界（并发写使用 `workspace: "share"`）；② `agy-fast --cli` 最小可执行命令样例（如已安装 `agy-fast`）；③ 明确验收命令与交付标准。
+- **编排模式选型与共享文档防冲突**：多模块深度编码、探索与评审优先 `/teamwork`（继承 `agy-fast` MCP）；仅需独立 `worktree`/`share` 长时并行或异构模型分工时用 `/swarm`，并强制看板发帖 ≤15 行 / ≤1.5 KB；共享状态文件（如 `BRIEFING.md`/`progress.md`）按模块分片写入后由单一汇总者归并，避免并发 patch 失配。
 - **保持常驻上下文极简**：全局 `GEMINI.md` 只放跨项目通用纪律（远低于 24 KB 单文件上限）；项目事实放仓库 `AGENTS.md`，重复多步流程沉淀为按需加载的 Skill，低频外部集成避免常驻全局 `eager` MCP。
