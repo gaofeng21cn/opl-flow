@@ -1,14 +1,19 @@
 ---
 name: swarm-code-worker-brief
 description: >-
-  Use before spawning Antigravity Swarm workers (`swarm add`) for parallel coding,
-  refactoring, or multi-module audits to prevent serial edit_file storms, output.txt
-  spills, and missing agy-fast CLI syntax.
+  Use before spawning Antigravity Swarm workers (`swarm add`) or choosing between
+  `/teamwork` and `/swarm` for parallel coding, refactoring, or multi-module audits
+  to prevent serial edit_file storms, board/script spills, and missing agy-fast CLI syntax.
 ---
 
 # Swarm Code Worker Brief Template
 
-Antigravity does **not** mount MCP servers, `user_rules`, or `SessionStart` snapshots into Swarm workers. Without explicit CLI instructions, workers fall back to slow serial `edit_file` splits and verbose `run_command` calls that spill to `output.txt`.
+Antigravity does **not** mount MCP servers, `user_rules`, or `SessionStart` snapshots into Swarm workers. Without explicit CLI and board-hygiene instructions, workers fall back to slow serial `edit_file` splits and verbose `run_command` / `read_board` calls that spill to `output.txt`.
+
+## `/teamwork` vs `/swarm` Selection Rule
+
+- **Default to `/teamwork`** for single- or multi-module deep coding, exploration, review, and testing: subagents inherit `agy-fast` MCP and run ~43% fewer turns per 10 logical ops.
+- **Use `/swarm`** only when you genuinely need isolated `worktree`/`share` long-running parallel writers, shared-board cross-worker coordination, or heterogeneous model specialization.
 
 ## Workspace & Isolation Rules
 
@@ -37,10 +42,12 @@ Include the following block verbatim alongside the worker's owned files and acce
     `EOF`
   - Concurrent checks (default compact; use `--full` only for bounded stdout):
     `node "$CLI" --cli check --compact "cmd1" "cmd2"`
+- Edit-mismatch hygiene: keep `--cli edit` batches `<=5` files with `--best-effort`, and `read_file` target ranges right before editing.
+- Bounded ad-hoc script stdout: inline `python3 - <<'PY'`, `.venv/bin/python`, or `for` probes must aggregate counts in-script or pipe through `| head -n 80` / `| tail -n 60`.
 - Keep <=10s shell commands synchronous (`WaitMsBeforeAsync: 5000-10000`).
-- Report back concisely: modified files, verification command results, and any blockers (no raw file dumps).
+- Board post budget: keep every `post_message` `<=15 lines` / `<=1.5 KB` (modified files, one-line verification summary, blockers); write long logs or diffs to scratch/artifact files and post only the file path (prevents `read_board` `output.txt` spills).
 ```
 
 ## Validation
 
-- Confirm every worker brief specifies: (1) owned paths, (2) the `--cli` block above, and (3) concrete done criteria & verification command.
+- Confirm every worker brief specifies: (1) owned paths, (2) the `--cli` + board-budget block above, and (3) concrete done criteria & verification command.

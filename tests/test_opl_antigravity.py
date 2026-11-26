@@ -60,6 +60,7 @@ class OplAntigravityTests(unittest.TestCase):
             agents_home=self.agents_home,
             root=REPO_ROOT,
             dry_run=True,
+            with_pretool_guard=True,
             with_weekly_audit=True,
             run_plugin_doctor=False,
         )
@@ -68,6 +69,10 @@ class OplAntigravityTests(unittest.TestCase):
         self.assertFalse((self.gemini_home / "GEMINI.md").exists())
         self.assertFalse((self.gemini_home / "config/plugins/agy-fast/rules/AGENTS.local.md").exists())
         self.assertFalse((self.gemini_home / "config/skills/swarm-code-worker-brief/SKILL.md").exists())
+        self.assertFalse((self.gemini_home / "config/skills/third-party-audit-triage/SKILL.md").exists())
+        self.assertFalse((self.gemini_home / "config/skills/project-vision-and-gap-review/SKILL.md").exists())
+        self.assertFalse((self.gemini_home / "config/scripts/agy-pretool-guard.mjs").exists())
+        self.assertFalse((self.gemini_home / "config/hooks.json").exists())
         self.assertFalse((self.gemini_home / "config/sidecars/weekly-agy-env-audit/sidecar.json").exists())
 
     def test_apply_fresh_home_is_idempotent_and_reaches_ready(self) -> None:
@@ -90,6 +95,8 @@ class OplAntigravityTests(unittest.TestCase):
         self.assertTrue(local_md.startswith("---\ntrigger: always_on\n---\n"))
         self.assertIn("<!-- OPL_FLOW_AGY_BASELINE_START -->", local_md)
         self.assertTrue((self.gemini_home / "config/skills/swarm-code-worker-brief/SKILL.md").is_file())
+        self.assertTrue((self.gemini_home / "config/skills/third-party-audit-triage/SKILL.md").is_file())
+        self.assertTrue((self.gemini_home / "config/skills/project-vision-and-gap-review/SKILL.md").is_file())
         impeccable_link = self.gemini_home / "config/skills/impeccable"
         self.assertTrue(impeccable_link.is_symlink())
         self.assertEqual(impeccable_link.resolve(), impeccable_src.resolve())
@@ -186,15 +193,22 @@ class OplAntigravityTests(unittest.TestCase):
                         {
                             "type": "PLANNER_RESPONSE",
                             "created_at": now_iso,
+                            "input_tokens": 100,
+                            "cache_read_tokens": 900,
                             "tool_calls": [
                                 {
                                     "name": "mcp_agy-fast_fast_run_checks",
                                     "args": {"commands": [{"command": "echo ok"}], "outputMode": "full"},
-                                }
+                                },
+                                {
+                                    "name": "run_command",
+                                    "args": {"CommandLine": "python3 - <<'PY'\nprint('big')\nPY"},
+                                },
                             ],
                         }
                     ),
                     json.dumps({"type": "GENERIC", "created_at": now_iso, "content": "Checks: 1/1 passed [truncated: 100B]"}),
+                    json.dumps({"type": "GENERIC", "created_at": now_iso, "content": "output was truncated to output.txt"}),
                 ]
             )
             + "\n",
@@ -210,12 +224,54 @@ class OplAntigravityTests(unittest.TestCase):
         )
         self.assertEqual(report["status"], "degraded")
         self.assertEqual(len(report["planes"]["experience_baseline"]["duplicates"]), 1)
+        self.assertEqual(report["telemetry"]["roles"]["main"]["cache_hit_rate"], 90.0)
+        self.assertEqual(report["telemetry"]["top_spills"].get("cmd:python3"), 1)
         rc = report["telemetry"]["agy_fast"]["run_checks"]
         self.assertEqual(rc["calls"], 1)
         self.assertEqual(rc["single_command_calls"], 1)
         self.assertEqual(rc["full_mode_calls"], 1)
         self.assertEqual(rc["budget_truncated_calls"], 1)
         self.assertEqual(report["telemetry"]["agy_fast"]["session_start_new_main_hit"], 1)
+
+    def test_with_pretool_guard_merges_safely_and_is_idempotent(self) -> None:
+        self._seed_agy_fast_plugin()
+        hooks_path = self.gemini_home / "config" / "hooks.json"
+        hooks_path.parent.mkdir(parents=True, exist_ok=True)
+        existing_hooks = {"custom-user-hook": {"Stop": [{"command": "echo done"}]}}
+        hooks_path.write_text(json.dumps(existing_hooks, indent=2) + "\n", encoding="utf-8")
+
+        first = opl_antigravity.antigravity_apply(
+            gemini_home=self.gemini_home,
+            agents_home=self.agents_home,
+            root=REPO_ROOT,
+            dry_run=False,
+            with_pretool_guard=True,
+            run_plugin_doctor=False,
+        )
+        actions = {a["target"]: a["action"] for a in first["actions"]}
+        self.assertEqual(actions["pretool_guard:script"], "create")
+        self.assertEqual(actions["pretool_guard:hooks"], "merge_update")
+        guard_script = self.gemini_home / "config/scripts/agy-pretool-guard.mjs"
+        self.assertTrue(guard_script.is_file())
+        self.assertTrue(os.access(guard_script, os.X_OK))
+        merged = json.loads(hooks_path.read_text(encoding="utf-8"))
+        self.assertEqual(merged["custom-user-hook"], existing_hooks["custom-user-hook"])
+        self.assertIn("agy-env-pretool-guard", merged)
+        self.assertTrue(first["doctor_readback"]["planes"]["optional_enhancements"]["pretool_guard_present"])
+
+        second = opl_antigravity.antigravity_apply(
+            gemini_home=self.gemini_home,
+            agents_home=self.agents_home,
+            root=REPO_ROOT,
+            dry_run=False,
+            with_pretool_guard=True,
+            run_plugin_doctor=False,
+        )
+        second_actions = {a["target"]: a["action"] for a in second["actions"]}
+        self.assertEqual(second_actions["pretool_guard:script"], "unchanged")
+        self.assertEqual(second_actions["pretool_guard:hooks"], "unchanged")
+        self.assertTrue(all(a["action"] in ("unchanged", "absent_optional") for a in second["actions"]))
+        self.assertIsNone(second["backup_dir"])
 
     def test_opl_workflow_cli_routes_antigravity_without_instance(self) -> None:
         self._seed_agy_fast_plugin()

@@ -190,6 +190,8 @@ def inspect_recent_telemetry(gemini_home: Path, days: int) -> dict[str, Any]:
             "img_reads": 0,
             "user_media": 0,
             "multi_edit": 0,
+            "in_tok": 0,
+            "cache_tok": 0,
         }
     )
     bs_queries: list[int] = []
@@ -208,9 +210,10 @@ def inspect_recent_telemetry(gemini_home: Path, days: int) -> dict[str, Any]:
     snap_hit = 0
     skills_read: Counter[str] = Counter()
     errors: Counter[str] = Counter()
+    spill_sources: Counter[str] = Counter()
 
     if days <= 0 or not brain_dir.is_dir():
-        return {"days": days, "scanned": False, "roles": {}}
+        return {"days": days, "scanned": False, "roles": {}, "top_spills": {}}
 
     for entry in brain_dir.iterdir():
         if not entry.is_dir() or entry.name == "tempmediaStorage":
@@ -295,6 +298,8 @@ def inspect_recent_telemetry(gemini_home: Path, days: int) -> dict[str, Any]:
                 continue
 
             st["turns"] += 1
+            st["in_tok"] += int(step.get("input_tokens") or 0)
+            st["cache_tok"] += int(step.get("cache_read_tokens") or 0)
             tcs = [tc for tc in (step.get("tool_calls") or []) if isinstance(tc, dict)]
             results: list[dict[str, Any]] = []
             j = idx + 1
@@ -314,6 +319,15 @@ def inspect_recent_telemetry(gemini_home: Path, days: int) -> dict[str, Any]:
                 st["tools"] += 1
                 if "output was truncated" in rc:
                     st["spills"] += 1
+                    if name == "run_command":
+                        raw_cmd = str(args.get("CommandLine") or "").strip()
+                        first_line = raw_cmd.splitlines()[0] if raw_cmd else ""
+                        cleaned_cmd = re.sub(r"^\s*(?:cd\s+[^&;]+(?:&&|;)\s*)+", "", first_line).strip()
+                        cmd_tokens = cleaned_cmd.split()
+                        skey = f"cmd:{cmd_tokens[0][:35]}" if cmd_tokens else "cmd:<empty>"
+                    else:
+                        skey = name
+                    spill_sources[skey] += 1
 
                 ops = 1
                 if name == "mcp_agy-fast_fast_batch_search":
@@ -392,8 +406,11 @@ def inspect_recent_telemetry(gemini_home: Path, days: int) -> dict[str, Any]:
 
     roles_out: dict[str, Any] = {}
     for role, st in by_role.items():
+        in_tok = st.pop("in_tok", 0)
+        cache_tok = st.pop("cache_tok", 0)
         roles_out[role] = {
             **st,
+            "cache_hit_rate": round(100.0 * cache_tok / max(1, in_tok + cache_tok), 1),
             "turns_per_10_ops": round(10 * st["turns"] / max(1, st["ops"]), 2),
             "agy_avg_packing": round(st["agy_ops"] / st["agy_calls"], 2) if st["agy_calls"] else 0.0,
         }
@@ -402,6 +419,7 @@ def inspect_recent_telemetry(gemini_home: Path, days: int) -> dict[str, Any]:
         "days": days,
         "scanned": True,
         "roles": roles_out,
+        "top_spills": dict(spill_sources.most_common(8)),
         "agy_fast": {
             "batch_search": {
                 "calls": len(bs_queries),
@@ -598,11 +616,45 @@ def antigravity_doctor(
     impeccable_shared = (ahome / "skills" / "impeccable").exists()
     impeccable_installed = (skills_dir / "impeccable").exists()
     swarm_skill_installed = (skills_dir / "swarm-code-worker-brief" / "SKILL.md").is_file()
+    required_bundled_skills = [
+        s["id"]
+        for s in manifest["skills"]
+        if s.get("source") == "bundled_template" and s.get("required", True)
+    ]
+    missing_bundled_skills = [
+        sid for sid in required_bundled_skills if not (skills_dir / sid / "SKILL.md").is_file()
+    ]
 
-    # Optional weekly audit sidecar
+    # Optional weekly audit sidecar & PreToolUse guard
     audit_cfg = manifest["optional_weekly_audit"]
     sidecar_path = ghome / "config" / "sidecars" / audit_cfg["sidecar_id"] / "sidecar.json"
     audit_script_path = ghome / audit_cfg["script_target_rel"]
+
+    guard_cfg = manifest.get("optional_pretool_guard") if isinstance(manifest.get("optional_pretool_guard"), dict) else {}
+    guard_script_path = (ghome / guard_cfg["script_target_rel"]) if guard_cfg.get("script_target_rel") else None
+    hooks_json_path = (ghome / guard_cfg["hooks_target_rel"]) if guard_cfg.get("hooks_target_rel") else (ghome / "config" / "hooks.json")
+    hooks_valid = True
+    hooks_error: str | None = None
+    hooks_data: dict[str, Any] = {}
+    if hooks_json_path.is_file():
+        try:
+            parsed_hooks = json.loads(hooks_json_path.read_text(encoding="utf-8"))
+            if isinstance(parsed_hooks, dict):
+                hooks_data = parsed_hooks
+            else:
+                hooks_valid = False
+                hooks_error = f"Global hooks.json at {hooks_json_path} must be a JSON object."
+        except Exception as exc:
+            hooks_valid = False
+            hooks_error = f"Global hooks.json at {hooks_json_path} has invalid JSON: {exc}"
+    pretool_guard_present = bool(
+        guard_cfg
+        and guard_script_path is not None
+        and guard_script_path.is_file()
+        and hooks_json_path.is_file()
+        and hooks_valid
+        and guard_cfg.get("hook_id") in hooks_data
+    )
 
     rule_budgets = _inspect_rule_budgets(ghome, budgets["per_file_bytes_cap"], budgets["warn_bytes"])
     rule_budget_health = (
@@ -615,6 +667,8 @@ def antigravity_doctor(
 
     findings: list[str] = []
     recommended_actions: list[str] = []
+    if hooks_error:
+        findings.append(hooks_error)
     if not agy_fast_installed:
         findings.append("Core plugin 'agy-fast' is not installed.")
         recommended_actions.append(
@@ -634,9 +688,10 @@ def antigravity_doctor(
         findings.append("Global GEMINI.md does not yet include the OPL Flow AntiGravity baseline block.")
         recommended_actions.append("Run `python3 scripts/opl_workflow.py antigravity apply --json` to append the managed block safely.")
 
-    if not swarm_skill_installed:
-        findings.append("Bundled global Skill 'swarm-code-worker-brief' is not installed.")
-        recommended_actions.append("Run `python3 scripts/opl_workflow.py antigravity apply --json` to install swarm-code-worker-brief.")
+    for sid in missing_bundled_skills:
+        findings.append(f"Bundled global Skill '{sid}' is not installed.")
+    if missing_bundled_skills:
+        recommended_actions.append("Run `python3 scripts/opl_workflow.py antigravity apply --json` to install bundled global skills.")
 
     for dup in duplicates:
         findings.append(
@@ -658,7 +713,7 @@ def antigravity_doctor(
     baseline_degraded = (
         not agy_fast_enabled
         or not rules_state["global_gemini_rules"]["present"]
-        or not swarm_skill_installed
+        or bool(missing_bundled_skills)
         or (agy_fast_installed and not rules_state["agy_fast_local_overrides"]["present"])
         or bool(duplicates)
     )
@@ -681,12 +736,15 @@ def antigravity_doctor(
                 "agy_fast_doctor": agy_fast_doctor,
                 "rules": rules_state,
                 "swarm_code_worker_brief_installed": swarm_skill_installed,
+                "missing_bundled_skills": missing_bundled_skills,
                 "duplicates": duplicates,
             },
             "optional_enhancements": {
                 "modern_web_guidance_plugin_enabled": "modern-web-guidance-plugin" in enabled_plugins,
                 "impeccable_installed": impeccable_installed,
                 "impeccable_shared_available": impeccable_shared,
+                "pretool_guard_present": pretool_guard_present,
+                "hooks_json_valid": hooks_valid,
                 "weekly_audit_sidecar_present": sidecar_path.is_file(),
                 "weekly_audit_script_present": audit_script_path.is_file(),
             },
@@ -827,6 +885,7 @@ def antigravity_apply(
     root: Path | None = None,
     dry_run: bool = False,
     install_plugins: bool = False,
+    with_pretool_guard: bool = False,
     with_weekly_audit: bool = False,
     cron_tz: str | None = None,
     schedule: str | None = None,
@@ -993,6 +1052,84 @@ def antigravity_apply(
                 }
             )
 
+    # 5. Optional deterministic PreToolUse guard (safely merges hook_id into config/hooks.json)
+    if with_pretool_guard and isinstance(manifest.get("optional_pretool_guard"), dict):
+        guard_cfg = manifest["optional_pretool_guard"]
+        guard_tpl = (base / guard_cfg["template_path"]).read_text(encoding="utf-8")
+        guard_script = ghome / guard_cfg["script_target_rel"]
+        existing_guard = guard_script.read_text(encoding="utf-8") if guard_script.is_file() else None
+        if existing_guard == guard_tpl:
+            actions.append({"target": "pretool_guard:script", "action": "unchanged", "path": str(guard_script)})
+        else:
+            if not dry_run:
+                maybe_backup(guard_script)
+                atomic_write_text(guard_script, guard_tpl)
+                os.chmod(guard_script, 0o755)
+            actions.append(
+                {
+                    "target": "pretool_guard:script",
+                    "action": "create" if existing_guard is None else "update",
+                    "path": str(guard_script),
+                }
+            )
+
+        hooks_path = ghome / guard_cfg["hooks_target_rel"]
+        hooks_obj: dict[str, Any] = {}
+        hooks_err: str | None = None
+        existing_hooks_raw: str | None = None
+        if hooks_path.is_file():
+            existing_hooks_raw = hooks_path.read_text(encoding="utf-8")
+            try:
+                parsed_hooks = json.loads(existing_hooks_raw)
+                if isinstance(parsed_hooks, dict):
+                    hooks_obj = parsed_hooks
+                else:
+                    hooks_err = "hooks.json root must be a JSON object"
+            except Exception as exc:
+                hooks_err = f"invalid hooks.json: {exc}"
+
+        if hooks_err:
+            actions.append(
+                {
+                    "target": "pretool_guard:hooks",
+                    "action": "merge_required",
+                    "path": str(hooks_path),
+                    "note": hooks_err,
+                }
+            )
+        else:
+            hook_id = guard_cfg["hook_id"]
+            rel_script = Path(guard_cfg["script_target_rel"]).relative_to("config").as_posix()
+            desired_entry = {
+                "PreToolUse": [
+                    {
+                        "matcher": guard_cfg["matcher"],
+                        "hooks": [
+                            {
+                                "type": "command",
+                                "command": f"node ./{rel_script}",
+                                "timeout": guard_cfg.get("timeout", 5),
+                            }
+                        ],
+                    }
+                ]
+            }
+            if hooks_obj.get(hook_id) == desired_entry:
+                actions.append({"target": "pretool_guard:hooks", "action": "unchanged", "path": str(hooks_path)})
+            else:
+                merged_hooks = {**hooks_obj, hook_id: desired_entry}
+                hooks_payload = json.dumps(merged_hooks, ensure_ascii=False, indent=2) + "\n"
+                if not dry_run:
+                    maybe_backup(hooks_path)
+                    atomic_write_text(hooks_path, hooks_payload)
+                actions.append(
+                    {
+                        "target": "pretool_guard:hooks",
+                        "action": "create" if existing_hooks_raw is None else "merge_update",
+                        "path": str(hooks_path),
+                    }
+                )
+
     readback = antigravity_doctor(
         gemini_home=ghome,
         agents_home=ahome,
@@ -1031,6 +1168,7 @@ def add_antigravity_subparser(subparsers: Any) -> None:
     app.add_argument("--agents-home", type=Path)
     app.add_argument("--dry-run", action="store_true")
     app.add_argument("--install-plugins", action="store_true")
+    app.add_argument("--with-pretool-guard", action="store_true")
     app.add_argument("--with-weekly-audit", action="store_true")
     app.add_argument("--tz", dest="cron_tz")
     app.add_argument("--schedule")
@@ -1053,6 +1191,7 @@ def dispatch_antigravity(args: argparse.Namespace) -> dict[str, Any]:
             agents_home=args.agents_home,
             dry_run=args.dry_run,
             install_plugins=args.install_plugins,
+            with_pretool_guard=args.with_pretool_guard,
             with_weekly_audit=args.with_weekly_audit,
             cron_tz=args.cron_tz,
             schedule=args.schedule,
