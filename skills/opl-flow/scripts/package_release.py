@@ -12,6 +12,7 @@ import json
 import os
 import re
 import selectors
+import shutil
 import subprocess
 import sys
 import tarfile
@@ -22,6 +23,17 @@ from pathlib import Path
 from typing import Any, Sequence
 
 from _opl_package_content_lock import content_digest as package_content_digest
+
+CATALOG_REPOSITORY = "gaofeng21cn/opl-catalog"
+CATALOG_CATEGORIES = {
+    "agents": "agent",
+    "applications": "application",
+    "extensions": "extension",
+    "channels": "channel",
+    "dependencies": "dependency",
+}
+LEGACY_PACKAGE_DIRECTORY = "contracts/opl-framework/packages"
+LEGACY_ALLOWLIST_DIRECTORY = "contracts/opl-framework/package-payload-allowlists"
 
 
 class ReleaseError(RuntimeError):
@@ -47,6 +59,7 @@ def command(
     input_text: str | None = None,
     timeout: int = 600,
     check: bool = True,
+    env: dict[str, str] | None = None,
 ) -> subprocess.CompletedProcess[str]:
     try:
         result = subprocess.run(
@@ -56,7 +69,7 @@ def command(
             text=True,
             capture_output=True,
             timeout=timeout,
-            env=_command_env(argv),
+            env=env if env is not None else _command_env(argv),
             check=False,
         )
     except FileNotFoundError as exc:
@@ -69,8 +82,11 @@ def command(
     return result
 
 
-def command_json(argv: Sequence[str], *, cwd: Path | None = None, timeout: int = 600) -> Any:
-    output = command(argv, cwd=cwd, timeout=timeout).stdout.strip()
+def command_json(
+    argv: Sequence[str], *, cwd: Path | None = None, timeout: int = 600,
+    env: dict[str, str] | None = None,
+) -> Any:
+    output = command(argv, cwd=cwd, timeout=timeout, **({"env": env} if env is not None else {})).stdout.strip()
     try:
         return json.loads(output)
     except json.JSONDecodeError as exc:
@@ -190,6 +206,33 @@ def require_canonical_checkout(root: Path, label: str) -> str:
     if source_commit != git_value(root, "rev-parse", "origin/main"):
         raise ReleaseError(f"{label} HEAD must equal fresh origin/main")
     return source_commit
+
+
+def catalog_checkout(args: argparse.Namespace, framework_root: Path) -> Path | None:
+    configured = getattr(args, "catalog_root", None) or os.environ.get("OPL_CATALOG_ROOT")
+    if configured:
+        return Path(configured).expanduser().resolve()
+    sibling = framework_root.parent / "opl-catalog"
+    return sibling.resolve() if (sibling / "catalog-index.json").is_file() else None
+
+
+def canonical_catalog_commit(root: Path) -> str:
+    if repo_slug(root).lower() != CATALOG_REPOSITORY:
+        raise ReleaseError("Catalog origin must be gaofeng21cn/opl-catalog")
+    return require_canonical_checkout(root, "Catalog")
+
+
+def package_manifest_path(package_directory: Path, package_id: str) -> Path:
+    if not re.fullmatch(r"[a-z0-9](?:[a-z0-9.-]*[a-z0-9])?", package_id):
+        raise ReleaseError("invalid Package id")
+    filename = f"{package_id}.json"
+    paths = [package_directory / filename, *(
+        package_directory / category / filename for category in CATALOG_CATEGORIES
+    )]
+    candidates = [path for path in paths if path.is_file()]
+    if len(candidates) != 1:
+        raise ReleaseError(f"expected one projection for Package {package_id} under {package_directory}")
+    return candidates[0]
 
 
 def require_owner_source(
@@ -335,9 +378,12 @@ def prepare(
 ) -> dict[str, Any]:
     owner_root = Path(args.owner_root).resolve()
     framework_root = Path(args.framework_root).resolve()
-    package_directory = projection_root / "packages" if projection_root else framework_root / "contracts/opl-framework/packages"
-    allowlist_directory = projection_root / "allowlists" if projection_root else framework_root / "contracts/opl-framework/package-payload-allowlists"
-    package_path = package_directory / f"{args.package_id}.json"
+    catalog_root = None if projection_root else catalog_checkout(args, framework_root)
+    catalog_commit = canonical_catalog_commit(catalog_root) if catalog_root else None
+    projection_root = projection_root or catalog_root
+    package_directory = projection_root / "packages" if projection_root else framework_root / LEGACY_PACKAGE_DIRECTORY
+    allowlist_directory = projection_root / "allowlists" if projection_root else framework_root / LEGACY_ALLOWLIST_DIRECTORY
+    package_path = package_manifest_path(package_directory, args.package_id)
     allowlist_path = allowlist_directory / f"{args.package_id}.json"
     previous = read_json(package_path)
     allowlist = read_json(allowlist_path)
@@ -370,6 +416,14 @@ def prepare(
     ):
         raise ReleaseError("Framework package projection has an invalid identity")
     package = owner_projection(owner_manifest, previous, owner_root)
+    if package_path.parent.name in CATALOG_CATEGORIES and package_path.parent.parent == package_directory:
+        expected_type = CATALOG_CATEGORIES[package_path.parent.name]
+        presentation = package.setdefault("presentation", {})
+        if not isinstance(presentation, dict) or presentation.get("software_type", "capability") not in (
+            expected_type, "capability",
+        ):
+            raise ReleaseError(f"Package software type must match its Catalog category: {expected_type}")
+        presentation["software_type"] = expected_type
     package["source_repo"] = expected_repo
     codex_surface = package["codex_surface"]
     payload_ref = f"payloads/{args.package_id}-{version}.json"
@@ -378,7 +432,7 @@ def prepare(
         package["source_commit"] = source_commit
     codex_surface["plugin_payload_manifest_url"] = payload_ref
     codex_surface["carrier_source_commit"] = source_commit
-    payload_path = package_path.parent / payload_ref
+    payload_path = package_directory / payload_ref
     content_lock = package.get("content_lock")
     if isinstance(content_lock, dict):
         paths = content_lock.get("paths")
@@ -442,6 +496,28 @@ def prepare(
                 raise ReleaseError("generated Framework allowlist paths do not match the payload")
             allowlist["paths"] = projected_paths
         payload_bytes = staged_payload.read_bytes()
+        index_bytes = None
+        if catalog_root:
+            staged_catalog = temporary_root / "catalog"
+            for directory in (package_directory, allowlist_directory):
+                shutil.copytree(directory, staged_catalog / directory.name)
+            public_listings = catalog_root / "public-listings.json"
+            if public_listings.is_file():
+                shutil.copyfile(public_listings, staged_catalog / public_listings.name)
+            write_json(staged_catalog / package_path.relative_to(catalog_root), package)
+            write_json(staged_catalog / allowlist_path.relative_to(catalog_root), allowlist)
+            staged_catalog_payload = staged_catalog / payload_path.relative_to(catalog_root)
+            staged_catalog_payload.parent.mkdir(exist_ok=True)
+            staged_catalog_payload.write_bytes(payload_bytes)
+            index_bytes = command([
+                "node", "--input-type=module", "-e",
+                "const {buildCatalogIndex, canonicalJson} = await import('./scripts/build-index.mjs');"
+                "process.stdout.write(canonicalJson(buildCatalogIndex(process.argv[1]).index));",
+                str(staged_catalog),
+            ], cwd=catalog_root).stdout.encode("utf-8")
+    if catalog_root and (git_value(catalog_root, "rev-parse", "HEAD") != catalog_commit
+                         or git_value(catalog_root, "status", "--porcelain")):
+        raise ReleaseError("Catalog checkout changed during Package preparation")
     payload_path.parent.mkdir(exist_ok=True)
     with tempfile.NamedTemporaryFile(dir=payload_path.parent, prefix=f".{payload_path.name}.") as output:
         output.write(payload_bytes)
@@ -453,11 +529,17 @@ def prepare(
         except FileExistsError:
             if payload_path.is_symlink() or not payload_path.is_file() or payload_path.read_bytes() != payload_bytes:
                 raise ReleaseError("same-version immutable payload bytes differ")
-    write_json(package_path, package)
+    if package != previous:
+        write_json(package_path, package)
     updated_files = [str(package_path), str(payload_path)]
     if allowlist != read_json(allowlist_path):
         write_json(allowlist_path, allowlist)
         updated_files.append(str(allowlist_path))
+    if index_bytes is not None:
+        index_path = catalog_root / "catalog-index.json"
+        if index_bytes != index_path.read_bytes():
+            index_path.write_bytes(index_bytes)
+            updated_files.append(str(index_path))
     return {
         "action": "prepare",
         "status": "projection_ready",
@@ -465,6 +547,7 @@ def prepare(
         "version": version,
         "owner_source_commit": source_commit,
         "payload_sha256": sha256_bytes(payload_bytes),
+        **({"catalog_source_commit": catalog_commit} if catalog_commit else {}),
         "updated_files": updated_files,
     }
 
@@ -473,38 +556,41 @@ def prepare_source(args: argparse.Namespace) -> dict[str, Any]:
     """Prepare exact canonical source for the existing developer carrier transport."""
     owner_root = Path(args.owner_root).resolve()
     framework_root = Path(args.framework_root).resolve()
+    catalog_root = catalog_checkout(args, framework_root)
     requested_output = Path(args.output_root).expanduser()
     output_root = requested_output.resolve()
+    source_roots = [owner_root, framework_root, *([catalog_root] if catalog_root else [])]
     if any(output_root.is_relative_to(root) or root.is_relative_to(output_root)
-           for root in (owner_root, framework_root)):
-        raise ReleaseError("source output must be independent of owner and Framework checkouts")
+           for root in source_roots):
+        raise ReleaseError("source output must be independent of the owner, Framework, and Catalog checkouts")
     if requested_output.is_symlink() or output_root.exists():
         raise ReleaseError("source output root must not already exist")
     framework_commit = require_canonical_checkout(framework_root, "Framework")
+    catalog_commit = canonical_catalog_commit(catalog_root) if catalog_root else None
     output_root.parent.mkdir(parents=True, exist_ok=True)
     with tempfile.TemporaryDirectory(prefix=".opl-source-projection-", dir=output_root.parent) as temporary:
         staging = Path(temporary) / "projection"
-        # Preserve dependency discovery in the existing projection mechanism.
-        source_directories = {
-            "contracts/opl-framework/packages": "packages",
-            "contracts/opl-framework/package-payload-allowlists": "allowlists",
+        # Export a complete immutable baseline for dependency resolution.
+        source_directories = {"packages": "packages", "allowlists": "allowlists"} if catalog_root else {
+            LEGACY_PACKAGE_DIRECTORY: "packages",
+            LEGACY_ALLOWLIST_DIRECTORY: "allowlists",
         }
-        archive = Path(temporary) / "framework-projection.tar"
-        command(["git", "archive", "--format=tar", f"--output={archive}", framework_commit,
-                 *source_directories], cwd=framework_root)
+        archive = Path(temporary) / "package-projection.tar"
+        command(["git", "archive", "--format=tar", f"--output={archive}", catalog_commit or framework_commit,
+                 *source_directories], cwd=catalog_root or framework_root)
         with tarfile.open(archive) as snapshot:
             for member in snapshot:
                 if member.isdir():
                     continue
                 prefix = next((name for name in source_directories if member.name.startswith(f"{name}/")), None)
                 if not prefix or not member.isfile():
-                    raise ReleaseError("Framework projection snapshot must contain regular files only")
-                relative = safe_owner_ref(member.name[len(prefix) + 1:], "Framework projection snapshot path")
+                    raise ReleaseError("Package projection snapshot must contain regular files only")
+                relative = safe_owner_ref(member.name[len(prefix) + 1:], "Package projection snapshot path")
                 target = staging / source_directories[prefix] / relative
                 target.parent.mkdir(parents=True, exist_ok=True)
                 stream = snapshot.extractfile(member)
                 if stream is None:
-                    raise ReleaseError("Framework projection snapshot file is unreadable")
+                    raise ReleaseError("Package projection snapshot file is unreadable")
                 target.write_bytes(stream.read())
         result = prepare(args, source_only=True, projection_root=staging)
         if (git_value(owner_root, "status", "--porcelain")
@@ -513,7 +599,10 @@ def prepare_source(args: argparse.Namespace) -> dict[str, Any]:
         if (git_value(framework_root, "status", "--porcelain")
                 or git_value(framework_root, "rev-parse", "HEAD") != framework_commit):
             raise ReleaseError("Framework checkout changed during source preparation")
-        package_path = staging / "packages" / f"{args.package_id}.json"
+        if catalog_root and (git_value(catalog_root, "status", "--porcelain")
+                             or git_value(catalog_root, "rev-parse", "HEAD") != catalog_commit):
+            raise ReleaseError("Catalog checkout changed during source preparation")
+        package_path = package_manifest_path(staging / "packages", args.package_id)
         package = read_json(package_path)
         carrier = package["codex_surface"].get("configured_codex_plugin_carrier", {})
         selector = carrier.get("plugin_selector")
@@ -528,6 +617,7 @@ def prepare_source(args: argparse.Namespace) -> dict[str, Any]:
         **result, "action": "prepare-source", "status": "source_projection_ready",
         "updated_files": updated_files, "package_projection_dir": str(projection_directory),
         "framework_source_commit": framework_commit,
+        **({"catalog_source_commit": catalog_commit} if catalog_commit else {}),
         "plugin_selector": selector,
         "source_mode": "git_checkout", "publication_performed": False,
         "native_carrier_mutation": False,
@@ -798,6 +888,7 @@ def validate_receipt(
     framework_commit: str,
     request_id: str,
     expected_predecessor: str | None = None,
+    catalog_commit: str | None = None,
 ) -> str:
     package = receipt.get("package")
     immutable = receipt.get("immutable")
@@ -811,6 +902,7 @@ def validate_receipt(
         or package.get("version") != version
         or package.get("owner_source_commit") != owner_commit
         or package.get("framework_source_commit") != framework_commit
+        or (catalog_commit is not None and package.get("catalog_source_commit") != catalog_commit)
         or not isinstance(immutable, dict)
         or not isinstance(latest, dict)
         or immutable.get("digest") != latest.get("digest")
@@ -840,6 +932,7 @@ PRIVATE_PUBLICATION_INPUTS = (
     "expected_package_version", "expected_owner_source_commit",
     "expected_latest_stable_predecessor", "publication_request_id",
 )
+PRIVATE_OPTIONAL_PUBLICATION_INPUTS = {"automation_source_run_id", "expected_catalog_source_commit"}
 
 
 def parse_private_wrapper(source: str) -> dict[str, Any]:
@@ -874,7 +967,8 @@ def parse_private_wrapper(source: str) -> dict[str, Any]:
 
 def private_publication_target(
     package: dict[str, Any], framework_root: Path, selected_commit: str,
-) -> dict[str, str]:
+    *, catalog_root: Path | None = None, catalog_commit: str | None = None,
+) -> dict[str, str | None]:
     source_repo = package.get("source_repo")
     match = re.fullmatch(r"https://github\.com/([A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+)\.git", str(source_repo or ""))
     if not match:
@@ -902,7 +996,7 @@ def private_publication_target(
         jobs = wrapper["jobs"]
         job = jobs["publish-package"]
         bindings = job["with"]
-        optional_inputs = {"automation_source_run_id"} if "automation_source_run_id" in inputs else set()
+        optional_inputs = set(inputs) & PRIVATE_OPTIONAL_PUBLICATION_INPUTS
         uses = re.fullmatch(
             r"gaofeng21cn/one-person-lab/\.github/workflows/publish-package\.yml@([0-9a-f]{40})",
             str(job.get("uses") or ""),
@@ -932,7 +1026,11 @@ def private_publication_target(
     )
     if ancestry.returncode != 0:
         raise ReleaseError("private publisher Framework pin is not a known canonical ancestor")
-    manifest_ref = f"contracts/opl-framework/packages/{package['package_id']}.json"
+    target = {"repo": repo, "caller_commit": caller_commit, "framework_commit": framework_commit}
+    if catalog_commit and "expected_catalog_source_commit" in optional_inputs:
+        return {**target, "catalog_commit": catalog_commit}
+
+    manifest_ref = f"{LEGACY_PACKAGE_DIRECTORY}/{package['package_id']}.json"
     pinned = committed_json(framework_root, framework_commit, manifest_ref)
     def release_identity(manifest: dict[str, Any]) -> dict[str, Any]:
         surface = manifest.get("codex_surface", {})
@@ -948,12 +1046,16 @@ def private_publication_target(
     if release_identity(pinned) != release_identity(package):
         raise ReleaseError("private publisher Framework pin selects a different Package projection")
     payload_ref = safe_owner_ref(package["codex_surface"].get("plugin_payload_manifest_url"), "Package payload ref")
-    payload_path = f"contracts/opl-framework/packages/{payload_ref}"
-    pinned_payload = command(["git", "show", f"{framework_commit}:{payload_path}"], cwd=framework_root).stdout
-    selected_payload = command(["git", "show", f"{selected_commit}:{payload_path}"], cwd=framework_root).stdout
+    payload_path = f"{LEGACY_PACKAGE_DIRECTORY}/{payload_ref}"
+    if catalog_root and catalog_commit:
+        pinned_payload = git_value(framework_root, "rev-parse", f"{framework_commit}:{payload_path}")
+        selected_payload = git_value(catalog_root, "rev-parse", f"{catalog_commit}:packages/{payload_ref}")
+    else:
+        pinned_payload = command(["git", "show", f"{framework_commit}:{payload_path}"], cwd=framework_root).stdout
+        selected_payload = command(["git", "show", f"{selected_commit}:{payload_path}"], cwd=framework_root).stdout
     if pinned_payload != selected_payload:
         raise ReleaseError("private publisher Framework pin selects different Package payload bytes")
-    return {"repo": repo, "caller_commit": caller_commit, "framework_commit": framework_commit}
+    return {**target, "catalog_commit": None}
 
 
 PRIVATE_REGISTRY_ADAPTER = r"""
@@ -1064,14 +1166,19 @@ def private_registry_readback(
 
 def publish(args: argparse.Namespace) -> dict[str, Any]:
     framework_root = Path(args.framework_root).resolve()
+    catalog_root = catalog_checkout(args, framework_root)
+    catalog_commit = canonical_catalog_commit(catalog_root) if catalog_root else None
     command(["git", "fetch", "origin", "main", "--quiet"], cwd=framework_root)
     framework_commit = git_value(framework_root, "rev-parse", "HEAD")
     if framework_commit != git_value(framework_root, "rev-parse", "origin/main"):
         raise ReleaseError("Framework HEAD must equal fresh origin/main")
     if git_value(framework_root, "status", "--porcelain"):
         raise ReleaseError("Framework checkout must be clean before publication")
-    package = read_json(
-        framework_root / "contracts/opl-framework/packages" / f"{args.package_id}.json"
+    package_directory = catalog_root / "packages" if catalog_root else framework_root / LEGACY_PACKAGE_DIRECTORY
+    package_path = package_manifest_path(package_directory, args.package_id)
+    package = (
+        committed_json(catalog_root, catalog_commit, package_path.relative_to(catalog_root).as_posix())
+        if catalog_root and catalog_commit else read_json(package_path)
     )
     if package.get("package_id") != args.package_id:
         raise ReleaseError("Framework Package identity differs from the requested Package")
@@ -1090,11 +1197,15 @@ def publish(args: argparse.Namespace) -> dict[str, Any]:
     private = visibility == "authorized_only"
     image = publication_ref.removesuffix(":latest-stable")
     selected_commit = framework_commit
-    target = private_publication_target(package, framework_root, selected_commit) if private else {
+    target = private_publication_target(
+        package, framework_root, selected_commit, catalog_root=catalog_root, catalog_commit=catalog_commit,
+    ) if private else {
         "repo": repo_slug(framework_root), "caller_commit": framework_commit, "framework_commit": framework_commit,
+        "catalog_commit": catalog_commit,
     }
     repo, caller_commit = target["repo"], target["caller_commit"]
     framework_commit = target["framework_commit"]
+    publisher_catalog_commit = target["catalog_commit"]
     if private:
         if (
             image != f"ghcr.io/{repo.split('/')[0].lower()}/one-person-lab-private-packages/{args.package_id}"
@@ -1131,6 +1242,8 @@ def publish(args: argparse.Namespace) -> dict[str, Any]:
     ]
     if not private:
         dispatch_args.extend(["-f", f"package_id={args.package_id}", "-f", f"expected_framework_source_commit={framework_commit}"])
+    if publisher_catalog_commit:
+        dispatch_args.extend(["-f", f"expected_catalog_source_commit={publisher_catalog_commit}"])
     dispatched = command(dispatch_args, check=False)
     combined_output = f"{dispatched.stdout}\n{dispatched.stderr}"
     run_id = run_id_from_dispatch(combined_output)
@@ -1197,6 +1310,7 @@ def publish(args: argparse.Namespace) -> dict[str, Any]:
         framework_commit=framework_commit,
         request_id=request_id,
         expected_predecessor=predecessor,
+        catalog_commit=publisher_catalog_commit,
     )
     immutable_ref = str(receipt["immutable"]["ref"])
     latest_ref = str(receipt["latest_stable"]["ref"])
@@ -1231,6 +1345,7 @@ def publish(args: argparse.Namespace) -> dict[str, Any]:
         "owner_source_commit": owner_commit,
         "framework_source_commit": framework_commit,
         "framework_projection_commit": selected_commit,
+        **({"catalog_source_commit": catalog_commit} if catalog_commit else {}),
         "publisher_repository": repo,
         "publisher_source_commit": caller_commit,
         "publication_request_id": request_id,
@@ -1519,10 +1634,13 @@ def installed_package_evidence(
     }
 
 
-def package_status(args: argparse.Namespace, package_id: str) -> dict[str, Any]:
+def package_status(
+    args: argparse.Namespace, package_id: str, *, env: dict[str, str] | None = None,
+) -> dict[str, Any]:
     readback = command_json(
         [args.opl_bin, "packages", "status", "--package-id", package_id, "--json"],
         timeout=args.timeout,
+        **({"env": env} if env is not None else {}),
     )
     surface = readback.get("opl_agent_package_status") if isinstance(readback, dict) else None
     if not isinstance(surface, dict) or surface.get("package_id") != package_id:
@@ -1530,10 +1648,13 @@ def package_status(args: argparse.Namespace, package_id: str) -> dict[str, Any]:
     return surface
 
 
-def package_action(args: argparse.Namespace, action: str, package_id: str) -> dict[str, Any]:
+def package_action(
+    args: argparse.Namespace, action: str, package_id: str, *, env: dict[str, str] | None = None,
+) -> dict[str, Any]:
     readback = command_json(
         [args.opl_bin, "packages", action, "--package-id", package_id, "--json"],
         timeout=args.timeout,
+        **({"env": env} if env is not None else {}),
     )
     surface = readback.get(f"opl_agent_package_{action}") if isinstance(readback, dict) else None
     if not isinstance(surface, dict):
@@ -1543,9 +1664,12 @@ def package_action(args: argparse.Namespace, action: str, package_id: str) -> di
 
 def activate(args: argparse.Namespace) -> dict[str, Any]:
     framework_root = Path(args.framework_root).resolve()
-    package = read_json(
-        framework_root / "contracts/opl-framework/packages" / f"{args.package_id}.json"
-    )
+    catalog_root = catalog_checkout(args, framework_root)
+    catalog_commit = canonical_catalog_commit(catalog_root) if catalog_root else None
+    package_directory = catalog_root / "packages" if catalog_root else framework_root / LEGACY_PACKAGE_DIRECTORY
+    package = read_json(package_manifest_path(package_directory, args.package_id))
+    # Keep the real Framework install and readback on the selected Package projection.
+    projection_env = {"env": {**os.environ, "OPL_PACKAGE_PROJECTION_DIR": str(package_directory)}} if catalog_root else {}
     codex_surface = package.get("codex_surface")
     carrier = codex_surface.get("configured_codex_plugin_carrier") if isinstance(codex_surface, dict) else None
     selector = carrier.get("plugin_selector") if isinstance(carrier, dict) else None
@@ -1557,15 +1681,15 @@ def activate(args: argparse.Namespace) -> dict[str, Any]:
     expected_version = str(package.get("version") or "")
     before_entry = None if headless else plugin_entry(selector, args.codex_bin)
     before_profile = installed_profile(before_entry) if has_profile else (None, None)
-    before_status = package_status(args, args.package_id)
+    before_status = package_status(args, args.package_id, **projection_env)
     lifecycle_action = "update" if isinstance(before_status.get("installed_carrier_readback"), dict) else "install"
-    update_surface = package_action(args, lifecycle_action, args.package_id)
+    update_surface = package_action(args, lifecycle_action, args.package_id, **projection_env)
     after_entry = None if headless else plugin_entry(selector, args.codex_bin)
     if not headless and (
         not after_entry or after_entry.get("version") != expected_version or after_entry.get("enabled") is not True
     ):
         raise ReleaseError("installed Codex Plugin did not reach the expected enabled version")
-    status_surface = package_status(args, args.package_id)
+    status_surface = package_status(args, args.package_id, **projection_env)
     installed = installed_package_evidence(status_surface, package)
     dependency_evidence = []
     dependencies = package.get("capability_dependencies", [])
@@ -1575,12 +1699,12 @@ def activate(args: argparse.Namespace) -> dict[str, Any]:
         dependency_id = dependency.get("package_id")
         if not isinstance(dependency_id, str) or not dependency_id:
             raise ReleaseError("required Package dependency has no package id")
-        provider_surface = package_status(args, dependency_id)
+        provider_surface = package_status(args, dependency_id, **projection_env)
         provider_install = None
         if not isinstance(provider_surface.get("installed_carrier_readback"), dict):
-            provider_install = package_action(args, "install", dependency_id)
-            provider_surface = package_status(args, dependency_id)
-            status_surface = package_status(args, args.package_id)
+            provider_install = package_action(args, "install", dependency_id, **projection_env)
+            provider_surface = package_status(args, dependency_id, **projection_env)
+            status_surface = package_status(args, args.package_id, **projection_env)
         dependency_readiness = status_surface.get("package_dependency_readiness")
         rows = dependency_readiness.get("dependencies", []) if isinstance(dependency_readiness, dict) else []
         matching = [row for row in rows if isinstance(row, dict) and row.get("package_id") == dependency_id]
@@ -1608,6 +1732,7 @@ def activate(args: argparse.Namespace) -> dict[str, Any]:
         else "installed_with_readiness_debt",
         "package_id": args.package_id,
         "version": expected_version,
+        **({"catalog_source_commit": catalog_commit} if catalog_commit else {}),
         "plugin_selector": selector,
         "lifecycle_action": lifecycle_action,
         "package_update": {
@@ -1640,7 +1765,7 @@ def activate(args: argparse.Namespace) -> dict[str, Any]:
 def parser() -> argparse.ArgumentParser:
     root = argparse.ArgumentParser(description=__doc__)
     commands = root.add_subparsers(dest="action", required=True)
-    prepare_parser = commands.add_parser("prepare", help="generate the Framework projection")
+    prepare_parser = commands.add_parser("prepare", help="generate the official Catalog projection")
     prepare_parser.add_argument("--package-id", required=True)
     prepare_parser.add_argument("--owner-root", required=True)
     prepare_parser.add_argument("--framework-root", required=True)
@@ -1663,6 +1788,8 @@ def parser() -> argparse.ArgumentParser:
     activate_parser.add_argument("--opl-bin", default="opl")
     activate_parser.add_argument("--user-profile", default="~/.codex/AGENTS.md")
     activate_parser.add_argument("--timeout", type=int, default=180)
+    for subcommand in (prepare_parser, source_parser, publish_parser, activate_parser):
+        subcommand.add_argument("--catalog-root", help="OPL Catalog checkout (defaults to OPL_CATALOG_ROOT or sibling opl-catalog)")
     return root
 
 

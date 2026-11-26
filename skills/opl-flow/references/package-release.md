@@ -8,8 +8,9 @@ no Git commit, tag, or Profile write.
 
 - Owner canonical `main` selects source bytes; a published release additionally
   requires an annotated `v<version>` tag.
-- Framework canonical `main` selects the release Package projection; an explicit
-  external projection selects a local source installation.
+- OPL Catalog canonical `main` selects the release Package projection.
+  Framework canonical `main` provides the schemas, generators, and publisher.
+  An explicit prepared projection selects a local source installation.
 - The protected `publish-package.yml` workflow owns immutable OCI publication
   and `latest-stable` advancement.
 - Codex Plugin Manager owns installed carrier bytes. The user's
@@ -51,8 +52,8 @@ installations or replace domain qualification.
 ## Local Source Preparation
 
 Use `prepare-source` to prepare a local source installation before publication.
-Both the owner and Framework checkouts must be clean, with each `HEAD` equal to
-its fresh `origin/main`. The command rechecks their cleanliness and exact commits
+The owner, Framework, and Catalog checkouts must be clean, with each `HEAD` equal
+to its fresh `origin/main`. The command rechecks their cleanliness and exact commits
 after generation. It keeps the owner's Package and Plugin identities and binds
 the exact source commit and content locks through the existing projection and
 payload generators. It does not require or create a tag, publish an OCI artifact,
@@ -64,21 +65,26 @@ roots:
 ```bash
 python3 <opl-flow-skill>/scripts/package_release.py prepare-source \
   --package-id <id> --owner-root <owner> --framework-root <framework> \
+  --catalog-root <catalog> \
   --output-root <new-external-output-root>
 ```
 
-The output root must not exist and must be outside both source trees. The command
-exports the committed Framework projection baseline for dependency resolution,
+Set `OPL_CATALOG_ROOT` to reuse the same checkout across actions. The tool also
+discovers `opl-catalog` beside the Framework checkout. Historical Framework
+checkouts with embedded projections can still run without a Catalog checkout.
+
+Choose a new output root outside the source trees. The command exports the
+committed Catalog baseline for dependency resolution,
 updates only the selected Package, and atomically creates `packages/` and `allowlists/` below
 that root. Each invocation produces a complete independent set. For several
 Packages, choose a separate new root for each, such as `<output-parent>/<id>`;
 do not accumulate preparations in one output directory.
 
 The result reports `package_projection_dir`, `payload_sha256`,
-`owner_source_commit`, `framework_source_commit`, and the native selector, with
+`owner_source_commit`, `framework_source_commit`, `catalog_source_commit`, and the native selector, with
 publication and native mutation both false. Preparation alone does not install the Package. Preserve
 this output for the intended installation and its readback; the Framework
-release projection remains unchanged.
+release Catalog retains its committed projection.
 
 For an authorized native installation, set `OPL_PACKAGE_PROJECTION_DIR` to the
 returned `package_projection_dir` (`<output-root>/packages`), select
@@ -107,28 +113,30 @@ Package owner repository with absolute roots:
 
 ```bash
 python3 <opl-flow-skill>/scripts/package_release.py prepare \
-  --package-id <id> --owner-root <owner> --framework-root <framework>
+  --package-id <id> --owner-root <owner> --framework-root <framework> --catalog-root <catalog>
 ```
 
 `prepare` requires a clean owner checkout at fresh `origin/main` and an
 annotated release tag selecting `HEAD`. It resolves the canonical owner manifest
-and carrier descriptor through Framework publication refs and the payload
+and carrier descriptor through Catalog publication refs and the payload
 allowlist, verifies their committed identities, and refreshes owner capability,
 dependency and content-lock fields. Presentation inherits missing fields from
-the central projection; each explicitly declared owner field replaces its
-central value, including empty values, without merging nested values.
+the central projection. Explicit owner presentation fields replace inherited
+values, including empty values, without merging nested values. The required
+`software_type` follows the Catalog category and accepts the legacy owner
+value `capability` during migration.
 A missing owner `source_repo` does not waive
-the binding between origin, Framework projection and payload allowlist. Existing
+the binding between origin, Catalog projection and payload allowlist. Existing
 same-version payload bytes remain immutable. Review and absorb the generated
-Package and payload files, plus the allowlist when content-lock paths changed,
+Package, payload, and Catalog index files, plus the allowlist when content-lock paths changed,
 before publication.
 
 ```bash
 python3 <opl-flow-skill>/scripts/package_release.py publish \
-  --package-id <id> --framework-root <framework>
+  --package-id <id> --framework-root <framework> --catalog-root <catalog>
 ```
 
-`publish` requires clean Framework `HEAD == origin/main`. It reads the current
+`publish` requires clean Framework and Catalog checkouts at fresh `origin/main`. It reads the current
 predecessor, dispatches one protected workflow, reconciles an unknown dispatch
 by request id, formally approves the one exact pending `release-stable`
 deployment through the authenticated GitHub reviewer, verifies the receipt,
@@ -143,16 +151,16 @@ A pending environment without required reviewers continues through the same run
 watch. If an approval write has an unknown outcome, Flow only reads that run back;
 it never repeats the approval POST or dispatches another run during reconciliation.
 
-For an `authorized_only` Package, `publish` reads the private owner's publisher
-wrapper at its fresh `main` commit and dispatches that repository with the
-wrapper's four declared inputs. Both fixed Framework pins must agree, select a
-known ancestor of canonical Framework `main`, and contain the same selected
-Package release identity, access policy, and payload bytes. Presentation changes
-and unrelated Framework updates do not require
-repinning the wrapper. The owner caller commit, Package source commit, and pinned
-Framework commit remain separate; workflow and receipt readbacks bind each to the
-requested publication. The wrapper uses the registered mapping/scalar YAML form;
-duplicate keys, aliases, or other unsupported YAML forms fail before dispatch.
+The publisher binds the Catalog commit in the release receipt. For an
+`authorized_only` Package, `publish` reads the private owner's publisher
+wrapper at its fresh `main` commit and sends the four existing inputs and
+`expected_catalog_source_commit` when the wrapper declares and forwards it.
+Both fixed Framework pins must agree and select a known ancestor of canonical
+Framework `main`. An older wrapper can still publish when its embedded Package
+release identity, access policy, and exact payload bytes match the selected
+Catalog projection. Workflow and receipt readbacks bind the requested
+publication to the owner source, publisher, Framework, and Catalog revisions
+used. The wrapper uses the registered mapping/scalar YAML form.
 
 Private publication uses the configured software source's credential handle.
 Disabled sources and missing credentials stop before dispatch. The private owner
@@ -171,11 +179,12 @@ from Actions, and public keyless verification is not used for private Packages.
 
 ```bash
 python3 <opl-flow-skill>/scripts/package_release.py activate \
-  --package-id <id> --framework-root <framework> \
+  --package-id <id> --framework-root <framework> --catalog-root <catalog> \
   --opl-bin <canonical-framework>/bin/opl
 ```
 
-`activate` reads Framework Package status and calls its official install or
+`activate` reads Framework Package status using the selected Catalog projection
+and calls its official install or
 update entrypoint. It requires a real installed carrier descriptor, the expected
 version, available source files and callability; a source-checkout projection
 cannot substitute for installation. Required providers absent from the native
@@ -193,7 +202,7 @@ the script. Start a fresh Codex executor when discovery is required.
 
 ## Terminal Readback
 
-Do not call a release complete before the same owner and Framework commits bind
+Close a release once the owner, Framework, and Catalog commits bind
 the public immutable digest, `latest-stable`, attestation subject, installed
 Plugin version, required Skills, and Profile delta. Close owned worktrees only
 after canonical remote parity and installed/public readback.
