@@ -78,7 +78,7 @@
       "en-US": "OPL Flow establishes the Codex experience baseline and coordinates durable work across tasks, repositories, and machines."
     },
     "home_shortcuts": [],
-    "software_type": "capability",
+    "software_type": "extension",
     "icon_ref": "assets/branding/opl-flow-logo.png",
     "miniapp": {
       "presentation_mode": "dedicated_app",

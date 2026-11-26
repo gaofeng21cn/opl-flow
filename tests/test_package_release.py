@@ -113,6 +113,49 @@ class PackageReleaseTests(unittest.TestCase):
             return subprocess.run(argv, **kwargs, check=True, capture_output=True, text=True)
         return self.payload_command(argv, **kwargs)
 
+    def test_prepare_updates_categorized_projection_and_index(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary).resolve()
+            args, owner, legacy_manifest, legacy_allowlist = self.prepare_fixture(root, capability=True)
+            catalog = root / "catalog"
+            manifest = catalog / "packages/dependencies" / legacy_manifest.name
+            allowlist = catalog / "allowlists" / legacy_allowlist.name
+            manifest.parent.mkdir(parents=True)
+            allowlist.parent.mkdir()
+            baseline = release.read_json(legacy_manifest)
+            baseline["presentation"] = {"software_type": "dependency"}
+            release.write_json(manifest, baseline)
+            allowlist.write_bytes(legacy_allowlist.read_bytes())
+            index = catalog / "catalog-index.json"
+            index.write_text("{}\n")
+            args.catalog_root = str(catalog)
+            owner["presentation"] = {"software_type": "capability"}
+
+            def generate(argv, **kwargs):
+                if argv[1] != "--input-type=module":
+                    return self.payload_command(argv, **kwargs)
+                staged = Path(argv[-1])
+                generated = release.read_json(staged / manifest.relative_to(catalog))
+                self.assertEqual(generated["presentation"]["software_type"], "dependency")
+                payload = staged / "packages" / generated["codex_surface"]["plugin_payload_manifest_url"]
+                self.assertTrue(payload.is_file())
+                return subprocess.CompletedProcess(argv, 0, '{"package_count":1}\n', "")
+
+            with (
+                patch.object(release, "canonical_catalog_commit", return_value="c" * 40),
+                patch.object(release, "require_owner_release", return_value=(owner, "1.2.3", "a" * 40)),
+                patch.object(release, "repo_slug", return_value=f"owner/{args.package_id}"),
+                patch.object(release, "git_value", side_effect=lambda _, *argv: "" if argv[0] == "status" else "c" * 40),
+                patch.object(release, "command", side_effect=generate),
+            ):
+                result = release.prepare(args)
+
+            self.assertEqual(result["catalog_source_commit"], "c" * 40)
+            self.assertEqual(release.read_json(index)["package_count"], 1)
+            self.assertIn(str(index), result["updated_files"])
+            self.assertTrue((catalog / "packages/payloads/research-skills-1.2.3.json").is_file())
+            self.assertEqual(release.read_json(legacy_manifest)["version"], "1.2.2")
+
     def test_prepare_refreshes_owner_agent_and_headless_capability_fields(self) -> None:
         for capability in (False, True):
             with self.subTest(capability=capability), tempfile.TemporaryDirectory() as temporary:
@@ -1055,6 +1098,43 @@ jobs:
         self.assertEqual(len([call for call in self.calls if call[:2] == ["cosign", "verify-attestation"]]), 2)
         self.assertEqual(result["status"], "published_and_verified")
         self.assertEqual(result["digest"], self.digest)
+
+    def test_catalog_publish_binds_the_same_revision_to_dispatch_and_receipt(self) -> None:
+        catalog_commit = "e" * 40
+        for private, matching_receipt in ((False, True), (True, True), (False, False)):
+            with self.subTest(private=private, matching_receipt=matching_receipt):
+                args = self.fixture(private=private)
+                catalog = self.root / "catalog"
+                manifest = catalog / "packages/agents" / f"{args.package_id}.json"
+                manifest.parent.mkdir(parents=True, exist_ok=True)
+                release.write_json(manifest, self.package)
+                args.catalog_root = str(catalog)
+                if private:
+                    self.wrapper = self.wrapper.replace(
+                        "    inputs:\n",
+                        "    inputs:\n      expected_catalog_source_commit:\n"
+                        "        required: false\n        type: string\n        default: ''\n",
+                    ).replace(
+                        "    with:\n",
+                        "    with:\n      expected_catalog_source_commit: ${{ inputs.expected_catalog_source_commit }}\n",
+                    )
+                if matching_receipt:
+                    self.receipt["package"]["catalog_source_commit"] = catalog_commit
+
+                with (
+                    patch.object(release, "canonical_catalog_commit", return_value=catalog_commit),
+                    patch.object(release, "committed_json", return_value=copy.deepcopy(self.package)) as read,
+                ):
+                    if matching_receipt:
+                        result = self.publish(args)
+                        self.assertEqual(result["catalog_source_commit"], catalog_commit)
+                    else:
+                        with self.assertRaisesRegex(release.ReleaseError, "receipt does not match"):
+                            self.publish(args)
+                    read.assert_called_once_with(catalog, catalog_commit, manifest.relative_to(catalog).as_posix())
+                self.assertIn(f"expected_catalog_source_commit={catalog_commit}", self.calls[
+                    max(i for i, call in enumerate(self.calls) if call[:3] == ["gh", "workflow", "run"])
+                ])
 
     def test_private_wrapper_must_bind_private_owner_package_and_framework_before_dispatch(self) -> None:
         for fault in ("owner_visibility", "owner_identity", "package_identity", "framework_pin", "framework_input", "missing_input"):
