@@ -8,10 +8,10 @@ environment (`~/.gemini/`) using the reusable templates in
 
 | Layer | Target | Policy |
 | --- | --- | --- |
-| Global hygiene rules | `~/.gemini/GEMINI.md` | Managed marker block (`OPL_FLOW_AGY_BASELINE`), backs up and preserves all user rules outside markers; never overwrites overlapping unmarked sections. |
+| Global hygiene rules | `~/.gemini/GEMINI.md` | Managed marker block (`OPL_FLOW_AGY_BASELINE`), covering progress/cache hygiene, explicit Codex Supervisor delegation boundaries, and stall pullback; backs up and preserves all user rules outside markers; never overwrites overlapping unmarked sections. |
 | `agy-fast` empirical overrides | `~/.gemini/config/plugins/agy-fast/rules/AGENTS.local.md` | Applied when `agy-fast` is installed; enforces `run_checks` `compact` default, single commands on native `run_command`, `apply_edits` <=5-file batches with `bestEffort`, and Swarm `--cli` syntax. |
 | Progressive-disclosure Skills | `~/.gemini/config/skills/{swarm-code-worker-brief,third-party-audit-triage,project-vision-and-gap-review,opl-flow-dual-carrier}/SKILL.md` + optional `impeccable` symlink | Materializes bundled workflow & dual-carrier Skills and links `~/.agents/skills/impeccable` when present; flags duplicate `modern-web-guidance` symlinks if the official plugin is enabled. |
-| Core resident plugins (opt-in install) | `agy-fast` (and optional `modern-web-guidance-plugin`) | Installed via official owner installer only when `--install-plugins` is explicitly passed. |
+| Core & optional plugins (opt-in install) | `agy-fast` (required) + optional `codex-supervisor` & `modern-web-guidance-plugin` | `agy-fast` and `codex-supervisor` (used only when the user explicitly requests interactive Codex delegation/supervision; also installable via `agy plugin install https://github.com/cxgit12138/codex-supervisor`) are installed only when `--install-plugins` is explicitly passed. |
 | Weekly read-only audit (opt-in) | `~/.gemini/config/sidecars/weekly-agy-env-audit/sidecar.json` | Created only with `--with-weekly-audit`; strict read-only permissions, never auto-enabled. |
 
 ## Commands

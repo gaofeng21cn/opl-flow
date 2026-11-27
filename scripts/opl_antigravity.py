@@ -563,15 +563,28 @@ def antigravity_doctor(
 
     agy_fast_dir = ghome / "config" / "plugins" / "agy-fast"
     agy_fast_installed = (agy_fast_dir / "plugin.json").is_file()
-    agy_fast_enabled = agy_fast_installed and (
-        "agy-fast" not in plugins_cfg
-        or bool(isinstance(plugins_cfg.get("agy-fast"), dict) and plugins_cfg["agy-fast"].get("enabled", True))
-    )
+    agy_fast_enabled = _is_plugin_enabled(plugins_cfg, "agy-fast", agy_fast_installed)
     agy_fast_doctor = (
         _run_agy_fast_doctor(agy_fast_dir / "scripts" / "install.mjs")
         if run_plugin_doctor and agy_fast_installed
         else {"available": agy_fast_installed, "ok": None}
     )
+
+    codex_sup_dir = ghome / "config" / "plugins" / "codex-supervisor"
+    codex_sup_manifest = codex_sup_dir / "plugin.json"
+    codex_supervisor_installed = codex_sup_manifest.is_file()
+    codex_supervisor_enabled = _is_plugin_enabled(plugins_cfg, "codex-supervisor", codex_supervisor_installed)
+    codex_supervisor_version: str | None = None
+    if codex_supervisor_installed:
+        try:
+            sup_meta = json.loads(codex_sup_manifest.read_text(encoding="utf-8"))
+            if isinstance(sup_meta, dict) and isinstance(sup_meta.get("version"), str):
+                codex_supervisor_version = sup_meta["version"]
+        except Exception:
+            codex_supervisor_version = None
+    codex_supervisor_ctl_present = (
+        codex_sup_dir / "skills" / "codex-supervisor" / "scripts" / "codex-ctl.mjs"
+    ).is_file()
 
     # Rules status
     rules_state: dict[str, Any] = {}
@@ -701,6 +714,16 @@ def antigravity_doctor(
             f"Remove the standalone symlink under {skills_dir / dup['skill_id']} to avoid double-loading."
         )
 
+    if codex_supervisor_installed and not codex_supervisor_enabled:
+        findings.append("Optional plugin 'codex-supervisor' is installed but disabled in config.json.")
+        recommended_actions.append(
+            "Enable 'codex-supervisor' in AntiGravity Plugins Manager or `agy plugin enable codex-supervisor` when explicit Codex delegation is needed."
+        )
+    elif not codex_supervisor_installed and shutil.which("codex"):
+        recommended_actions.append(
+            "Optional: install 'codex-supervisor' via `python3 scripts/opl_workflow.py antigravity apply --install-plugins --json` or `agy plugin install https://github.com/cxgit12138/codex-supervisor` for explicit Codex delegation."
+        )
+
     if impeccable_shared and not impeccable_installed:
         recommended_actions.append(
             "Run `python3 scripts/opl_workflow.py antigravity apply --json` to link shared ~/.agents/skills/impeccable."
@@ -741,6 +764,10 @@ def antigravity_doctor(
             },
             "optional_enhancements": {
                 "modern_web_guidance_plugin_enabled": "modern-web-guidance-plugin" in enabled_plugins,
+                "codex_supervisor_installed": codex_supervisor_installed,
+                "codex_supervisor_enabled": codex_supervisor_enabled,
+                "codex_supervisor_version": codex_supervisor_version,
+                "codex_supervisor_ctl_present": codex_supervisor_ctl_present,
                 "impeccable_installed": impeccable_installed,
                 "impeccable_shared_available": impeccable_shared,
                 "pretool_guard_present": pretool_guard_present,
@@ -762,20 +789,33 @@ def antigravity_doctor(
     }
 
 
-def _install_agy_fast_plugin(gemini_home: Path) -> dict[str, Any]:
-    git_bin = shutil.which("git")
-    node_bin = shutil.which("node")
-    if not git_bin or not node_bin:
-        return {"status": "failed", "reason": "git and node are required to install agy-fast"}
-    env = {
+def _is_plugin_enabled(plugins_cfg: dict[str, Any], plugin_id: str, installed: bool) -> bool:
+    """Return True when a plugin is installed and not disabled in config.json."""
+    return installed and (
+        plugin_id not in plugins_cfg
+        or bool(isinstance(plugins_cfg.get(plugin_id), dict) and plugins_cfg[plugin_id].get("enabled", True))
+    )
+
+
+def _non_interactive_git_env(gemini_home: Path) -> dict[str, str]:
+    return {
         **os.environ,
         "GEMINI_HOME": str(gemini_home),
         "GIT_TERMINAL_PROMPT": "0",
         "GCM_INTERACTIVE": "never",
     }
-    with tempfile.TemporaryDirectory(prefix="opl-flow-agy-fast-") as tmp_dir:
+
+
+def _clone_plugin_repo(
+    git_bin: str,
+    repo_url: str,
+    dest: Path,
+    env: dict[str, str],
+) -> dict[str, Any] | None:
+    """Shallow-clone a plugin repo non-interactively; returns error receipt or None."""
+    try:
         clone = subprocess.run(
-            [git_bin, "clone", "--depth", "1", "https://github.com/INK-Q/agy-fast.git", tmp_dir],
+            [git_bin, "clone", "--depth", "1", repo_url, str(dest)],
             env=env,
             check=False,
             stdout=subprocess.PIPE,
@@ -783,8 +823,23 @@ def _install_agy_fast_plugin(gemini_home: Path) -> dict[str, Any]:
             text=True,
             timeout=90,
         )
-        if clone.returncode != 0:
-            return {"status": "failed", "step": "git_clone", "stderr": clone.stderr.strip()[:400]}
+    except subprocess.TimeoutExpired as exc:
+        return {"status": "failed", "step": "git_clone", "stderr": f"git clone timed out: {exc}"}
+    if clone.returncode != 0:
+        return {"status": "failed", "step": "git_clone", "stderr": clone.stderr.strip()[:400]}
+    return None
+
+
+def _install_agy_fast_plugin(gemini_home: Path) -> dict[str, Any]:
+    git_bin = shutil.which("git")
+    node_bin = shutil.which("node")
+    if not git_bin or not node_bin:
+        return {"status": "failed", "reason": "git and node are required to install agy-fast"}
+    env = _non_interactive_git_env(gemini_home)
+    with tempfile.TemporaryDirectory(prefix="opl-flow-agy-fast-") as tmp_dir:
+        err = _clone_plugin_repo(git_bin, "https://github.com/INK-Q/agy-fast.git", Path(tmp_dir), env)
+        if err:
+            return err
         inst = subprocess.run(
             [node_bin, str(Path(tmp_dir) / "scripts" / "install.mjs"), "install"],
             env=env,
@@ -797,6 +852,27 @@ def _install_agy_fast_plugin(gemini_home: Path) -> dict[str, Any]:
         if inst.returncode != 0:
             return {"status": "failed", "step": "install", "stderr": (inst.stderr or inst.stdout).strip()[:400]}
         return {"status": "installed", "output": inst.stdout.strip()[:400]}
+
+
+def _install_codex_supervisor_plugin(gemini_home: Path) -> dict[str, Any]:
+    """Install optional codex-supervisor plugin via non-interactive shallow clone."""
+    git_bin = shutil.which("git")
+    if not git_bin:
+        return {"status": "failed", "reason": "git is required to install codex-supervisor"}
+    plugins_dir = gemini_home / "config" / "plugins"
+    plugins_dir.mkdir(parents=True, exist_ok=True)
+    target_dir = plugins_dir / "codex-supervisor"
+    if target_dir.exists() and not (target_dir / "plugin.json").is_file():
+        return {
+            "status": "failed",
+            "step": "precheck",
+            "stderr": f"target directory already exists without plugin.json: {target_dir}",
+        }
+    env = _non_interactive_git_env(gemini_home)
+    err = _clone_plugin_repo(git_bin, "https://github.com/cxgit12138/codex-supervisor.git", target_dir, env)
+    if err:
+        return err
+    return {"status": "installed", "path": str(target_dir)}
 
 
 def _build_weekly_audit_sidecar(
@@ -907,16 +983,21 @@ def antigravity_apply(
             bpath = backup_file(target, ghome, backup_root)
             backups.append(str(bpath))
 
-    # 1. Optional owner-supported agy-fast installation
+    # 1. Optional owner-supported plugin installations
     agy_fast_dir = ghome / "config" / "plugins" / "agy-fast"
+    codex_sup_dir = ghome / "config" / "plugins" / "codex-supervisor"
     if install_plugins:
-        if (agy_fast_dir / "plugin.json").is_file():
-            actions.append({"target": "plugin:agy-fast", "action": "unchanged", "path": str(agy_fast_dir)})
-        elif dry_run:
-            actions.append({"target": "plugin:agy-fast", "action": "would_install", "path": str(agy_fast_dir)})
-        else:
-            res = _install_agy_fast_plugin(ghome)
-            actions.append({"target": "plugin:agy-fast", "action": res["status"], "detail": res})
+        for pid, pdir, installer in (
+            ("agy-fast", agy_fast_dir, _install_agy_fast_plugin),
+            ("codex-supervisor", codex_sup_dir, _install_codex_supervisor_plugin),
+        ):
+            if (pdir / "plugin.json").is_file():
+                actions.append({"target": f"plugin:{pid}", "action": "unchanged", "path": str(pdir)})
+            elif dry_run:
+                actions.append({"target": f"plugin:{pid}", "action": "would_install", "path": str(pdir)})
+            else:
+                res = installer(ghome)
+                actions.append({"target": f"plugin:{pid}", "action": res["status"], "detail": res})
 
     # 2. Rules (GEMINI.md + agy-fast AGENTS.local.md when plugin installed)
     for rule in manifest["rules"]:

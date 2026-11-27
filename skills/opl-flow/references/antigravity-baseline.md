@@ -30,13 +30,26 @@ AntiGravity imposes concrete runtime budgets and isolation boundaries:
    briefs for coding/audit workers must include owned paths, explicit
    `agy-fast --cli` syntax (`--text`/`--regex`/`--glob`/`--git`, `outline`,
    `edit --best-effort --stdin`, `check --compact`), and acceptance commands.
+5. **Explicit Codex Supervisor delegation & stall-pullback discipline**:
+   AntiGravity handles tasks independently by default and activates
+   `codex-supervisor` only when the user explicitly requests Codex. Even when
+   delegating to Codex, keep intent clarification, design tradeoffs,
+   docs/PRD/README/reports, UI visual design, interaction logic, and final
+   user-facing acceptance in AntiGravity; send only well-bounded coding,
+   testing, local terminal ops, and deployment slices to Codex. Actively
+   supervise running threads against expected milestones (`status` / `history` /
+   bounded `wait`): if progress slows noticeably or stalls, send one concise
+   `steer` if recoverable, or `interrupt` and pull the work back into
+   AntiGravity rather than waiting passively.
 
 ## Authoritative Baseline Assets
 
 The machine-readable AntiGravity baseline lives in `templates/antigravity/`:
 
-- `templates/antigravity/baseline-manifest.json` — declarative plugin, skill,
-  rule, budget, duplicate-avoidance, and optional weekly-audit specification.
+- `templates/antigravity/baseline-manifest.json` — declarative plugin (core
+  `agy-fast` plus optional `codex-supervisor` and `modern-web-guidance-plugin`),
+  skill, rule, budget, duplicate-avoidance, and optional weekly-audit
+  specification.
 - `templates/antigravity/GEMINI.md` — reusable global AntiGravity rules block.
 - `templates/antigravity/agy-fast-AGENTS.local.md` — empirically tuned
   `agy-fast` local overrides (`run_checks` `compact` default, single lightweight
