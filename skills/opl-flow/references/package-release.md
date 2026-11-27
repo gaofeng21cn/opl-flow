@@ -99,18 +99,14 @@ returned `package_projection_dir` (`<output-root>/packages`), select
 For example, update an installed OPL Book Forge carrier with:
 
 ```bash
-OPL_PACKAGE_PROJECTION_DIR=<output-root>/packages \
-OPL_MODULE_SOURCE_MODE=git_checkout \
-OPL_MODULE_PATH_OBF=<owner> \
-<framework>/bin/opl packages update obf --json
+<framework>/bin/opl pack install <output-root>/*.oplpack --json
+# or update directly from the checked-out v2 source:
+<framework>/bin/opl pack update obf --source <owner> --json
 ```
 
-Use `packages install obf` if the Package is absent. The native lifecycle keeps
-the declared Package/Plugin identity and verifies the selected source bytes
-against the prepared payload; it owns carrier writes and fresh installed
-readback. Local activation is evidence of that source installation, not a
-published release. Keep the same projection and source selection for subsequent
-readback of this installation.
+Use `opl pack inspect obf --json` to verify the installed Package/Plugin identity,
+source commit, and enabled state. Local activation is evidence of that source
+installation, not a published release.
 
 ## Three Release Actions
 

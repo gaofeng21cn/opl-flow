@@ -44,9 +44,8 @@ absent.
 OPL Flow exposes a unified Chinese decision surface across both the shared OPL Apps
 catalog and a dedicated standard MCP App (`ui://opl-flow/decision-dashboard.html`):
 
-- **Shared OPL Apps declaration**: `opl-package.json` declares `presentation.miniapp`,
-  `codex_surface.app_contribution_abi`, `codex_surface.app_contribution_adapter`
-  (`app-contribution-adapter.json`), and `app_contributions` backed by
+- **Shared OPL Apps declaration**: `opl-package.json` declares `ui.declarative`,
+  `ui.mcp_apps`, `provides.mcp_servers`, and `provides.contribution_handler` backed by
   `scripts/opl_app_contribution.py`.
 - **Dedicated MCP App**: `mcp.json` (referenced by `.codex-plugin/plugin.json`) launches
   the bundled Node stdio MCP server `decision-dashboard/server.bundle.mjs`, serving

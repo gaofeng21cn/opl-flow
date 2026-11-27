@@ -76,6 +76,16 @@ class ExactReleaseActivationTests(unittest.TestCase):
                 release.activate(self.args)
         self.assertEqual(len(self.calls), 1)
 
+    def test_catalog_without_v2_release_stops_before_pack_mutation(self):
+        release.write_json(
+            self.packages / "extensions/example.json",
+            {"package_id": "example", "version": self.version},
+        )
+        with patch.object(release, "command_json") as command:
+            with self.assertRaisesRegex(release.ReleaseError, "No Catalog v2 release selected"):
+                release.activate(self.args)
+        command.assert_not_called()
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -9,8 +9,8 @@ mutation.
 
 Confirm the official stack extension or server feature is available before any
 GitHub mutation. If it is unavailable, stop and report the missing capability;
-when Flow is installed, use the Framework-projected repair action
-(`opl packages repair --package-id opl-flow`) only when installation or repair
+when Flow is installed, use the Framework v2 Package repair/sync flow
+(`opl pack ensure opl-flow --json` or `opl pack sync --json`) only when installation or repair
 is authorized. Do not install an ad hoc extension or reproduce stack semantics
 with a sequence of ordinary merges and retargets. Require every member to be in
 the same repository and compare live authors, bases, exact heads, state, draft

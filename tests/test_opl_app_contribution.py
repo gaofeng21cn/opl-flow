@@ -3,7 +3,6 @@ from __future__ import annotations
 import json
 import shutil
 import subprocess
-import sys
 import tempfile
 import unittest
 from pathlib import Path
@@ -61,23 +60,31 @@ def _sample_snapshot() -> dict:
 
 class OplAppContributionTests(unittest.TestCase):
     def test_framework_cli_routes_app_and_sdk_requests_to_the_same_owner(self) -> None:
+        package = json.loads((REPO_ROOT / "opl-package.json").read_text(encoding="utf-8"))
+        command = package["provides"]["contribution_handler"]["argv"]
+        dashboard = next(
+            view for view in package["ui"]["declarative"]["views"]
+            if view["id"] == "opl-flow.decision.dashboard"
+        )
+        action_refs = {action["id"]: action["action_ref"] for action in dashboard["actions"]}
+
         def invoke(request: dict) -> dict:
             run = subprocess.run(
-                [sys.executable, str(REPO_ROOT / "scripts/opl_app_contribution.py")],
+                command, cwd=REPO_ROOT,
                 input=json.dumps({
                     "schema_version": "opl-package-app-contribution-request.v1",
-                    "package_id": "opl-flow", **request,
+                    "package_id": package["identity"]["id"], **request,
                 }), text=True, capture_output=True, check=True,
             )
             return json.loads(run.stdout)
 
         with tempfile.TemporaryDirectory() as tmp:
             unavailable = invoke({
-                "operation": "read", "ref": adapter.DASHBOARD_REF,
+                "operation": "read", "ref": dashboard["data_ref"],
                 "input": {"instance_path": str(Path(tmp) / "missing")},
             })
             self.assertEqual((unavailable["ref"], unavailable["state"]), (adapter.DASHBOARD_REF, "unavailable"))
-            action_ref = "opl-flow.decision.v1#approve"
+            action_ref = action_refs["opl-flow.objective.approve"]
             unconfirmed = {"instance_path": tmp, "bead_id": "demo-1", "confirmed": False}
             for action in ({"ref": action_ref, "input": unconfirmed}, {"action_id": action_ref, "payload": unconfirmed}):
                 response = invoke({"operation": "execute", **action})
@@ -85,7 +92,7 @@ class OplAppContributionTests(unittest.TestCase):
                 self.assertEqual(response["ref"], action_ref)
                 self.assertEqual(response["error"]["code"], "confirmation_required")
             service_unconfirmed = {"instance_path": tmp, "action": "up", "confirmed": False}
-            svc_denied = invoke({"operation": "execute", "ref": "opl-flow.decision.v1#service", "input": service_unconfirmed})
+            svc_denied = invoke({"operation": "execute", "ref": action_refs["opl-flow.router.service"], "input": service_unconfirmed})
             self.assertEqual(svc_denied["error"]["code"], "confirmation_required")
             for blocked in (
                 {"operation": "read", "ref": action_ref, "input": unconfirmed},
@@ -375,12 +382,10 @@ class OplAppContributionTests(unittest.TestCase):
             with self.assertRaisesRegex(opl_workflow.WorkflowError, "0600"):
                 opl_workflow.instance_pointer(pointer)
 
-    def test_manifests_adapter_and_html_visual_contract(self) -> None:
+    def test_manifests_declarative_contribution_and_html_visual_contract(self) -> None:
         pkg = json.loads((REPO_ROOT / "opl-package.json").read_text(encoding="utf-8"))
         codex_plugin = json.loads((REPO_ROOT / ".codex-plugin/plugin.json").read_text(encoding="utf-8"))
         mcp = json.loads((REPO_ROOT / "mcp.json").read_text(encoding="utf-8"))
-        contrib_adapter = json.loads((REPO_ROOT / "app-contribution-adapter.json").read_text(encoding="utf-8"))
-
         self.assertEqual(codex_plugin.get("mcpServers"), "./mcp.json")
         self.assertEqual(
             mcp["mcpServers"]["decision-dashboard"]["args"],
@@ -389,15 +394,21 @@ class OplAppContributionTests(unittest.TestCase):
         app = pkg["ui"]["mcp_apps"][0]
         self.assertEqual(app["resource_uri"], "ui://opl-flow/decision-dashboard.html")
         self.assertEqual(app["mcp_server_id"], pkg["provides"]["mcp_servers"][0]["id"])
-        self.assertEqual(pkg["provides"]["contribution_handler"]["argv"], ["python3", "./scripts/opl_app_contribution.py"])
-        self.assertIn("opl-flow.decision.v1#dashboard", contrib_adapter["reads"])
-        self.assertIn("opl-flow.decision.v1#approve", contrib_adapter["actions"])
-        self.assertIn("opl-flow.decision.v1#service", contrib_adapter["actions"])
-        self.assertIn("executor", contrib_adapter["actions"]["opl-flow.decision.v1#send"]["input_schema"]["properties"])
-        self.assertIn("session_ref", contrib_adapter["actions"]["opl-flow.decision.v1#send"]["input_schema"]["properties"])
-        self.assertIn("include_local_navigation", contrib_adapter["reads"]["opl-flow.decision.v1#dashboard"]["input_schema"]["properties"])
-        action_ids = [a["id"] for a in pkg["ui"]["declarative"]["views"][0]["actions"]]
-        self.assertIn("opl-flow.router.service", action_ids)
+        dashboard = next(
+            view for view in pkg["ui"]["declarative"]["views"]
+            if view["id"] == "opl-flow.decision.dashboard"
+        )
+        self.assertEqual(dashboard["data_ref"], adapter.DASHBOARD_REF)
+        self.assertEqual(
+            {action["id"]: action["action_ref"] for action in dashboard["actions"]},
+            {
+                "opl-flow.objective.send": "opl-flow.decision.v1#send",
+                "opl-flow.objective.approve": "opl-flow.decision.v1#approve",
+                "opl-flow.router.tick": "opl-flow.decision.v1#tick",
+                "opl-flow.router.service": "opl-flow.decision.v1#service",
+            },
+        )
+        self.assertTrue(all(action["confirm"] for action in dashboard["actions"]))
 
         html = (REPO_ROOT / "decision-dashboard/index.html").read_text(encoding="utf-8")
         self.assertLess(len(html.encode("utf-8")), 8 * 1024 * 1024)

@@ -34,10 +34,6 @@ def _failure_code(result: subprocess.CompletedProcess) -> str | None:
     return None
 
 
-def missing_namespace(result: subprocess.CompletedProcess) -> bool:
-    return result.returncode != 0 and _failure_code(result) == "METHOD_NOT_FOUND"
-
-
 _VERSION_COMMANDS = {
     "officecli": ("officecli", "--version"),
     "mineru-open-api": ("mineru-open-api", "version"),
@@ -110,7 +106,8 @@ def read_v2_baseline(opl: str, receipt: dict[str, Any], plugin_skill_roots) -> d
         if (not isinstance(installed, dict) or installed.get("package_id") != "opl-flow"
                 or not isinstance(installed.get("enabled"), bool)):
             return {**receipt, "reason": "invalid_pack_readback"}
-    receipt = {**receipt, "framework_registered": bool(installed)}
+    managed = installed.get("origin") == "opl"
+    receipt = {**receipt, "framework_registered": bool(installed), "framework_managed": managed}
     if installed and not installed["enabled"]:
         return {**receipt, "reason": "framework_package_disabled"}
 
@@ -118,7 +115,7 @@ def read_v2_baseline(opl: str, receipt: dict[str, Any], plugin_skill_roots) -> d
     plugins = _json_record(native.stdout) if native and native.returncode == 0 else {}
     if not isinstance(plugins.get("installed"), list):
         return {**receipt, "reason": "codex_plugin_readback_unavailable"}
-    allowed = {"opl-flow@opl-local"} if installed else {"opl-flow@opl-flow", "opl-flow@opl-local"}
+    allowed = {"opl-flow@opl-local"} if managed else {"opl-flow@opl-flow", "opl-flow@opl-local"}
     matches = [entry for entry in plugins["installed"] if isinstance(entry, dict)
                and entry.get("pluginId") in allowed and entry.get("installed") is True
                and entry.get("enabled") is True]

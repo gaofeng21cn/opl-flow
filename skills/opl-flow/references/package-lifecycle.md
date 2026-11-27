@@ -23,10 +23,8 @@ codex plugin list --json
 
 Install on a new node and use update for an existing Pack install. Verify the
 Package ID, enabled state, version, and native plugin registration. The
-configured release channel can also supply a compatible v2 artifact. A
-previously installed native plugin remains discoverable in Codex while
-Framework's registry is empty. On Framework v1, use the `opl packages`
-install, update, repair, and status commands.
+configured release channel can also supply a compatible v2 artifact. Always use
+the Framework v2 `opl pack` install, update, ensure, sync, and inspect commands.
 
 Repository source verification does not install the Package or prove currentness.
 
