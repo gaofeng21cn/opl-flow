@@ -10,8 +10,10 @@ import datetime as dt
 import hashlib
 import json
 import os
+import sqlite3
 from pathlib import Path
 from typing import Any
+from urllib.parse import unquote, urlparse
 
 try:
     from . import opl_runtime as runtime
@@ -100,8 +102,141 @@ def _read_first_json_line(path: Path) -> dict[str, Any] | None:
         return None
 
 
-def _read_tail_json_metadata(path: Path, *, max_bytes: int = 4096) -> dict[str, Any] | None:
-    """Read only metadata fields from the last line of transcript.jsonl (never content)."""
+def _read_codex_rollout_meta(path: Path, *, max_lines: int = 16) -> tuple[dict[str, Any], str | None]:
+    """Read session_meta payload and first turn_context model without reading prompt text."""
+    meta_payload: dict[str, Any] = {}
+    model_name: str | None = None
+    try:
+        with path.open("r", encoding="utf-8", errors="ignore") as handle:
+            for _ in range(max_lines):
+                line = handle.readline()
+                if not line:
+                    break
+                if not line.strip():
+                    continue
+                try:
+                    parsed = json.loads(line)
+                except json.JSONDecodeError:
+                    continue
+                if not isinstance(parsed, dict):
+                    continue
+                rec_type = parsed.get("type")
+                payload = parsed.get("payload")
+                if not isinstance(payload, dict):
+                    continue
+                if rec_type == "session_meta" and not meta_payload:
+                    meta_payload = payload
+                elif rec_type == "turn_context" and model_name is None:
+                    raw_model = str(payload.get("model") or "").strip()
+                    if raw_model:
+                        model_name = raw_model
+                elif "id" in payload and not meta_payload:
+                    meta_payload = payload
+                if meta_payload and model_name:
+                    break
+    except OSError:
+        return {}, None
+    return meta_payload, model_name
+
+
+def _load_codex_session_titles(codex_home: Path) -> dict[str, str]:
+    """Read Codex session_index.jsonl id -> thread_name map safely."""
+    idx_path = codex_home / "session_index.jsonl"
+    if not idx_path.is_file():
+        return {}
+    titles: dict[str, str] = {}
+    try:
+        with idx_path.open("r", encoding="utf-8", errors="ignore") as handle:
+            for line in handle:
+                if not line.strip():
+                    continue
+                try:
+                    rec = json.loads(line)
+                except json.JSONDecodeError:
+                    continue
+                if not isinstance(rec, dict):
+                    continue
+                sid = str(rec.get("id") or "").strip()
+                raw_name = str(rec.get("thread_name") or rec.get("title") or "").replace("\r", " ").replace("\n", " ").strip()
+                if sid and raw_name:
+                    titles[sid] = raw_name[:120]
+    except OSError:
+        return {}
+    return titles
+
+
+def _parse_file_uri_path(uri: Any) -> str | None:
+    if not isinstance(uri, str) or not uri.strip():
+        return None
+    raw = uri.strip()
+    if raw.startswith("file://"):
+        parsed = urlparse(raw)
+        path = unquote(parsed.path or "")
+        return path or None
+    if raw.startswith("/") or (len(raw) > 2 and raw[1] == ":"):
+        return raw
+    return None
+
+
+def _load_antigravity_summary_index(gemini_home: Path) -> dict[str, dict[str, Any]]:
+    """Read-only URI SQLite lookup of AntiGravity conversation metadata (never locks writer)."""
+    db_path = gemini_home / "antigravity" / "conversation_summaries.db"
+    if not db_path.is_file():
+        return {}
+    summaries: dict[str, dict[str, Any]] = {}
+    conn: sqlite3.Connection | None = None
+    try:
+        conn = sqlite3.connect(f"file:{db_path}?mode=ro", uri=True, timeout=0.5)
+        rows = conn.execute(
+            "SELECT conversation_id, title, workspace_uris, status, parent_conversation_id, nesting_depth, not_fully_idle, killed "
+            "FROM conversation_summaries"
+        ).fetchall()
+        for conv_id, raw_title, raw_ws, raw_status, raw_parent, raw_depth, raw_active, raw_killed in rows:
+            cid = str(conv_id or "").strip()
+            if not cid:
+                continue
+            cwd = None
+            if isinstance(raw_ws, str) and raw_ws.strip():
+                try:
+                    ws_list = json.loads(raw_ws)
+                except json.JSONDecodeError:
+                    ws_list = []
+                if isinstance(ws_list, list):
+                    for candidate_uri in ws_list:
+                        parsed_path = _parse_file_uri_path(candidate_uri)
+                        if parsed_path:
+                            cwd = parsed_path
+                            break
+            clean_title = (
+                str(raw_title or "").replace("\r", " ").replace("\n", " ").strip()[:120]
+                or None
+            )
+            try:
+                depth = int(raw_depth or 0)
+            except (TypeError, ValueError):
+                depth = 0
+            summaries[cid] = {
+                "title": clean_title,
+                "cwd": cwd,
+                "status": str(raw_status or "").strip(),
+                "parent_conversation_id": str(raw_parent or "").strip() or None,
+                "nesting_depth": depth,
+                "not_fully_idle": bool(raw_active),
+                "killed": bool(raw_killed),
+            }
+    except sqlite3.Error:
+        return {}
+    finally:
+        if conn is not None:
+            try:
+                conn.close()
+            except sqlite3.Error:
+                pass
+    return summaries
+
+
+def _read_tail_json_metadata(path: Path, *, max_bytes: int = 65536) -> dict[str, Any] | None:
+    """Read only metadata fields from the tail of transcript.jsonl (never content)."""
     try:
         size = path.stat().st_size
         with path.open("rb") as handle:
@@ -111,18 +246,29 @@ def _read_tail_json_metadata(path: Path, *, max_bytes: int = 4096) -> dict[str, 
     except OSError:
         return None
     lines = [line.strip() for line in chunk.splitlines() if line.strip()]
+    latest_meta: dict[str, Any] | None = None
+    latest_model: str | None = None
     for line in reversed(lines):
         try:
             parsed = json.loads(line)
         except json.JSONDecodeError:
             continue
-        if isinstance(parsed, dict):
-            return {
+        if not isinstance(parsed, dict):
+            continue
+        if latest_meta is None:
+            latest_meta = {
                 "type": parsed.get("type"),
                 "status": parsed.get("status"),
                 "created_at": parsed.get("created_at"),
             }
-    return None
+        raw_model = str(parsed.get("model") or "").strip()
+        if raw_model and latest_model is None:
+            latest_model = raw_model
+        if latest_meta is not None and latest_model is not None:
+            break
+    if latest_meta is not None:
+        latest_meta["model"] = latest_model
+    return latest_meta
 
 
 def discover_dsh_catalog(*, dsh_home: Path | None = None) -> dict[str, Any]:
@@ -223,10 +369,10 @@ def _scan_codex_sessions(
             candidates.append((st.st_mtime, path))
     candidates.sort(key=lambda pair: pair[0], reverse=True)
 
+    codex_titles = _load_codex_session_titles(codex_home)
     discovered: list[dict[str, Any]] = []
     for mtime, path in candidates[:max_items]:
-        header = _read_first_json_line(path) or {}
-        payload = header.get("payload") if isinstance(header.get("payload"), dict) else {}
+        payload, model_name = _read_codex_rollout_meta(path)
         sid = str(payload.get("id") or payload.get("session_id") or path.stem).strip()
         if not sid:
             continue
@@ -245,10 +391,12 @@ def _scan_codex_sessions(
             {
                 "carrier": "codex",
                 "surface": surface,
+                "is_subagent": surface == "subagent",
                 "session_id": sid,
                 "session_ref": _short_ref("codex", sid),
+                "session_title": codex_titles.get(sid),
                 "harness": "codex",
-                "model_label": model_provider or "codex",
+                "model_label": model_name or model_provider or "codex",
                 "cwd": cwd,
                 "workspace_label": _workspace_label(cwd),
                 "status": "active" if is_active else "idle",
@@ -300,6 +448,7 @@ def _scan_antigravity_sessions(
                 candidates.append((st.st_mtime, surface, conv_dir.name, transcript))
 
     candidates.sort(key=lambda item: item[0], reverse=True)
+    summary_index = _load_antigravity_summary_index(gemini_home)
     discovered: list[dict[str, Any]] = []
     seen_ids: set[str] = set()
     for mtime, surface, conv_id, transcript in candidates:
@@ -308,23 +457,33 @@ def _scan_antigravity_sessions(
         seen_ids.add(conv_id)
         tail = _read_tail_json_metadata(transcript) or {}
         tail_status = str(tail.get("status") or "").lower()
+        tail_model = str(tail.get("model") or "").strip()
+        summary = summary_index.get(conv_id, {})
+        is_subagent = bool(summary.get("parent_conversation_id")) or int(summary.get("nesting_depth") or 0) > 0
+        effective_surface = "subagent" if is_subagent else surface
+        cwd = summary.get("cwd")
+        db_status = str(summary.get("status") or "")
         is_active = (now_ts - mtime) <= active_window_seconds
-        if tail_status in {"error", "failed", "cancelled"}:
+        if summary.get("killed"):
+            status = "idle"
+        elif tail_status in {"error", "failed", "cancelled"}:
             status = "error"
-        elif is_active:
+        elif db_status == "CASCADE_RUN_STATUS_RUNNING" or is_active:
             status = "active"
         else:
             status = "idle"
         discovered.append(
             {
                 "carrier": "antigravity",
-                "surface": surface,
+                "surface": effective_surface,
+                "is_subagent": is_subagent,
                 "session_id": conv_id,
                 "session_ref": _short_ref("antigravity", conv_id),
+                "session_title": summary.get("title"),
                 "harness": "antigravity",
-                "model_label": f"antigravity ({surface})",
-                "cwd": None,
-                "workspace_label": None,
+                "model_label": tail_model or f"antigravity ({surface})",
+                "cwd": cwd,
+                "workspace_label": _workspace_label(cwd),
                 "status": status,
                 "updated_at": _iso_from_ts(mtime),
                 "updated_ts": mtime,
@@ -404,12 +563,15 @@ def _scan_dsh_sessions(
             origin = raw.get("origin") if isinstance(raw.get("origin"), dict) else {}
             origin_kind = str(origin.get("kind") or "desktop")
             is_active = (now_ts - updated_ts) <= active_window_seconds
+            raw_title = str(raw.get("title") or "").replace("\r", " ").replace("\n", " ").strip()[:120] or None
             discovered.append(
                 {
                     "carrier": "dsh",
                     "surface": f"dsh-{origin_kind}",
+                    "is_subagent": False,
                     "session_id": sid,
                     "session_ref": _short_ref("dsh", sid),
+                    "session_title": raw_title,
                     "harness": harness_ref,
                     "model_label": _format_dsh_model_label(
                         harness_ref,
@@ -460,8 +622,10 @@ def _scan_dsh_sessions(
                 {
                     "carrier": "dsh",
                     "surface": "dsh-native",
+                    "is_subagent": False,
                     "session_id": clean_sid,
                     "session_ref": _short_ref("dsh", clean_sid),
+                    "session_title": None,
                     "harness": "dsh",
                     "model_label": "dsh",
                     "cwd": None,
@@ -505,26 +669,32 @@ def correlate_sessions_with_issues(
 
     correlated: list[dict[str, Any]] = []
     occupants: list[dict[str, Any]] = []
+    seen_occupants: set[tuple[str, str]] = set()
     for entry in sessions:
         carrier = str(entry.get("carrier") or "")
         sid = str(entry.get("session_id") or "")
+        is_sub = bool(entry.get("is_subagent")) or str(entry.get("surface") or "") == "subagent"
         bound_bead_id = (
             by_prefixed.get((carrier, sid))
             or by_exact.get(f"{carrier}:{sid}")
             or by_exact.get(sid)
         )
-        enriched = {**entry, "bound_bead_id": bound_bead_id}
+        enriched = {**entry, "is_subagent": is_sub, "bound_bead_id": bound_bead_id}
         correlated.append(enriched)
-        if enriched.get("status") == "active" and enriched.get("workspace_label"):
-            occupants.append(
-                {
-                    "workspace_label": enriched["workspace_label"],
-                    "carrier": carrier,
-                    "harness": enriched.get("harness"),
-                    "session_ref": enriched["session_ref"],
-                    "bound_bead_id": bound_bead_id,
-                }
-            )
+        ws_label = enriched.get("workspace_label")
+        if enriched.get("status") == "active" and ws_label and not is_sub:
+            occ_key = (str(ws_label), str(enriched["session_ref"]))
+            if occ_key not in seen_occupants:
+                seen_occupants.add(occ_key)
+                occupants.append(
+                    {
+                        "workspace_label": ws_label,
+                        "carrier": carrier,
+                        "harness": enriched.get("harness"),
+                        "session_ref": enriched["session_ref"],
+                        "bound_bead_id": bound_bead_id,
+                    }
+                )
     return correlated, occupants
 
 
@@ -579,10 +749,18 @@ def discover_local_sessions(
 
     correlated, occupants = correlate_sessions_with_issues(all_sessions, issues)
     by_carrier = {"codex": 0, "antigravity": 0, "dsh": 0}
+    ws_occ_counts: dict[str, int] = {}
+    for occ in occupants:
+        wsl = str(occ.get("workspace_label") or "")
+        if wsl:
+            ws_occ_counts[wsl] = ws_occ_counts.get(wsl, 0) + 1
     for item in correlated:
         c_key = str(item.get("carrier") or "")
         if c_key in by_carrier:
             by_carrier[c_key] += 1
+
+    primary_count = sum(1 for item in correlated if not item.get("is_subagent"))
+    running_primary = sum(1 for item in correlated if item.get("status") == "active" and not item.get("is_subagent"))
 
     return {
         "schema": LOCAL_SESSIONS_SCHEMA,
@@ -592,6 +770,11 @@ def discover_local_sessions(
         "counts": {
             "total": len(correlated),
             "active": sum(1 for item in correlated if item.get("status") == "active"),
+            "primary_total": primary_count,
+            "running_primary": running_primary,
+            "subagent_total": len(correlated) - primary_count,
+            "unique_occupied_workspaces": len(ws_occ_counts),
+            "collision_workspaces": sum(1 for n in ws_occ_counts.values() if n >= 2),
             "bound": sum(1 for item in correlated if item.get("bound_bead_id")),
             "by_carrier": by_carrier,
         },
@@ -603,13 +786,16 @@ def discover_local_sessions(
 
 
 def _safe_session_title(item: dict[str, Any], bound_title: str | None = None) -> str:
-    """Build a non-prompt display title from metadata only (never prompt content)."""
+    """Build a non-prompt display title from session index or metadata."""
     if isinstance(bound_title, str) and bound_title.strip():
         return bound_title.strip()[:120]
+    raw_session_title = item.get("session_title")
+    if isinstance(raw_session_title, str) and raw_session_title.strip():
+        return raw_session_title.strip()[:120]
     model_label = str(item.get("model_label") or item.get("harness") or item.get("carrier") or "").strip()
     ws_label = str(item.get("workspace_label") or "").strip()
-    if model_label and ws_label:
-        return f"{model_label} · {ws_label}"[:120]
+    if ws_label and model_label:
+        return f"{ws_label} · {model_label}"[:120]
     return (model_label or ws_label or str(item.get("session_ref") or ""))[:120]
 
 
@@ -632,10 +818,12 @@ def sanitize_sessions_for_projection(
             continue
         carrier = str(item.get("carrier") or "")
         bound_bead_id = item.get("bound_bead_id")
+        is_sub = bool(item.get("is_subagent")) or str(item.get("surface") or "") == "subagent"
         entry: dict[str, Any] = {
             "session_ref": str(item.get("session_ref") or ""),
             "carrier": carrier,
             "surface": str(item.get("surface") or ""),
+            "is_subagent": is_sub,
             "harness": str(item.get("harness") or ""),
             "model_label": str(item.get("model_label") or ""),
             "workspace_label": item.get("workspace_label"),

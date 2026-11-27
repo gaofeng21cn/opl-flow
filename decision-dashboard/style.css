@@ -250,6 +250,30 @@ h2 {
   display: grid;
   gap: 10px;
 }
+.session-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+.session-select {
+  width: auto;
+  min-width: 112px;
+  min-height: 36px;
+}
+.session-search {
+  flex: 1 1 180px;
+  min-width: 140px;
+  min-height: 36px;
+}
+.checkbox-inline {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: var(--dsw-font-xxs-12-font-size);
+  color: var(--muted);
+  cursor: pointer;
+}
 .task-card {
   width: 100%;
   min-height: 56px;
