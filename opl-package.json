@@ -131,6 +131,16 @@
               "action_ref": "opl-flow.decision.v1#tick",
               "confirm": true,
               "effect_timing": "immediate"
+            },
+            {
+              "id": "opl-flow.router.service",
+              "label": {
+                "zh-CN": "启停后台路由",
+                "en-US": "Start or stop router"
+              },
+              "action_ref": "opl-flow.decision.v1#service",
+              "confirm": true,
+              "effect_timing": "immediate"
             }
           ],
           "sort_order": 200

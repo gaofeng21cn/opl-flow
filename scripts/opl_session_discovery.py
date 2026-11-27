@@ -602,31 +602,77 @@ def discover_local_sessions(
     }
 
 
-def sanitize_sessions_for_projection(discovery: dict[str, Any]) -> dict[str, Any]:
-    """Return a sanitized session projection excluding local paths, full session IDs, and content."""
+def _safe_session_title(item: dict[str, Any], bound_title: str | None = None) -> str:
+    """Build a non-prompt display title from metadata only (never prompt content)."""
+    if isinstance(bound_title, str) and bound_title.strip():
+        return bound_title.strip()[:120]
+    model_label = str(item.get("model_label") or item.get("harness") or item.get("carrier") or "").strip()
+    ws_label = str(item.get("workspace_label") or "").strip()
+    if model_label and ws_label:
+        return f"{model_label} · {ws_label}"[:120]
+    return (model_label or ws_label or str(item.get("session_ref") or ""))[:120]
+
+
+def sanitize_sessions_for_projection(
+    discovery: dict[str, Any],
+    *,
+    include_local_navigation: bool = False,
+    host_carrier: str | None = None,
+    issue_titles: dict[str, str] | None = None,
+) -> dict[str, Any]:
+    """Return a session projection, stripping paths/IDs unless trusted local navigation is explicitly requested."""
+    normalized_host = host_carrier.strip().lower() if isinstance(host_carrier, str) and host_carrier.strip() else None
+    if normalized_host not in {"codex", "antigravity", "dsh"}:
+        normalized_host = None
+
+    title_map = issue_titles or {}
     sanitized_items: list[dict[str, Any]] = []
     for item in discovery.get("sessions", []) or []:
         if not isinstance(item, dict):
             continue
-        sanitized_items.append(
-            {
-                "session_ref": str(item.get("session_ref") or ""),
-                "carrier": str(item.get("carrier") or ""),
-                "surface": str(item.get("surface") or ""),
-                "harness": str(item.get("harness") or ""),
-                "model_label": str(item.get("model_label") or ""),
-                "workspace_label": item.get("workspace_label"),
-                "status": str(item.get("status") or "idle"),
-                "updated_at": str(item.get("updated_at") or ""),
-                "bound_bead_id": item.get("bound_bead_id"),
-            }
-        )
+        carrier = str(item.get("carrier") or "")
+        bound_bead_id = item.get("bound_bead_id")
+        entry: dict[str, Any] = {
+            "session_ref": str(item.get("session_ref") or ""),
+            "carrier": carrier,
+            "surface": str(item.get("surface") or ""),
+            "harness": str(item.get("harness") or ""),
+            "model_label": str(item.get("model_label") or ""),
+            "workspace_label": item.get("workspace_label"),
+            "status": str(item.get("status") or "idle"),
+            "updated_at": str(item.get("updated_at") or ""),
+            "bound_bead_id": bound_bead_id,
+        }
+        if include_local_navigation:
+            sid = str(item.get("session_id") or "").strip() or None
+            cwd = str(item.get("cwd") or "").strip() or None
+            bound_title = title_map.get(str(bound_bead_id)) if bound_bead_id else None
+            entry["title"] = _safe_session_title(item, bound_title)
+            entry["workspace_path"] = cwd
+            entry["session_id"] = sid
+            entry["thread_id"] = sid if carrier == "codex" and sid else None
+            if normalized_host:
+                entry["jump_mode"] = (
+                    "native_switch" if (carrier == normalized_host and sid is not None) else "external_focus_only"
+                )
+        sanitized_items.append(entry)
+
+    occupants_out: list[dict[str, Any]] = []
+    for occ in discovery.get("active_workspace_occupants") or []:
+        if not isinstance(occ, dict):
+            continue
+        occ_entry = dict(occ)
+        if not include_local_navigation:
+            occ_entry.pop("workspace_path", None)
+            occ_entry.pop("session_id", None)
+        occupants_out.append(occ_entry)
+
     return {
         "schema": LOCAL_SESSIONS_SCHEMA,
         "observed_at": discovery.get("observed_at"),
         "counts": dict(discovery.get("counts") or {}),
         "sessions": sanitized_items,
-        "active_workspace_occupants": list(discovery.get("active_workspace_occupants") or []),
+        "active_workspace_occupants": occupants_out,
     }
 
 

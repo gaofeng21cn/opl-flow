@@ -59,6 +59,7 @@ const sendInputSchema = z
     message: z.string().min(1).max(4000),
     execution_mode: z.enum(['active', 'backlog']).optional(),
     executor: z.enum(['codex', 'antigravity', 'dsh']).optional(),
+    session_ref: z.string().min(1).max(160).optional(),
     priority: z.number().int().min(0).max(4).optional(),
     now: z.boolean().optional(),
     request_id: z.string().regex(/^[A-Za-z0-9_-]{1,100}$/).optional(),

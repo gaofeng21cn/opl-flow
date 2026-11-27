@@ -74,7 +74,15 @@ def _sanitize_service(svc: dict[str, Any]) -> dict[str, Any]:
     }
 
 
-def _sanitize_entry(entry: dict[str, Any], *, category: str) -> dict[str, Any]:
+def _sanitize_entry(
+    entry: dict[str, Any],
+    *,
+    category: str,
+    include_local_navigation: bool = False,
+    host_carrier: str | None = None,
+    bound_session: dict[str, Any] | None = None,
+    issue_workspace_path: str | None = None,
+) -> dict[str, Any]:
     remaining = entry.get("remaining") if isinstance(entry.get("remaining"), list) else []
     sanitized_remaining = [_clean_text(str(item), max_len=300) for item in remaining if str(item).strip()][:20]
     bead_id = _clean_text(str(entry.get("bead_id") or ""), max_len=128)
@@ -82,14 +90,22 @@ def _sanitize_entry(entry: dict[str, Any], *, category: str) -> dict[str, Any]:
     first_blocker = _clean_text(str(entry.get("first_blocker") or ""), max_len=500) or None
     next_action = _clean_text(str(entry.get("next_action") or ""), max_len=500) or None
     carrier = _clean_text(str(entry.get("execution_carrier") or ""), max_len=32) or None
+    if not carrier and bound_session:
+        carrier = _clean_text(str(bound_session.get("carrier") or ""), max_len=32) or None
     preferred_adapter = _clean_text(str(entry.get("preferred_adapter") or ""), max_len=64) or None
-    return {
+    bound_session_ref = (
+        _clean_text(str(bound_session.get("session_ref") or ""), max_len=128) or None
+        if bound_session
+        else None
+    )
+    out: dict[str, Any] = {
         "bead_id": bead_id,
         "title": title,
         "status": _clean_text(str(entry.get("status") or ""), max_len=64),
         "execution_mode": _clean_text(str(entry.get("execution_mode") or ""), max_len=64) or None,
         "execution_carrier": carrier,
         "preferred_adapter": preferred_adapter,
+        "bound_session_ref": bound_session_ref,
         "category": category,
         "first_blocker": first_blocker,
         "next_action": next_action,
@@ -98,6 +114,27 @@ def _sanitize_entry(entry: dict[str, Any], *, category: str) -> dict[str, Any]:
         "archive_performed": bool(entry.get("archive_performed", False)),
         "user_approval_required": bool(entry.get("user_approval_required", category == "safe_to_archive")),
     }
+    if include_local_navigation:
+        ws_path = (
+            _clean_text(str((bound_session or {}).get("cwd") or ""), max_len=500)
+            or _clean_text(str(issue_workspace_path or ""), max_len=500)
+            or None
+        )
+        raw_sid = _clean_text(str((bound_session or {}).get("session_id") or ""), max_len=160) or None
+        sess_carrier = _clean_text(str((bound_session or {}).get("carrier") or ""), max_len=32).lower() or None
+        out["workspace_path"] = ws_path
+        out["session_id"] = raw_sid
+        out["thread_id"] = raw_sid if sess_carrier == "codex" and raw_sid else None
+        if host_carrier:
+            if bound_session and sess_carrier == host_carrier and raw_sid:
+                out["jump_mode"] = "native_switch"
+            elif (bound_session and sess_carrier and sess_carrier != host_carrier) or (
+                carrier and carrier != host_carrier and ws_path is None
+            ):
+                out["jump_mode"] = "external_focus_only"
+            else:
+                out["jump_mode"] = "launch_new"
+    return out
 
 
 def _sanitize_event(event: dict[str, Any]) -> dict[str, Any]:
@@ -127,10 +164,32 @@ def _category_label(category: str) -> str:
     return labels.get(category, category)
 
 
+def _extract_issue_hints(snap: dict[str, Any]) -> tuple[dict[str, str], dict[str, str]]:
+    issue_titles: dict[str, str] = {}
+    issue_workspaces: dict[str, str] = {}
+    for issue in snap.get("issues", []) or []:
+        if not isinstance(issue, dict) or not issue.get("id"):
+            continue
+        bid = str(issue["id"])
+        title = _clean_text(str(issue.get("title") or ""), max_len=240)
+        if title:
+            issue_titles[bid] = title
+        meta = issue.get("metadata") if isinstance(issue.get("metadata"), dict) else {}
+        for key in ("workspace_path", "cwd", "repo_root"):
+            candidate = meta.get(key)
+            if isinstance(candidate, str) and candidate.strip():
+                issue_workspaces[bid] = candidate.strip()[:500]
+                break
+    return issue_titles, issue_workspaces
+
+
 def build_dashboard(input_data: dict[str, Any]) -> dict[str, Any]:
     root, err = _resolve_instance(input_data)
     if root is None:
         return {"ok": True, "state": "unavailable", "reason": err}
+    include_local_navigation = bool(input_data.get("include_local_navigation", False))
+    raw_host = _clean_text(input_data.get("host_carrier"), max_len=32).lower()
+    host_carrier = raw_host if raw_host in ("codex", "antigravity", "dsh") else None
     try:
         bd = opl_workflow.executable("bd", None)
         snap = opl_workflow.supervisor_snapshot(root, bd, "git")
@@ -139,7 +198,13 @@ def build_dashboard(input_data: dict[str, Any]) -> dict[str, Any]:
         raw_inbox = opl_events.list_inbox_summary(snap, state_dir=active_dir)
         svc = _sanitize_service(opl_service.router_service_status(root))
         discovery = opl_session_discovery.discover_local_sessions(issues=snap.get("issues"))
-        sanitized_sessions = opl_session_discovery.sanitize_sessions_for_projection(discovery)
+        issue_titles, issue_workspaces = _extract_issue_hints(snap)
+        sanitized_sessions = opl_session_discovery.sanitize_sessions_for_projection(
+            discovery,
+            include_local_navigation=include_local_navigation,
+            host_carrier=host_carrier,
+            issue_titles=issue_titles,
+        )
     except (
         opl_workflow.WorkflowError,
         opl_events.EventControlError,
@@ -147,6 +212,11 @@ def build_dashboard(input_data: dict[str, Any]) -> dict[str, Any]:
         opl_service.ServiceError,
     ) as exc:
         return {"ok": True, "state": "unavailable", "reason": str(exc)}
+
+    bound_sessions_by_bead: dict[str, dict[str, Any]] = {}
+    for sess in discovery.get("sessions", []) or []:
+        if isinstance(sess, dict) and sess.get("bound_bead_id") and str(sess["bound_bead_id"]) not in bound_sessions_by_bead:
+            bound_sessions_by_bead[str(sess["bound_bead_id"])] = sess
 
     categories = (
         "needs_action",
@@ -158,11 +228,21 @@ def build_dashboard(input_data: dict[str, Any]) -> dict[str, Any]:
     sanitized_inbox: dict[str, list[dict[str, Any]]] = {}
     board_items: list[dict[str, Any]] = []
     for cat in categories:
-        entries = [
-            _sanitize_entry(item, category=cat)
-            for item in raw_inbox.get(cat, [])
-            if isinstance(item, dict) and item.get("bead_id")
-        ]
+        entries = []
+        for item in raw_inbox.get(cat, []):
+            if not isinstance(item, dict) or not item.get("bead_id"):
+                continue
+            bid = str(item["bead_id"])
+            entries.append(
+                _sanitize_entry(
+                    item,
+                    category=cat,
+                    include_local_navigation=include_local_navigation,
+                    host_carrier=host_carrier,
+                    bound_session=bound_sessions_by_bead.get(bid),
+                    issue_workspace_path=issue_workspaces.get(bid),
+                )
+            )
         sanitized_inbox[cat] = entries
         for entry in entries:
             detail_parts = [_category_label(cat)]
@@ -172,19 +252,27 @@ def build_dashboard(input_data: dict[str, Any]) -> dict[str, Any]:
                 detail_parts.append(f"下一步：{entry['next_action']}")
             elif entry["remaining_count"]:
                 detail_parts.append(f"剩余 {entry['remaining_count']} 项")
-            board_items.append(
-                {
-                    "id": entry["bead_id"],
-                    "bead_id": entry["bead_id"],
-                    "title": entry["title"],
-                    "status": cat if cat in ("needs_action", "safe_to_archive", "blocked", "backlog") else (entry["status"] or "active"),
-                    "category": cat,
-                    "summary": " · ".join(detail_parts),
-                    "first_blocker": entry["first_blocker"],
-                    "next_action": entry["next_action"],
-                    "remaining_count": entry["remaining_count"],
-                }
-            )
+            board_row: dict[str, Any] = {
+                "id": entry["bead_id"],
+                "bead_id": entry["bead_id"],
+                "title": entry["title"],
+                "status": cat if cat in ("needs_action", "safe_to_archive", "blocked", "backlog") else (entry["status"] or "active"),
+                "category": cat,
+                "summary": " · ".join(detail_parts),
+                "first_blocker": entry["first_blocker"],
+                "next_action": entry["next_action"],
+                "remaining_count": entry["remaining_count"],
+                "execution_carrier": entry["execution_carrier"],
+                "preferred_adapter": entry["preferred_adapter"],
+                "bound_session_ref": entry["bound_session_ref"],
+            }
+            if include_local_navigation:
+                board_row["workspace_path"] = entry.get("workspace_path")
+                board_row["session_id"] = entry.get("session_id")
+                board_row["thread_id"] = entry.get("thread_id")
+                if "jump_mode" in entry:
+                    board_row["jump_mode"] = entry["jump_mode"]
+            board_items.append(board_row)
 
     pending_events = [
         _sanitize_event(item)
@@ -247,6 +335,10 @@ def action_send(input_data: dict[str, Any]) -> dict[str, Any]:
     run_now = bool(input_data.get("now", False))
     raw_executor = _clean_text(input_data.get("executor"), max_len=32).lower()
     executor = raw_executor if raw_executor in opl_events.EXECUTOR_ADAPTER_MAP else None
+    raw_session_ref = _clean_text(input_data.get("session_ref"), max_len=160) or None
+    exec_thread, exec_carrier = opl_workflow._resolve_execution_binding(executor, raw_session_ref)
+    if exec_carrier in opl_events.EXECUTOR_ADAPTER_MAP and executor is None:
+        executor = exec_carrier
     request_id = _clean_text(input_data.get("request_id"), max_len=100) or uuid.uuid4().hex[:12]
 
     try:
@@ -276,6 +368,11 @@ def action_send(input_data: dict[str, Any]) -> dict[str, Any]:
                 if executor
                 else None
             )
+            extra_kwargs: dict[str, Any] = {}
+            if exec_thread is not None:
+                extra_kwargs["execution_thread"] = exec_thread
+            if exec_carrier is not None:
+                extra_kwargs["execution_carrier"] = exec_carrier
             res = opl_events.intake_objective(
                 root,
                 bd,
@@ -286,6 +383,7 @@ def action_send(input_data: dict[str, Any]) -> dict[str, Any]:
                 requirements=reqs,
                 state_dir=ev_dir,
                 runner=opl_workflow.run,
+                **extra_kwargs,
             )
             action_kind = "create"
             bead_id = str(res["bead"]["id"])
@@ -515,6 +613,7 @@ def framework_contribution(request: dict[str, Any]) -> dict[str, Any]:
                 "opl-flow.decision.v1#send": action_send,
                 "opl-flow.decision.v1#approve": action_approve,
                 "opl-flow.decision.v1#tick": action_tick,
+                "opl-flow.decision.v1#service": action_service,
             }.get(ref)
             if handler is None or request.get("dry_run", False) is not False:
                 raise ValueError("请求未指定可执行的看板动作。")

@@ -18,6 +18,20 @@
             "type": "string",
             "title": "实例目录（可选）",
             "description": "留空则使用当前默认绑定的 OPL Flow 实例目录。"
+          },
+          "include_local_navigation": {
+            "type": "boolean",
+            "title": "返回受信任本机跳转元数据（可选）",
+            "default": false
+          },
+          "host_carrier": {
+            "type": "string",
+            "title": "当前宿主载体（可选）",
+            "enum": [
+              "codex",
+              "antigravity",
+              "dsh"
+            ]
           }
         },
         "additionalProperties": false
@@ -61,6 +75,20 @@
               "backlog"
             ],
             "default": "active"
+          },
+          "executor": {
+            "type": "string",
+            "title": "目标执行载体（可选）",
+            "enum": [
+              "codex",
+              "antigravity",
+              "dsh"
+            ]
+          },
+          "session_ref": {
+            "type": "string",
+            "title": "绑定活跃会话引用或 ID（可选）",
+            "maxLength": 160
           },
           "now": {
             "type": "boolean",
@@ -124,6 +152,66 @@
             "type": "boolean",
             "title": "仅预览不推进游标",
             "default": false
+          }
+        },
+        "additionalProperties": false
+      }
+    },
+    "opl-flow.decision.v1#service": {
+      "kind": "command",
+      "cwd": "package",
+      "argv": [
+        "python3",
+        "scripts/opl_app_contribution.py",
+        "service"
+      ],
+      "stdin": "input_json",
+      "passthrough": true,
+      "input_schema": {
+        "type": "object",
+        "required": [
+          "action",
+          "confirmed"
+        ],
+        "properties": {
+          "instance_path": {
+            "type": "string",
+            "title": "实例目录（可选）"
+          },
+          "action": {
+            "type": "string",
+            "title": "服务操作",
+            "enum": [
+              "up",
+              "down"
+            ]
+          },
+          "bridge": {
+            "type": "string",
+            "title": "默认控制桥模式",
+            "enum": [
+              "auto",
+              "codex",
+              "antigravity"
+            ],
+            "default": "auto"
+          },
+          "interval_seconds": {
+            "type": "number",
+            "title": "轮询间隔（秒）",
+            "minimum": 5,
+            "maximum": 3600,
+            "default": 15
+          },
+          "dry_run": {
+            "type": "boolean",
+            "title": "仅预览不变更系统服务",
+            "default": false
+          },
+          "confirmed": {
+            "type": "boolean",
+            "title": "我已确认启停本机 OPL Flow 后台事件引擎",
+            "const": true
           }
         },
         "additionalProperties": false
