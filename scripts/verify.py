@@ -148,6 +148,7 @@ CORE_TEST_MODULES = (
     "tests/test_github_ssot_patrol.py",
     "tests/test_package_descriptor.py",
     "tests/test_package_release.py",
+    "tests/test_package_release_activate_v2.py",
     "tests/test_record_browser_gif.py",
 )
 VERIFY_LANES = ("core", "full")

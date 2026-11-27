@@ -193,7 +193,13 @@ python3 <opl-flow-skill>/scripts/package_release.py activate \
   --opl-bin <canonical-framework>/bin/opl
 ```
 
-`activate` reads Framework Package status using the selected Catalog projection
+When the Catalog declares a v2 release, activation calls Framework's exact
+Package ensure with the selected version, owner commit and content digest.
+It checks the installed record and physical Package lock after the operation,
+and reports the default Profile changes for review. Use a Framework CLI
+that advertises `pack.ensure.exact-release` for this path.
+
+For a legacy Package, `activate` reads Framework Package status using its Catalog projection
 and calls its official install or
 update entrypoint. It requires a real installed carrier descriptor, the expected
 version, available source files and callability; a source-checkout projection

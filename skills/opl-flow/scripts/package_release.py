@@ -1747,12 +1747,91 @@ def package_action(
     return surface
 
 
+def v2_profile_snapshot(installed: dict[str, Any] | None, profile: dict[str, Any] | None) -> tuple[str | None, bytes | None]:
+    if not installed or not profile:
+        return None, None
+    root = Path(installed["install_path"]).resolve()
+    ref = safe_owner_ref(profile.get("runtime_profile", {}).get("source_path"), "default Profile source")
+    default = (root / ref).resolve()
+    if not default.is_relative_to(root) or not default.is_file():
+        raise ReleaseError("installed Package does not contain its declared default Profile")
+    return str(default), default.read_bytes()
+
+
+def activate_v2_release(args, package, package_directory, catalog_commit):
+    # Some older v2 clients ignore unknown options on pack.ensure. Check the exact
+    # operation before any mutation; its daemon RPC rejects unsupported servers.
+    cli = command_json([args.opl_bin, "--version", "--json"])
+    if cli.get("api_version") != "2.0" or "pack.ensure.exact-release" not in cli.get("features", []):
+        raise ReleaseError("This release requires a Framework CLI supporting pack.ensure.exact-release.")
+    selected = package["v2_release"]
+    package_id = args.package_id
+    if not isinstance(selected, dict) or package.get("package_id") != package_id:
+        raise ReleaseError("Invalid Catalog v2 release identity")
+    version, commit = selected.get("version"), selected.get("source_commit")
+    if (not isinstance(version, str) or not re.fullmatch(r"(?:0|[1-9]\d*)\.(?:0|[1-9]\d*)\.(?:0|[1-9]\d*)", version)
+            or not isinstance(commit, str) or not re.fullmatch(r"[a-f0-9]{40}", commit)
+            or selected.get("payload_manifest_ref") != f"payloads/{package_id}-{version}.json"):
+        raise ReleaseError("Invalid v2 release selection in Catalog")
+    payload_path = package_directory / selected["payload_manifest_ref"]
+    try:
+        payload_bytes = payload_path.read_bytes()
+        payload = json.loads(payload_bytes)
+    except (OSError, ValueError) as exc:
+        raise ReleaseError("Catalog v2 release payload is unavailable") from exc
+    if (sha256_bytes(payload_bytes) != selected.get("payload_sha256") or not isinstance(payload, dict)
+            or payload.get("package_format") != "v2" or payload.get("package_id") != package_id
+            or payload.get("source_commit") != commit or payload.get("package_version") != version):
+        raise ReleaseError("Catalog v2 payload differs from the selected release")
+    digest = (payload.get("content_lock") or {}).get("digest")
+    if not isinstance(digest, str) or not re.fullmatch(r"sha256:[0-9a-f]{64}", digest):
+        raise ReleaseError("Invalid Catalog v2 release content digest")
+
+    # Resolve by Package identity even when the caller is inside its source checkout.
+    def pack(*args_):
+        return command_json([args.opl_bin, "pack", *args_, "--json"], cwd=package_directory,
+                            timeout=args.timeout)
+
+    profile = package.get("profile_surface")
+    before = None
+    if profile:
+        installed = pack("list").get("packages")
+        if not isinstance(installed, list):
+            raise ReleaseError("Framework v2 returned an invalid installed Package list")
+        before = next((row for row in installed if row.get("package_id") == package_id), None)
+    previous_default = v2_profile_snapshot(before, profile)
+    outcome = pack("ensure", package_id, "--release-version", version, "--release-commit", commit,
+                   "--release-digest", digest)
+    result = pack("inspect", package_id)
+    installed = result.get("installed") or {}
+    if (outcome.get("package_id") != package_id or outcome.get("status") not in ("already_present", "reconciled", "installed")
+            or installed.get("package_id") != package_id or installed.get("version") != version
+            or installed.get("content_digest") != digest or installed.get("enabled") is not True
+            or installed.get("origin") != "opl" or installed.get("install_mode") != "release"
+            or not isinstance(installed.get("install_path"), str)):
+        raise ReleaseError("Framework v2 did not confirm the selected installed Package")
+    physical = pack("inspect", installed["install_path"])
+    lock = physical.get("lock") or {}
+    if (lock.get("digest") != digest or (lock.get("lock") or {}).get("git_commit") != commit
+            or (physical.get("manifest") or {}).get("identity", {}).get("id") != package_id):
+        raise ReleaseError("Installed Package files differ from the selected Catalog release")
+    return {
+        "action": "activate", "status": "installed_and_read_back", "package_id": package_id,
+        "version": version, "owner_source_commit": commit, "catalog_source_commit": catalog_commit,
+        "lifecycle_action": "ensure", "package_update": outcome, "installed_evidence": installed,
+        "profile": profile_delta(previous_default, v2_profile_snapshot(installed, profile), Path(args.user_profile).expanduser().resolve()) if profile else None,
+        "fresh_discovery_required": bool(outcome.get("changed") and installed.get("carrier_synced")),
+    }
+
+
 def activate(args: argparse.Namespace) -> dict[str, Any]:
     framework_root = Path(args.framework_root).resolve()
     catalog_root = catalog_checkout(args, framework_root)
     catalog_commit = canonical_catalog_commit(catalog_root) if catalog_root else None
     package_directory = catalog_root / "packages" if catalog_root else framework_root / LEGACY_PACKAGE_DIRECTORY
     package = read_json(package_manifest_path(package_directory, args.package_id))
+    if "v2_release" in package:
+        return activate_v2_release(args, package, package_directory, catalog_commit)
     # Keep the real Framework install and readback on the selected Package projection.
     projection_env = {"env": {**os.environ, "OPL_PACKAGE_PROJECTION_DIR": str(package_directory)}} if catalog_root else {}
     codex_surface = package.get("codex_surface")
