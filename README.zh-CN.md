@@ -73,6 +73,8 @@ python3 scripts/opl_workflow.py antigravity apply --dry-run --json
 python3 scripts/opl_workflow.py antigravity apply --json
 ```
 
+启动统一零 Token 后台事件路由器（`opl-flow up`，默认 `--bridge auto`）后，Codex、AntiGravity 与 OPL DSH 对话共用同一份 Beads/Dolt 总账，并通过 `opl-flow sessions` 与 `opl-flow ps` 自动感知本机活跃对话及触发工作区防撞车保护。
+
 Setup 部署能力。显式执行 `$opl-flow start` 才创建或复用总账 Dashboard、Bead、
 Linear 投影和唯一每小时 `OPL Flow Supervisor`。基础使用不要求 Linear 或 Fleet。
 

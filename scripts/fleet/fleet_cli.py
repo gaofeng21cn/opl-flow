@@ -11,7 +11,7 @@ import re
 import sys
 import typer
 from fleet_inventory import collect_inventory
-from .fleet_common import FleetError, GPU_APIS, configure_instance, install_fleet_command, node_identity, normalize_node_id, parse_requirements, run, utc_now, write_instance_pointer
+from .fleet_common import FleetError, GPU_APIS, LOCAL_DISPATCH_ADAPTERS, configure_instance, install_fleet_command, node_identity, normalize_node_id, parse_requirements, run, utc_now, write_instance_pointer
 from .fleet_control import control_commit, manifest, node_registry
 from .fleet_reconcile import fetch_state_file, fleet_repositories, join, reconcile, record_receipt, remote_asset_catalog
 from .fleet_lease import acquire_lease_record, active_lease_map, lease_lock, public_lease, read_lease_store, reap_expired_leases, release_lease_record, renew_lease_record, select_nodes, write_lease_store
@@ -329,11 +329,12 @@ def fleet_lease_reap(args: argparse.Namespace) -> int:
     )
     return 0
 
-AdapterChoice = Literal["github-runner", "lease-only", "local-codex", "remote-codex", "ssh-session"]
+AdapterChoice = Literal["github-runner", "lease-only", "local-antigravity", "local-codex", "local-dsh", "remote-codex", "ssh-session"]
 GpuApiChoice = Literal["any", "cuda", "metal"]
 WorkloadChoice = Literal["background", "experiment", "foreground", "guest", "job", "p0-release", "vm"]
 PhaseChoice = Literal["interruptible", "non-interruptible"]
 SandboxChoice = Literal["read-only", "workspace-write", "danger-full-access"]
+EffortChoice = Literal["low", "medium", "high", "xhigh", "max"]
 DispatchModeChoice = Literal["execute", "envelope"]
 BoolStrChoice = Literal["true", "false"]
 
@@ -547,7 +548,12 @@ def _cmd_dispatch_run(
     runtime_dir: Path | None = None, callback_state_dir: Path | None = None, group_id: str | None = None,
     verify_git: Annotated[bool, typer.Option("--verify-git")] = False,
     use_codex_bridge: Annotated[bool, typer.Option("--use-codex-bridge")] = False,
-    codex_bin: str | None = None, model: str | None = None, sandbox: SandboxChoice | None = None,
+    use_antigravity_bridge: Annotated[bool, typer.Option("--use-antigravity-bridge")] = False,
+    use_dsh_bridge: Annotated[bool, typer.Option("--use-dsh-bridge")] = False,
+    codex_bin: str | None = None, agy_bin: str | None = None,
+    dsh_control: str | None = None, dsh_combination: str | None = None,
+    model: str | None = None,
+    effort: EffortChoice | None = None, sandbox: SandboxChoice | None = None,
     worktree: Annotated[bool, typer.Option("--worktree")] = False,
 ) -> argparse.Namespace:
     return _ns(ctx, "dispatch", dispatch_action="run")
@@ -751,7 +757,7 @@ def main(argv: list[str] | None = None) -> int:
     local_dispatch = (
         args.action == "dispatch"
         and args.dispatch_action in {"plan", "acquire", "run"}
-        and dispatch_adapter_from_args(args) == "local-codex"
+        and dispatch_adapter_from_args(args) in LOCAL_DISPATCH_ADAPTERS
     )
     instance = None if local_dispatch else configure_instance(args.instance)
     if instance is not None and writes_instance_state(args):
@@ -842,8 +848,14 @@ def main(argv: list[str] | None = None) -> int:
                 preempt_generation=args.preempt_generation,
                 preempt_nonce=args.preempt_nonce,
                 use_codex_bridge=args.use_codex_bridge,
+                use_antigravity_bridge=args.use_antigravity_bridge,
+                use_dsh_bridge=args.use_dsh_bridge,
                 codex_bin=args.codex_bin,
+                agy_bin=args.agy_bin,
+                dsh_control=args.dsh_control,
+                dsh_combination=args.dsh_combination,
                 model=args.model,
+                effort=args.effort,
                 use_worktree=args.worktree,
                 sandbox=args.sandbox,
             )

@@ -10,6 +10,7 @@ import json
 import os
 from pathlib import Path
 import platform
+import plistlib
 import re
 import shlex
 import subprocess
@@ -24,6 +25,7 @@ except ImportError:  # Direct script execution.
 
 SERVICE_PREFIX = "dev.one-person-lab.opl-flow-router"
 WRAPPER_NAME_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$")
+CONTROL_BRIDGES = ("auto", "codex", "antigravity")
 
 
 class ServiceError(RuntimeError):
@@ -56,14 +58,63 @@ def default_service_log_dir(instance_root: Path) -> Path:
     return Path.home() / ".local/state/opl-flow/router" / instance_hash(instance_root)[:16] / "logs"
 
 
+def _resolve_bridge(
+    *,
+    bridge: str | None,
+    use_codex_bridge: bool,
+    control_hook_argv: list[str] | None,
+) -> str | None:
+    if control_hook_argv is not None:
+        return "custom"
+    if bridge is not None:
+        if bridge not in CONTROL_BRIDGES:
+            raise ServiceError(f"unsupported control bridge: {bridge!r}")
+        return bridge
+    return "codex" if use_codex_bridge else None
+
+
+def _detect_bridge_from_argv(argv: list[str]) -> str | None:
+    if "--control-hook-json" in argv:
+        return "custom"
+    if "--bridge" in argv:
+        idx = argv.index("--bridge")
+        if idx + 1 < len(argv) and argv[idx + 1] in CONTROL_BRIDGES:
+            return argv[idx + 1]
+    if "--use-codex-bridge" in argv:
+        return "codex"
+    return None
+
+
+def _detect_service_bridge(service_path: Path, target_platform: str) -> str | None:
+    if not service_path.is_file():
+        return None
+    try:
+        if target_platform == "Darwin":
+            parsed = plistlib.loads(service_path.read_bytes())
+            argv = parsed.get("ProgramArguments") if isinstance(parsed, dict) else None
+            if isinstance(argv, list):
+                return _detect_bridge_from_argv([str(item) for item in argv])
+        elif target_platform == "Linux":
+            text = service_path.read_text(encoding="utf-8")
+            for line in text.splitlines():
+                if line.startswith("ExecStart="):
+                    return _detect_bridge_from_argv(shlex.split(line[len("ExecStart=") :]))
+    except Exception:
+        return None
+    return None
+
+
 def default_router_argv(
     instance_root: Path,
     *,
     flow_root: Path,
     interval_seconds: float = 15.0,
     use_codex_bridge: bool = True,
+    bridge: str | None = None,
     codex_bin: str | None = None,
+    agy_bin: str | None = None,
     model: str | None = None,
+    effort: str | None = None,
     control_hook_argv: list[str] | None = None,
     event_state_dir: Path | None = None,
     cursor_file: Path | None = None,
@@ -71,6 +122,11 @@ def default_router_argv(
 ) -> list[str]:
     resolved_instance = instance_root.expanduser().resolve()
     resolved_flow = flow_root.expanduser().resolve()
+    resolved_bridge = _resolve_bridge(
+        bridge=bridge,
+        use_codex_bridge=use_codex_bridge,
+        control_hook_argv=control_hook_argv,
+    )
     argv = [
         python_bin or sys.executable,
         str(resolved_flow / "scripts/opl_workflow.py"),
@@ -87,7 +143,25 @@ def default_router_argv(
         argv.extend(["--cursor-file", str(cursor_file.expanduser().resolve())])
     if control_hook_argv is not None:
         argv.extend(["--control-hook-json", json.dumps(list(control_hook_argv), ensure_ascii=False)])
-    elif use_codex_bridge:
+    elif resolved_bridge == "auto":
+        argv.extend(["--bridge", "auto"])
+        if codex_bin:
+            argv.extend(["--codex-bin", codex_bin])
+        if agy_bin:
+            argv.extend(["--agy-bin", agy_bin])
+        if model:
+            argv.extend(["--model", model])
+        if effort:
+            argv.extend(["--effort", effort])
+    elif resolved_bridge == "antigravity":
+        argv.extend(["--bridge", "antigravity"])
+        if agy_bin:
+            argv.extend(["--agy-bin", agy_bin])
+        if model:
+            argv.extend(["--model", model])
+        if effort:
+            argv.extend(["--effort", effort])
+    elif resolved_bridge == "codex":
         argv.append("--use-codex-bridge")
         if codex_bin:
             argv.extend(["--codex-bin", codex_bin])
@@ -333,8 +407,11 @@ def install_router_service(
     flow_root: Path,
     interval_seconds: float = 15.0,
     use_codex_bridge: bool = True,
+    bridge: str | None = None,
     codex_bin: str | None = None,
+    agy_bin: str | None = None,
     model: str | None = None,
+    effort: str | None = None,
     control_hook_argv: list[str] | None = None,
     event_state_dir: Path | None = None,
     cursor_file: Path | None = None,
@@ -346,20 +423,28 @@ def install_router_service(
     runner: Runner | None = None,
     uid: int | None = None,
 ) -> dict[str, Any]:
+    resolved_bridge = _resolve_bridge(
+        bridge=bridge,
+        use_codex_bridge=use_codex_bridge,
+        control_hook_argv=control_hook_argv,
+    )
     argv = default_router_argv(
         instance_root,
         flow_root=flow_root,
         interval_seconds=interval_seconds,
         use_codex_bridge=use_codex_bridge,
+        bridge=bridge,
         codex_bin=codex_bin,
+        agy_bin=agy_bin,
         model=model,
+        effort=effort,
         control_hook_argv=control_hook_argv,
         event_state_dir=event_state_dir,
         cursor_file=cursor_file,
     )
     target_platform = platform_name or platform.system()
     if target_platform == "Darwin":
-        return install_macos_service(
+        receipt = install_macos_service(
             instance_root,
             argv,
             log_dir=log_dir,
@@ -368,8 +453,9 @@ def install_router_service(
             runner=runner,
             uid=uid,
         )
+        return {**receipt, "bridge": resolved_bridge}
     if target_platform == "Linux":
-        return install_linux_service(
+        receipt = install_linux_service(
             instance_root,
             argv,
             log_dir=log_dir,
@@ -377,6 +463,7 @@ def install_router_service(
             dry_run=dry_run,
             runner=runner,
         )
+        return {**receipt, "bridge": resolved_bridge}
     raise ServiceError(f"unsupported platform for router background service: {target_platform}")
 
 
@@ -450,12 +537,14 @@ def router_service_status(
         installed = False
         running = False
 
+    bridge = _detect_service_bridge(service_path, target_platform) if installed else None
     return {
         "schema": "opl_router_service_status.v1",
         "platform": target_platform,
         "label": label,
         "installed": installed,
         "running": running,
+        "bridge": bridge,
         "service_path": str(service_path) if service_path != Path() else None,
         "log_dir": str(logs),
     }

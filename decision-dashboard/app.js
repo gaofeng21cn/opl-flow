@@ -20,6 +20,7 @@ const TABS = [
   { id: 'needs_action', label: '需你拍板', tone: 'warning', desc: '等待人工回复或决策的目标。' },
   { id: 'safe_to_archive', label: '待批归档', tone: 'success', desc: '已完成收口，需明确人工确认后才会归档。' },
   { id: 'active_objectives', label: '进行中', tone: '', desc: '当前正在由控制器或 Worker 推进的目标。' },
+  { id: 'active_sessions', label: '活跃对话', tone: 'neutral', desc: '本机自动感知到的 Codex、AntiGravity 与 OPL DSH 对话（未绑定 Bead 的自由对话仅作工作区防撞车保护，不自动建单）。' },
   { id: 'blocked', label: '外部阻塞', tone: 'danger', desc: '等待外部事件、CI 或依赖解除的目标。' },
   { id: 'backlog', label: '待排期', tone: 'neutral', desc: '暂存冻结，待排入执行队列的目标。' },
   { id: 'pending_events', label: '待处理事件', tone: 'neutral', desc: '已进入事件收件箱、等待 Router 消费的事件。' },
@@ -36,9 +37,11 @@ const state = {
   newTitle: '',
   newMessage: '',
   newMode: 'active',
+  newExecutor: '',
   newNow: false,
   replyMessage: '',
   replyNow: false,
+  serviceBridge: 'auto',
   approverName: 'owner',
   dialogMode: null,
   dialogTarget: null,
@@ -104,22 +107,27 @@ function chooseDefaultTab(inbox) {
 }
 
 function itemKey(entry, tabId) {
-  return tabId === 'pending_events' ? String(entry.event_id || '') : String(entry.bead_id || '');
+  if (tabId === 'pending_events') return String(entry.event_id || '');
+  if (tabId === 'active_sessions') return String(entry.session_ref || '');
+  return String(entry.bead_id || '');
 }
 
 function syncModelContext(data, activeTab, selectedEntry) {
   if (!app.getHostCapabilities?.()?.updateModelContext) return;
+  const isBeadTab = activeTab !== 'pending_events' && activeTab !== 'active_sessions';
   const navigation = {
     ...instanceArg(),
     tab: activeTab,
-    ...(selectedEntry && activeTab !== 'pending_events' && selectedEntry.bead_id
+    ...(selectedEntry && isBeadTab && selectedEntry.bead_id
       ? { bead_id: selectedEntry.bead_id }
       : {}),
   };
   const label = selectedEntry
     ? activeTab === 'pending_events'
       ? `正在查看待处理事件 ${selectedEntry.event_id}`
-      : `正在查看 OPL Flow 目标 ${selectedEntry.bead_id}（${selectedEntry.title || ''}）`
+      : activeTab === 'active_sessions'
+        ? `正在查看本机对话 ${selectedEntry.session_ref}（${selectedEntry.model_label || selectedEntry.carrier || ''}）`
+        : `正在查看 OPL Flow 目标 ${selectedEntry.bead_id}（${selectedEntry.title || ''}）`
     : `正在查看 OPL Flow 决策看板（${TABS.find((t) => t.id === activeTab)?.label || activeTab}）`;
   app
     .updateModelContext({
@@ -128,7 +136,7 @@ function syncModelContext(data, activeTab, selectedEntry) {
         navigation,
         instance_name: data.instance_name || null,
         active_tab: activeTab,
-        selected_bead_id: activeTab !== 'pending_events' ? selectedEntry?.bead_id || null : null,
+        selected_bead_id: isBeadTab ? selectedEntry?.bead_id || null : null,
       },
     })
     .catch(() => {});
@@ -151,10 +159,11 @@ async function refresh(bannerOnSuccess = '') {
   setBanner('正在刷新 OPL Flow 状态…', false);
   render();
   try {
+    const isBeadTab = state.activeTab !== 'pending_events' && state.activeTab !== 'active_sessions';
     const payload = await callServer('open_opl_flow_dashboard', {
       ...instanceArg(),
       ...(state.activeTab ? { tab: state.activeTab } : {}),
-      ...(state.selectedId && state.activeTab !== 'pending_events' ? { bead_id: state.selectedId } : {}),
+      ...(state.selectedId && isBeadTab ? { bead_id: state.selectedId } : {}),
     });
     if (generation !== readGeneration) return;
     applyPayload(payload);
@@ -178,7 +187,7 @@ function applyPayload(payload) {
   }
   if (state.focus.bead_id) {
     for (const tab of TABS) {
-      if (tab.id === 'pending_events') continue;
+      if (tab.id === 'pending_events' || tab.id === 'active_sessions') continue;
       if (itemsForTab(inbox, tab.id).some((item) => item.bead_id === state.focus.bead_id)) {
         state.activeTab = tab.id;
         state.selectedId = state.focus.bead_id;
@@ -188,15 +197,48 @@ function applyPayload(payload) {
   }
 }
 
+function formatBridgeLabel(bridge) {
+  if (bridge === 'auto') return 'Auto (多载体路由)';
+  if (bridge === 'antigravity') return 'AntiGravity';
+  if (bridge === 'codex') return 'Codex';
+  if (bridge === 'custom') return 'Custom';
+  return '';
+}
+
 function statusBadgeForService(svc) {
-  if (svc.running) return '<span class="badge success">后台事件引擎：运行中</span>';
-  if (svc.installed) return '<span class="badge warning">后台事件引擎：已安装未启动</span>';
+  const bridge = formatBridgeLabel(svc.bridge);
+  const suffix = bridge ? ` · ${bridge}` : '';
+  if (svc.running) return `<span class="badge success">后台事件引擎：运行中${escapeHtml(suffix)}</span>`;
+  if (svc.installed) return `<span class="badge warning">后台事件引擎：已安装未启动${escapeHtml(suffix)}</span>`;
   return '<span class="badge neutral">后台事件引擎：未启动</span>';
 }
 
 function renderDetailPanel(activeTab, selectedEntry) {
   if (!selectedEntry) {
-    return `<div class="empty-state"><div><strong>未选中条目</strong><p>在中间列表中选择一条目标或事件，即可查看详情并执行决策动作。</p></div></div>`;
+    return `<div class="empty-state"><div><strong>未选中条目</strong><p>在中间列表中选择一条目标、活跃对话或事件，即可查看详情并执行决策动作。</p></div></div>`;
+  }
+  if (activeTab === 'active_sessions') {
+    const isBound = Boolean(selectedEntry.bound_bead_id);
+    return `<div class="detail-panel">
+      <header class="stage-header">
+        <div>
+          <h2>${escapeHtml(selectedEntry.model_label || selectedEntry.harness || selectedEntry.carrier || '本地对话')}</h2>
+          <p class="task-card-id">${escapeHtml(selectedEntry.session_ref)}</p>
+        </div>
+        <span class="badge ${selectedEntry.status === 'active' ? 'success' : selectedEntry.status === 'error' ? 'danger' : 'neutral'}">${escapeHtml(selectedEntry.status || 'idle')}</span>
+      </header>
+      <dl class="detail-meta">
+        <div class="detail-row"><dt>载体 / Harness</dt><dd>${escapeHtml(selectedEntry.carrier || '—')} / ${escapeHtml(selectedEntry.harness || '—')} (${escapeHtml(selectedEntry.surface || 'local')})</dd></div>
+        <div class="detail-row"><dt>工作区</dt><dd>${escapeHtml(selectedEntry.workspace_label || '全局 / 未标注')}</dd></div>
+        <div class="detail-row"><dt>最近更新</dt><dd>${escapeHtml(selectedEntry.updated_at || '—')}</dd></div>
+        <div class="detail-row"><dt>纳管状态</dt><dd>${isBound ? `已绑定 Bead：${escapeHtml(selectedEntry.bound_bead_id)}` : '未纳管自由对话（仅开启工作区防撞车保护，不自动建单或唤醒模型）'}</dd></div>
+      </dl>
+      ${
+        isBound
+          ? ''
+          : `<p class="field-hint">如需由 OPL Flow 跟踪接管此对话，可在终端运行：<code>opl-flow send "目标描述" --session "${escapeHtml(selectedEntry.session_ref)}"</code></p>`
+      }
+    </div>`;
   }
   if (activeTab === 'pending_events') {
     return `<div class="detail-panel">
@@ -232,6 +274,7 @@ function renderDetailPanel(activeTab, selectedEntry) {
     </header>
     <dl class="detail-meta">
       <div class="detail-row"><dt>账本状态 / 执行模式</dt><dd>${escapeHtml(selectedEntry.status || '—')} / ${escapeHtml(selectedEntry.execution_mode || '未设置')}</dd></div>
+      ${selectedEntry.preferred_adapter || selectedEntry.execution_carrier ? `<div class="detail-row"><dt>执行载体 / 适配器</dt><dd>${escapeHtml(selectedEntry.execution_carrier || selectedEntry.preferred_adapter)}</dd></div>` : ''}
       ${selectedEntry.first_blocker ? `<div class="detail-row"><dt>当前阻塞</dt><dd>${escapeHtml(selectedEntry.first_blocker)}</dd></div>` : ''}
       ${selectedEntry.next_action ? `<div class="detail-row"><dt>建议下一步</dt><dd>${escapeHtml(selectedEntry.next_action)}</dd></div>` : ''}
       <div class="detail-row">
@@ -297,6 +340,18 @@ function renderDialog() {
             ? '将在本机注册并启动 OPL Flow 后台事件引擎（LaunchAgent / systemd user），按事件增量触发控制流，无事件时不消耗模型额度。'
             : '将停止并卸载本机 OPL Flow 后台事件引擎服务；已有账本与未处理事件会完整保留。'
         }</p>
+        ${
+          starting
+            ? `<div class="field">
+                <label for="service-bridge-select">默认控制桥接器</label>
+                <select id="service-bridge-select" name="bridge" class="dsh-input">
+                  <option value="auto" ${state.serviceBridge === 'auto' ? 'selected' : ''}>Auto（多载体自动路由：Codex + AntiGravity + DSH）</option>
+                  <option value="codex" ${state.serviceBridge === 'codex' ? 'selected' : ''}>Codex CLI (codex exec)</option>
+                  <option value="antigravity" ${state.serviceBridge === 'antigravity' ? 'selected' : ''}>AntiGravity CLI (agy --print)</option>
+                </select>
+              </div>`
+            : ''
+        }
         <div class="dialog-actions">
           <button class="dsh-button quiet" type="button" data-dialog-cancel autofocus>取消</button>
           <button class="dsh-button primary" type="button" data-dialog-confirm ${state.busy ? 'disabled' : ''}>${state.busy ? '执行中…' : starting ? '确认启动' : '确认停止'}</button>
@@ -405,6 +460,15 @@ function render() {
               <option value="backlog" ${state.newMode === 'backlog' ? 'selected' : ''}>暂存待排期（backlog）</option>
             </select>
           </div>
+          <div class="field">
+            <label for="new-executor">指定执行端（可选）</label>
+            <select id="new-executor" name="executor" class="dsh-input">
+              <option value="" ${state.newExecutor === '' ? 'selected' : ''}>默认由控制器按切片分配</option>
+              <option value="codex" ${state.newExecutor === 'codex' ? 'selected' : ''}>Codex (local-codex)</option>
+              <option value="antigravity" ${state.newExecutor === 'antigravity' ? 'selected' : ''}>AntiGravity (local-antigravity)</option>
+              <option value="dsh" ${state.newExecutor === 'dsh' ? 'selected' : ''}>OPL DSH (local-dsh)</option>
+            </select>
+          </div>
           <div class="checkbox-row">
             <input id="new-now" name="now" type="checkbox" ${state.newNow ? 'checked' : ''}>
             <label for="new-now">创建后立即评估一轮</label>
@@ -426,6 +490,19 @@ function render() {
                 .map((entry) => {
                   const id = itemKey(entry, activeTab);
                   const isCurrent = id === state.selectedId;
+                  if (activeTab === 'active_sessions') {
+                    const st = entry.status || 'idle';
+                    const ws = entry.workspace_label || '全局';
+                    const bindHint = entry.bound_bead_id ? `已绑定 ${entry.bound_bead_id}` : '未纳管 · 防撞车';
+                    return `<button class="task-card" type="button" data-select="${escapeHtml(id)}" aria-current="${isCurrent ? 'true' : 'false'}">
+                      <div class="task-card-top">
+                        <span class="task-card-id">${escapeHtml(entry.session_ref)}</span>
+                        <span class="badge ${st === 'active' ? 'success' : st === 'error' ? 'danger' : 'neutral'}">${escapeHtml(st)}</span>
+                      </div>
+                      <div class="task-card-title">${escapeHtml(entry.model_label || entry.harness || entry.carrier || '')}</div>
+                      <div class="task-card-note">${escapeHtml(`目录：${ws} · ${bindHint}`)}</div>
+                    </button>`;
+                  }
                   if (activeTab === 'pending_events') {
                     return `<button class="task-card" type="button" data-select="${escapeHtml(id)}" aria-current="${isCurrent ? 'true' : 'false'}">
                       <div class="task-card-top">
@@ -540,11 +617,13 @@ function bindEvents(data, activeTab, selectedEntry) {
   const newMsgEl = root.querySelector('#new-message');
   const newMsgErr = root.querySelector('#new-message-error');
   const newModeEl = root.querySelector('#new-mode');
+  const newExecutorEl = root.querySelector('#new-executor');
   const newNowEl = root.querySelector('#new-now');
   const validateNewMsg = attachFieldValidation(newMsgEl, newMsgErr, '请输入任务目标与要求。');
   newTitleEl?.addEventListener('input', (e) => { state.newTitle = e.target.value; });
   newMsgEl?.addEventListener('input', (e) => { state.newMessage = e.target.value; });
   newModeEl?.addEventListener('change', (e) => { state.newMode = e.target.value; });
+  newExecutorEl?.addEventListener('change', (e) => { state.newExecutor = e.target.value; });
   newNowEl?.addEventListener('change', (e) => { state.newNow = e.target.checked; });
   newMsgEl?.addEventListener('keydown', (e) => {
     if (e.isComposing) return;
@@ -594,8 +673,10 @@ function bindEvents(data, activeTab, selectedEntry) {
     if (!dialog.open) dialog.showModal();
     const approverInput = dialog.querySelector('#approver-input');
     const approverErr = dialog.querySelector('#approver-error');
+    const bridgeSelect = dialog.querySelector('#service-bridge-select');
     const validateApprover = attachFieldValidation(approverInput, approverErr, '请输入批准人标识。');
     approverInput?.addEventListener('input', (e) => { state.approverName = e.target.value; });
+    bridgeSelect?.addEventListener('change', (e) => { state.serviceBridge = e.target.value; });
     dialog.querySelector('[data-dialog-cancel]')?.addEventListener('click', () => {
       dialog.close('cancel');
     });
@@ -636,6 +717,7 @@ async function submitNewTask() {
       ...(state.newTitle.trim() ? { title: state.newTitle.trim() } : {}),
       message: state.newMessage.trim(),
       execution_mode: state.newMode,
+      ...(state.newExecutor ? { executor: state.newExecutor } : {}),
       now: state.newNow,
       request_id: crypto.randomUUID(),
     });
@@ -718,6 +800,7 @@ async function confirmServiceAction(action) {
       ...instanceArg(),
       action,
       confirmed: true,
+      ...(action === 'up' && state.serviceBridge ? { bridge: state.serviceBridge } : {}),
     });
     state.busy = false;
     await refresh(res.result?.message || '后台引擎状态已更新。');

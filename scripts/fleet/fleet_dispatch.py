@@ -216,8 +216,8 @@ def dispatch_request(args: argparse.Namespace) -> dict[str, Any]:
         # planning may inspect it, but start/stop remains that transaction's
         # explicit safety boundary.
         runner_role_nodes(role)
-    if adapter == "local-codex" and node_id:
-        raise FleetError("local-codex does not accept a Fleet node")
+    if adapter in fleet_common.LOCAL_DISPATCH_ADAPTERS and node_id:
+        raise FleetError(f"{adapter} does not accept a Fleet node")
     return {
         "adapter": adapter,
         **({"worker_binding": opl_execution.handoff_binding(handoff)} if handoff else {}),
@@ -358,7 +358,12 @@ def fleet_dispatch_plan(args: argparse.Namespace) -> int:
 
 def fleet_dispatch_acquire(args: argparse.Namespace) -> int:
     request = dispatch_request(args)
-    if request["adapter"] == "local-codex":
+    if request["adapter"] in fleet_common.LOCAL_DISPATCH_ADAPTERS:
+        next_hint = {
+            "local-codex": "execute in the current Codex session",
+            "local-antigravity": "execute in the current AntiGravity session",
+            "local-dsh": "execute via local OPL DSH bridge",
+        }.get(request["adapter"], "execute locally")
         print(
             json.dumps(
                 {
@@ -367,7 +372,7 @@ def fleet_dispatch_acquire(args: argparse.Namespace) -> int:
                     "status": "local",
                     "request": request,
                     "lease": None,
-                    "next_action": "execute in the current Codex session",
+                    "next_action": next_hint,
                 },
                 indent=2,
                 sort_keys=True,

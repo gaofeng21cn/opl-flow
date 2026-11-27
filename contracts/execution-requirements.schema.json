@@ -15,7 +15,9 @@
       "enum": [
         "github-runner",
         "lease-only",
+        "local-antigravity",
         "local-codex",
+        "local-dsh",
         "remote-codex",
         "ssh-session"
       ],

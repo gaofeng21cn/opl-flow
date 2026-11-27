@@ -113,7 +113,7 @@ def plan_queue(
             )
             continue
 
-        if adapter == "local-codex":
+        if adapter in fleet_common.LOCAL_DISPATCH_ADAPTERS:
             if max_local_concurrent is not None and local_admitted >= max_local_concurrent:
                 queued_backpressure.append(
                     {

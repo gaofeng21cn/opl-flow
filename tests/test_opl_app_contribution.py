@@ -114,13 +114,36 @@ class OplAppContributionTests(unittest.TestCase):
                 "label": "com.opl.flow.router.demo",
                 "installed": True,
                 "running": True,
+                "bridge": "auto",
                 "service_path": "/Users/secret/Library/LaunchAgents/demo.plist",
                 "log_dir": "/Users/secret/logs",
+            }
+            fake_sessions = {
+                "schema": "opl_local_sessions_snapshot.v1",
+                "observed_at": "2026-11-27T06:00:00Z",
+                "counts": {"total": 1, "active": 1, "bound": 0, "by_carrier": {"codex": 0, "antigravity": 0, "dsh": 1}},
+                "sessions": [
+                    {
+                        "session_id": "raw-secret-id",
+                        "session_ref": "dsh:raw-secret",
+                        "carrier": "dsh",
+                        "surface": "dsh-harness",
+                        "harness": "agy",
+                        "model_label": "AntiGravity · Gemini 3 Pro",
+                        "cwd": "/Users/secret/private-repo",
+                        "workspace_label": "private-repo",
+                        "status": "active",
+                        "updated_at": "2026-11-27T06:00:00Z",
+                        "bound_bead_id": None,
+                    }
+                ],
+                "active_workspace_occupants": [],
             }
             with (
                 mock.patch.object(opl_workflow, "executable", return_value="bd"),
                 mock.patch.object(opl_workflow, "supervisor_snapshot", return_value=_sample_snapshot()),
                 mock.patch.object(adapter.opl_service, "router_service_status", return_value=fake_svc),
+                mock.patch.object(adapter.opl_session_discovery, "discover_local_sessions", return_value=fake_sessions),
             ):
                 resp = adapter.build_dashboard({"instance_path": str(instance)})
 
@@ -128,9 +151,12 @@ class OplAppContributionTests(unittest.TestCase):
             self.assertEqual(resp["state"], "ready")
             data = resp["data"]
             self.assertEqual(data["instance_name"], "opl-instance-demo")
+            self.assertEqual(data["service"]["bridge"], "auto")
             self.assertEqual(data["counts"]["needs_action"], 1)
             self.assertEqual(data["counts"]["safe_to_archive"], 1)
             self.assertEqual(data["counts"]["active_objectives"], 1)
+            self.assertEqual(data["counts"]["active_sessions"], 1)
+            self.assertEqual(data["inbox"]["active_sessions"][0]["model_label"], "AntiGravity · Gemini 3 Pro")
             self.assertEqual(data["counts"]["pending_events"], 1)
             self.assertNotIn("service_path", data["service"])
             self.assertNotIn("log_dir", data["service"])
@@ -188,6 +214,68 @@ class OplAppContributionTests(unittest.TestCase):
             self.assertTrue(approved["ok"])
             self.assertTrue(approved["result"]["archive_approved"])
             mocked_approve.assert_called_once()
+
+            # Send with executor=antigravity injects local-antigravity execution requirements
+            with (
+                mock.patch.object(opl_workflow, "executable", return_value="bd"),
+                mock.patch.object(
+                    opl_events,
+                    "intake_objective",
+                    return_value={"bead": {"id": "opl-9"}, "event": {"event": {"event_id": "ev-9"}}},
+                ) as mocked_intake,
+            ):
+                created = adapter.action_send(
+                    {"instance_path": str(instance), "message": "Update UI", "executor": "antigravity"}
+                )
+            self.assertTrue(created["ok"])
+            self.assertEqual(
+                mocked_intake.call_args.kwargs["requirements"],
+                {"schema": "opl_execution_requirements.v1", "adapter": "local-antigravity"},
+            )
+
+            # Send with executor=dsh injects local-dsh execution requirements
+            with (
+                mock.patch.object(opl_workflow, "executable", return_value="bd"),
+                mock.patch.object(
+                    opl_events,
+                    "intake_objective",
+                    return_value={"bead": {"id": "opl-10"}, "event": {"event": {"event_id": "ev-10"}}},
+                ) as mocked_intake_dsh,
+            ):
+                created_dsh = adapter.action_send(
+                    {"instance_path": str(instance), "message": "Verify DSH", "executor": "dsh"}
+                )
+            self.assertTrue(created_dsh["ok"])
+            self.assertEqual(
+                mocked_intake_dsh.call_args.kwargs["requirements"],
+                {"schema": "opl_execution_requirements.v1", "adapter": "local-dsh"},
+            )
+
+            # Service action=up without bridge defaults to auto
+            with (
+                mock.patch.object(adapter.opl_service, "install_router_service", return_value={"installed": True, "running": True}) as mocked_auto_inst,
+                mock.patch.object(adapter.opl_service, "router_service_status", return_value={"installed": True, "running": True, "bridge": "auto"}),
+            ):
+                svc_auto = adapter.action_service(
+                    {"instance_path": str(instance), "action": "up", "confirmed": True}
+                )
+            self.assertTrue(svc_auto["ok"])
+            self.assertEqual(svc_auto["result"]["service"]["bridge"], "auto")
+            self.assertEqual(mocked_auto_inst.call_args.kwargs["bridge"], "auto")
+            self.assertFalse(mocked_auto_inst.call_args.kwargs["use_codex_bridge"])
+
+            # Service action=up with bridge=antigravity forwards bridge to install_router_service
+            with (
+                mock.patch.object(adapter.opl_service, "install_router_service", return_value={"installed": True, "running": True}) as mocked_inst,
+                mock.patch.object(adapter.opl_service, "router_service_status", return_value={"installed": True, "running": True, "bridge": "antigravity"}),
+            ):
+                svc_up = adapter.action_service(
+                    {"instance_path": str(instance), "action": "up", "bridge": "antigravity", "confirmed": True}
+                )
+            self.assertTrue(svc_up["ok"])
+            self.assertEqual(svc_up["result"]["service"]["bridge"], "antigravity")
+            self.assertEqual(mocked_inst.call_args.kwargs["bridge"], "antigravity")
+            self.assertFalse(mocked_inst.call_args.kwargs["use_codex_bridge"])
 
     def test_instance_pointer_resolution_enforces_0600_and_schema(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:

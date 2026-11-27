@@ -7,7 +7,6 @@ Zero Fleet imports. Never passes --dangerously-bypass-approvals-and-sandbox.
 from __future__ import annotations
 
 import argparse
-from copy import deepcopy
 import json
 import os
 from pathlib import Path
@@ -15,32 +14,30 @@ import shutil
 import subprocess
 import sys
 import tempfile
-from typing import Any, Literal
+from typing import Any
 
 try:
     from . import opl_runtime as runtime
     from . import opl_execution
+    from . import opl_bridge_common as bridge_common
 except ImportError:  # Direct script execution.
     import opl_runtime as runtime
     import opl_execution
-
-from pydantic import BaseModel, ConfigDict, StrictBool, StrictStr, field_validator
-
-
-CONTROL_RECEIPT_SCHEMA_NAME = "opl_control_turn_receipt.v1"
-SANDBOX_MODES = ("read-only", "workspace-write", "danger-full-access")
+    import opl_bridge_common as bridge_common
 
 
-class BridgeError(RuntimeError):
-    pass
-
-
-def flow_root() -> Path:
-    return Path(__file__).resolve().parents[1]
-
-
-def control_receipt_schema_path() -> Path:
-    return flow_root() / "contracts" / "control-turn-receipt.schema.json"
+CONTROL_RECEIPT_SCHEMA_NAME = bridge_common.CONTROL_RECEIPT_SCHEMA_NAME
+SANDBOX_MODES = bridge_common.SANDBOX_MODES
+BridgeError = bridge_common.BridgeError
+flow_root = bridge_common.flow_root
+control_receipt_schema_path = bridge_common.control_receipt_schema_path
+resolve_sandbox_mode = bridge_common.resolve_sandbox_mode
+build_worker_output_schema = bridge_common.build_worker_output_schema
+validate_control_receipt = bridge_common.validate_control_receipt
+_control_prompt = bridge_common.control_prompt
+_worker_prompt = bridge_common.worker_prompt
+_strip_null_worker_optionals = bridge_common.strip_null_worker_optionals
+_load_json_arg = bridge_common.load_json_arg
 
 
 def resolve_codex_bin(explicit: str | None = None) -> str:
@@ -51,186 +48,6 @@ def resolve_codex_bin(explicit: str | None = None) -> str:
     if path.is_absolute() and not os.access(path, os.X_OK):
         raise BridgeError(f"codex CLI is not executable: {path}")
     return str(path)
-
-
-def resolve_sandbox_mode(
-    handoff: dict[str, Any] | None = None,
-    *,
-    explicit_sandbox: str | None = None,
-) -> str:
-    envelope = (handoff or {}).get("envelope") or {}
-    if explicit_sandbox is not None:
-        if explicit_sandbox not in SANDBOX_MODES:
-            raise BridgeError(f"unsupported sandbox mode: {explicit_sandbox!r}")
-        if explicit_sandbox == "danger-full-access" and envelope.get("allow_destructive") is False:
-            raise BridgeError("danger-full-access sandbox is forbidden when allow_destructive=false")
-        return explicit_sandbox
-    if (
-        handoff is not None
-        and "allowed_write_paths" in envelope
-        and envelope.get("allowed_write_paths") == []
-        and not handoff.get("write_set")
-    ):
-        return "read-only"
-    return "workspace-write"
-
-
-def build_worker_output_schema() -> dict[str, Any]:
-    """Return an OpenAI-strict JSON schema matching opl_worker_result.v1."""
-    return {
-        "$schema": "https://json-schema.org/draft/2020-12/schema",
-        "title": "OPL Worker Result Strict Output",
-        "type": "object",
-        "additionalProperties": False,
-        "required": [
-            "schema",
-            "binding",
-            "outcome",
-            "artifact_refs",
-            "checkpoint_refs",
-            "remaining",
-            "next_action",
-            "budget_usage",
-        ],
-        "properties": {
-            "schema": {"type": "string", "enum": ["opl_worker_result.v1"]},
-            "binding": {
-                "type": "object",
-                "additionalProperties": False,
-                "required": [
-                    "attempt_id",
-                    "objective_id",
-                    "owner_id",
-                    "handoff_sha256",
-                ],
-                "properties": {
-                    "attempt_id": {"type": "string", "minLength": 1},
-                    "objective_id": {"type": "string", "minLength": 1},
-                    "owner_id": {"type": "string", "minLength": 1},
-                    "handoff_sha256": {
-                        "type": "string",
-                        "pattern": "^[0-9a-f]{64}$",
-                    },
-                },
-            },
-            "outcome": {
-                "type": "string",
-                "enum": ["checkpoint", "completed", "blocked", "unknown"],
-            },
-            "artifact_refs": {"type": "array", "items": {"type": "string"}},
-            "checkpoint_refs": {"type": "array", "items": {"type": "string"}},
-            "remaining": {"type": "array", "items": {"type": "string"}},
-            "next_action": {"type": "string", "minLength": 1},
-            "budget_usage": {
-                "type": ["object", "null"],
-                "additionalProperties": False,
-                "required": [
-                    "elapsed_seconds",
-                    "tokens_used",
-                    "estimated_cost_usd",
-                ],
-                "properties": {
-                    "elapsed_seconds": {"type": ["number", "null"]},
-                    "tokens_used": {"type": ["integer", "null"]},
-                    "estimated_cost_usd": {"type": ["number", "null"]},
-                },
-            },
-        },
-    }
-
-
-class _ControlTurnReceiptModel(BaseModel):
-    model_config = ConfigDict(extra="forbid")
-    schema_version: Literal["opl_control_turn_receipt.v1"] = ...
-    root_objective_id: StrictStr | None
-    status: Literal["completed", "dispatched", "waiting_user", "blocked", "noop"]
-    actions_taken: list[StrictStr]
-    dispatched_attempts: list[StrictStr]
-    needs_human_action: StrictBool
-    summary: StrictStr
-    next_step: StrictStr
-
-    @field_validator("summary", "next_step")
-    @classmethod
-    def _non_empty(cls, value: str) -> str:
-        if not value.strip():
-            raise ValueError("field must be a non-empty string")
-        return value
-
-
-def validate_control_receipt(payload: Any) -> dict[str, Any]:
-    if not isinstance(payload, dict):
-        raise BridgeError("control turn receipt schema or fields are invalid")
-    data = dict(payload)
-    if "schema" in data:
-        data["schema_version"] = data.pop("schema")
-    runtime.validate_model(
-        _ControlTurnReceiptModel,
-        data,
-        error_cls=BridgeError,
-        message="control turn receipt schema or fields are invalid",
-    )
-    return deepcopy(payload)
-
-
-def _control_prompt(plan: dict[str, Any], *, instance_root: Path | None) -> str:
-    sanitized_view = {
-        "root_objective_id": plan.get("root_objective_id"),
-        "trigger_event_ids": plan.get("trigger_event_ids", []),
-        "graph_summary": plan.get("graph_summary", {}),
-        "callbacks_processed": plan.get("callbacks_processed", []),
-        "fan_out_batch": plan.get("fan_out_batch", []),
-        "integration_queue": plan.get("integration_queue", []),
-        "needs_repair": plan.get("needs_repair", []),
-        "blocked_or_waiting": plan.get("blocked_or_waiting", []),
-        "recommended_actions": plan.get("recommended_actions", []),
-        "validation_errors": plan.get("validation_errors", []),
-    }
-    instance_hint = str(instance_root) if instance_root is not None else "configured OPL Instance"
-    return (
-        "你是 OPL Flow 的无状态逻辑项目总控轮次（Control Turn）。\n"
-        "目标：依据下方的控制面事件计划与 Beads 总账事实，执行当前轮次所需的验收、断点修复或并发派发，然后立即退出（不保留常驻对话）。\n"
-        "硬性约束：\n"
-        "1. Beads/Dolt 是唯一任务真相；优先调用 `python3 scripts/opl_fleet.py dispatch run/group` 派发就绪切片。\n"
-        "2. `integration_queue` 中的写集重叠切片只允许在独立 worktree 并行开发，吸收必须在主线短临界区串行。\n"
-        "3. `needs_repair` 必须优先执行 owner 侧修复（Repair-Before-Proof），不得只重跑测试。\n"
-        "4. 若遇需要用户拍板/登录/授权或外部阻塞，准确标记 status=`waiting_user`/`blocked` 与 `needs_human_action=true`。\n"
-        "5. 最终输出必须严格符合 `--output-schema` JSON。\n\n"
-        f"Instance 路径: {instance_hint}\n"
-        f"Flow 仓库路径: {flow_root()}\n\n"
-        "控制轮次输入 (opl_control_turn_plan.v1):\n"
-        f"{json.dumps(sanitized_view, ensure_ascii=False, indent=2)}\n"
-    )
-
-
-def _worker_prompt(
-    handoff: dict[str, Any],
-    binding: dict[str, str],
-    context_manifest: dict[str, Any] | None = None,
-) -> str:
-    details = {
-        "binding": binding,
-        "objective_revision": handoff.get("objective_revision"),
-        "scope": handoff["scope"],
-        "expected_result": handoff["expected_result"],
-        "write_set": handoff.get("write_set", []),
-        "input_refs": handoff["input_refs"],
-        "checkpoint_refs": handoff["checkpoint_refs"],
-        "envelope": handoff.get("envelope"),
-        "resumability": handoff.get("resumability"),
-        "context_manifest_verified_refs": (context_manifest or {}).get("verified_refs", []),
-    }
-    return (
-        "你是 OPL Flow 委派的有限切片 Worker。\n"
-        "请在授权写集与包络约束内完成下方 `scope`，验证交付证据，并严格按照 `--output-schema` 返回 `opl_worker_result.v1` JSON。\n"
-        "硬性约束：\n"
-        "1. 返回 JSON 的 `binding` 字段必须原样等于下方给定的 `binding`。\n"
-        "2. 仅当全部工作完成且至少有一条可回读 `artifact_refs`、同时 `remaining=[]` 时，才可返回 `outcome=\"completed\"`。\n"
-        "3. 若未全部完成但已留下可恢复进展，返回 `outcome=\"checkpoint\"` 并填写 `checkpoint_refs` 与 `remaining`。\n"
-        "4. 若缺少权限、凭据或遇到外部阻塞，返回 `outcome=\"blocked\"`，切勿编造结果或绕过权限。\n\n"
-        "Worker 交接单 (opl_worker_handoff.v1):\n"
-        f"{json.dumps(details, ensure_ascii=False, indent=2)}\n"
-    )
 
 
 def _run_codex_exec(
@@ -284,22 +101,8 @@ def run_control_turn(
         raise BridgeError(str(exc)) from exc
 
     # Zero-token fast path when no reasoning or action is required
-    if (
-        not plan.get("needs_agent_reasoning")
-        and not plan.get("fan_out_batch")
-        and not plan.get("recommended_actions")
-        and not plan.get("validation_errors")
-    ):
-        return {
-            "schema": CONTROL_RECEIPT_SCHEMA_NAME,
-            "root_objective_id": plan.get("root_objective_id"),
-            "status": "noop",
-            "actions_taken": [],
-            "dispatched_attempts": [],
-            "needs_human_action": False,
-            "summary": "No actionable graph transitions or reasoning required.",
-            "next_step": "Remain idle until next event.",
-        }
+    if bridge_common.is_noop_control_plan(plan):
+        return bridge_common.noop_control_receipt(plan)
 
     resolved_cwd = (cwd or instance_root or flow_root()).expanduser().resolve()
     resolved_sandbox = resolve_sandbox_mode(None, explicit_sandbox=sandbox)
@@ -351,21 +154,6 @@ def run_control_turn(
         except json.JSONDecodeError as exc:
             raise BridgeError("codex exec control turn output is not valid JSON") from exc
         return validate_control_receipt(parsed)
-
-
-def _strip_null_worker_optionals(payload: dict[str, Any]) -> dict[str, Any]:
-    cleaned = deepcopy(payload)
-    if "budget_usage" in cleaned:
-        usage = cleaned["budget_usage"]
-        if usage is None:
-            cleaned.pop("budget_usage")
-        elif isinstance(usage, dict):
-            non_null = {k: v for k, v in usage.items() if v is not None}
-            if non_null:
-                cleaned["budget_usage"] = non_null
-            else:
-                cleaned.pop("budget_usage")
-    return cleaned
 
 
 def run_worker_slice(
@@ -456,32 +244,6 @@ def run_worker_slice(
         except opl_execution.ExecutionError as exc:
             raise BridgeError(str(exc)) from exc
         return validated_result
-
-
-def _load_json_arg(value: str | None, *, fallback_stdin: bool = False, env_var: str | None = None) -> Any:
-    raw_text: str | None = None
-    if value is not None:
-        if value.startswith("@"):
-            path = Path(value[1:]).expanduser()
-            if not path.is_file():
-                raise BridgeError(f"JSON input file not found: {path}")
-            raw_text = path.read_text(encoding="utf-8")
-        else:
-            raw_text = value
-    elif env_var and os.environ.get(env_var):
-        path = Path(os.environ[env_var]).expanduser()
-        if not path.is_file():
-            raise BridgeError(f"JSON file from {env_var} not found: {path}")
-        raw_text = path.read_text(encoding="utf-8")
-    elif fallback_stdin:
-        raw_text = sys.stdin.read()
-
-    if raw_text is None or not raw_text.strip():
-        raise BridgeError("missing JSON input payload")
-    try:
-        return json.loads(raw_text)
-    except json.JSONDecodeError as exc:
-        raise BridgeError("input payload is not valid JSON") from exc
 
 
 def parse_args(argv: list[str] | None = None) -> argparse.Namespace:

@@ -56,9 +56,14 @@ class ExecutionBoundaryTests(unittest.TestCase):
         self.assertFalse(fleet_execution.node_evidence(node, objective_id='opl-1')['ready'])
 
     def test_local_dispatch_binds_handoff_and_rejects_wrong_objective(self):
+        for local_adapter in ('local-codex', 'local-antigravity'):
+            args = fleet.parse_args(['dispatch', 'acquire', '--adapter', local_adapter, '--owner-task', 'opl-1', '--handoff-json', json.dumps(handoff())])
+            request = fleet.dispatch_request(args)
+            self.assertEqual(request['worker_binding'], execution.handoff_binding(handoff()))
+            args_node = fleet.parse_args(['dispatch', 'acquire', '--adapter', local_adapter, '--node-id', 'node-1', '--owner-task', 'opl-1', '--handoff-json', json.dumps(handoff())])
+            with self.assertRaisesRegex(fleet.FleetError, 'does not accept a Fleet node'):
+                fleet.dispatch_request(args_node)
         args = fleet.parse_args(['dispatch', 'acquire', '--adapter', 'local-codex', '--owner-task', 'opl-1', '--handoff-json', json.dumps(handoff())])
-        request = fleet.dispatch_request(args)
-        self.assertEqual(request['worker_binding'], execution.handoff_binding(handoff()))
         args.owner_task = 'different'
         with self.assertRaisesRegex(fleet.FleetError, 'does not match'):
             fleet.dispatch_request(args)
@@ -115,7 +120,7 @@ class ExecutionBoundaryTests(unittest.TestCase):
         self.assertNotIn('input_refs',json.dumps(stored))
 
     def test_ledger_and_owner_core_do_not_import_fleet(self):
-        for filename in ('opl_ledger.py','opl_task_owner.py','opl_execution.py','opl_supervisor.py','opl_events.py','opl_codex_bridge.py','opl_service.py','opl_app_contribution.py'):
+        for filename in ('opl_ledger.py','opl_task_owner.py','opl_execution.py','opl_supervisor.py','opl_events.py','opl_bridge_common.py','opl_codex_bridge.py','opl_antigravity_bridge.py','opl_dsh_bridge.py','opl_session_discovery.py','opl_service.py','opl_app_contribution.py'):
             tree = ast.parse((ROOT/'scripts'/filename).read_text())
             imports = [node.module or '' for node in ast.walk(tree) if isinstance(node,ast.ImportFrom)]
             self.assertFalse(any('fleet' in name for name in imports), filename)

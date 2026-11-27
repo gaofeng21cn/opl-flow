@@ -10,7 +10,7 @@ environment (`~/.gemini/`) using the reusable templates in
 | --- | --- | --- |
 | Global hygiene rules | `~/.gemini/GEMINI.md` | Managed marker block (`OPL_FLOW_AGY_BASELINE`), backs up and preserves all user rules outside markers; never overwrites overlapping unmarked sections. |
 | `agy-fast` empirical overrides | `~/.gemini/config/plugins/agy-fast/rules/AGENTS.local.md` | Applied when `agy-fast` is installed; enforces `run_checks` `compact` default, single commands on native `run_command`, `apply_edits` <=5-file batches with `bestEffort`, and Swarm `--cli` syntax. |
-| Progressive-disclosure Skills | `~/.gemini/config/skills/swarm-code-worker-brief/SKILL.md` + optional `impeccable` symlink | Materializes the Swarm brief Skill and links `~/.agents/skills/impeccable` when present; flags duplicate `modern-web-guidance` symlinks if the official plugin is enabled. |
+| Progressive-disclosure Skills | `~/.gemini/config/skills/{swarm-code-worker-brief,third-party-audit-triage,project-vision-and-gap-review,opl-flow-dual-carrier}/SKILL.md` + optional `impeccable` symlink | Materializes bundled workflow & dual-carrier Skills and links `~/.agents/skills/impeccable` when present; flags duplicate `modern-web-guidance` symlinks if the official plugin is enabled. |
 | Core resident plugins (opt-in install) | `agy-fast` (and optional `modern-web-guidance-plugin`) | Installed via official owner installer only when `--install-plugins` is explicitly passed. |
 | Weekly read-only audit (opt-in) | `~/.gemini/config/sidecars/weekly-agy-env-audit/sidecar.json` | Created only with `--with-weekly-audit`; strict read-only permissions, never auto-enabled. |
 
@@ -34,6 +34,34 @@ Start a new AntiGravity session after applying changes so updated global rules
 and skills are discovered cleanly. If `--with-weekly-audit` was requested,
 enable the `AntiGravity Weekly Environment Audit` automation manually from the
 Automations dashboard (`sidecar://dashboard`).
+
+## Unified Multi-Carrier Event Routing (`auto`: Codex + AntiGravity + OPL DSH)
+
+Once local carriers are installed (`opl-flow status --json` reports `codex.available`, `antigravity.available`, and/or `dsh.available`), OPL Flow runs **one unified zero-token background Router** (`--bridge auto` by default) that discovers active local chats and dynamically routes Codex, AntiGravity, and OPL DSH work against the same Beads/Dolt Ledger:
+
+```bash
+# Start one unified background router (defaults to --bridge auto)
+opl-flow up
+
+# Discover active local sessions across Codex, AntiGravity, and OPL DSH (agy + Gemini, etc.)
+opl-flow sessions
+
+# Override to a single explicit bridge only when needed
+opl-flow up --bridge antigravity
+opl-flow up --bridge codex
+
+# Submit a task targeting AntiGravity or OPL DSH (optionally bound to an active session)
+opl-flow send "Implement UI polish" --executor antigravity --write-set decision-dashboard/app.js
+opl-flow send "Run DSH dual-model review" --executor dsh --session dsh:<session-id>
+
+# Dispatch bounded worker slices directly across adapters
+python3 scripts/opl_fleet.py dispatch run --adapter local-antigravity \
+  --owner-task <objective-id> --handoff-json @handoff.json --use-antigravity-bridge
+python3 scripts/opl_fleet.py dispatch run --adapter local-dsh \
+  --owner-task <objective-id> --handoff-json @handoff.json --use-dsh-bridge
+```
+
+Unbound interactive chats detected by `opl-flow sessions` are surfaced for visibility and automatic workspace collision protection (`worktree_required_active_local_session`), without auto-creating Beads or consuming LLM tokens.
 
 See [antigravity-baseline.md](../skills/opl-flow/references/antigravity-baseline.md)
 for the full operational specification and safety boundaries.

@@ -44,6 +44,11 @@ The machine-readable AntiGravity baseline lives in `templates/antigravity/`:
   files, and Swarm `--cli` syntax card).
 - `templates/antigravity/swarm-code-worker-brief.md` — bundled progressive-disclosure
   Skill materialized into `~/.gemini/config/skills/swarm-code-worker-brief/SKILL.md`.
+- `templates/antigravity/opl-flow-dual-carrier.md` — bundled progressive-disclosure
+  Skill materialized into `~/.gemini/config/skills/opl-flow-dual-carrier/SKILL.md` for
+  unified Codex + AntiGravity + OPL DSH Ledger coordination (`--bridge auto`,
+  `opl-flow sessions`, `--executor`, `--session`), `local-antigravity` / `local-dsh`
+  worker dispatch, and dual-writer conflict prevention.
 
 Personal credentials, private repository maps, private GitHub owner rules, and
 machine-specific overlays remain user-owned and outside Flow's public templates.

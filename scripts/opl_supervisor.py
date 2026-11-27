@@ -83,6 +83,8 @@ def empty_cursor() -> dict[str, Any]:
     return {
         "schema": CURSOR_SCHEMA,
         "threads": {},
+        "antigravity_conversations": {},
+        "dsh_sessions": {},
         "linear_projects": {},
         "linear_issue_comments": {},
         "processed_comment_ids": [],
@@ -101,7 +103,7 @@ def load_cursor(path: Path) -> dict[str, Any]:
     if not isinstance(payload, dict) or payload.get("schema") != CURSOR_SCHEMA:
         raise SupervisorError(f"supervisor cursor schema is invalid: {path}")
     cursor = empty_cursor()
-    for key in ("threads", "linear_projects", "linear_issue_comments", "obsidian_fingerprints"):
+    for key in ("threads", "antigravity_conversations", "dsh_sessions", "linear_projects", "linear_issue_comments", "obsidian_fingerprints"):
         if isinstance(payload.get(key), dict):
             cursor[key] = deepcopy(payload[key])
     if isinstance(payload.get("processed_comment_ids"), list):
@@ -215,6 +217,22 @@ def _thread_signature(thread: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+def _agy_conversation_signature(conv: dict[str, Any]) -> dict[str, Any]:
+    state = conv.get("state") if isinstance(conv.get("state"), dict) else {}
+    return {
+        "updateTime": state.get("updateTime") or conv.get("updateTime") or conv.get("updatedAt") or conv.get("updated_at"),
+        "runState": state.get("runState") or conv.get("runState") or conv.get("status"),
+    }
+
+
+def _dsh_session_signature(session: dict[str, Any]) -> dict[str, Any]:
+    return {
+        "updatedAt": session.get("updated_at") or session.get("updatedAt"),
+        "status": session.get("status"),
+        "harness": session.get("harness"),
+    }
+
+
 def _extract_linear_issues(
     linear_issues: dict[str, list[dict[str, Any]]] | list[dict[str, Any]] | None,
 ) -> dict[str, list[dict[str, Any]]]:
@@ -294,6 +312,8 @@ def detect_changes(
     *,
     cursor: dict[str, Any] | None = None,
     threads: list[dict[str, Any]] | None = None,
+    antigravity_conversations: list[dict[str, Any]] | None = None,
+    dsh_sessions: list[dict[str, Any]] | None = None,
     linear_issues: dict[str, list[dict[str, Any]]] | list[dict[str, Any]] | None = None,
     linear_comments: dict[str, list[dict[str, Any]]] | None = None,
     pending_events: list[dict[str, Any]] | None = None,
@@ -313,6 +333,8 @@ def detect_changes(
     issue_by_id = {str(item["id"]): item for item in issues if item.get("id")}
     children_by_parent: dict[str, list[dict[str, Any]]] = {}
     issue_by_thread: dict[str, str] = {}
+    issue_by_agy_conv: dict[str, str] = {}
+    issue_by_dsh_session: dict[str, str] = {}
     issue_by_linear_id: dict[str, str] = {}
     for item in issues:
         bid = str(item["id"])
@@ -321,8 +343,30 @@ def detect_changes(
             children_by_parent.setdefault(parent, []).append(item)
         meta = item.get("metadata") if isinstance(item.get("metadata"), dict) else {}
         exec_thread = meta.get("execution_thread")
+        carrier = str(meta.get("execution_carrier") or "").strip().lower()
         if isinstance(exec_thread, str) and exec_thread.strip():
-            issue_by_thread[exec_thread.strip()] = bid
+            raw_thread = exec_thread.strip()
+            if raw_thread.startswith("antigravity:"):
+                raw_id = raw_thread.split(":", 1)[1].strip()
+                if raw_id:
+                    issue_by_agy_conv[raw_id] = bid
+                issue_by_agy_conv[raw_thread] = bid
+            elif raw_thread.startswith("codex:"):
+                raw_id = raw_thread.split(":", 1)[1].strip()
+                if raw_id:
+                    issue_by_thread[raw_id] = bid
+                issue_by_thread[raw_thread] = bid
+            elif raw_thread.startswith("dsh:"):
+                raw_id = raw_thread.split(":", 1)[1].strip()
+                if raw_id:
+                    issue_by_dsh_session[raw_id] = bid
+                issue_by_dsh_session[raw_thread] = bid
+            elif carrier == "antigravity":
+                issue_by_agy_conv[raw_thread] = bid
+            elif carrier == "dsh":
+                issue_by_dsh_session[raw_thread] = bid
+            else:
+                issue_by_thread[raw_thread] = bid
         for lkey in ("linear_issue_identifier", "linear_issue_id"):
             lval = meta.get(lkey)
             if isinstance(lval, str) and lval.strip():
@@ -420,6 +464,110 @@ def detect_changes(
                         "thread_status": sig["status"],
                     },
                 )
+
+    # 2b. Optional Antigravity conversation delta (updateTime, runState only — never title/summary)
+    agy_list = [c for c in (antigravity_conversations or []) if isinstance(c, dict)]
+    prev_agy = base_cursor.get("antigravity_conversations") or {}
+    for conv in agy_list:
+        cid = str(conv.get("id") or conv.get("conversationId") or "").strip()
+        if not cid:
+            continue
+        sig = _agy_conversation_signature(conv)
+        old_sig = prev_agy.get(cid)
+        next_cursor.setdefault("antigravity_conversations", {})[cid] = sig
+        matched_bead = issue_by_agy_conv.get(cid)
+        run_state = str(sig.get("runState") or "")
+        is_lost = run_state.lower() in {
+            "error",
+            "failed",
+            "missing",
+            "cancelled",
+            "run_state_error",
+            "run_state_cancelling",
+            "run_state_failed",
+        }
+        if old_sig is None:
+            thread_summaries_changed += 1
+            threads_read_needed.add(f"antigravity:{cid}")
+            ev_type = "executor_lost" if (matched_bead and is_lost) else ("human_intake" if matched_bead is None else "worker_callback")
+            _add_event(
+                event_type=ev_type,
+                objective_id=matched_bead or f"antigravity:{cid}",
+                source="antigravity:conversations",
+                idempotency_key=f"agy-new:{cid}:{sig['updateTime'] or 'init'}",
+                payload={
+                    "signal": "antigravity_conversation_new",
+                    "conversation_id": cid,
+                    "run_state": run_state,
+                },
+            )
+            continue
+
+        if sig != old_sig:
+            thread_summaries_changed += 1
+            threads_read_needed.add(f"antigravity:{cid}")
+            ev_type = "executor_lost" if is_lost else "worker_callback"
+            _add_event(
+                event_type=ev_type,
+                objective_id=matched_bead or f"antigravity:{cid}",
+                source="antigravity:conversations",
+                idempotency_key=f"agy-change:{cid}:{sig['updateTime']}:{run_state}",
+                payload={
+                    "signal": "antigravity_conversation_changed",
+                    "conversation_id": cid,
+                    "run_state": run_state,
+                },
+            )
+
+    # 2c. Optional OPL DSH session delta (updated_at, status, harness only — never prompts/turns)
+    dsh_list = [s for s in (dsh_sessions or []) if isinstance(s, dict)]
+    prev_dsh = base_cursor.get("dsh_sessions") or {}
+    for sess in dsh_list:
+        sid = str(sess.get("id") or sess.get("session_id") or "").strip()
+        if not sid:
+            continue
+        sig = _dsh_session_signature(sess)
+        old_sig = prev_dsh.get(sid)
+        next_cursor.setdefault("dsh_sessions", {})[sid] = sig
+        matched_bead = issue_by_dsh_session.get(sid) or (
+            str(sess.get("bound_bead_id")) if sess.get("bound_bead_id") else None
+        )
+        sess_status = str(sig.get("status") or "")
+        is_lost = sess_status.lower() in {"error", "failed", "missing", "cancelled"}
+        if old_sig is None:
+            thread_summaries_changed += 1
+            threads_read_needed.add(f"dsh:{sid}")
+            ev_type = "executor_lost" if (matched_bead and is_lost) else ("human_intake" if matched_bead is None else "worker_callback")
+            _add_event(
+                event_type=ev_type,
+                objective_id=matched_bead or f"dsh:{sid}",
+                source="dsh:sessions",
+                idempotency_key=f"dsh-new:{sid}:{sig['updatedAt'] or 'init'}",
+                payload={
+                    "signal": "dsh_session_new",
+                    "session_ref": f"dsh:{sid[:12]}",
+                    "dsh_status": sess_status,
+                    **({"harness": sig["harness"]} if sig.get("harness") else {}),
+                },
+            )
+            continue
+
+        if sig != old_sig:
+            thread_summaries_changed += 1
+            threads_read_needed.add(f"dsh:{sid}")
+            ev_type = "executor_lost" if is_lost else "worker_callback"
+            _add_event(
+                event_type=ev_type,
+                objective_id=matched_bead or f"dsh:{sid}",
+                source="dsh:sessions",
+                idempotency_key=f"dsh-change:{sid}:{sig['updatedAt']}:{sess_status}",
+                payload={
+                    "signal": "dsh_session_changed",
+                    "session_ref": f"dsh:{sid[:12]}",
+                    "dsh_status": sess_status,
+                    **({"harness": sig["harness"]} if sig.get("harness") else {}),
+                },
+            )
 
     # 3. Linear delta + mandatory comment API gate + assignee audit
     grouped_linear = _extract_linear_issues(linear_issues)
