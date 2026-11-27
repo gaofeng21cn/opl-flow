@@ -283,11 +283,17 @@ def build_dashboard(input_data: dict[str, Any]) -> dict[str, Any]:
     active_session_list = list(sanitized_sessions.get("sessions") or [])
     sanitized_inbox["active_sessions"] = active_session_list
 
+    sess_counts = sanitized_sessions.get("counts") if isinstance(sanitized_sessions.get("counts"), dict) else {}
     counts = {
         "needs_action": len(sanitized_inbox["needs_action"]),
         "safe_to_archive": len(sanitized_inbox["safe_to_archive"]),
         "active_objectives": len(sanitized_inbox["active_objectives"]),
         "active_sessions": len(active_session_list),
+        "running_sessions": int(sess_counts.get("running_primary") or sum(1 for s in active_session_list if s.get("status") == "active" and not s.get("is_subagent"))),
+        "primary_sessions": int(sess_counts.get("primary_total") or sum(1 for s in active_session_list if not s.get("is_subagent"))),
+        "subagent_sessions": int(sess_counts.get("subagent_total") or sum(1 for s in active_session_list if s.get("is_subagent"))),
+        "unique_occupied_workspaces": int(sess_counts.get("unique_occupied_workspaces") or 0),
+        "collision_workspaces": int(sess_counts.get("collision_workspaces") or 0),
         "blocked": len(sanitized_inbox["blocked"]),
         "backlog": len(sanitized_inbox["backlog"]),
         "pending_events": len(pending_events),

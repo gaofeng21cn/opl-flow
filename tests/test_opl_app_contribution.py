@@ -525,6 +525,117 @@ class OplAppContributionTests(unittest.TestCase):
             if proc.stderr:
                 proc.stderr.close()
 
+    def test_session_discovery_reads_codex_and_antigravity_indexes_and_filters_subagents(self) -> None:
+        import sqlite3
+        from scripts import opl_session_discovery
+
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            codex_home = root / "codex_home"
+            gemini_home = root / "gemini_home"
+            dsh_home = root / "dsh_home"
+
+            # Codex session_index.jsonl + rollout turn_context.model + subagent rollout
+            (codex_home / "sessions").mkdir(parents=True)
+            (codex_home / "session_index.jsonl").write_text(
+                json.dumps({"id": "c-main-1", "thread_name": "Control Tower UX Redesign"}) + "\n",
+                encoding="utf-8",
+            )
+            (codex_home / "sessions" / "rollout-main.jsonl").write_text(
+                "\n".join(
+                    [
+                        json.dumps({
+                            "type": "session_meta",
+                            "payload": {
+                                "id": "c-main-1",
+                                "cwd": "/Users/demo/workspace/opl-studio",
+                                "originator": "codex_cli_rs",
+                                "model_provider": "gflab",
+                            },
+                        }),
+                        json.dumps({
+                            "type": "turn_context",
+                            "payload": {"model": "gpt-6.2-sol"},
+                        }),
+                    ]
+                )
+                + "\n",
+                encoding="utf-8",
+            )
+            (codex_home / "sessions" / "rollout-sub.jsonl").write_text(
+                json.dumps({
+                    "type": "session_meta",
+                    "payload": {
+                        "id": "c-sub-1",
+                        "cwd": "/Users/demo/workspace/opl-studio",
+                        "source": {"subagent": {"thread_spawn": {"depth": 1}}},
+                        "model_provider": "gflab",
+                    },
+                })
+                + "\n",
+                encoding="utf-8",
+            )
+
+            # AntiGravity conversation_summaries.db + transcript.jsonl
+            agy_root = gemini_home / "antigravity"
+            agy_brain = agy_root / "brain"
+            for cid, tail_obj in [
+                ("a-main-1", {"type": "PLANNER_RESPONSE", "status": "DONE", "model": "gemini-4-neon-xhigh"}),
+                ("a-sub-1", {"type": "PLANNER_RESPONSE", "status": "DONE", "model": "gemini-4-flash"}),
+            ]:
+                p = agy_brain / cid / ".system_generated" / "logs" / "transcript.jsonl"
+                p.parent.mkdir(parents=True)
+                p.write_text(json.dumps(tail_obj) + "\n", encoding="utf-8")
+
+            conn = sqlite3.connect(str(agy_root / "conversation_summaries.db"))
+            conn.execute(
+                "CREATE TABLE conversation_summaries (conversation_id text PRIMARY KEY, title text, workspace_uris text, status text, parent_conversation_id text, nesting_depth integer, not_fully_idle numeric, killed numeric)"
+            )
+            conn.execute(
+                "INSERT INTO conversation_summaries VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+                ("a-main-1", "AntiGravity Control Tower", json.dumps(["file:///Users/demo/workspace/opl-flow"]), "CASCADE_RUN_STATUS_RUNNING", "", 0, 1, 0),
+            )
+            conn.execute(
+                "INSERT INTO conversation_summaries VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+                ("a-sub-1", "Helper worker", json.dumps(["file:///Users/demo/workspace/opl-flow"]), "CASCADE_RUN_STATUS_IDLE", "a-main-1", 1, 0, 0),
+            )
+            conn.commit()
+            conn.close()
+
+            discovery = opl_session_discovery.discover_local_sessions(
+                codex_home=codex_home,
+                gemini_home=gemini_home,
+                dsh_home=dsh_home,
+            )
+            self.assertEqual(discovery["counts"]["total"], 4)
+            self.assertEqual(discovery["counts"]["primary_total"], 2)
+            self.assertEqual(discovery["counts"]["subagent_total"], 2)
+            self.assertEqual(discovery["counts"]["unique_occupied_workspaces"], 2)
+            self.assertEqual(len(discovery["active_workspace_occupants"]), 2)
+
+            sanitized = opl_session_discovery.sanitize_sessions_for_projection(discovery, include_local_navigation=False)
+            for row in sanitized["sessions"]:
+                self.assertNotIn("title", row)
+                self.assertNotIn("workspace_path", row)
+                self.assertNotIn("session_id", row)
+                self.assertIn("is_subagent", row)
+
+            nav = opl_session_discovery.sanitize_sessions_for_projection(
+                discovery, include_local_navigation=True, host_carrier="codex"
+            )
+            by_sid = {row["session_id"]: row for row in nav["sessions"]}
+            self.assertEqual(by_sid["c-main-1"]["title"], "Control Tower UX Redesign")
+            self.assertEqual(by_sid["c-main-1"]["model_label"], "gpt-6.2-sol")
+            self.assertFalse(by_sid["c-main-1"]["is_subagent"])
+            self.assertTrue(by_sid["c-sub-1"]["is_subagent"])
+            self.assertEqual(by_sid["a-main-1"]["title"], "AntiGravity Control Tower")
+            self.assertEqual(by_sid["a-main-1"]["workspace_label"], "opl-flow")
+            self.assertEqual(by_sid["a-main-1"]["workspace_path"], "/Users/demo/workspace/opl-flow")
+            self.assertEqual(by_sid["a-main-1"]["model_label"], "gemini-4-neon-xhigh")
+            self.assertEqual(by_sid["a-main-1"]["status"], "active")
+            self.assertFalse(by_sid["a-main-1"]["is_subagent"])
+            self.assertTrue(by_sid["a-sub-1"]["is_subagent"])
+
 
 if __name__ == "__main__":
     unittest.main()

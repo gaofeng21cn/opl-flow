@@ -43,6 +43,10 @@ const state = {
   replyNow: false,
   serviceBridge: 'auto',
   approverName: 'owner',
+  sessionScope: 'running',
+  sessionCarrier: 'all',
+  showSubagents: false,
+  sessionSearch: '',
   dialogMode: null,
   dialogTarget: null,
 };
@@ -213,24 +217,81 @@ function statusBadgeForService(svc) {
   return '<span class="badge neutral">后台事件引擎：未启动</span>';
 }
 
+function formatStatusLabel(status) {
+  if (status === 'active') return '运行中';
+  if (status === 'error') return '异常';
+  if (status === 'idle') return '空闲';
+  if (status === 'deferred') return '已冻结';
+  if (status === 'in_progress') return '推进中';
+  if (status === 'open') return '待处理';
+  if (status === 'closed') return '待归档';
+  return String(status || '—');
+}
+
+function formatBlockerText(blocker) {
+  if (!blocker) return '';
+  if (blocker === 'user_directed_freeze') return '用户已冻结，等待手动重启';
+  return String(blocker);
+}
+
+function formatRelativeTime(iso) {
+  if (!iso) return '—';
+  const ts = Date.parse(iso);
+  if (Number.isNaN(ts)) return String(iso);
+  const diffSec = Math.max(0, Math.round((Date.now() - ts) / 1000));
+  if (diffSec < 60) return '刚刚';
+  if (diffSec < 3600) return `${Math.floor(diffSec / 60)} 分钟前`;
+  if (diffSec < 86400) return `${Math.floor(diffSec / 3600)} 小时前`;
+  return `${Math.floor(diffSec / 86400)} 天前`;
+}
+
+function filterSessionEntries(entries) {
+  const q = String(state.sessionSearch || '').trim().toLowerCase();
+  const base = entries.filter((entry) => {
+    const isSub = Boolean(entry.is_subagent) || entry.surface === 'subagent';
+    if (!state.showSubagents && isSub) return false;
+    if (state.sessionCarrier !== 'all' && entry.carrier !== state.sessionCarrier) return false;
+    return true;
+  });
+  const scoped = state.sessionScope === 'running'
+    ? base.filter((entry) => entry.status === 'active')
+    : base;
+  const effective = scoped.length > 0 || state.sessionScope !== 'running' ? scoped : base;
+  if (!q) return effective;
+  return effective.filter((entry) => {
+    const hay = [
+      entry.title,
+      entry.model_label,
+      entry.workspace_label,
+      entry.carrier,
+      entry.session_ref,
+    ]
+      .filter(Boolean)
+      .join(' ')
+      .toLowerCase();
+    return hay.includes(q);
+  });
+}
+
 function renderDetailPanel(activeTab, selectedEntry) {
   if (!selectedEntry) {
     return `<div class="empty-state"><div><strong>未选中条目</strong><p>在中间列表中选择一条目标、活跃对话或事件，即可查看详情并执行决策动作。</p></div></div>`;
   }
   if (activeTab === 'active_sessions') {
     const isBound = Boolean(selectedEntry.bound_bead_id);
+    const title = selectedEntry.title || selectedEntry.model_label || selectedEntry.harness || selectedEntry.carrier || '本地对话';
     return `<div class="detail-panel">
       <header class="stage-header">
         <div>
-          <h2>${escapeHtml(selectedEntry.model_label || selectedEntry.harness || selectedEntry.carrier || '本地对话')}</h2>
-          <p class="task-card-id">${escapeHtml(selectedEntry.session_ref)}</p>
+          <h2>${escapeHtml(title)}</h2>
+          <p class="task-card-id">${escapeHtml(selectedEntry.session_ref)} · ${escapeHtml(selectedEntry.model_label || '')}</p>
         </div>
-        <span class="badge ${selectedEntry.status === 'active' ? 'success' : selectedEntry.status === 'error' ? 'danger' : 'neutral'}">${escapeHtml(selectedEntry.status || 'idle')}</span>
+        <span class="badge ${selectedEntry.status === 'active' ? 'success' : selectedEntry.status === 'error' ? 'danger' : 'neutral'}">${escapeHtml(formatStatusLabel(selectedEntry.status || 'idle'))}</span>
       </header>
       <dl class="detail-meta">
-        <div class="detail-row"><dt>载体 / Harness</dt><dd>${escapeHtml(selectedEntry.carrier || '—')} / ${escapeHtml(selectedEntry.harness || '—')} (${escapeHtml(selectedEntry.surface || 'local')})</dd></div>
+        <div class="detail-row"><dt>载体 / 模型</dt><dd>${escapeHtml(selectedEntry.carrier || '—')} · ${escapeHtml(selectedEntry.model_label || '—')}（${escapeHtml(selectedEntry.surface || 'local')}）</dd></div>
         <div class="detail-row"><dt>工作区</dt><dd>${escapeHtml(selectedEntry.workspace_label || '全局 / 未标注')}</dd></div>
-        <div class="detail-row"><dt>最近更新</dt><dd>${escapeHtml(selectedEntry.updated_at || '—')}</dd></div>
+        <div class="detail-row"><dt>最近活动</dt><dd title="${escapeHtml(selectedEntry.updated_at || '')}">${escapeHtml(formatRelativeTime(selectedEntry.updated_at))}</dd></div>
         <div class="detail-row"><dt>纳管状态</dt><dd>${isBound ? `已绑定 Bead：${escapeHtml(selectedEntry.bound_bead_id)}` : '未纳管自由对话（仅开启工作区防撞车保护，不自动建单或唤醒模型）'}</dd></div>
       </dl>
       ${
@@ -253,7 +314,7 @@ function renderDetailPanel(activeTab, selectedEntry) {
         <div class="detail-row"><dt>关联目标</dt><dd>${escapeHtml(selectedEntry.objective_id || '—')}</dd></div>
         <div class="detail-row"><dt>来源</dt><dd>${escapeHtml(selectedEntry.source || '—')}</dd></div>
         <div class="detail-row"><dt>状态</dt><dd>${escapeHtml(selectedEntry.status || 'pending')}</dd></div>
-        <div class="detail-row"><dt>创建时间</dt><dd>${escapeHtml(selectedEntry.created_at || '—')}</dd></div>
+        <div class="detail-row"><dt>创建时间</dt><dd title="${escapeHtml(selectedEntry.created_at || '')}">${escapeHtml(formatRelativeTime(selectedEntry.created_at))}</dd></div>
         <div class="detail-row"><dt>摘要</dt><dd>${escapeHtml(selectedEntry.summary || '无附加摘要')}</dd></div>
       </dl>
       <div class="inline-actions">
@@ -273,13 +334,19 @@ function renderDetailPanel(activeTab, selectedEntry) {
       <span class="badge ${isArchiveCandidate ? 'success' : activeTab === 'needs_action' ? 'warning' : activeTab === 'blocked' ? 'danger' : ''}">${escapeHtml(TABS.find((t) => t.id === activeTab)?.label || activeTab)}</span>
     </header>
     <dl class="detail-meta">
-      <div class="detail-row"><dt>账本状态 / 执行模式</dt><dd>${escapeHtml(selectedEntry.status || '—')} / ${escapeHtml(selectedEntry.execution_mode || '未设置')}</dd></div>
+      <div class="detail-row"><dt>账本状态 / 执行模式</dt><dd>${escapeHtml(formatStatusLabel(selectedEntry.status))} / ${escapeHtml(selectedEntry.execution_mode || '未设置')}</dd></div>
       ${selectedEntry.preferred_adapter || selectedEntry.execution_carrier ? `<div class="detail-row"><dt>执行载体 / 适配器</dt><dd>${escapeHtml(selectedEntry.execution_carrier || selectedEntry.preferred_adapter)}</dd></div>` : ''}
-      ${selectedEntry.first_blocker ? `<div class="detail-row"><dt>当前阻塞</dt><dd>${escapeHtml(selectedEntry.first_blocker)}</dd></div>` : ''}
+      ${selectedEntry.first_blocker ? `<div class="detail-row"><dt>当前阻塞</dt><dd>${escapeHtml(formatBlockerText(selectedEntry.first_blocker))}</dd></div>` : ''}
       ${selectedEntry.next_action ? `<div class="detail-row"><dt>建议下一步</dt><dd>${escapeHtml(selectedEntry.next_action)}</dd></div>` : ''}
       <div class="detail-row">
         <dt>剩余工作（${remaining.length}）</dt>
-        <dd>${remaining.length ? `<ul class="remaining-list">${remaining.map((r) => `<li>${escapeHtml(r)}</li>`).join('')}</ul>` : '无剩余未完成项'}</dd>
+        <dd>${
+          remaining.length > 3
+            ? `<details><summary>展开全部 ${remaining.length} 项剩余步骤</summary><ul class="remaining-list">${remaining.map((r) => `<li>${escapeHtml(r)}</li>`).join('')}</ul></details>`
+            : remaining.length
+              ? `<ul class="remaining-list">${remaining.map((r) => `<li>${escapeHtml(r)}</li>`).join('')}</ul>`
+              : '无剩余未完成项'
+        }</dd>
       </div>
     </dl>
     ${
@@ -395,7 +462,8 @@ function render() {
   const activeTab = TABS.some((t) => t.id === state.activeTab) ? state.activeTab : chooseDefaultTab(inbox);
   state.activeTab = activeTab;
   const activeTabMeta = TABS.find((t) => t.id === activeTab) || TABS[0];
-  const entries = itemsForTab(inbox, activeTab);
+  const rawEntries = itemsForTab(inbox, activeTab);
+  const entries = activeTab === 'active_sessions' ? filterSessionEntries(rawEntries) : rawEntries;
   const selectedEntry =
     entries.find((entry) => itemKey(entry, activeTab) === state.selectedId) || entries[0] || null;
   state.selectedId = selectedEntry ? itemKey(selectedEntry, activeTab) : '';
@@ -433,7 +501,9 @@ function render() {
           <h2>状态视图</h2>
           <nav class="nav-list" aria-label="决策分类">
             ${TABS.map((tab) => {
-              const count = Number(counts[tab.id] || 0);
+              const count = tab.id === 'active_sessions' && Number(counts.running_sessions ?? 0) > 0
+                ? Number(counts.running_sessions)
+                : Number(counts[tab.id] || 0);
               return `<button class="nav-button" type="button" data-tab="${tab.id}" aria-current="${tab.id === activeTab ? 'true' : 'false'}">
                 <span>${escapeHtml(tab.label)}</span>
                 <span class="badge ${count > 0 ? tab.tone : 'neutral'}">${count}</span>
@@ -485,6 +555,22 @@ function render() {
           </div>
         </div>
         ${
+          activeTab === 'active_sessions'
+            ? `<div class="session-toolbar" role="group" aria-label="筛选本机对话">
+                <button class="dsh-button small ${state.sessionScope === 'running' ? 'primary' : 'quiet'}" type="button" data-sess-scope="running">仅运行中</button>
+                <button class="dsh-button small ${state.sessionScope === 'all' ? 'primary' : 'quiet'}" type="button" data-sess-scope="all">全部近期</button>
+                <select class="dsh-input session-select" id="session-carrier-filter" aria-label="按载体筛选">
+                  <option value="all" ${state.sessionCarrier === 'all' ? 'selected' : ''}>全部载体</option>
+                  <option value="codex" ${state.sessionCarrier === 'codex' ? 'selected' : ''}>Codex</option>
+                  <option value="antigravity" ${state.sessionCarrier === 'antigravity' ? 'selected' : ''}>AntiGravity</option>
+                  <option value="dsh" ${state.sessionCarrier === 'dsh' ? 'selected' : ''}>OPL DSH</option>
+                </select>
+                <label class="checkbox-inline"><input type="checkbox" id="session-subagents-toggle" ${state.showSubagents ? 'checked' : ''}><span>显示子代理</span></label>
+                <input class="dsh-input session-search" id="session-search-input" type="search" placeholder="搜索对话标题或目录…" value="${escapeHtml(state.sessionSearch)}">
+              </div>`
+            : ''
+        }
+        ${
           entries.length
             ? `<div class="card-list">${entries
                 .map((entry) => {
@@ -493,14 +579,15 @@ function render() {
                   if (activeTab === 'active_sessions') {
                     const st = entry.status || 'idle';
                     const ws = entry.workspace_label || '全局';
-                    const bindHint = entry.bound_bead_id ? `已绑定 ${entry.bound_bead_id}` : '未纳管 · 防撞车';
+                    const bindHint = entry.bound_bead_id ? `已绑定 ${entry.bound_bead_id}` : '自由对话';
+                    const cardTitle = entry.title || `${ws} · ${entry.model_label || entry.carrier || ''}`;
                     return `<button class="task-card" type="button" data-select="${escapeHtml(id)}" aria-current="${isCurrent ? 'true' : 'false'}">
                       <div class="task-card-top">
-                        <span class="task-card-id">${escapeHtml(entry.session_ref)}</span>
-                        <span class="badge ${st === 'active' ? 'success' : st === 'error' ? 'danger' : 'neutral'}">${escapeHtml(st)}</span>
+                        <span class="task-card-id">${escapeHtml(entry.carrier || '')} · ${escapeHtml(entry.model_label || entry.harness || '')}</span>
+                        <span class="badge ${st === 'active' ? 'success' : st === 'error' ? 'danger' : 'neutral'}">${escapeHtml(formatStatusLabel(st))}</span>
                       </div>
-                      <div class="task-card-title">${escapeHtml(entry.model_label || entry.harness || entry.carrier || '')}</div>
-                      <div class="task-card-note">${escapeHtml(`目录：${ws} · ${bindHint}`)}</div>
+                      <div class="task-card-title">${escapeHtml(cardTitle)}</div>
+                      <div class="task-card-note">${escapeHtml(`${ws} · ${formatRelativeTime(entry.updated_at)} · ${bindHint}`)}</div>
                     </button>`;
                   }
                   if (activeTab === 'pending_events') {
@@ -514,7 +601,7 @@ function render() {
                     </button>`;
                   }
                   const note = entry.first_blocker
-                    ? `阻塞：${entry.first_blocker}`
+                    ? `${formatBlockerText(entry.first_blocker)}${entry.next_action ? ` · 下一步：${entry.next_action}` : ''}`
                     : entry.next_action
                       ? `下一步：${entry.next_action}`
                       : entry.remaining_count
@@ -523,7 +610,7 @@ function render() {
                   return `<button class="task-card" type="button" data-select="${escapeHtml(id)}" aria-current="${isCurrent ? 'true' : 'false'}">
                     <div class="task-card-top">
                       <span class="task-card-id">${escapeHtml(entry.bead_id)}</span>
-                      <span class="badge ${activeTab === 'safe_to_archive' ? 'success' : activeTab === 'needs_action' ? 'warning' : activeTab === 'blocked' ? 'danger' : 'neutral'}">${escapeHtml(entry.status || activeTab)}</span>
+                      <span class="badge ${activeTab === 'safe_to_archive' ? 'success' : activeTab === 'needs_action' ? 'warning' : activeTab === 'blocked' ? 'danger' : 'neutral'}">${escapeHtml(formatStatusLabel(entry.status || activeTab))}</span>
                     </div>
                     <div class="task-card-title">${escapeHtml(entry.title || entry.bead_id)}</div>
                     <div class="task-card-note">${escapeHtml(note)}</div>
@@ -588,6 +675,29 @@ function bindEvents(data, activeTab, selectedEntry) {
       render();
     }),
   );
+  root.querySelectorAll('[data-sess-scope]').forEach((btn) =>
+    btn.addEventListener('click', () => {
+      state.sessionScope = btn.dataset.sessScope;
+      render();
+    }),
+  );
+  root.querySelector('#session-carrier-filter')?.addEventListener('change', (e) => {
+    state.sessionCarrier = e.target.value;
+    render();
+  });
+  root.querySelector('#session-subagents-toggle')?.addEventListener('change', (e) => {
+    state.showSubagents = e.target.checked;
+    render();
+  });
+  root.querySelector('#session-search-input')?.addEventListener('input', (e) => {
+    state.sessionSearch = e.target.value;
+    render();
+    const el = root.querySelector('#session-search-input');
+    if (el) {
+      el.focus();
+      el.setSelectionRange(el.value.length, el.value.length);
+    }
+  });
   root.querySelectorAll('[data-select]').forEach((btn) =>
     btn.addEventListener('click', () => {
       state.selectedId = btn.dataset.select;
