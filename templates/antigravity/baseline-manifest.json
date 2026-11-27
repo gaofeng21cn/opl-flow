@@ -44,6 +44,16 @@
       "role": "web_and_frontend_guidance",
       "marketplace_id": "antigravity-plugins-official/plugin/modern-web-guidance-plugin",
       "required": false
+    },
+    {
+      "id": "codex-supervisor",
+      "role": "explicit_codex_delegation_and_supervision",
+      "source": "https://github.com/cxgit12138/codex-supervisor",
+      "install_command": "git clone --depth 1 https://github.com/cxgit12138/codex-supervisor.git ~/.gemini/config/plugins/codex-supervisor",
+      "cli_install_command": "agy plugin install https://github.com/cxgit12138/codex-supervisor",
+      "ctl_script_rel": "config/plugins/codex-supervisor/skills/codex-supervisor/scripts/codex-ctl.mjs",
+      "daemon_script_rel": "config/plugins/codex-supervisor/skills/codex-supervisor/scripts/bridge-daemon.mjs",
+      "required": false
     }
   ],
   "skills": [

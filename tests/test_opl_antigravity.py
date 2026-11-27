@@ -45,10 +45,16 @@ class OplAntigravityTests(unittest.TestCase):
     def test_baseline_manifest_and_templates_are_valid(self) -> None:
         manifest = opl_antigravity.load_baseline_manifest(REPO_ROOT)
         self.assertEqual(manifest["schema"], "opl_flow_antigravity_baseline.v1")
+        plugins_by_id = {p["id"]: p for p in manifest["plugins"]}
+        self.assertIn("codex-supervisor", plugins_by_id)
+        self.assertFalse(plugins_by_id["codex-supervisor"]["required"])
         for rule in manifest["rules"]:
             tpl = REPO_ROOT / rule["template_path"]
             self.assertTrue(tpl.is_file(), f"missing template {tpl}")
             self.assertLess(tpl.stat().st_size, manifest["rule_budgets"]["warn_bytes"])
+        gemini_tpl = (REPO_ROOT / "templates/antigravity/GEMINI.md").read_text(encoding="utf-8")
+        self.assertIn("Antigravity 与 Codex Supervisor 派活与分工原则", gemini_tpl)
+        self.assertIn("主动监督进度、超时止损拉回", gemini_tpl)
         for skill in manifest["skills"]:
             if skill["source"] == "bundled_template":
                 self.assertTrue((REPO_ROOT / skill["template_path"]).is_file())
@@ -301,6 +307,74 @@ class OplAntigravityTests(unittest.TestCase):
         self.assertEqual(proc.returncode, 0, proc.stderr)
         payload = json.loads(proc.stdout)
         self.assertEqual(payload["schema"], "opl_flow_antigravity_doctor.v1")
+
+    def test_doctor_and_dry_run_cover_codex_supervisor_plugin(self) -> None:
+        self._seed_agy_fast_plugin()
+        before = opl_antigravity.antigravity_doctor(
+            gemini_home=self.gemini_home,
+            agents_home=self.agents_home,
+            root=REPO_ROOT,
+            days=0,
+            run_plugin_doctor=False,
+        )
+        opt_before = before["planes"]["optional_enhancements"]
+        self.assertFalse(opt_before["codex_supervisor_installed"])
+        self.assertFalse(opt_before["codex_supervisor_enabled"])
+        self.assertIsNone(opt_before["codex_supervisor_version"])
+        self.assertFalse(opt_before["codex_supervisor_ctl_present"])
+
+        dry = opl_antigravity.antigravity_apply(
+            gemini_home=self.gemini_home,
+            agents_home=self.agents_home,
+            root=REPO_ROOT,
+            dry_run=True,
+            install_plugins=True,
+            run_plugin_doctor=False,
+        )
+        dry_actions = {a["target"]: a["action"] for a in dry["actions"]}
+        self.assertEqual(dry_actions["plugin:codex-supervisor"], "would_install")
+
+        sup_dir = self.gemini_home / "config" / "plugins" / "codex-supervisor"
+        ctl_path = sup_dir / "skills" / "codex-supervisor" / "scripts" / "codex-ctl.mjs"
+        ctl_path.parent.mkdir(parents=True, exist_ok=True)
+        ctl_path.write_text("// stub ctl\n", encoding="utf-8")
+        (sup_dir / "plugin.json").write_text(
+            json.dumps({"name": "codex-supervisor", "version": "1.4.0"}),
+            encoding="utf-8",
+        )
+
+        applied = opl_antigravity.antigravity_apply(
+            gemini_home=self.gemini_home,
+            agents_home=self.agents_home,
+            root=REPO_ROOT,
+            dry_run=False,
+            install_plugins=True,
+            run_plugin_doctor=False,
+        )
+        applied_actions = {a["target"]: a["action"] for a in applied["actions"]}
+        self.assertEqual(applied_actions["plugin:codex-supervisor"], "unchanged")
+        opt_after = applied["doctor_readback"]["planes"]["optional_enhancements"]
+        self.assertTrue(opt_after["codex_supervisor_installed"])
+        self.assertTrue(opt_after["codex_supervisor_enabled"])
+        self.assertEqual(opt_after["codex_supervisor_version"], "1.4.0")
+        self.assertTrue(opt_after["codex_supervisor_ctl_present"])
+        self.assertEqual(applied["doctor_readback"]["status"], "ready")
+
+        cfg_path = self.gemini_home / "config" / "config.json"
+        cfg = json.loads(cfg_path.read_text(encoding="utf-8"))
+        cfg["plugins"]["codex-supervisor"] = {"enabled": False}
+        cfg_path.write_text(json.dumps(cfg, indent=2), encoding="utf-8")
+
+        disabled_report = opl_antigravity.antigravity_doctor(
+            gemini_home=self.gemini_home,
+            agents_home=self.agents_home,
+            root=REPO_ROOT,
+            days=0,
+            run_plugin_doctor=False,
+        )
+        self.assertEqual(disabled_report["status"], "ready")
+        self.assertFalse(disabled_report["planes"]["optional_enhancements"]["codex_supervisor_enabled"])
+        self.assertTrue(any("codex-supervisor" in f for f in disabled_report["findings"]))
 
 
 if __name__ == "__main__":

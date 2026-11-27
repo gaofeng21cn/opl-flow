@@ -74,3 +74,9 @@ python3 scripts/opl_fleet.py dispatch complete \
 ```
 
 For headless DSH worker slices, Fleet invokes `scripts/opl_dsh_bridge.py` (`--adapter local-dsh --use-dsh-bridge --dsh-combination <id>`). The Ledger owner always verifies canonical readback before accepting or closing a Bead.
+
+## 5. Carrier Division of Labor & Stall Pullback
+
+- **Explicit opt-in for interactive Codex**: AntiGravity handles tasks independently by default and invokes `codex-supervisor` only when explicitly requested by the user (or when a Ledger objective explicitly targets `--executor codex`).
+- **Keep human-alignment, docs, and UI in AntiGravity**: Even when Codex is requested, keep intent clarification, design tradeoffs, docs/PRD/README/reports, UI visual design, interaction logic, and final user-facing acceptance inside AntiGravity; delegate only well-bounded implementation, refactoring, tests, local terminal operations, and deployments to Codex.
+- **Actively supervise and pull back stalled tasks**: Monitor running `codex-supervisor` threads against expected milestones via `status`, `history`, and bounded `wait` windows (5–10 min heartbeats for normal coding, <=15–20 min for heavy builds/tests). When progress slows markedly or stalls, check `status`/`history` and issue one concise `steer` if recoverable; if still stuck, blocked on judgment/interaction, or faster to finish directly, `interrupt` immediately and pull the work back into AntiGravity rather than waiting passively.
