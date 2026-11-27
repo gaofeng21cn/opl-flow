@@ -1368,6 +1368,10 @@ def reconcile(*, report: bool, install_required: bool) -> dict[str, Any]:
     atomic_json(STATE_ROOT / "repositories.json", repository_report)
     if any(
         repository.get("state") not in {"CURRENT", "UPDATED", "TASK_BRANCH"}
+        and not (
+            repository.get("state") == "DIRTY"
+            and repository.get("ahead") == repository.get("behind") == 0
+        )
         for repository in repository_report["repositories"]
     ):
         receipt["drift"].append("development-repositories.attention")

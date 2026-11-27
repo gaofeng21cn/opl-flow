@@ -641,6 +641,33 @@ class CodexFleetTests(unittest.TestCase):
         with self.assertRaisesRegex(fleet.FleetError, "requires a fresh fetch"):
             fleet.reconcile_workspace_repositories(fetch=False, apply=True)
 
+    def test_instance_control_reuses_current_main_with_unrelated_edits(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            seed, _, checkout = repository_fixture(Path(directory))
+            (seed / "fleet").mkdir()
+            (seed / "fleet/nodes.json").write_text("{}\n", encoding="utf-8")
+            git(seed, "add", "fleet/nodes.json")
+            git(seed, "commit", "-m", "add Fleet config")
+            git(seed, "push", "origin", "main")
+            git(checkout, "pull", "--ff-only")
+            original = git(checkout, "rev-parse", "HEAD")
+            draft = checkout / "tracked.txt"
+            draft.write_text("local draft\n", encoding="utf-8")
+            with patch_fleet("CONTROL_ROOT", checkout / "fleet"):
+                self.assertEqual(fleet.update_control(), original)
+
+                commit_file(seed, "remote update\n", "advance main")
+                git(seed, "push", "origin", "main")
+                with self.assertRaisesRegex(fleet.FleetError, "dirty and cannot update"):
+                    fleet.update_control()
+                self.assertEqual(git(checkout, "rev-parse", "HEAD"), original)
+
+                (checkout / "fleet/nodes.json").write_text('{"draft": true}\n', encoding="utf-8")
+                with self.assertRaisesRegex(fleet.FleetError, "checkout is dirty$"):
+                    fleet.update_control()
+
+            self.assertEqual(draft.read_text(encoding="utf-8"), "local draft\n")
+
     def test_reconcile_marks_repository_attention_without_leaking_names(self) -> None:
         with (
             patch_fleet("run"),
@@ -672,30 +699,44 @@ class CodexFleetTests(unittest.TestCase):
     "runner_call",
                 return_value={"ok": True, "result": {"ok": True, "drift": []}},
             ),
-            patch_fleet("build_receipt", side_effect=[receipt(), receipt()]),
+            patch_fleet("build_receipt", side_effect=lambda *args, **kwargs: receipt()),
             patch_fleet(
     "reconcile_workspace_repositories",
                 return_value={
                     "state": "ATTENTION",
-                    "repositories": [{"repository": "private/name", "state": "DIRTY"}],
+                    "repositories": [
+                        {"repository": "private/name", "state": "DIRTY", "ahead": 0, "behind": 0},
+                    ],
                 },
             ) as repos,
             patch_fleet("collect_inventory", return_value={}),
             patch_fleet("node_registry", return_value={}),
             patch_fleet("atomic_json") as atomic_json,
         ):
-            result = fleet.reconcile(report=False, install_required=False)
+            clean_base_result = fleet.reconcile(report=False, install_required=False)
             install_runner.assert_called_once_with({}, "a" * 40)
             fetch_reference.assert_called_once_with({}, "b" * 40)
             reconcile_baseline.assert_called_once_with()
-            repos.return_value["repositories"][0]["state"] = "TASK_BRANCH"
+            self.assertEqual(clean_base_result["state"], "CURRENT")
+            self.assertEqual(clean_base_result["drift"], [])
+            entry = repos.return_value["repositories"][0]
+            self.assertIn(
+                mock.call(fleet.STATE_ROOT / "repositories.json", repos.return_value),
+                atomic_json.call_args_list,
+            )
+            for state, ahead, behind in (
+                ("DIRTY", 0, 1), ("DIRTY", 1, 0), ("DIVERGED", 1, 1),
+                ("FETCH_TIMEOUT", None, None), ("FETCH_FAILED", None, None),
+                ("UPDATE_FAILED", 0, 1),
+            ):
+                with self.subTest(state=state, ahead=ahead, behind=behind):
+                    entry.update(state=state, ahead=ahead, behind=behind)
+                    result = fleet.reconcile(report=False, install_required=False)
+                    self.assertEqual(result["state"], "UPDATE_REQUIRED")
+                    self.assertEqual(result["drift"], ["development-repositories.attention"])
+                    self.assertNotIn("private/name", json.dumps(result))
+            entry.update(state="TASK_BRANCH", ahead=None, behind=None)
             task_branch_result = fleet.reconcile(report=False, install_required=False)
-        self.assertEqual(result["state"], "UPDATE_REQUIRED")
-        self.assertEqual(
-            result["drift"],
-            ["development-repositories.attention"],
-        )
-        self.assertNotIn("private/name", json.dumps(result))
         self.assertEqual(task_branch_result["state"], "CURRENT")
         self.assertEqual(task_branch_result["drift"], [])
 
