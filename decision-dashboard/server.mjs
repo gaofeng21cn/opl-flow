@@ -34,6 +34,10 @@ export const SERVER_NAME = 'opl-flow-decision-dashboard';
 export const SERVER_VERSION = readPackageVersion();
 
 const TAB_VALUES = [
+  'attention',
+  'objectives',
+  'sessions',
+  'events',
   'needs_action',
   'safe_to_archive',
   'active_objectives',
@@ -170,7 +174,8 @@ function summarizeDashboard(payload) {
       ? '后台事件引擎已安装未启动'
       : '后台事件引擎未启动';
   const instanceLabel = data.instance_name ? `（${data.instance_name}）` : '';
-  return `OPL Flow 决策看板${instanceLabel}：${engineState}；需你拍板 ${counts.needs_action ?? 0}，待批归档 ${counts.safe_to_archive ?? 0}，进行中 ${counts.active_objectives ?? 0}，活跃对话 ${counts.active_sessions ?? 0}，外部阻塞 ${counts.blocked ?? 0}，待排期 ${counts.backlog ?? 0}，待处理事件 ${counts.pending_events ?? 0}。`;
+  const runningSessions = counts.running_sessions ?? counts.active_sessions ?? 0;
+  return `OPL Flow 决策看板${instanceLabel}：${engineState}；需你拍板 ${counts.needs_action ?? 0}，待批归档 ${counts.safe_to_archive ?? 0}，进行中 ${counts.active_objectives ?? 0}，运行中对话 ${runningSessions}（总 ${counts.active_sessions ?? 0}），外部阻塞 ${counts.blocked ?? 0}，待排期 ${counts.backlog ?? 0}，待处理事件 ${counts.pending_events ?? 0}。`;
 }
 
 function errorResult(code, error) {
@@ -259,7 +264,11 @@ export function createMcpServer({
     async (rawInput = {}) => {
       try {
         const focus = openInputSchema.parse(rawInput ?? {});
-        const data = await invoke('dashboard', focus.instance_path ? { instance_path: focus.instance_path } : {});
+        const data = await invoke('dashboard', {
+          include_local_navigation: true,
+          host_carrier: 'antigravity',
+          ...(focus.instance_path ? { instance_path: focus.instance_path } : {}),
+        });
         const summary = summarizeDashboard(data);
         if (supportsUi(server)) {
           return {
