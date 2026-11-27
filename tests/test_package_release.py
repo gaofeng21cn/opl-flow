@@ -1320,24 +1320,18 @@ class PrivateRegistryAdapterTests(unittest.TestCase):
         self.addCleanup(temporary.cleanup)
         self.root = Path(temporary.name).resolve()
         (self.root / "package.json").write_text('{"type":"module"}\n')
-        source = self.root / "src/adapters/integration/software-sources.ts"
-        source.parent.mkdir(parents=True)
-        source.write_text("""export function resolvePackageSourceCredentialProvider() {
-  const mode = process.env.OPL_TEST_SOURCE_MODE;
-  if (mode === 'missing') return null;
-  return { enabled: mode !== 'disabled', credential_handle: mode === 'no_handle' ? null : 'env:OPL_GITHUB_PACKAGES_TOKEN' };
-}
-""")
-        provider = self.root / "src/adapters/integration/agent-package-registry-parts/package-registry-access-provider.ts"
-        provider.parent.mkdir(parents=True)
-        provider.write_text("""import fs from 'node:fs';
-export function credentialForGithubPackages() {
+        adapter = self.root / "scripts/private-package-source-access.mjs"
+        adapter.parent.mkdir()
+        adapter.write_text("""import fs from 'node:fs';
+import path from 'node:path';
+export function preparePrivatePackageRegistryAccess(publicationRef, configRoot) {
+  if (process.env.OPL_TEST_SOURCE_MODE !== 'enabled') return 'source_not_configured';
   fs.writeFileSync(process.env.OPL_TEST_CREDENTIAL_LOG, 'called');
-  return { username: 'fixture', token: 'synthetic-private-test-token' };
+  if (configRoot) fs.writeFileSync(path.join(configRoot, 'config.json'), '{}', { mode: 0o600 });
+  return 'ready';
 }
 """)
         verifier = self.root / "scripts/oci-publication-receipt-readback.mjs"
-        verifier.parent.mkdir()
         verifier.write_text("""export function verifyPrivatePackagePublication() {
   throw new Error('synthetic-private-test-token must stay inside the adapter');
 }
@@ -1347,6 +1341,7 @@ export function credentialForGithubPackages() {
         oras = bindir / "oras"
         oras.write_text("""#!/bin/sh
 printf '%s\\n' "$DOCKER_CONFIG" >> "$OPL_TEST_REGISTRY_LOG"
+printf '%s\\n' "$4" >> "$OPL_TEST_REGISTRY_REFS"
 printf '%s\\n' '{"digest":"sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"}'
 """)
         oras.chmod(0o755)
@@ -1356,6 +1351,7 @@ printf '%s\\n' '{"digest":"sha256:dddddddddddddddddddddddddddddddddddddddddddddd
             **os.environ, "PATH": str(bindir) + os.pathsep + os.environ.get("PATH", ""),
             "OPL_TEST_CREDENTIAL_LOG": str(self.credential_log),
             "OPL_TEST_REGISTRY_LOG": str(self.registry_log),
+            "OPL_TEST_REGISTRY_REFS": str(self.root / "descriptor-refs"),
         }
         self.package = {
             "package_id": "occ", "version": "1.2.3", "source_repo": "https://github.com/gaofeng21cn/opl-capital-compass.git",
@@ -1376,6 +1372,7 @@ printf '%s\\n' '{"digest":"sha256:dddddddddddddddddddddddddddddddddddddddddddddd
             ["node", "--input-type=module", "-e", release.PRIVATE_REGISTRY_ADAPTER, str(self.root)],
             input=json.dumps({
                 "action": action, "package": self.package, "registryConfigRoot": str(registry_config),
+                "version": self.package["version"], "sourceCommit": self.package["codex_surface"]["carrier_source_commit"],
                 "receiptSelector": {"publicationRequestId": "request-1", "workflowRepository": "owner/repo", "workflowRunId": "123"},
             }),
             capture_output=True, text=True, check=False,
@@ -1463,6 +1460,30 @@ export function verifyPrivatePackagePublication(input, env) {
         self.assertNotIn("synthetic-private-test-token", result.stdout + result.stderr)
         for config in self.registry_log.read_text().splitlines():
             self.assertFalse(Path(config).exists(), config)
+
+    def test_v2_private_receipt_reads_the_dispatched_version_and_source_commit(self) -> None:
+        self.package["v2_release"] = {"version": "2.0.0", "source_commit": "f" * 40}
+        registry_refs = self.root / "descriptor-refs"
+        self.env["OPL_TEST_SOURCE_MODE"] = "enabled"
+        (self.root / "scripts/oci-publication-receipt-readback.mjs").write_text("""export function verifyPrivatePackagePublication(input) {
+  return { status: 'verified', receipt: { version: input.version, sourceCommit: input.sourceCommit } };
+}
+""")
+        with patch.dict(os.environ, self.env):
+            output = release.private_registry_readback(self.root, self.package, action="receipt")
+        self.assertEqual(output["receipt"], {"version": "2.0.0", "sourceCommit": "f" * 40})
+        image = self.package["codex_surface"]["configured_codex_plugin_carrier"]["publication_ref"].split(":")[0]
+        self.assertEqual(registry_refs.read_text().splitlines(), [f"{image}:2.0.0", f"{image}:latest-stable"])
+
+    def test_malformed_private_v2_release_stops_before_any_credential_read(self) -> None:
+        for facet in (None, {}, {"version": "2.0.0", "source_commit": "missing"},
+                      {"version": "2.0.0", "source_commit": int("1" * 40)}):
+            with self.subTest(facet=facet), patch.dict(os.environ, self.env):
+                self.package["v2_release"] = facet
+                with self.assertRaisesRegex(release.ReleaseError, "invalid Package version or owner commit"):
+                    release.private_registry_readback(self.root, self.package, action="receipt")
+                self.assertFalse(self.credential_log.exists())
+                self.assertFalse(self.registry_log.exists())
 
     def test_python_owner_removes_temporary_config_after_adapter_timeout(self) -> None:
         paths = []

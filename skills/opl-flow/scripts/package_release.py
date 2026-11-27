@@ -1148,28 +1148,24 @@ try {
   if (typeof package_.package_id !== 'string' || !/^[a-z0-9](?:[a-z0-9.-]*[a-z0-9])?$/.test(package_.package_id)) {
     fail('Private Package identity is invalid.');
   }
+  if (input.action !== 'receipt' && input.action !== 'predecessor') fail('Unknown private Package readback action.');
   const packagePublicKey = path.join(root, 'contracts/opl-framework/keys/private-packages', `${package_.package_id}.pub`);
   const publicKey = fs.existsSync(packagePublicKey)
     ? packagePublicKey : path.join(root, 'contracts/opl-framework/keys/private-package-signing.pub');
   const publicationRef = package_.codex_surface.configured_codex_plugin_carrier.publication_ref;
   const image = publicationRef.replace(/:latest-stable$/, '');
   const load = (relative) => import(pathToFileURL(path.join(root, relative)).href);
-  const { resolvePackageSourceCredentialProvider } = await load('src/adapters/integration/software-sources.ts');
-  const { credentialForGithubPackages } = await load('src/adapters/integration/agent-package-registry-parts/package-registry-access-provider.ts');
-  const selected = resolvePackageSourceCredentialProvider(package_.source_repo, publicationRef, process.env);
-  if (!selected || selected.enabled !== true || !selected.credential_handle) {
+  const { preparePrivatePackageRegistryAccess } = await load('scripts/private-package-source-access.mjs');
+  if (input.action === 'receipt') temporary = input.registryConfigRoot;
+  const access = preparePrivatePackageRegistryAccess(publicationRef, temporary);
+  if (access === 'source_not_configured') {
     fail('Private Package software source is disabled or has no configured credential.');
   }
-  const credential = credentialForGithubPackages(process.env, selected.credential_handle);
-  if (!credential) fail('Private Package configured credential is unavailable.');
+  if (access !== 'ready') fail('Private Package configured credential is unavailable.');
   if (input.action === 'predecessor') {
     // Private 404s can conceal authorization failure; the protected publisher resolves it.
     process.stdout.write(JSON.stringify({ predecessor: 'resolve-authenticated' }));
   } else {
-    if (input.action !== 'receipt') fail('Unknown private Package readback action.');
-    temporary = input.registryConfigRoot;
-    const auth = Buffer.from(`${credential.username}:${credential.token}`).toString('base64');
-    fs.writeFileSync(path.join(temporary, 'config.json'), JSON.stringify({ auths: { 'ghcr.io': { auth } } }), { mode: 0o600 });
     const env = { ...process.env, DOCKER_CONFIG: temporary };
     const descriptor = (ref) => {
       const result = spawnSync('oras', ['manifest', 'fetch', '--descriptor', ref], {
@@ -1183,12 +1179,12 @@ try {
       if (!/^sha256:[0-9a-f]{64}$/.test(digest ?? '')) fail('Private Package OCI descriptor has an invalid digest.');
       return digest;
     };
-    const digest = descriptor(`${image}:${package_.version}`);
+    const digest = descriptor(`${image}:${input.version}`);
     if (descriptor(publicationRef) !== digest) fail('Private Package latest-stable differs from the selected version.');
     const { verifyPrivatePackagePublication } = await load('scripts/oci-publication-receipt-readback.mjs');
     const output = verifyPrivatePackagePublication({
-      subject: `${image}@${digest}`, packageId: package_.package_id, version: package_.version,
-      sourceRepo: package_.source_repo, sourceCommit: package_.codex_surface.carrier_source_commit,
+      subject: `${image}@${digest}`, packageId: package_.package_id, version: input.version,
+      sourceRepo: package_.source_repo, sourceCommit: input.sourceCommit,
       accessPolicyRef: package_.access_policy_ref, credentialProvider: package_.credential_provider,
       publicKey,
       includeReceipt: true,
@@ -1208,17 +1204,33 @@ try {
 """
 
 
+def package_publication_identity(package: dict[str, Any]) -> tuple[str, str]:
+    if "v2_release" not in package:
+        return str(package.get("version") or ""), str(package["codex_surface"].get("carrier_source_commit") or "")
+    release = package["v2_release"]
+    if isinstance(release, dict):
+        version, commit = release.get("version"), release.get("source_commit")
+        if (
+            isinstance(version, str) and re.fullmatch(r"\d+\.\d+\.\d+", version)
+            and isinstance(commit, str) and re.fullmatch(r"[0-9a-f]{40}", commit)
+        ):
+            return version, commit
+    raise ReleaseError("Catalog v2 release has an invalid Package version or owner commit")
+
+
 def private_registry_readback(
     framework_root: Path, package: dict[str, Any], *, action: str,
     receipt_selector: dict[str, str] | None = None,
 ) -> dict[str, Any]:
     # Credentials remain inside the Framework adapter process and its temporary config.
     # Python also owns cleanup when the child is terminated before its finally block.
+    version, source_commit = package_publication_identity(package)
     with tempfile.TemporaryDirectory(prefix="opl-flow-private-registry-") as temporary:
         result = command(
             ["node", "--input-type=module", "-e", PRIVATE_REGISTRY_ADAPTER, str(framework_root)],
             input_text=json.dumps({
                 "action": action, "package": package, "registryConfigRoot": temporary,
+                "version": version, "sourceCommit": source_commit,
                 "receiptSelector": receipt_selector,
             }),
             timeout=600, check=False,
@@ -1260,18 +1272,7 @@ def publish(args: argparse.Namespace) -> dict[str, Any]:
     codex_surface = package.get("codex_surface")
     if not isinstance(codex_surface, dict):
         raise ReleaseError("Framework package projection has no codex_surface")
-    release = package.get("v2_release")
-    if release is None:
-        version = str(package.get("version") or "")
-        owner_commit = str(codex_surface.get("carrier_source_commit") or "")
-    elif (
-        isinstance(release, dict)
-        and re.fullmatch(r"\d+\.\d+\.\d+", str(release.get("version", "")))
-        and re.fullmatch(r"[0-9a-f]{40}", str(release.get("source_commit", "")))
-    ):
-        version, owner_commit = release["version"], release["source_commit"]
-    else:
-        raise ReleaseError("Catalog v2 release has an invalid Package version or owner commit")
+    version, owner_commit = package_publication_identity(package)
     carrier = codex_surface.get("configured_codex_plugin_carrier")
     publication_ref = carrier.get("publication_ref") if isinstance(carrier, dict) else None
     if not isinstance(publication_ref, str) or not publication_ref.endswith(":latest-stable"):
