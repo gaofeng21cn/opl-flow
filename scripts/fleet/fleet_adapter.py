@@ -302,6 +302,62 @@ def _acquire_remote_lease(
     )
 
 
+def _local_bridge_command(
+    adapter_name: str,
+    *,
+    use_codex_bridge: bool,
+    use_antigravity_bridge: bool,
+    use_dsh_bridge: bool = False,
+    codex_bin: str | None,
+    agy_bin: str | None,
+    dsh_control: str | None = None,
+    dsh_combination: str | None = None,
+    model: str | None,
+    effort: str | None,
+    sandbox: str | None,
+    use_worktree: bool,
+    workspace_root: Path | None,
+) -> list[str] | None:
+    if adapter_name == "local-codex" and use_codex_bridge:
+        bridge_path = fleet_common.FLOW_ROOT / "scripts" / "opl_codex_bridge.py"
+        return [
+            sys.executable,
+            str(bridge_path),
+            "worker",
+            *(["--codex-bin", codex_bin] if codex_bin else []),
+            *(["--model", model] if model else []),
+            *(["--sandbox", sandbox] if sandbox else []),
+            *(["--worktree"] if use_worktree else []),
+            *(["--cwd", str(workspace_root)] if workspace_root else []),
+        ]
+    if adapter_name == "local-antigravity" and use_antigravity_bridge:
+        bridge_path = fleet_common.FLOW_ROOT / "scripts" / "opl_antigravity_bridge.py"
+        return [
+            sys.executable,
+            str(bridge_path),
+            "worker",
+            *(["--agy-bin", agy_bin] if agy_bin else []),
+            *(["--model", model] if model else []),
+            *(["--effort", effort] if effort else []),
+            *(["--sandbox", sandbox] if sandbox else []),
+            *(["--worktree"] if use_worktree else []),
+            *(["--cwd", str(workspace_root)] if workspace_root else []),
+        ]
+    if adapter_name == "local-dsh" and use_dsh_bridge:
+        bridge_path = fleet_common.FLOW_ROOT / "scripts" / "opl_dsh_bridge.py"
+        return [
+            sys.executable,
+            str(bridge_path),
+            "worker",
+            *(["--dsh-control", dsh_control] if dsh_control else []),
+            *(["--combination", dsh_combination] if dsh_combination else []),
+            *(["--model", model] if model else []),
+            *(["--sandbox", sandbox] if sandbox else []),
+            *(["--cwd", str(workspace_root)] if workspace_root else []),
+        ]
+    return None
+
+
 def dispatch_run(
     *,
     handoff: dict[str, Any],
@@ -329,13 +385,19 @@ def dispatch_run(
     preempt_generation: int | None = None,
     preempt_nonce: str | None = None,
     use_codex_bridge: bool = False,
+    use_antigravity_bridge: bool = False,
+    use_dsh_bridge: bool = False,
     codex_bin: str | None = None,
+    agy_bin: str | None = None,
+    dsh_control: str | None = None,
+    dsh_combination: str | None = None,
     model: str | None = None,
+    effort: str | None = None,
     use_worktree: bool = False,
     sandbox: str | None = None,
     state_root: Path | None = None,
 ) -> dict[str, Any]:
-    """Unified single-transaction dispatch across local-codex, ssh-session, remote-codex, and lease-only."""
+    """Unified single-transaction dispatch across local-codex, local-antigravity, local-dsh, ssh-session, remote-codex, and lease-only."""
     if mode not in {"execute", "envelope"}:
         raise FleetError(f"unsupported dispatch run mode: {mode!r}")
 
@@ -350,10 +412,10 @@ def dispatch_run(
 
     reqs = read_execution_requirements(json.dumps(requirements) if requirements is not None else None)
     effective_adapter = str(adapter or reqs["adapter"])
-    if effective_adapter not in {"local-codex", "ssh-session", "remote-codex", "lease-only"}:
+    if effective_adapter not in {"local-codex", "local-antigravity", "local-dsh", "ssh-session", "remote-codex", "lease-only"}:
         raise FleetError(f"adapter {effective_adapter} does not support dispatch run")
-    if effective_adapter == "local-codex" and node_id:
-        raise FleetError("local-codex does not accept a Fleet node")
+    if effective_adapter in fleet_common.LOCAL_DISPATCH_ADAPTERS and node_id:
+        raise FleetError(f"{effective_adapter} does not accept a Fleet node")
 
     # Stage 4 Pre-Execution Envelope Gate — MUST fail closed BEFORE acquiring lease or calling transport!
     try:
@@ -390,7 +452,7 @@ def dispatch_run(
     }
 
     lease: dict[str, Any] | None = None
-    if effective_adapter != "local-codex":
+    if effective_adapter not in fleet_common.LOCAL_DISPATCH_ADAPTERS:
         lease = _acquire_remote_lease(
             request=request_payload,
             owner_task=owner_task,
@@ -512,22 +574,28 @@ def dispatch_run(
     worker_result: dict[str, Any] | None = None
     budget_evaluation: dict[str, Any] | None = None
 
-    if effective_adapter == "local-codex":
-        effective_cmd = list(executor_cmd) if executor_cmd else None
-        if effective_cmd is None and use_codex_bridge:
-            bridge_path = fleet_common.FLOW_ROOT / "scripts" / "opl_codex_bridge.py"
-            effective_cmd = [
-                sys.executable,
-                str(bridge_path),
-                "worker",
-                *(["--codex-bin", codex_bin] if codex_bin else []),
-                *(["--model", model] if model else []),
-                *(["--sandbox", sandbox] if sandbox else []),
-                *(["--worktree"] if use_worktree else []),
-                *(["--cwd", str(workspace_root)] if workspace_root else []),
-            ]
+    if effective_adapter in fleet_common.LOCAL_DISPATCH_ADAPTERS:
+        effective_cmd = list(executor_cmd) if executor_cmd else _local_bridge_command(
+            effective_adapter,
+            use_codex_bridge=use_codex_bridge,
+            use_antigravity_bridge=use_antigravity_bridge,
+            use_dsh_bridge=use_dsh_bridge,
+            codex_bin=codex_bin,
+            agy_bin=agy_bin,
+            dsh_control=dsh_control,
+            dsh_combination=dsh_combination,
+            model=model,
+            effort=effort,
+            sandbox=sandbox,
+            use_worktree=use_worktree,
+            workspace_root=workspace_root,
+        )
         if not effective_cmd:
-            raise FleetError("local-codex execute mode requires executor_cmd or --use-codex-bridge or --mode envelope")
+            bridge_flag = {
+                "local-antigravity": "--use-antigravity-bridge",
+                "local-dsh": "--use-dsh-bridge",
+            }.get(effective_adapter, "--use-codex-bridge")
+            raise FleetError(f"{effective_adapter} execute mode requires executor_cmd or {bridge_flag} or --mode envelope")
         with tempfile.TemporaryDirectory(prefix="opl-local-run-") as tmp:
             handoff_file = Path(tmp) / "handoff.json"
             handoff_file.write_text(json.dumps(validated_handoff, ensure_ascii=False), encoding="utf-8")
@@ -970,6 +1038,17 @@ def dispatch_group_run(
             runtime_dir=slice_runtime,
             callback_state_dir=callback_state_dir,
             group_id=group_id,
+            use_codex_bridge=bool(entry.get("use_codex_bridge", False)),
+            use_antigravity_bridge=bool(entry.get("use_antigravity_bridge", False)),
+            use_dsh_bridge=bool(entry.get("use_dsh_bridge", False)),
+            codex_bin=entry.get("codex_bin"),
+            agy_bin=entry.get("agy_bin"),
+            dsh_control=entry.get("dsh_control"),
+            dsh_combination=entry.get("dsh_combination"),
+            model=entry.get("model"),
+            effort=entry.get("effort"),
+            use_worktree=bool(entry.get("use_worktree", False)),
+            sandbox=entry.get("sandbox"),
             state_root=resolved_root,
         )
         dispatched_results.append(

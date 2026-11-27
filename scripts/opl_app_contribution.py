@@ -13,7 +13,7 @@ from typing import Any
 
 if __package__:
     from . import opl_runtime as runtime
-    from . import opl_events, opl_ledger, opl_service, opl_workflow
+    from . import opl_events, opl_ledger, opl_service, opl_session_discovery, opl_workflow
 else:
     SCRIPT_DIR = Path(__file__).resolve().parent
     if str(SCRIPT_DIR) not in sys.path:
@@ -22,6 +22,7 @@ else:
     import opl_events
     import opl_ledger
     import opl_service
+    import opl_session_discovery
     import opl_workflow
 
 
@@ -61,12 +62,15 @@ def _resolve_instance(input_data: dict[str, Any]) -> tuple[Path | None, str | No
 
 
 def _sanitize_service(svc: dict[str, Any]) -> dict[str, Any]:
+    raw_bridge = svc.get("bridge")
+    bridge = raw_bridge if raw_bridge in ("auto", "codex", "antigravity", "custom") else None
     return {
         "schema": svc.get("schema", "opl_router_service_status.v1"),
         "platform": str(svc.get("platform") or ""),
         "label": str(svc.get("label") or ""),
         "installed": bool(svc.get("installed")),
         "running": bool(svc.get("running")),
+        "bridge": bridge,
     }
 
 
@@ -77,11 +81,15 @@ def _sanitize_entry(entry: dict[str, Any], *, category: str) -> dict[str, Any]:
     title = _clean_text(str(entry.get("title") or bead_id), max_len=240)
     first_blocker = _clean_text(str(entry.get("first_blocker") or ""), max_len=500) or None
     next_action = _clean_text(str(entry.get("next_action") or ""), max_len=500) or None
+    carrier = _clean_text(str(entry.get("execution_carrier") or ""), max_len=32) or None
+    preferred_adapter = _clean_text(str(entry.get("preferred_adapter") or ""), max_len=64) or None
     return {
         "bead_id": bead_id,
         "title": title,
         "status": _clean_text(str(entry.get("status") or ""), max_len=64),
         "execution_mode": _clean_text(str(entry.get("execution_mode") or ""), max_len=64) or None,
+        "execution_carrier": carrier,
+        "preferred_adapter": preferred_adapter,
         "category": category,
         "first_blocker": first_blocker,
         "next_action": next_action,
@@ -112,6 +120,7 @@ def _category_label(category: str) -> str:
         "needs_action": "需你拍板",
         "safe_to_archive": "待批归档",
         "active_objectives": "进行中",
+        "active_sessions": "活跃对话",
         "blocked": "外部阻塞",
         "backlog": "待排期",
     }
@@ -129,6 +138,8 @@ def build_dashboard(input_data: dict[str, Any]) -> dict[str, Any]:
         active_dir = ev_dir if opl_events.inbox_exists(ev_dir) else None
         raw_inbox = opl_events.list_inbox_summary(snap, state_dir=active_dir)
         svc = _sanitize_service(opl_service.router_service_status(root))
+        discovery = opl_session_discovery.discover_local_sessions(issues=snap.get("issues"))
+        sanitized_sessions = opl_session_discovery.sanitize_sessions_for_projection(discovery)
     except (
         opl_workflow.WorkflowError,
         opl_events.EventControlError,
@@ -181,11 +192,14 @@ def build_dashboard(input_data: dict[str, Any]) -> dict[str, Any]:
         if isinstance(item, dict) and item.get("event_id")
     ]
     sanitized_inbox["pending_events"] = pending_events
+    active_session_list = list(sanitized_sessions.get("sessions") or [])
+    sanitized_inbox["active_sessions"] = active_session_list
 
     counts = {
         "needs_action": len(sanitized_inbox["needs_action"]),
         "safe_to_archive": len(sanitized_inbox["safe_to_archive"]),
         "active_objectives": len(sanitized_inbox["active_objectives"]),
+        "active_sessions": len(active_session_list),
         "blocked": len(sanitized_inbox["blocked"]),
         "backlog": len(sanitized_inbox["backlog"]),
         "pending_events": len(pending_events),
@@ -202,6 +216,7 @@ def build_dashboard(input_data: dict[str, Any]) -> dict[str, Any]:
             "service": svc,
             "counts": counts,
             "inbox": sanitized_inbox,
+            "active_sessions": sanitized_sessions,
             "items": board_items,
             "validation_errors": list(snap.get("validation_errors") or [])[:10],
         },
@@ -230,6 +245,8 @@ def action_send(input_data: dict[str, Any]) -> dict[str, Any]:
     except (TypeError, ValueError):
         priority = 2
     run_now = bool(input_data.get("now", False))
+    raw_executor = _clean_text(input_data.get("executor"), max_len=32).lower()
+    executor = raw_executor if raw_executor in opl_events.EXECUTOR_ADAPTER_MAP else None
     request_id = _clean_text(input_data.get("request_id"), max_len=100) or uuid.uuid4().hex[:12]
 
     try:
@@ -251,6 +268,14 @@ def action_send(input_data: dict[str, Any]) -> dict[str, Any]:
             summary_text = f"已向目标 {bead_id} 投递回复指示。"
         else:
             auto_title = title or message.splitlines()[0][:60]
+            reqs = (
+                {
+                    "schema": "opl_execution_requirements.v1",
+                    "adapter": opl_events.EXECUTOR_ADAPTER_MAP[executor],
+                }
+                if executor
+                else None
+            )
             res = opl_events.intake_objective(
                 root,
                 bd,
@@ -258,6 +283,7 @@ def action_send(input_data: dict[str, Any]) -> dict[str, Any]:
                 scope=message,
                 priority=priority,
                 execution_mode=execution_mode,
+                requirements=reqs,
                 state_dir=ev_dir,
                 runner=opl_workflow.run,
             )
@@ -417,11 +443,22 @@ def action_service(input_data: dict[str, Any]) -> dict[str, Any]:
                 interval = max(5.0, min(3600.0, float(raw_interval)))
             except (TypeError, ValueError):
                 interval = 15.0
+            raw_bridge = _clean_text(input_data.get("bridge"), max_len=32).lower()
+            if raw_bridge in ("auto", "codex", "antigravity"):
+                bridge = raw_bridge
+                use_codex = bridge == "codex"
+            elif "use_codex_bridge" in input_data:
+                bridge = None
+                use_codex = bool(input_data.get("use_codex_bridge"))
+            else:
+                bridge = "auto"
+                use_codex = False
             res = opl_service.install_router_service(
                 root,
                 flow_root=opl_workflow.flow_root(),
                 interval_seconds=interval,
-                use_codex_bridge=bool(input_data.get("use_codex_bridge", True)),
+                use_codex_bridge=use_codex,
+                bridge=bridge,
                 dry_run=dry_run,
             )
             msg = "后台事件驱动引擎已启动。" if not dry_run else "已生成启动预览（dry-run）。"

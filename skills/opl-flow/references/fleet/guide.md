@@ -81,7 +81,7 @@ Choose the narrow command family:
   Profile projection. See the authoring and delivery boundary below.
 - `select`: choose a node from fresh capabilities and policy.
 - `lease`: acquire, verify, renew, release, or reconcile protected capacity.
-- `dispatch`: plan, acquire, verify, execute, run (single-transaction adapter, supporting `--use-codex-bridge`), complete, group (`plan|run|status`), or release one adapter-bound execution transaction.
+- `dispatch`: plan, acquire, verify, execute, run (single-transaction adapter, supporting `--use-codex-bridge`, `--use-antigravity-bridge`, `--use-dsh-bridge`), complete, group (`plan|run|status`), or release one adapter-bound execution transaction.
 - `attempt`: inspect, observe (`opl_fleet_attempt_telemetry.v1`), heartbeat, evaluate preemption (`preempt-plan`), gracefully suspend (`suspend`), or detect stale attempts (`stale-check`).
 - `queue`: compute priority queueing and backpressure plans (`queue plan`) over ready slices and active leases.
 - `data-job`: run a lightweight per-node task and optionally fetch one
@@ -213,7 +213,9 @@ CAS. An offline or ineligible node is skipped, and no eligible node returns
 
 Adapter boundaries are explicit:
 
-- `local-codex` executes in the current session and takes no Fleet lease;
+- `local-codex` executes in the current session or via `opl_codex_bridge.py` and takes no Fleet lease;
+- `local-antigravity` executes via `opl_antigravity_bridge.py` (`agy --print`) or an interactive envelope launch and takes no Fleet lease;
+- `local-dsh` executes via `opl_dsh_bridge.py` wrapping `opl-dsh-official/control.mjs` (supporting `--dsh-combination` / `--model` such as `agy + Gemini`) and takes no Fleet lease;
 - `lease-only` reserves capacity for a caller-owned executor;
 - `github-runner` uses the existing guarded runner transaction but does not
   submit a GitHub job;

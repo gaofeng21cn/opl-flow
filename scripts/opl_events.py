@@ -12,21 +12,23 @@ import hashlib
 import json
 from pathlib import Path, PurePosixPath
 import re
+import shutil
 import signal
 import subprocess
 import sys
 import time
-from typing import Annotated, Any, Callable, Iterator
+from typing import Annotated, Any, Callable, Iterable, Iterator
 import uuid
 
 try:
     from . import opl_runtime as runtime, opl_state_store as state_store
-    from . import opl_execution, opl_ledger, opl_supervisor
+    from . import opl_execution, opl_ledger, opl_session_discovery, opl_supervisor
 except ImportError:  # Direct script execution.
     import opl_runtime as runtime
     import opl_state_store as state_store
     import opl_execution
     import opl_ledger
+    import opl_session_discovery
     import opl_supervisor
 
 from pydantic import BaseModel, ConfigDict, Field, StrictStr, field_validator
@@ -59,6 +61,12 @@ EVENT_STATUSES = frozenset(
 )
 MAX_RETAINED_TERMINAL_EVENTS = 500
 MAX_RETRIES = 5
+CONTROL_BRIDGES = ("auto", "codex", "antigravity")
+EXECUTOR_ADAPTER_MAP = {
+    "codex": "local-codex",
+    "antigravity": "local-antigravity",
+    "dsh": "local-dsh",
+}
 TEST_OR_WAIT_ONLY_RE = re.compile(
     r"^\s*(?:re-?run\s+tests?|run\s+tests?|wait|poll|monitor\s+tests?|retest)\b",
     re.IGNORECASE,
@@ -368,6 +376,8 @@ def intake_objective(
     execution_mode: str = "backlog",
     requirements: dict[str, Any] | None = None,
     depends_on: list[str] | tuple[str, ...] | None = None,
+    execution_thread: str | None = None,
+    execution_carrier: str | None = None,
     external_ref: str | None = None,
     state_dir: Path | None = None,
     runner: opl_ledger.Runner | None = None,
@@ -398,6 +408,15 @@ def intake_objective(
         except opl_execution.ExecutionError as exc:
             raise EventControlError(str(exc)) from exc
 
+    clean_thread = execution_thread.strip() if isinstance(execution_thread, str) and execution_thread.strip() else None
+    clean_carrier = execution_carrier.strip().lower() if isinstance(execution_carrier, str) and execution_carrier.strip() else None
+    if clean_thread and not clean_carrier and ":" in clean_thread:
+        prefix = clean_thread.split(":", 1)[0].strip().lower()
+        if prefix in {"codex", "antigravity", "dsh"}:
+            clean_carrier = prefix
+    if clean_carrier is not None and clean_carrier not in {"codex", "antigravity", "dsh"}:
+        raise EventControlError(f"unsupported execution_carrier: {clean_carrier!r}")
+
     ref_digest = hashlib.sha256(f"{title.strip()}\n{scope.strip()}".encode("utf-8")).hexdigest()[:12]
     resolved_ref = external_ref or f"opl://intake/{_slug(title)}-{ref_digest}"
     metadata: dict[str, Any] = {
@@ -409,6 +428,10 @@ def intake_objective(
     }
     if requirements is not None:
         metadata["opl_execution_requirements"] = requirements
+    if clean_thread is not None:
+        metadata["execution_thread"] = clean_thread
+    if clean_carrier is not None:
+        metadata["execution_carrier"] = clean_carrier
 
     bead = opl_ledger.create_issue(
         instance_root,
@@ -435,7 +458,12 @@ def intake_objective(
         parent_objective_id=parent,
         source="cli:intake",
         idempotency_key=f"intake:{bead_id}:{resolved_ref}",
-        payload={"signal": "manual_intake", "execution_mode": execution_mode, "write_set": clean_write_set},
+        payload={
+            "signal": "manual_intake",
+            "execution_mode": execution_mode,
+            "write_set": clean_write_set,
+            **({"execution_carrier": clean_carrier} if clean_carrier is not None else {}),
+        },
     )
     return {"schema": "opl_intake_result.v1", "bead": bead, "event": emitted["event"], "deduplicated": emitted["deduplicated"]}
 
@@ -712,6 +740,7 @@ def evaluate_control_turn(
     pending_events: list[dict[str, Any]] | None = None,
     worktree_ledger: dict[str, Any] | None = None,
     active_leases: dict[str, Any] | None = None,
+    local_sessions: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     """Stateless logical product controller evaluating one bounded control turn over Beads DAG."""
     issues = [item for item in snapshot.get("issues", []) if isinstance(item, dict) and item.get("id")]
@@ -886,7 +915,19 @@ def evaluate_control_turn(
         live_thread = meta.get("execution_thread")
         if (isinstance(live_thread, str) and live_thread.strip()) or bid in lease_by_task:
             counts["running"] += 1
-            running_slices.append({"objective_id": bid, "write_set": write_set, "owner_id": live_thread or "leased"})
+            carrier = meta.get("execution_carrier")
+            if not carrier and isinstance(live_thread, str) and ":" in live_thread:
+                prefix = live_thread.split(":", 1)[0].strip()
+                if prefix in {"codex", "antigravity", "dsh"}:
+                    carrier = prefix
+            slice_info: dict[str, Any] = {
+                "objective_id": bid,
+                "write_set": write_set,
+                "owner_id": live_thread or "leased",
+            }
+            if isinstance(carrier, str) and carrier.strip():
+                slice_info["execution_carrier"] = carrier.strip()
+            running_slices.append(slice_info)
             continue
 
         # Check DAG dependencies
@@ -938,12 +979,19 @@ def evaluate_control_turn(
             handoff["resumability"] = deepcopy(meta["opl_resumability"])
         opl_execution.validate_handoff(handoff)
 
+        reqs = meta.get("opl_execution_requirements")
+        preferred_adapter = (
+            reqs.get("adapter")
+            if isinstance(reqs, dict) and isinstance(reqs.get("adapter"), str)
+            else None
+        )
         ready_entry = {
             "objective_id": bid,
             "title": issue.get("title"),
             "priority": issue.get("priority", 2),
             "write_set": sorted(set(write_set)),
-            "requirements": meta.get("opl_execution_requirements"),
+            "requirements": reqs,
+            **({"preferred_adapter": preferred_adapter} if preferred_adapter else {}),
             "unlocked_by_callback": unlocked_via_callback,
             "handoff": handoff,
         }
@@ -973,6 +1021,42 @@ def evaluate_control_turn(
                         "objectives": sorted(map(str, overlap.get("objectives") or [overlap.get("objective_id") or "unknown"])),
                         "overlapping_paths": list(overlap.get("paths") or []),
                         "integration_policy": "serialized_critical_section",
+                    }
+                )
+    if isinstance(local_sessions, dict) and ready_candidates:
+        instance_ws = snapshot.get("workspace_label") or (
+            Path(str(snapshot["instance"])).name if snapshot.get("instance") else None
+        )
+        seen_guard: set[tuple[str, str]] = set()
+        for occ in local_sessions.get("active_workspace_occupants", []) or []:
+            if not isinstance(occ, dict):
+                continue
+            ws_label = str(occ.get("workspace_label") or "").strip()
+            if not ws_label:
+                continue
+            if instance_ws and ws_label != str(instance_ws):
+                continue
+            occ_ref = str(occ.get("session_ref") or f"{occ.get('carrier') or 'local'}:active")
+            occ_bead = occ.get("bound_bead_id")
+            for cand in ready_candidates:
+                if occ_bead and str(occ_bead) == cand["objective_id"]:
+                    continue
+                guard_key = (cand["objective_id"], occ_ref)
+                if guard_key in seen_guard:
+                    continue
+                seen_guard.add(guard_key)
+                integration_queue.append(
+                    {
+                        "objectives": [cand["objective_id"]],
+                        "overlapping_paths": cand["write_set"] or [ws_label],
+                        "integration_policy": "worktree_required_active_local_session",
+                        "active_session": {
+                            "session_ref": occ_ref,
+                            "carrier": occ.get("carrier"),
+                            "harness": occ.get("harness"),
+                            "workspace_label": ws_label,
+                            "bound_bead_id": occ_bead,
+                        },
                     }
                 )
 
@@ -1015,6 +1099,31 @@ def _collect_ledger_snapshot(
     }
 
 
+def _obs_item_key(item: dict[str, Any]) -> str:
+    return str(item.get("id") or item.get("thread_id") or item.get("conversationId") or item.get("session_id") or "").strip()
+
+
+def _merge_discovered_observations(
+    obs: dict[str, Any],
+    bound: dict[str, list[dict[str, Any]]],
+) -> dict[str, Any]:
+    merged = dict(obs)
+    for key in ("threads", "antigravity_conversations", "dsh_sessions"):
+        existing = [item for item in (merged.get(key) or []) if isinstance(item, dict)]
+        seen = {_obs_item_key(item) for item in existing if _obs_item_key(item)}
+        combined = list(existing)
+        for item in bound.get(key, []):
+            item_key = _obs_item_key(item)
+            if item_key and item_key in seen:
+                continue
+            if item_key:
+                seen.add(item_key)
+            combined.append(item)
+        if combined:
+            merged[key] = combined
+    return merged
+
+
 def router_tick(
     instance_root: Path,
     bd: str,
@@ -1026,6 +1135,10 @@ def router_tick(
     snapshot: dict[str, Any] | None = None,
     snapshot_fn: Callable[[], dict[str, Any]] | None = None,
     control_hook_argv: list[str] | None = None,
+    control_hook_resolver: Callable[[dict[str, Any], str | None, list[dict[str, Any]], dict[str, Any]], tuple[str, list[str]]] | None = None,
+    auto_discover_sessions: bool = False,
+    discovery_fn: Callable[[dict[str, Any]], dict[str, Any]] | None = None,
+    local_sessions: dict[str, Any] | None = None,
     dry_run: bool = False,
     runner: opl_ledger.Runner | None = None,
 ) -> dict[str, Any]:
@@ -1034,13 +1147,25 @@ def router_tick(
     c_path = cursor_path or opl_supervisor.default_cursor_path(instance_root)
     cursor = opl_supervisor.load_cursor(c_path)
     snap = snapshot if snapshot is not None else (snapshot_fn() if snapshot_fn else _collect_ledger_snapshot(instance_root, bd, runner=runner))
-    obs = observations or {}
+    obs = dict(observations or {})
+
+    discovered_sessions: dict[str, Any] | None = local_sessions
+    if discovered_sessions is None and auto_discover_sessions:
+        discovered_sessions = (
+            discovery_fn(snap)
+            if discovery_fn is not None
+            else opl_session_discovery.discover_local_sessions(issues=snap.get("issues"))
+        )
+    if discovered_sessions is not None:
+        obs = _merge_discovered_observations(obs, opl_session_discovery.build_bound_observations(discovered_sessions))
 
     existing_pending = list_events(inbox_dir, status="pending") + list_events(inbox_dir, status="failed_retryable")
     plan = opl_supervisor.detect_changes(
         snap,
         cursor=cursor,
         threads=obs.get("threads"),
+        antigravity_conversations=obs.get("antigravity_conversations"),
+        dsh_sessions=obs.get("dsh_sessions"),
         linear_issues=obs.get("linear_issues"),
         linear_comments=obs.get("linear_comments"),
         pending_events=existing_pending,
@@ -1075,6 +1200,12 @@ def router_tick(
         else list_events(inbox_dir, status="pending") + list_events(inbox_dir, status="failed_retryable")
     )
 
+    sanitized_sessions = (
+        opl_session_discovery.sanitize_sessions_for_projection(discovered_sessions)
+        if discovered_sessions is not None
+        else None
+    )
+
     if not pending_now and not plan["validation_errors"] and not plan["linear_actions"] and not plan["obsidian_actions"]:
         return {
             "schema": "opl_router_tick.v1",
@@ -1083,6 +1214,7 @@ def router_tick(
             "emitted_events": 0,
             "turns": [],
             "hook_invoked": False,
+            **({"sessions": sanitized_sessions} if sanitized_sessions is not None else {}),
         }
 
     # Group events by root objective
@@ -1101,7 +1233,7 @@ def router_tick(
     hook_invoked = False
     hook_results: list[dict[str, Any]] = []
 
-    if dry_run or not control_hook_argv:
+    if dry_run or (not control_hook_argv and control_hook_resolver is None):
         for root_id, root_events in sorted(by_root.items()):
             turns.append(
                 evaluate_control_turn(
@@ -1109,6 +1241,7 @@ def router_tick(
                     root_objective_id=root_id if root_id in issue_parent else None,
                     pending_events=root_events,
                     worktree_ledger=worktree_ledger,
+                    local_sessions=discovered_sessions,
                 )
             )
     else:
@@ -1122,16 +1255,23 @@ def router_tick(
             claimed_events = claimed["events"]
             if not claimed_events:
                 continue
+            scoped_root = root_id if root_id in issue_parent else None
             turn_plan = evaluate_control_turn(
                 snap,
-                root_objective_id=root_id if root_id in issue_parent else None,
+                root_objective_id=scoped_root,
                 pending_events=claimed_events,
                 worktree_ledger=worktree_ledger,
+                local_sessions=discovered_sessions,
             )
             turns.append(turn_plan)
+            if control_hook_resolver is not None:
+                resolved_bridge, exec_argv = control_hook_resolver(snap, scoped_root, claimed_events, turn_plan)
+            else:
+                resolved_bridge, exec_argv = None, control_hook_argv
+            assert exec_argv is not None
             hook_invoked = True
             proc = subprocess.run(
-                control_hook_argv,
+                exec_argv,
                 input=json.dumps(turn_plan, ensure_ascii=False),
                 capture_output=True,
                 text=True,
@@ -1140,7 +1280,14 @@ def router_tick(
             event_ids = [ev["event_id"] for ev in claimed_events]
             if proc.returncode == 0:
                 ack_events(inbox_dir, event_ids=event_ids, claim_token=claimed["claim_token"], outcome="acked")
-                hook_results.append({"root_objective_id": root_id, "status": "acked", "event_count": len(event_ids)})
+                hook_results.append(
+                    {
+                        "root_objective_id": root_id,
+                        "status": "acked",
+                        "event_count": len(event_ids),
+                        **({"bridge": resolved_bridge} if resolved_bridge is not None else {}),
+                    }
+                )
             else:
                 ack_events(
                     inbox_dir,
@@ -1149,7 +1296,14 @@ def router_tick(
                     outcome="failed_retryable",
                     error=(proc.stderr or proc.stdout or f"hook exit {proc.returncode}").strip(),
                 )
-                hook_results.append({"root_objective_id": root_id, "status": "failed_retryable", "returncode": proc.returncode})
+                hook_results.append(
+                    {
+                        "root_objective_id": root_id,
+                        "status": "failed_retryable",
+                        "returncode": proc.returncode,
+                        **({"bridge": resolved_bridge} if resolved_bridge is not None else {}),
+                    }
+                )
 
     return {
         "schema": "opl_router_tick.v1",
@@ -1160,6 +1314,7 @@ def router_tick(
         "hook_invoked": hook_invoked,
         "hook_results": hook_results,
         "supervisor_plan": plan,
+        **({"sessions": sanitized_sessions} if sanitized_sessions is not None else {}),
     }
 
 
@@ -1173,6 +1328,9 @@ def router_watch(
     cursor_path: Path | None = None,
     snapshot_fn: Callable[[], dict[str, Any]] | None = None,
     control_hook_argv: list[str] | None = None,
+    control_hook_resolver: Callable[[dict[str, Any], str | None, list[dict[str, Any]], dict[str, Any]], tuple[str, list[str]]] | None = None,
+    auto_discover_sessions: bool = True,
+    discovery_fn: Callable[[dict[str, Any]], dict[str, Any]] | None = None,
     runner: opl_ledger.Runner | None = None,
     sleep_fn: Callable[[float], None] = time.sleep,
 ) -> dict[str, Any]:
@@ -1205,6 +1363,9 @@ def router_watch(
                 cursor_path=cursor_path,
                 snapshot_fn=snapshot_fn,
                 control_hook_argv=control_hook_argv,
+                control_hook_resolver=control_hook_resolver,
+                auto_discover_sessions=auto_discover_sessions,
+                discovery_fn=discovery_fn,
                 runner=runner,
             )
             ticks.append(
@@ -1254,6 +1415,13 @@ def list_inbox_summary(
         mode = meta.get("execution_mode")
         status = str(issue.get("status") or "")
         remaining = meta.get("remaining") if isinstance(meta.get("remaining"), list) else []
+        reqs = meta.get("opl_execution_requirements") if isinstance(meta.get("opl_execution_requirements"), dict) else {}
+        preferred_adapter = reqs.get("adapter") if isinstance(reqs.get("adapter"), str) else None
+        carrier = meta.get("execution_carrier")
+        if not carrier and isinstance(meta.get("execution_thread"), str) and ":" in str(meta.get("execution_thread")):
+            prefix = str(meta.get("execution_thread")).split(":", 1)[0].strip()
+            if prefix in {"codex", "antigravity", "dsh"}:
+                carrier = prefix
         entry = {
             "bead_id": issue["id"],
             "title": issue.get("title"),
@@ -1262,6 +1430,8 @@ def list_inbox_summary(
             "first_blocker": meta.get("first_blocker"),
             "next_action": meta.get("next_action"),
             "remaining": remaining,
+            **({"execution_carrier": str(carrier).strip()} if isinstance(carrier, str) and carrier.strip() else {}),
+            **({"preferred_adapter": preferred_adapter} if preferred_adapter else {}),
         }
         proj = opl_supervisor.project_title_prefix(issue)
         if proj["prefix"] == "SAFE_TO_ARCHIVE":
@@ -1356,10 +1526,250 @@ def default_codex_control_hook(
     ]
 
 
+def default_antigravity_control_hook(
+    *,
+    instance_root: Path,
+    flow_root: Path | None = None,
+    agy_bin: str | None = None,
+    model: str | None = None,
+    effort: str | None = None,
+    sandbox: str = "workspace-write",
+    dry_run: bool = False,
+) -> list[str]:
+    """Build the subprocess hook invoking opl_antigravity_bridge.py in control mode."""
+    resolved_flow = (flow_root or Path(__file__).resolve().parents[1]).expanduser().resolve()
+    return [
+        sys.executable,
+        str(resolved_flow / "scripts/opl_antigravity_bridge.py"),
+        "control",
+        "--instance",
+        str(instance_root.expanduser().resolve()),
+        "--sandbox",
+        sandbox,
+        *(["--agy-bin", agy_bin] if agy_bin else []),
+        *(["--model", model] if model else []),
+        *(["--effort", effort] if effort else []),
+        *(["--dry-run"] if dry_run else []),
+    ]
+
+
+def default_control_hook(
+    *,
+    bridge: str = "codex",
+    instance_root: Path,
+    flow_root: Path | None = None,
+    codex_bin: str | None = None,
+    agy_bin: str | None = None,
+    model: str | None = None,
+    effort: str | None = None,
+    sandbox: str = "workspace-write",
+    dry_run: bool = False,
+) -> list[str]:
+    """Build the control-turn subprocess hook for the selected carrier bridge."""
+    if bridge == "auto":
+        raise EventControlError("bridge='auto' requires build_auto_control_hook_resolver() for per-turn dispatch")
+    if bridge == "codex":
+        return default_codex_control_hook(
+            instance_root=instance_root,
+            flow_root=flow_root,
+            codex_bin=codex_bin,
+            model=model,
+            sandbox=sandbox,
+            dry_run=dry_run,
+        )
+    if bridge == "antigravity":
+        return default_antigravity_control_hook(
+            instance_root=instance_root,
+            flow_root=flow_root,
+            agy_bin=agy_bin,
+            model=model,
+            effort=effort,
+            sandbox=sandbox,
+            dry_run=dry_run,
+        )
+    raise EventControlError(f"unsupported control bridge: {bridge!r}")
+
+
+def _cli_available(binary_name: str, explicit: str | None) -> bool:
+    candidate = explicit or binary_name
+    path_candidate = Path(candidate).expanduser()
+    if path_candidate.is_file():
+        return True
+    return shutil.which(candidate) is not None
+
+
+def available_control_bridges(*, codex_bin: str | None = None, agy_bin: str | None = None) -> list[str]:
+    """Return locally available control-turn bridges in preference order."""
+    found: list[str] = []
+    if _cli_available("codex", codex_bin):
+        found.append("codex")
+    if _cli_available("agy", agy_bin):
+        found.append("antigravity")
+    return found
+
+
+def _carrier_from_issue(issue: dict[str, Any]) -> str | None:
+    meta = issue.get("metadata") if isinstance(issue.get("metadata"), dict) else {}
+    carrier = str(meta.get("execution_carrier") or "").strip().lower()
+    if carrier in {"codex", "antigravity"}:
+        return carrier
+    exec_thread = str(meta.get("execution_thread") or "").strip().lower()
+    if exec_thread.startswith("antigravity:"):
+        return "antigravity"
+    if exec_thread.startswith("codex:"):
+        return "codex"
+    reqs = meta.get("opl_execution_requirements") if isinstance(meta.get("opl_execution_requirements"), dict) else {}
+    adapter = str(reqs.get("adapter") or "").strip().lower()
+    if adapter == "local-antigravity":
+        return "antigravity"
+    if adapter in {"local-codex", "remote-codex"}:
+        return "codex"
+    return None
+
+
+def resolve_control_bridge_for_turn(
+    snapshot: dict[str, Any],
+    *,
+    root_objective_id: str | None = None,
+    events: list[dict[str, Any]] | None = None,
+    turn_plan: dict[str, Any] | None = None,
+    available_bridges: Iterable[str] | None = None,
+    default_bridge: str = "codex",
+) -> str:
+    """Dynamically select the control-turn bridge ('codex' or 'antigravity') for one objective scope."""
+    avail = [
+        b
+        for b in (available_bridges if available_bridges is not None else ("codex", "antigravity"))
+        if b in {"codex", "antigravity"}
+    ]
+    if not avail:
+        avail = [default_bridge] if default_bridge in {"codex", "antigravity"} else ["codex"]
+
+    preferred: str | None = None
+    for ev in events or []:
+        if not isinstance(ev, dict):
+            continue
+        obj_id = str(ev.get("objective_id") or "").lower()
+        src = str(ev.get("source") or "").lower()
+        payload = ev.get("payload") if isinstance(ev.get("payload"), dict) else {}
+        ev_carrier = str(payload.get("execution_carrier") or payload.get("carrier") or "").strip().lower()
+        if ev_carrier in {"codex", "antigravity"}:
+            preferred = ev_carrier
+            break
+        if obj_id.startswith("antigravity:") or src.startswith("antigravity:"):
+            preferred = "antigravity"
+            break
+        if obj_id.startswith(("thread:", "codex:")) or src.startswith("codex:"):
+            preferred = "codex"
+            break
+
+    if preferred is None:
+        issues = [item for item in snapshot.get("issues", []) if isinstance(item, dict) and item.get("id")]
+        by_id = {str(item["id"]): item for item in issues}
+        if root_objective_id and root_objective_id in by_id:
+            preferred = _carrier_from_issue(by_id[root_objective_id])
+            if preferred is None:
+                scoped_ids = {root_objective_id}
+                changed = True
+                while changed:
+                    changed = False
+                    for bid, item in by_id.items():
+                        if bid not in scoped_ids and str(item.get("parent") or "") in scoped_ids:
+                            scoped_ids.add(bid)
+                            changed = True
+                child_carriers = {
+                    c for bid in sorted(scoped_ids) if (c := _carrier_from_issue(by_id[bid])) is not None
+                }
+                if len(child_carriers) == 1:
+                    preferred = next(iter(child_carriers))
+
+    if preferred is None and isinstance(turn_plan, dict):
+        batch_carriers: set[str] = set()
+        for entry in turn_plan.get("fan_out_batch", []) or []:
+            if not isinstance(entry, dict):
+                continue
+            adapter = str(entry.get("preferred_adapter") or "").strip().lower()
+            if adapter == "local-antigravity":
+                batch_carriers.add("antigravity")
+            elif adapter in {"local-codex", "remote-codex"}:
+                batch_carriers.add("codex")
+        if len(batch_carriers) == 1:
+            preferred = next(iter(batch_carriers))
+
+    if preferred in avail:
+        return str(preferred)
+    if default_bridge in avail:
+        return default_bridge
+    return avail[0]
+
+
+def build_auto_control_hook_resolver(
+    *,
+    instance_root: Path,
+    flow_root: Path | None = None,
+    codex_bin: str | None = None,
+    agy_bin: str | None = None,
+    model: str | None = None,
+    effort: str | None = None,
+    sandbox: str = "workspace-write",
+    dry_run: bool = False,
+    available_bridges: Iterable[str] | None = None,
+    default_bridge: str = "codex",
+) -> Callable[[dict[str, Any], str | None, list[dict[str, Any]], dict[str, Any]], tuple[str, list[str]]]:
+    """Create a per-turn resolver routing Codex & AntiGravity objectives within one Router process."""
+    avail = (
+        [b for b in available_bridges if b in {"codex", "antigravity"}]
+        if available_bridges is not None
+        else available_control_bridges(codex_bin=codex_bin, agy_bin=agy_bin)
+    )
+    if not avail:
+        avail = ["codex", "antigravity"]
+
+    hooks: dict[str, list[str]] = {}
+    if "codex" in avail:
+        hooks["codex"] = default_codex_control_hook(
+            instance_root=instance_root,
+            flow_root=flow_root,
+            codex_bin=codex_bin,
+            model=model,
+            sandbox=sandbox,
+            dry_run=dry_run,
+        )
+    if "antigravity" in avail:
+        hooks["antigravity"] = default_antigravity_control_hook(
+            instance_root=instance_root,
+            flow_root=flow_root,
+            agy_bin=agy_bin,
+            model=model,
+            effort=effort,
+            sandbox=sandbox,
+            dry_run=dry_run,
+        )
+
+    def _resolve(
+        snapshot: dict[str, Any],
+        root_objective_id: str | None,
+        events: list[dict[str, Any]],
+        turn_plan: dict[str, Any],
+    ) -> tuple[str, list[str]]:
+        chosen = resolve_control_bridge_for_turn(
+            snapshot,
+            root_objective_id=root_objective_id,
+            events=events,
+            turn_plan=turn_plan,
+            available_bridges=avail,
+            default_bridge=default_bridge,
+        )
+        return chosen, list(hooks[chosen])
+
+    return _resolve
+
+
 def format_inbox_human(
     summary: dict[str, Any],
     *,
     service_status: dict[str, Any] | None = None,
+    local_sessions: dict[str, Any] | None = None,
 ) -> str:
     """Render a clean, human-centric Chinese status and decision dashboard."""
     lines: list[str] = []
@@ -1367,7 +1777,15 @@ def format_inbox_human(
         running = bool(service_status.get("running"))
         installed = bool(service_status.get("installed"))
         state_text = "运行中（无事件零消耗）" if running else ("已安装未启动" if installed else "未启用后台监听")
-        lines.append(f"【事件引擎】{state_text} | 服务: {service_status.get('label', 'n/a')}")
+        bridge = service_status.get("bridge")
+        bridge_label = {
+            "auto": "Auto (Codex + AntiGravity + OPL DSH)",
+            "codex": "Codex",
+            "antigravity": "AntiGravity",
+            "custom": "Custom",
+        }.get(str(bridge or ""), "")
+        bridge_hint = f" | 桥接: {bridge_label}" if bridge_label else ""
+        lines.append(f"【事件引擎】{state_text}{bridge_hint} | 服务: {service_status.get('label', 'n/a')}")
         lines.append(f"  待处理事件: {len(summary.get('pending_events', []))} 条")
         lines.append("")
 

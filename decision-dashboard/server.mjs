@@ -37,6 +37,7 @@ const TAB_VALUES = [
   'needs_action',
   'safe_to_archive',
   'active_objectives',
+  'active_sessions',
   'blocked',
   'backlog',
   'pending_events',
@@ -57,6 +58,7 @@ const sendInputSchema = z
     title: z.string().min(1).max(120).optional(),
     message: z.string().min(1).max(4000),
     execution_mode: z.enum(['active', 'backlog']).optional(),
+    executor: z.enum(['codex', 'antigravity', 'dsh']).optional(),
     priority: z.number().int().min(0).max(4).optional(),
     now: z.boolean().optional(),
     request_id: z.string().regex(/^[A-Za-z0-9_-]{1,100}$/).optional(),
@@ -84,6 +86,7 @@ const serviceInputSchema = z
     instance_path: z.string().min(1).optional(),
     action: z.enum(['up', 'down']),
     confirmed: z.literal(true),
+    bridge: z.enum(['auto', 'codex', 'antigravity']).optional(),
     interval_seconds: z.number().min(5).max(3600).optional(),
     dry_run: z.boolean().optional(),
   })
@@ -166,7 +169,7 @@ function summarizeDashboard(payload) {
       ? '后台事件引擎已安装未启动'
       : '后台事件引擎未启动';
   const instanceLabel = data.instance_name ? `（${data.instance_name}）` : '';
-  return `OPL Flow 决策看板${instanceLabel}：${engineState}；需你拍板 ${counts.needs_action ?? 0}，待批归档 ${counts.safe_to_archive ?? 0}，进行中 ${counts.active_objectives ?? 0}，外部阻塞 ${counts.blocked ?? 0}，待排期 ${counts.backlog ?? 0}，待处理事件 ${counts.pending_events ?? 0}。`;
+  return `OPL Flow 决策看板${instanceLabel}：${engineState}；需你拍板 ${counts.needs_action ?? 0}，待批归档 ${counts.safe_to_archive ?? 0}，进行中 ${counts.active_objectives ?? 0}，活跃对话 ${counts.active_sessions ?? 0}，外部阻塞 ${counts.blocked ?? 0}，待排期 ${counts.backlog ?? 0}，待处理事件 ${counts.pending_events ?? 0}。`;
 }
 
 function errorResult(code, error) {

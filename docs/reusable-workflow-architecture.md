@@ -192,38 +192,20 @@ Ledger, Worker and Fleet operations; the Ledger does not dispatch work.
   control-turn evaluation (`graph evaluate`), event-driven router ticks/watch
   (`router tick|watch`), the unified human decision inbox (`inbox list|submit|approve-archive`),
   and the ergonomic human-first CLI verbs (`up`, `down`, `ps`, `send`, `approve`, plus `--human`).
-- `scripts/opl_codex_bridge.py` provides the default zero-Fleet `codex exec`
-  bridge for stateless control turns (`control`, outputting `opl_control_turn_receipt.v1`)
-  and bounded worker slices (`worker`, outputting validated `opl_worker_result.v1`)
-  without `--dangerously-bypass-approvals-and-sandbox`.
-- `scripts/opl_service.py` owns cross-platform background router service
-  installation/removal (`launchd` on macOS, `systemd --user` on Linux) and the
-  `opl-flow` CLI wrapper without importing Fleet.
-- Fleet configuration and Git primitives live in `fleet_control.py`, below
-  reconciliation and Profile delivery. These modules have no reverse import.
-- Worktree custody records identify the local custodian, executor, task reference
-  and cleanup state. They never assign the Ledger execution owner or declare a
-  task complete.
+- `scripts/opl_bridge_common.py` holds shared carrier-neutral prompt, strict schema, sandbox mapping, and receipt helpers (zero Fleet imports).
+- `scripts/opl_codex_bridge.py` provides the zero-Fleet `codex exec` bridge for stateless control turns (`control`, outputting `opl_control_turn_receipt.v1`) and bounded worker slices (`worker`, outputting validated `opl_worker_result.v1`) without `--dangerously-bypass-approvals-and-sandbox`.
+- `scripts/opl_antigravity_bridge.py` provides the zero-Fleet `agy --print` bridge for stateless control turns and bounded worker slices without `--dangerously-skip-permissions`, supporting optional detached git worktree isolation and runtime telemetry backfill.
+- `scripts/opl_dsh_bridge.py` provides the zero-Fleet OPL DSH worker bridge wrapping `opl-dsh-official/control.mjs` (`delegate`/`dispatch`) with explicit harness combinations (e.g., `agy + Gemini`) and telemetry readback.
+- `scripts/opl_session_discovery.py` performs zero-token read-only metadata discovery of active local Codex, AntiGravity, and OPL DSH conversations (`opl-flow sessions`), correlating Bead-bound sessions with `opl_supervisor.py` and enabling workspace collision protection (`worktree_required_active_local_session`) for unbound free chats without creating Beads or waking models.
+- `scripts/opl_service.py` owns cross-platform background router service installation/removal (`launchd` on macOS, `systemd --user` on Linux) defaulting `opl-flow up` to `--bridge auto` (dynamic Codex + AntiGravity routing in a single process, with optional `--bridge codex|antigravity` override) and the `opl-flow` CLI wrapper without importing Fleet.
+- Fleet configuration and Git primitives live in `fleet_control.py`, below reconciliation and Profile delivery. These modules have no reverse import.
+- Worktree custody records identify the local custodian, executor, task reference and cleanup state. They never assign the Ledger execution owner or declare a task complete.
 
-The physical owners remain unchanged: Beads/Dolt in the private Instance,
-Fleet node configuration and state in the existing per-user directories,
-Codex-owned sessions, and owner-managed project artifacts. Fleet's existing
-Instance pointer binds the local node namespace to one Instance. An explicit
-`--instance` cannot silently reuse another Instance's node state; another local
-Instance needs a separate OS user or a deliberate node migration.
+The physical owners remain unchanged: Beads/Dolt in the private Instance, Fleet node configuration and state in the existing per-user directories, Codex/AntiGravity/DSH-owned sessions, and owner-managed project artifacts. Fleet's existing Instance pointer binds the local node namespace to one Instance. An explicit `--instance` cannot silently reuse another Instance's node state; another local Instance needs a separate OS user or a deliberate node migration.
 
 ### Worker Handoff And Return
 
-A handoff contains `attempt_id`, `objective_id`, `owner_id`, `scope`, input and
-checkpoint references, and `expected_result`, plus optional additive
-`objective_revision`, `write_set`, `envelope` (allowed paths, tools, network/destructive
-guards, duration/token/cost budgets, and opaque `cred:` references), and
-`resumability` metadata (`checkpointable`, heartbeat/stale intervals, interruptible phase).
-It refers to owner-managed data; raw conversations and credentials stay with their owners.
-A result binds the same handoff and reports `checkpoint`, `completed`, `blocked` or `unknown`,
-artifact/checkpoint references, remaining work, the next action, and optional
-`budget_usage` / `checkpoint_digests`. `completed` means this execution slice returned
-evidence; the current Ledger owner still accepts the objective result.
+A handoff contains `attempt_id`, `objective_id`, `owner_id`, `scope`, input and checkpoint references, and `expected_result`, plus optional additive `objective_revision`, `write_set`, `envelope` (allowed paths, tools, network/destructive guards, duration/token/cost budgets, and opaque `cred:` references), and `resumability` metadata (`checkpointable`, heartbeat/stale intervals, interruptible phase). It refers to owner-managed data; raw conversations and credentials stay with their owners. A result binds the same handoff and reports `checkpoint`, `completed`, `blocked` or `unknown`, artifact/checkpoint references, remaining work, the next action, and optional `budget_usage` / `checkpoint_digests`. `completed` means this execution slice returned evidence; the current Ledger owner still accepts the objective result.
 
 ```bash
 python3 scripts/opl_workflow.py worker handoff --handoff-json handoff.json
@@ -231,11 +213,10 @@ python3 scripts/opl_workflow.py worker result \
   --handoff-json handoff.json --result-json result.json
 python3 scripts/opl_fleet.py dispatch run --adapter local-codex \
   --owner-task <objective-id> --handoff-json @handoff.json --use-codex-bridge
+python3 scripts/opl_fleet.py dispatch run --adapter local-antigravity \
+  --owner-task <objective-id> --handoff-json @handoff.json --use-antigravity-bridge
+python3 scripts/opl_fleet.py dispatch run --adapter local-dsh \
+  --owner-task <objective-id> --handoff-json @handoff.json --use-dsh-bridge
 ```
 
-Managed dispatch accepts the same `--handoff-json`. The lease stores only the
-attempt/objective/owner binding and handoff digest. SSH execution must present
-that exact handoff; changing scope after admission fails before transport. A
-native Codex Worker receives the handoff through its native task tools and
-returns the same result structure. Existing capacity-only CLI calls remain
-available without introducing task state into Fleet.
+Managed dispatch accepts the same `--handoff-json` across `local-codex`, `local-antigravity`, `local-dsh`, and remote adapters. The lease stores only the attempt/objective/owner binding and handoff digest. SSH execution must present that exact handoff; changing scope after admission fails before transport. A native Codex, AntiGravity, or OPL DSH Worker receives the handoff through its native/bridge interface or envelope launch and returns the same result structure. Existing capacity-only CLI calls remain available without introducing task state into Fleet.

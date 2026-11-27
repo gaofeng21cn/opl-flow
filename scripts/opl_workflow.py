@@ -15,7 +15,7 @@ from typing import Any, Iterable
 
 try:
     from . import opl_runtime as runtime  # noqa: F401
-    from . import opl_antigravity, opl_codex_bridge, opl_events, opl_execution, opl_ledger, opl_service, opl_supervisor
+    from . import opl_antigravity, opl_antigravity_bridge, opl_codex_bridge, opl_dsh_bridge, opl_events, opl_execution, opl_ledger, opl_service, opl_session_discovery, opl_supervisor
     from .fleet import fleet_execution
     from .opl_task_owner import (
         TaskOwnerError,
@@ -30,11 +30,14 @@ try:
 except ImportError:  # Direct script execution.
     import opl_runtime as runtime  # noqa: F401
     import opl_antigravity
+    import opl_antigravity_bridge
     import opl_codex_bridge
+    import opl_dsh_bridge
     import opl_events
     import opl_execution
     import opl_ledger
     import opl_service
+    import opl_session_discovery
     import opl_supervisor
     from fleet import fleet_execution
     from opl_task_owner import (
@@ -747,12 +750,16 @@ def workflow_status(
     git_arg: str | None = None,
     gh_arg: str | None = None,
     codex_arg: str | None = None,
+    agy_arg: str | None = None,
+    dsh_arg: str | None = None,
 ) -> dict[str, Any]:
     payload: dict[str, Any] = {"schema": "opl_flow_workflow_status.v1", "instance": str(instance) if instance else None}
     cwd = instance or Path.cwd()
     payload["git"] = cli_probe("git", cwd, git_arg)
     payload["github"] = github_probe(cwd, gh_arg)
     payload["codex"] = cli_probe("codex", cwd, codex_arg)
+    payload["antigravity"] = cli_probe("agy", cwd, agy_arg)
+    payload["dsh"] = opl_dsh_bridge.probe_dsh_surface(dsh_control=dsh_arg)
     try:
         bd = executable("bd", bd_arg)
         version = opl_ledger.version(cwd, bd, runner=run)
@@ -794,6 +801,8 @@ def parser() -> argparse.ArgumentParser:
     status.add_argument("--git-bin")
     status.add_argument("--gh-bin")
     status.add_argument("--codex-bin")
+    status.add_argument("--agy-bin")
+    status.add_argument("--dsh-control")
     worker = commands.add_parser("worker", help="validate a carrier-neutral handoff or result")
     worker.add_argument("worker_action", choices=("handoff", "result"))
     worker.add_argument("--handoff-json", required=True)
@@ -931,6 +940,8 @@ def parser() -> argparse.ArgumentParser:
     intake_submit.add_argument("--write-set", default="")
     intake_submit.add_argument("--priority", default="2")
     intake_submit.add_argument("--execution-mode", choices=("backlog", "active"), default="backlog")
+    intake_submit.add_argument("--executor", choices=("codex", "antigravity", "dsh"))
+    intake_submit.add_argument("--session")
     intake_submit.add_argument("--requirements-json")
     intake_submit.add_argument("--depends-on", default="")
     intake_submit.add_argument("--external-ref")
@@ -962,9 +973,13 @@ def parser() -> argparse.ArgumentParser:
     router_tick_p.add_argument("--observations-json")
     router_tick_p.add_argument("--worktree-ledger-json")
     router_tick_p.add_argument("--control-hook-json")
+    router_tick_p.add_argument("--bridge", choices=opl_events.CONTROL_BRIDGES)
     router_tick_p.add_argument("--use-codex-bridge", action="store_true")
+    router_tick_p.add_argument("--discover-sessions", action=argparse.BooleanOptionalAction, default=False)
     router_tick_p.add_argument("--codex-bin")
+    router_tick_p.add_argument("--agy-bin")
     router_tick_p.add_argument("--model")
+    router_tick_p.add_argument("--effort", choices=opl_antigravity_bridge.AGY_EFFORTS)
     router_tick_p.add_argument("--sandbox", default="workspace-write")
     router_tick_p.add_argument("--dry-run", action="store_true")
     router_watch_p = router_actions.add_parser("watch")
@@ -976,16 +991,23 @@ def parser() -> argparse.ArgumentParser:
     router_watch_p.add_argument("--event-state-dir", type=Path)
     router_watch_p.add_argument("--cursor-file", type=Path)
     router_watch_p.add_argument("--control-hook-json")
+    router_watch_p.add_argument("--bridge", choices=opl_events.CONTROL_BRIDGES)
     router_watch_p.add_argument("--use-codex-bridge", action="store_true")
+    router_watch_p.add_argument("--discover-sessions", action=argparse.BooleanOptionalAction, default=True)
     router_watch_p.add_argument("--codex-bin")
+    router_watch_p.add_argument("--agy-bin")
     router_watch_p.add_argument("--model")
+    router_watch_p.add_argument("--effort", choices=opl_antigravity_bridge.AGY_EFFORTS)
     router_watch_p.add_argument("--sandbox", default="workspace-write")
     router_inst_p = router_actions.add_parser("install-service")
     router_inst_p.add_argument("--instance")
     router_inst_p.add_argument("--interval", type=float, default=15.0)
+    router_inst_p.add_argument("--bridge", choices=opl_events.CONTROL_BRIDGES)
     router_inst_p.add_argument("--use-codex-bridge", action=argparse.BooleanOptionalAction, default=True)
     router_inst_p.add_argument("--codex-bin")
+    router_inst_p.add_argument("--agy-bin")
     router_inst_p.add_argument("--model")
+    router_inst_p.add_argument("--effort", choices=opl_antigravity_bridge.AGY_EFFORTS)
     router_inst_p.add_argument("--control-hook-json")
     router_inst_p.add_argument("--event-state-dir", type=Path)
     router_inst_p.add_argument("--cursor-file", type=Path)
@@ -1018,6 +1040,8 @@ def parser() -> argparse.ArgumentParser:
     inbox_sub.add_argument("--write-set", default="")
     inbox_sub.add_argument("--priority", default="2")
     inbox_sub.add_argument("--execution-mode", choices=("backlog", "active"), default="backlog")
+    inbox_sub.add_argument("--executor", choices=("codex", "antigravity", "dsh"))
+    inbox_sub.add_argument("--session")
     inbox_sub.add_argument("--requirements-json")
     inbox_sub.add_argument("--depends-on", default="")
     inbox_app = inbox_actions.add_parser("approve-archive")
@@ -1032,8 +1056,11 @@ def parser() -> argparse.ArgumentParser:
     up_p.add_argument("--bd-bin")
     up_p.add_argument("--git-bin")
     up_p.add_argument("--interval", type=float, default=15.0)
+    up_p.add_argument("--bridge", choices=opl_events.CONTROL_BRIDGES)
     up_p.add_argument("--codex-bin")
+    up_p.add_argument("--agy-bin")
     up_p.add_argument("--model")
+    up_p.add_argument("--effort", choices=opl_antigravity_bridge.AGY_EFFORTS)
     up_p.add_argument("--foreground", action="store_true")
     up_p.add_argument("--max-iterations", type=int)
     up_p.add_argument("--install-cli", action="store_true")
@@ -1052,6 +1079,14 @@ def parser() -> argparse.ArgumentParser:
     ps_p.add_argument("--event-state-dir", type=Path)
     ps_p.add_argument("--json", action="store_true")
 
+    sessions_p = commands.add_parser("sessions", help="Discover active local Codex, AntiGravity, and OPL DSH sessions")
+    sessions_p.add_argument("--instance")
+    sessions_p.add_argument("--bd-bin")
+    sessions_p.add_argument("--git-bin")
+    sessions_p.add_argument("--active-only", action="store_true")
+    sessions_p.add_argument("--horizon-minutes", type=int, default=60)
+    sessions_p.add_argument("--json", action="store_true")
+
     send_p = commands.add_parser("send", help="Submit a new task or send follow-up to an existing task")
     send_p.add_argument("message")
     send_p.add_argument("--instance")
@@ -1063,11 +1098,16 @@ def parser() -> argparse.ArgumentParser:
     send_p.add_argument("--write-set", default="")
     send_p.add_argument("--priority", default="2")
     send_p.add_argument("--execution-mode", choices=("backlog", "active"), default="backlog")
+    send_p.add_argument("--executor", choices=("codex", "antigravity", "dsh"))
+    send_p.add_argument("--session")
     send_p.add_argument("--state-dir", type=Path)
     send_p.add_argument("--now", action="store_true")
+    send_p.add_argument("--bridge", choices=opl_events.CONTROL_BRIDGES)
     send_p.add_argument("--use-codex-bridge", action="store_true")
     send_p.add_argument("--codex-bin")
+    send_p.add_argument("--agy-bin")
     send_p.add_argument("--model")
+    send_p.add_argument("--effort", choices=opl_antigravity_bridge.AGY_EFFORTS)
     send_p.add_argument("--json", action="store_true")
 
     approve_p = commands.add_parser("approve", help="Approve archiving a completed SAFE_TO_ARCHIVE task")
@@ -1079,6 +1119,81 @@ def parser() -> argparse.ArgumentParser:
 
     opl_antigravity.add_antigravity_subparser(commands)
     return root
+
+
+def _merge_executor_requirements(
+    requirements: dict[str, Any] | None,
+    executor: str | None,
+) -> dict[str, Any] | None:
+    if executor is None:
+        return requirements
+    adapter = opl_events.EXECUTOR_ADAPTER_MAP[executor]
+    if requirements is None:
+        return {"schema": "opl_execution_requirements.v1", "adapter": adapter}
+    merged = dict(requirements)
+    merged.setdefault("adapter", adapter)
+    return merged
+
+
+def _resolve_execution_binding(executor: str | None, session: str | None) -> tuple[str | None, str | None]:
+    clean_exec = executor.strip().lower() if isinstance(executor, str) and executor.strip() else None
+    clean_sess = session.strip() if isinstance(session, str) and session.strip() else None
+    if not clean_sess:
+        return None, clean_exec
+    if ":" in clean_sess:
+        prefix, _ = clean_sess.split(":", 1)
+        prefix_lower = prefix.strip().lower()
+        if prefix_lower in {"codex", "antigravity", "dsh"}:
+            return clean_sess, clean_exec or prefix_lower
+    if clean_exec in {"codex", "antigravity", "dsh"}:
+        return f"{clean_exec}:{clean_sess}", clean_exec
+    return clean_sess, clean_exec
+
+
+def _resolve_control_dispatch_from_args(
+    args: argparse.Namespace,
+    root: Path,
+) -> tuple[list[str] | None, Any | None]:
+    hook_json = getattr(args, "control_hook_json", None)
+    if hook_json:
+        hook_argv = read_json_argument(hook_json, "control hook")
+        if not isinstance(hook_argv, list) or not all(isinstance(x, str) for x in hook_argv):
+            raise WorkflowError("control-hook-json must be a JSON string array")
+        return hook_argv, None
+    bridge = getattr(args, "bridge", None)
+    if bridge is None and getattr(args, "use_codex_bridge", False):
+        bridge = "codex"
+    if bridge is None:
+        return None, None
+    if bridge == "auto":
+        resolver = opl_events.build_auto_control_hook_resolver(
+            instance_root=root,
+            flow_root=flow_root(),
+            codex_bin=getattr(args, "codex_bin", None),
+            agy_bin=getattr(args, "agy_bin", None),
+            model=getattr(args, "model", None),
+            effort=getattr(args, "effort", None),
+            sandbox=getattr(args, "sandbox", "workspace-write"),
+            dry_run=bool(getattr(args, "dry_run", False)),
+        )
+        return None, resolver
+    hook_argv = opl_events.default_control_hook(
+        bridge=bridge,
+        instance_root=root,
+        flow_root=flow_root(),
+        codex_bin=getattr(args, "codex_bin", None),
+        agy_bin=getattr(args, "agy_bin", None),
+        model=getattr(args, "model", None),
+        effort=getattr(args, "effort", None),
+        sandbox=getattr(args, "sandbox", "workspace-write"),
+        dry_run=bool(getattr(args, "dry_run", False)),
+    )
+    return hook_argv, None
+
+
+def _resolve_control_hook_from_args(args: argparse.Namespace, root: Path) -> list[str] | None:
+    hook_argv, _ = _resolve_control_dispatch_from_args(args, root)
+    return hook_argv
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -1108,12 +1223,37 @@ def main(argv: list[str] | None = None) -> int:
                         git_arg=args.git_bin,
                         gh_arg=args.gh_bin,
                         codex_arg=args.codex_bin,
+                        agy_arg=args.agy_bin,
+                        dsh_arg=args.dsh_control,
                     ),
                     ensure_ascii=False,
                     indent=2,
                     sort_keys=True,
                 )
             )
+            return 0
+        if args.command == "sessions":
+            opt_root = instance_root(args.instance, required=False)
+            issues: list[dict[str, Any]] = []
+            if opt_root is not None:
+                try:
+                    bd_bin = executable("bd", args.bd_bin)
+                    issues = supervisor_snapshot(opt_root, bd_bin, args.git_bin).get("issues", [])
+                except (WorkflowError, opl_ledger.LedgerError):
+                    issues = []
+            discovery = opl_session_discovery.discover_local_sessions(
+                issues=issues,
+                horizon_seconds=max(60, int(args.horizon_minutes) * 60),
+                active_only=bool(args.active_only),
+            )
+            if args.json:
+                payload = {
+                    **opl_session_discovery.sanitize_sessions_for_projection(discovery),
+                    "dsh_catalog": discovery.get("dsh_catalog"),
+                }
+                print(json.dumps(payload, ensure_ascii=False, indent=2, sort_keys=True))
+            else:
+                print(opl_session_discovery.format_sessions_human(discovery))
             return 0
         if args.command == "fleet":
             instance = instance_root(args.instance, required=False)
@@ -1128,15 +1268,32 @@ def main(argv: list[str] | None = None) -> int:
         root = instance_root(args.instance)
         assert root is not None
         if args.command == "up":
+            selected_bridge = args.bridge or "auto"
             if args.foreground:
                 bd = executable("bd", args.bd_bin)
-                hook_argv = opl_events.default_codex_control_hook(
-                    instance_root=root,
-                    flow_root=flow_root(),
-                    codex_bin=args.codex_bin,
-                    model=args.model,
-                    dry_run=args.dry_run,
-                )
+                if selected_bridge == "auto":
+                    hook_argv = None
+                    hook_resolver = opl_events.build_auto_control_hook_resolver(
+                        instance_root=root,
+                        flow_root=flow_root(),
+                        codex_bin=args.codex_bin,
+                        agy_bin=args.agy_bin,
+                        model=args.model,
+                        effort=args.effort,
+                        dry_run=args.dry_run,
+                    )
+                else:
+                    hook_resolver = None
+                    hook_argv = opl_events.default_control_hook(
+                        bridge=selected_bridge,
+                        instance_root=root,
+                        flow_root=flow_root(),
+                        codex_bin=args.codex_bin,
+                        agy_bin=args.agy_bin,
+                        model=args.model,
+                        effort=args.effort,
+                        dry_run=args.dry_run,
+                    )
                 result = opl_events.router_watch(
                     root,
                     bd,
@@ -1144,6 +1301,8 @@ def main(argv: list[str] | None = None) -> int:
                     max_iterations=args.max_iterations,
                     snapshot_fn=lambda: supervisor_snapshot(root, bd, args.git_bin),
                     control_hook_argv=hook_argv,
+                    control_hook_resolver=hook_resolver,
+                    auto_discover_sessions=True,
                     runner=run,
                 )
             else:
@@ -1151,9 +1310,12 @@ def main(argv: list[str] | None = None) -> int:
                     root,
                     flow_root=flow_root(),
                     interval_seconds=args.interval,
-                    use_codex_bridge=True,
+                    use_codex_bridge=(selected_bridge == "codex"),
+                    bridge=selected_bridge,
                     codex_bin=args.codex_bin,
+                    agy_bin=args.agy_bin,
                     model=args.model,
+                    effort=args.effort,
                     dry_run=args.dry_run,
                 )
                 if args.install_cli:
@@ -1165,7 +1327,19 @@ def main(argv: list[str] | None = None) -> int:
                 print(json.dumps(result, ensure_ascii=False, indent=2, sort_keys=True))
             else:
                 mode_hint = "（dry-run 预览）" if args.dry_run else "已启动后台事件驱动引擎"
-                print(f"OPL Flow {mode_hint}\n  服务标识: {result['label']}\n  服务文件: {result['service_path']}\n  日志目录: {result['log_dir']}\n  常用命令: ps 查看面板 | send \"任务描述\" 投递新任务 | down 停止")
+                bridge_hint = {
+                    "auto": "Auto（自动路由 Codex + AntiGravity，联动 OPL DSH）",
+                    "antigravity": "AntiGravity",
+                    "codex": "Codex",
+                }.get(selected_bridge, selected_bridge)
+                print(
+                    f"OPL Flow {mode_hint}\n"
+                    f"  控制桥接: {bridge_hint}\n"
+                    f"  服务标识: {result['label']}\n"
+                    f"  服务文件: {result['service_path']}\n"
+                    f"  日志目录: {result['log_dir']}\n"
+                    f"  常用命令: ps 查看面板 | sessions 查看活跃对话 | send \"任务描述\" 投递新任务 | down 停止"
+                )
             return 0
         if args.command == "down":
             result = opl_service.uninstall_router_service(root, dry_run=args.dry_run)
@@ -1182,8 +1356,11 @@ def main(argv: list[str] | None = None) -> int:
                     flow_root=flow_root(),
                     interval_seconds=args.interval,
                     use_codex_bridge=args.use_codex_bridge,
+                    bridge=args.bridge,
                     codex_bin=args.codex_bin,
+                    agy_bin=args.agy_bin,
                     model=args.model,
+                    effort=args.effort,
                     control_hook_argv=hook_argv,
                     event_state_dir=args.event_state_dir,
                     cursor_file=args.cursor_file,
@@ -1200,7 +1377,8 @@ def main(argv: list[str] | None = None) -> int:
                 result = opl_service.router_service_status(root)
                 if args.human:
                     state_txt = "运行中" if result["running"] else ("已安装未启动" if result["installed"] else "未安装")
-                    print(f"【Router 服务】{state_txt} | {result['label']} | {result['service_path']}")
+                    bridge_txt = f" | 桥接: {result['bridge']}" if result.get("bridge") else ""
+                    print(f"【Router 服务】{state_txt}{bridge_txt} | {result['label']} | {result['service_path']}")
                     return 0
             print(json.dumps(result, ensure_ascii=False, indent=2, sort_keys=True))
             return 0
@@ -1255,10 +1433,23 @@ def main(argv: list[str] | None = None) -> int:
             active_dir = ev_dir if opl_events.inbox_exists(ev_dir) else None
             summary = opl_events.list_inbox_summary(snap, state_dir=active_dir)
             svc = opl_service.router_service_status(root)
+            discovery = opl_session_discovery.discover_local_sessions(issues=snap.get("issues"))
             if args.json:
-                print(json.dumps({"schema": "opl_ps.v1", "service": svc, "inbox": summary}, ensure_ascii=False, indent=2, sort_keys=True))
+                print(
+                    json.dumps(
+                        {
+                            "schema": "opl_ps.v1",
+                            "service": svc,
+                            "inbox": summary,
+                            "sessions": opl_session_discovery.sanitize_sessions_for_projection(discovery),
+                        },
+                        ensure_ascii=False,
+                        indent=2,
+                        sort_keys=True,
+                    )
+                )
             else:
-                print(opl_events.format_inbox_human(summary, service_status=svc))
+                print(opl_events.format_inbox_human(summary, service_status=svc, local_sessions=discovery))
             return 0
         if args.command == "send":
             ev_dir = args.state_dir or opl_events.default_event_state_dir(root)
@@ -1277,6 +1468,8 @@ def main(argv: list[str] | None = None) -> int:
             else:
                 auto_title = args.title or args.message.strip().splitlines()[0][:60]
                 ws = [item.strip() for item in args.write_set.split(",") if item.strip()]
+                reqs = _merge_executor_requirements(None, args.executor)
+                exec_thread, exec_carrier = _resolve_execution_binding(args.executor, args.session)
                 res = opl_events.intake_objective(
                     root,
                     bd,
@@ -1286,6 +1479,9 @@ def main(argv: list[str] | None = None) -> int:
                     write_set=ws,
                     priority=args.priority,
                     execution_mode=args.execution_mode,
+                    requirements=reqs,
+                    execution_thread=exec_thread,
+                    execution_carrier=exec_carrier,
                     state_dir=ev_dir,
                     runner=run,
                 )
@@ -1293,22 +1489,14 @@ def main(argv: list[str] | None = None) -> int:
                 human_msg = f"已创建目标 [{target_id}]《{auto_title}》并进入事件队列"
             tick_res = None
             if args.now:
-                hook_argv = (
-                    opl_events.default_codex_control_hook(
-                        instance_root=root,
-                        flow_root=flow_root(),
-                        codex_bin=args.codex_bin,
-                        model=args.model,
-                    )
-                    if args.use_codex_bridge
-                    else None
-                )
+                hook_argv, hook_resolver = _resolve_control_dispatch_from_args(args, root)
                 tick_res = opl_events.router_tick(
                     root,
                     bd,
                     state_dir=ev_dir,
                     snapshot_fn=lambda: supervisor_snapshot(root, bd, args.git_bin),
                     control_hook_argv=hook_argv,
+                    control_hook_resolver=hook_resolver,
                     runner=run,
                 )
             if args.json:
@@ -1343,6 +1531,7 @@ def main(argv: list[str] | None = None) -> int:
                     snap,
                     cursor=cursor,
                     threads=obs.get("threads"),
+                    antigravity_conversations=obs.get("antigravity_conversations"),
                     linear_issues=obs.get("linear_issues"),
                     linear_comments=obs.get("linear_comments"),
                     pending_events=pending_events,
@@ -1383,6 +1572,7 @@ def main(argv: list[str] | None = None) -> int:
             ws = [item.strip() for item in args.write_set.split(",") if item.strip()]
             deps = [item.strip() for item in args.depends_on.split(",") if item.strip()]
             reqs = read_json_argument(args.requirements_json, "execution requirements") if args.requirements_json else None
+            reqs = _merge_executor_requirements(reqs, args.executor)
             result = opl_events.intake_objective(
                 root,
                 bd,
@@ -1421,18 +1611,7 @@ def main(argv: list[str] | None = None) -> int:
             print(json.dumps(result, ensure_ascii=False, indent=2, sort_keys=True))
             return 0
         if args.command == "router":
-            hook_argv = read_json_argument(args.control_hook_json, "control hook") if args.control_hook_json else None
-            if hook_argv is not None and (not isinstance(hook_argv, list) or not all(isinstance(x, str) for x in hook_argv)):
-                raise WorkflowError("control-hook-json must be a JSON string array")
-            if hook_argv is None and getattr(args, "use_codex_bridge", False):
-                hook_argv = opl_events.default_codex_control_hook(
-                    instance_root=root,
-                    flow_root=flow_root(),
-                    codex_bin=args.codex_bin,
-                    model=args.model,
-                    sandbox=args.sandbox,
-                    dry_run=getattr(args, "dry_run", False),
-                )
+            hook_argv, hook_resolver = _resolve_control_dispatch_from_args(args, root)
             if args.router_action == "tick":
                 obs = read_json_argument(args.observations_json, "observations") if args.observations_json else None
                 wt_ledger = read_json_argument(args.worktree_ledger_json, "worktree ledger") if args.worktree_ledger_json else None
@@ -1445,6 +1624,8 @@ def main(argv: list[str] | None = None) -> int:
                     worktree_ledger=wt_ledger,
                     snapshot_fn=lambda: supervisor_snapshot(root, bd, args.git_bin),
                     control_hook_argv=hook_argv,
+                    control_hook_resolver=hook_resolver,
+                    auto_discover_sessions=bool(args.discover_sessions),
                     dry_run=args.dry_run,
                     runner=run,
                 )
@@ -1458,6 +1639,8 @@ def main(argv: list[str] | None = None) -> int:
                     cursor_path=args.cursor_file,
                     snapshot_fn=lambda: supervisor_snapshot(root, bd, args.git_bin),
                     control_hook_argv=hook_argv,
+                    control_hook_resolver=hook_resolver,
+                    auto_discover_sessions=bool(args.discover_sessions),
                     runner=run,
                 )
             print(json.dumps(result, ensure_ascii=False, indent=2, sort_keys=True))
@@ -1469,7 +1652,14 @@ def main(argv: list[str] | None = None) -> int:
                 active_dir = ev_dir if opl_events.inbox_exists(ev_dir) else None
                 result = opl_events.list_inbox_summary(snap, state_dir=active_dir)
                 if args.human:
-                    print(opl_events.format_inbox_human(result, service_status=opl_service.router_service_status(root)))
+                    discovery = opl_session_discovery.discover_local_sessions(issues=snap.get("issues"))
+                    print(
+                        opl_events.format_inbox_human(
+                            result,
+                            service_status=opl_service.router_service_status(root),
+                            local_sessions=discovery,
+                        )
+                    )
                     return 0
             elif args.inbox_action == "submit":
                 if args.objective:
@@ -1492,6 +1682,8 @@ def main(argv: list[str] | None = None) -> int:
                     ws = [item.strip() for item in args.write_set.split(",") if item.strip()]
                     deps = [item.strip() for item in args.depends_on.split(",") if item.strip()]
                     reqs = read_json_argument(args.requirements_json, "execution requirements") if args.requirements_json else None
+                    reqs = _merge_executor_requirements(reqs, args.executor)
+                    exec_thread, exec_carrier = _resolve_execution_binding(args.executor, args.session)
                     result = opl_events.intake_objective(
                         root,
                         bd,
@@ -1503,6 +1695,8 @@ def main(argv: list[str] | None = None) -> int:
                         execution_mode=args.execution_mode,
                         requirements=reqs,
                         depends_on=deps,
+                        execution_thread=exec_thread,
+                        execution_carrier=exec_carrier,
                         state_dir=args.state_dir,
                         runner=run,
                     )
@@ -1528,7 +1722,7 @@ def main(argv: list[str] | None = None) -> int:
         if args.ledger_command == "supervisor-snapshot" and result["validation_errors"]:
             return 3
         return 0
-    except (WorkflowError, opl_execution.ExecutionError, opl_supervisor.SupervisorError, opl_events.EventControlError, opl_ledger.LedgerError, opl_codex_bridge.BridgeError, opl_service.ServiceError) as exc:
+    except (WorkflowError, opl_execution.ExecutionError, opl_supervisor.SupervisorError, opl_events.EventControlError, opl_ledger.LedgerError, opl_codex_bridge.BridgeError, opl_antigravity_bridge.BridgeError, opl_dsh_bridge.BridgeError, opl_service.ServiceError) as exc:
         print(f"ERROR: {exc}", file=sys.stderr)
         return 1
 

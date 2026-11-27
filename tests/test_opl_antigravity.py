@@ -71,6 +71,7 @@ class OplAntigravityTests(unittest.TestCase):
         self.assertFalse((self.gemini_home / "config/skills/swarm-code-worker-brief/SKILL.md").exists())
         self.assertFalse((self.gemini_home / "config/skills/third-party-audit-triage/SKILL.md").exists())
         self.assertFalse((self.gemini_home / "config/skills/project-vision-and-gap-review/SKILL.md").exists())
+        self.assertFalse((self.gemini_home / "config/skills/opl-flow-dual-carrier/SKILL.md").exists())
         self.assertFalse((self.gemini_home / "config/scripts/agy-pretool-guard.mjs").exists())
         self.assertFalse((self.gemini_home / "config/hooks.json").exists())
         self.assertFalse((self.gemini_home / "config/sidecars/weekly-agy-env-audit/sidecar.json").exists())
@@ -97,6 +98,7 @@ class OplAntigravityTests(unittest.TestCase):
         self.assertTrue((self.gemini_home / "config/skills/swarm-code-worker-brief/SKILL.md").is_file())
         self.assertTrue((self.gemini_home / "config/skills/third-party-audit-triage/SKILL.md").is_file())
         self.assertTrue((self.gemini_home / "config/skills/project-vision-and-gap-review/SKILL.md").is_file())
+        self.assertTrue((self.gemini_home / "config/skills/opl-flow-dual-carrier/SKILL.md").is_file())
         impeccable_link = self.gemini_home / "config/skills/impeccable"
         self.assertTrue(impeccable_link.is_symlink())
         self.assertEqual(impeccable_link.resolve(), impeccable_src.resolve())

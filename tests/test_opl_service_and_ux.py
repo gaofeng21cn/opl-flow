@@ -164,6 +164,65 @@ else:
             self.assertTrue(os.access(wrap_path, os.X_OK))
             self.assertIn("scripts/opl_workflow.py", wrap_path.read_text(encoding="utf-8"))
 
+            # Antigravity bridge dry-run plist + real write + bridge detection
+            dry_agy = svc.install_router_service(
+                instance,
+                flow_root=flow,
+                bridge="antigravity",
+                agy_bin="/usr/local/bin/agy",
+                model="gemini-4-neon-high",
+                effort="medium",
+                launch_agents_dir=launch_dir,
+                log_dir=log_dir,
+                platform_name="Darwin",
+                dry_run=True,
+            )
+            self.assertEqual(dry_agy["bridge"], "antigravity")
+            agy_plist = plistlib.loads(dry_agy["definition"].encode("utf-8"))
+            self.assertIn("--bridge", agy_plist["ProgramArguments"])
+            self.assertIn("antigravity", agy_plist["ProgramArguments"])
+            self.assertIn("--effort", agy_plist["ProgramArguments"])
+            self.assertNotIn("--use-codex-bridge", agy_plist["ProgramArguments"])
+
+            svc.install_router_service(
+                instance,
+                flow_root=flow,
+                bridge="antigravity",
+                launch_agents_dir=launch_dir,
+                log_dir=log_dir,
+                platform_name="Darwin",
+                runner=fake_run,
+                uid=501,
+            )
+            agy_status = svc.router_service_status(
+                instance,
+                launch_agents_dir=launch_dir,
+                log_dir=log_dir,
+                platform_name="Darwin",
+                runner=fake_run,
+                uid=501,
+            )
+            self.assertEqual(agy_status["bridge"], "antigravity")
+
+            agy_linux = svc.install_router_service(
+                instance,
+                flow_root=flow,
+                bridge="antigravity",
+                systemd_dir=systemd_dir,
+                log_dir=log_dir,
+                platform_name="Linux",
+                runner=fake_run,
+            )
+            self.assertIn("--bridge antigravity", Path(agy_linux["service_path"]).read_text(encoding="utf-8"))
+            agy_linux_status = svc.router_service_status(
+                instance,
+                systemd_dir=systemd_dir,
+                log_dir=log_dir,
+                platform_name="Linux",
+                runner=fake_run,
+            )
+            self.assertEqual(agy_linux_status["bridge"], "antigravity")
+
     def test_human_first_cli_verbs_up_down_ps_send_approve_and_inbox_human(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
@@ -242,7 +301,7 @@ else:
                 self.assertEqual(rc_inbox, 0)
                 self.assertIn("【需要你拍板", buf.getvalue())
 
-                # send new task (auto-derived title) & send follow-up to existing task
+                # send new task (auto-derived title) & send with --executor antigravity
                 buf = io.StringIO()
                 with mock.patch("sys.stdout", buf):
                     rc_send1 = workflow.main(["send", "修复夜间定时任务超时问题", "--instance", str(instance), "--state-dir", str(state_dir)])
@@ -251,9 +310,39 @@ else:
 
                 buf = io.StringIO()
                 with mock.patch("sys.stdout", buf):
+                    rc_send_agy = workflow.main(
+                        ["send", "调整看板展示", "--executor", "antigravity", "--instance", str(instance), "--state-dir", str(state_dir), "--json"]
+                    )
+                self.assertEqual(rc_send_agy, 0)
+                agy_payload = json.loads(buf.getvalue())
+                self.assertEqual(
+                    agy_payload["send"]["bead"]["metadata"]["opl_execution_requirements"]["adapter"],
+                    "local-antigravity",
+                )
+
+                buf = io.StringIO()
+                with mock.patch("sys.stdout", buf):
                     rc_send2 = workflow.main(["send", "选用 Postgres", "--to", "opl-1", "--instance", str(instance), "--state-dir", str(state_dir)])
                 self.assertEqual(rc_send2, 0)
                 self.assertIn("已向目标 [opl-1] 投递后续指示", buf.getvalue())
+
+                # up default --dry-run --json defaults to bridge=auto with --bridge auto arg
+                buf = io.StringIO()
+                with mock.patch("sys.stdout", buf):
+                    rc_up_default = workflow.main(["up", "--instance", str(instance), "--dry-run", "--json"])
+                self.assertEqual(rc_up_default, 0)
+                up_default_payload = json.loads(buf.getvalue())
+                self.assertEqual(up_default_payload["bridge"], "auto")
+                default_plist = plistlib.loads(up_default_payload["definition"].encode("utf-8"))
+                self.assertIn("--bridge", default_plist["ProgramArguments"])
+                self.assertIn("auto", default_plist["ProgramArguments"])
+
+                # up --bridge antigravity --dry-run --json prints bridge=antigravity
+                buf = io.StringIO()
+                with mock.patch("sys.stdout", buf):
+                    rc_up_agy = workflow.main(["up", "--instance", str(instance), "--bridge", "antigravity", "--dry-run", "--json"])
+                self.assertEqual(rc_up_agy, 0)
+                self.assertEqual(json.loads(buf.getvalue())["bridge"], "antigravity")
 
                 # approve opl-2 explicitly
                 buf = io.StringIO()

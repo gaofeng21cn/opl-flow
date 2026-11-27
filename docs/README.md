@@ -13,7 +13,7 @@ documentation explains those authorities.
 | [OPL Flow whitepaper (Chinese)](whitepapers/opl-flow-whitepaper.md) | Product philosophy and the Router, Worker, Fleet, and Ledger coordination model |
 | [Capability governance](capability-governance.md) | Profile, capability composition, and executor compatibility through Framework and App |
 | [New machine setup](new-machine-codex-setup.md) | Install, initialize, update, and verify a machine |
-| [AntiGravity setup](antigravity-setup.md) | Inspect and directly configure the AntiGravity experience baseline |
+| [AntiGravity setup](antigravity-setup.md) | Inspect and configure the AntiGravity baseline and multi-carrier Auto router |
 | [Fleet architecture](opl-fleet-architecture.md) | Distributed execution, continuity contracts, read-only workspace inventory, and consumer boundaries |
 | [Fleet observation](fleet-agent-cockpit-architecture.md) | Agent, Gateway, Cockpit, and provider protocol boundaries |
 | [Browser routing](browser-tool-routing.md) | Select an operation tool from session and interaction requirements |

@@ -71,6 +71,16 @@ DISPATCH_ADAPTERS = {
         "requires_fleet": False,
         "execution": "current-codex-session",
     },
+    "local-antigravity": {
+        "status": "supported",
+        "requires_fleet": False,
+        "execution": "current-antigravity-session",
+    },
+    "local-dsh": {
+        "status": "supported",
+        "requires_fleet": False,
+        "execution": "local-opl-dsh-session",
+    },
     "lease-only": {
         "status": "supported",
         "requires_fleet": True,
@@ -92,6 +102,8 @@ DISPATCH_ADAPTERS = {
         "execution": "native-codex-thread-after-lease",
     },
 }
+
+LOCAL_DISPATCH_ADAPTERS = frozenset({"local-codex", "local-antigravity", "local-dsh"})
 
 ADMISSION_FIELDS = {
     "checked_at",

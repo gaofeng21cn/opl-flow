@@ -210,6 +210,68 @@ class OplSupervisorTests(unittest.TestCase):
             self.assertIn("Also keep trailing human notes.", final_text)
             self.assertIn("remaining_count: 0", final_text)
 
+    def test_antigravity_conversations_zero_change_and_executor_lost_detection(self) -> None:
+        issue = self._issue("opl-agy", thread="antigravity:conv-99")
+        snap = {"issues": [issue], "validation_errors": []}
+        conv_ok = [{"id": "conv-99", "state": {"updateTime": "2026-11-26T01:00:00Z", "runState": "RUN_STATE_RUNNING", "summary": "Initial"}}]
+        first = sup.detect_changes(snap, antigravity_conversations=conv_ok, now="2026-11-26T01:05:00Z")
+        self.assertTrue(first["wake_agent"])
+        self.assertEqual(first["events"][0]["event_type"], "worker_callback")
+        self.assertEqual(first["events"][0]["objective_id"], "opl-agy")
+
+        # Summary-only mutation with identical (updateTime, runState) stays idle
+        conv_summary_only = [{"id": "conv-99", "state": {"updateTime": "2026-11-26T01:00:00Z", "runState": "RUN_STATE_RUNNING", "summary": "Changed summary"}}]
+        second = sup.detect_changes(
+            snap,
+            cursor=first["next_cursor"],
+            antigravity_conversations=conv_summary_only,
+            now="2026-11-26T01:10:00Z",
+        )
+        self.assertFalse(second["wake_agent"])
+        self.assertEqual(second["notification"], "DONT_NOTIFY")
+
+        # Cancelling/error state transition raises executor_lost
+        conv_lost = [{"id": "conv-99", "state": {"updateTime": "2026-11-26T01:15:00Z", "runState": "RUN_STATE_CANCELLING"}}]
+        third = sup.detect_changes(
+            snap,
+            cursor=second["next_cursor"],
+            antigravity_conversations=conv_lost,
+            now="2026-11-26T01:16:00Z",
+        )
+        self.assertTrue(third["wake_agent"])
+        self.assertEqual(third["notification"], "NOTIFY")
+        self.assertEqual(third["events"][0]["event_type"], "executor_lost")
+        self.assertEqual(third["events"][0]["objective_id"], "opl-agy")
+
+    def test_dsh_sessions_zero_change_and_executor_lost_detection(self) -> None:
+        issue = self._issue("opl-dsh", thread="dsh:hs-1")
+        snap = {"issues": [issue], "validation_errors": []}
+        dsh_ok = [{"id": "hs-1", "updated_at": "2026-11-27T01:00:00Z", "status": "active", "harness": "agy"}]
+        first = sup.detect_changes(snap, dsh_sessions=dsh_ok, now="2026-11-27T01:05:00Z")
+        self.assertTrue(first["wake_agent"])
+        self.assertEqual(first["events"][0]["event_type"], "worker_callback")
+        self.assertEqual(first["events"][0]["objective_id"], "opl-dsh")
+
+        second = sup.detect_changes(
+            snap,
+            cursor=first["next_cursor"],
+            dsh_sessions=[{"id": "hs-1", "updated_at": "2026-11-27T01:00:00Z", "status": "active", "harness": "agy"}],
+            now="2026-11-27T01:10:00Z",
+        )
+        self.assertFalse(second["wake_agent"])
+        self.assertEqual(second["notification"], "DONT_NOTIFY")
+
+        third = sup.detect_changes(
+            snap,
+            cursor=second["next_cursor"],
+            dsh_sessions=[{"id": "hs-1", "updated_at": "2026-11-27T01:15:00Z", "status": "error", "harness": "agy"}],
+            now="2026-11-27T01:16:00Z",
+        )
+        self.assertTrue(third["wake_agent"])
+        self.assertEqual(third["notification"], "NOTIFY")
+        self.assertEqual(third["events"][0]["event_type"], "executor_lost")
+        self.assertEqual(third["events"][0]["objective_id"], "opl-dsh")
+
 
 if __name__ == "__main__":
     unittest.main()

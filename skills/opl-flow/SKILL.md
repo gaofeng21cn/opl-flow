@@ -17,10 +17,12 @@ They select the responsibility that should handle a request; they do not create
 parallel task truth or make Fleet a second task controller.
 
 - **Router** manages attention: it identifies the right product, development,
-  or native-task responsibility and hands the request to its owner.
+  or native-task responsibility and hands the request to its owner (`opl-flow up`
+  runs one zero-token background auto-router across Codex, AntiGravity, and OPL DSH).
 - **Worker** carries one bounded execution slice in the current task or through
-  a Fleet adapter. A Worker can stop at a checkpoint, result, or blocker and be
-  replaced without changing the Ledger objective.
+  a Fleet adapter (`local-codex`, `local-antigravity`, `local-dsh`, or remote nodes).
+  A Worker can stop at a checkpoint, result, or blocker and be replaced without
+  changing the Ledger objective.
 - **Fleet** provides workspace admission, execution continuity, and protected
   capacity when the slice needs another machine or an explicit executor.
 - **Ledger** remains the only durable task truth: objective, dependencies,

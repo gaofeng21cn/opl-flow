@@ -85,6 +85,11 @@ python3 scripts/opl_workflow.py antigravity apply --dry-run --json
 python3 scripts/opl_workflow.py antigravity apply --json
 ```
 
+When running the unified background event router (`opl-flow up`, defaulting to
+`--bridge auto`), Codex, AntiGravity, and OPL DSH conversations share one
+Beads/Dolt Ledger with zero-token local session discovery (`opl-flow sessions`,
+`opl-flow ps`) and automatic workspace collision protection.
+
 Setup deploys capabilities. Explicit `$opl-flow start` additionally creates or
 reuses the Ledger Dashboard, Bead, Linear projection, and one hourly
 `OPL Flow Supervisor`. Core usage needs neither Linear nor Fleet.

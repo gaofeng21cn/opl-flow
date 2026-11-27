@@ -69,6 +69,13 @@
       "required": true
     },
     {
+      "id": "opl-flow-dual-carrier",
+      "source": "bundled_template",
+      "template_path": "templates/antigravity/opl-flow-dual-carrier.md",
+      "target_rel": "config/skills/opl-flow-dual-carrier/SKILL.md",
+      "required": true
+    },
+    {
       "id": "impeccable",
       "source": "external_owner_or_shared_agents_dir",
       "shared_agents_rel": ".agents/skills/impeccable",
