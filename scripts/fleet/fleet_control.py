@@ -233,19 +233,30 @@ def control_commit() -> str:
 def checkout_commit(root: Path) -> str:
     return run(["git", "-C", str(root), "rev-parse", "HEAD"]).stdout.strip()
 
-def update_checkout(root: Path, *, label: str) -> str:
-    if run(["git", "-C", str(root), "status", "--porcelain"]).stdout.strip():
+def update_checkout(root: Path, *, label: str, allow_unrelated_edits: bool = False) -> str:
+    git = ["git", "-C", str(root)]
+    dirty = bool(run([*git, "status", "--porcelain"]).stdout.strip())
+    if dirty and (
+        not allow_unrelated_edits or run([*git, "status", "--porcelain", "--", "."]).stdout.strip()
+    ):
         raise FleetError(f"{label} checkout is dirty")
-    run(["git", "-C", str(root), "fetch", "origin", "main"])
-    run(["git", "-C", str(root), "checkout", "main"])
-    run(["git", "-C", str(root), "merge", "--ff-only", "origin/main"])
+    run([*git, "fetch", "origin", "main"])
+    if dirty:
+        head = checkout_commit(root)
+        branch = run([*git, "symbolic-ref", "--quiet", "--short", "HEAD"], check=False).stdout.strip()
+        remote = run([*git, "rev-parse", "refs/remotes/origin/main"]).stdout.strip()
+        if branch == "main" and head == remote:
+            return head
+        raise FleetError(f"{label} checkout is dirty and cannot update to origin/main")
+    run([*git, "checkout", "main"])
+    run([*git, "merge", "--ff-only", "origin/main"])
     return checkout_commit(root)
 
 def update_flow() -> str:
     return update_checkout(FLOW_ROOT, label="OPL Flow")
 
 def update_control() -> str:
-    return update_checkout(fleet_common.CONTROL_ROOT, label="OPL Instance")
+    return update_checkout(fleet_common.CONTROL_ROOT, label="OPL Instance", allow_unrelated_edits=True)
 
 def github_repository_from_remote(
     remote: str,

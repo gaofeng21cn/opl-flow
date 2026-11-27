@@ -90,9 +90,17 @@ Choose the narrow command family:
 - `join` or `reconcile`: enroll or update node-local behavior through the
   Instance policy and owner routes.
 
-Repository inspection reports active task branches as `TASK_BRANCH` and
-preserves their worktrees. Those branches can coexist with a current node.
-Workspace admission still checks the specific checkout requested by a task.
+Repository inspection preserves task branches and local edits. The scheduled
+reconciler keeps an active task branch or a dirty default branch at the fetched
+upstream commit in the local repository report. Neither changes the node's
+health. Dirty branches that have moved ahead of or fallen behind upstream,
+failed fetches and failed updates still require attention. Workspace admission
+checks the specific checkout requested by a task.
+
+Local edits outside the Instance's `fleet/` directory can coexist with scheduled
+reconciliation when `fleet/` is clean and the Instance is already on the fetched
+`origin/main` commit. Updating the Instance checkout still requires a clean tree.
+
 Missing required skills with a reference-only installer appear as owner actions
 in the node receipt.
 
