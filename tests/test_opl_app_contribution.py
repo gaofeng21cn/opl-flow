@@ -406,6 +406,13 @@ class OplAppContributionTests(unittest.TestCase):
         self.assertIn('<meta name="color-scheme" content="light dark">', html)
         self.assertIn("overscroll-behavior: contain", html)
         self.assertIn("MIT License", html)
+        self.assertIn('role="tablist"', html)
+        self.assertIn("summary-strip", html)
+
+    def test_mcp_server_requests_local_navigation_titles_for_antigravity(self) -> None:
+        server_src = (REPO_ROOT / "decision-dashboard/server.mjs").read_text(encoding="utf-8")
+        self.assertIn("include_local_navigation: true", server_src)
+        self.assertIn("host_carrier: 'antigravity'", server_src)
 
     def test_bundled_mcp_server_stdio_jsonrpc_handshake_and_tools(self) -> None:
         node = shutil.which("node")
