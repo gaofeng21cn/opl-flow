@@ -1370,7 +1370,9 @@ def reconcile(*, report: bool, install_required: bool) -> dict[str, Any]:
         repository.get("state") not in {"CURRENT", "UPDATED", "TASK_BRANCH"}
         and not (
             repository.get("state") == "DIRTY"
-            and repository.get("ahead") == repository.get("behind") == 0
+            and repository.get("ahead") == 0
+            and isinstance(repository.get("behind"), int)
+            and repository["behind"] >= 0
         )
         for repository in repository_report["repositories"]
     ):

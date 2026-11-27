@@ -724,8 +724,12 @@ class CodexFleetTests(unittest.TestCase):
                 mock.call(fleet.STATE_ROOT / "repositories.json", repos.return_value),
                 atomic_json.call_args_list,
             )
+            entry["behind"] = 2
+            deferred_result = fleet.reconcile(report=False, install_required=False)
+            self.assertEqual(deferred_result["state"], "CURRENT")
+            self.assertEqual(deferred_result["drift"], [])
             for state, ahead, behind in (
-                ("DIRTY", 0, 1), ("DIRTY", 1, 0), ("DIVERGED", 1, 1),
+                ("DIRTY", 0, None), ("DIRTY", 1, 0), ("DIRTY", 1, 1), ("DIVERGED", 1, 1),
                 ("FETCH_TIMEOUT", None, None), ("FETCH_FAILED", None, None),
                 ("UPDATE_FAILED", 0, 1),
             ):

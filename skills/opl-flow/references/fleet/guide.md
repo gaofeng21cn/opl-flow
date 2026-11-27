@@ -91,11 +91,12 @@ Choose the narrow command family:
   Instance policy and owner routes.
 
 Repository inspection preserves task branches and local edits. The scheduled
-reconciler keeps an active task branch or a dirty default branch at the fetched
-upstream commit in the local repository report. Neither changes the node's
-health. Dirty branches that have moved ahead of or fallen behind upstream,
-failed fetches and failed updates still require attention. Workspace admission
-checks the specific checkout requested by a task.
+reconciler keeps task branches and dirty default branches with no local commits
+ahead of upstream in the local repository report. If upstream is ahead, it
+defers the fast-forward until the working tree is clean. These states can
+coexist with a current node. Local commits ahead of upstream, divergent
+branches, failed fetches, and failed updates still require attention.
+Workspace admission checks the specific checkout requested by a task.
 
 Local edits outside the Instance's `fleet/` directory can coexist with scheduled
 reconciliation when `fleet/` is clean and the Instance is already on the fetched
