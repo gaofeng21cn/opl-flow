@@ -11,7 +11,6 @@ import hashlib
 import json
 import os
 import re
-import selectors
 import shutil
 import subprocess
 import sys
@@ -1444,164 +1443,6 @@ def publish(args: argparse.Namespace) -> dict[str, Any]:
     }
 
 
-def codex_local_plugin_list(codex_bin: str, timeout: int = 15) -> dict[str, Any]:
-    """Query installed Codex plugins via `app-server --stdio` without network marketplace hangs."""
-    proc = subprocess.Popen(
-        [codex_bin, "app-server", "--stdio"],
-        stdin=subprocess.PIPE,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,
-        bufsize=0,
-        start_new_session=(os.name != "nt"),
-    )
-    assert proc.stdin is not None and proc.stdout is not None and proc.stderr is not None
-    sel = selectors.DefaultSelector()
-    stdout_fd = proc.stdout.fileno()
-    stderr_fd = proc.stderr.fileno()
-    sel.register(stdout_fd, selectors.EVENT_READ, "stdout")
-    sel.register(stderr_fd, selectors.EVENT_READ, "stderr")
-    deadline = time.monotonic() + timeout
-    stdout_buf = b""
-    stderr_bytes = 0
-    stdout_bytes = 0
-    max_bytes = 8 * 1024 * 1024
-
-    def send(frame: dict[str, Any]) -> None:
-        assert proc.stdin is not None
-        try:
-            proc.stdin.write((json.dumps(frame) + "\n").encode("utf-8"))
-            proc.stdin.flush()
-        except OSError as exc:
-            raise ReleaseError(f"codex app-server stdin failed: {exc}") from exc
-
-    def read_response(expected_id: int) -> dict[str, Any]:
-        nonlocal stdout_buf, stdout_bytes, stderr_bytes
-        while True:
-            newline = stdout_buf.find(b"\n")
-            if newline >= 0:
-                raw_line = stdout_buf[:newline].strip()
-                stdout_buf = stdout_buf[newline + 1 :]
-                if not raw_line:
-                    continue
-                try:
-                    frame = json.loads(raw_line.decode("utf-8"))
-                except (UnicodeDecodeError, json.JSONDecodeError) as exc:
-                    raise ReleaseError("codex app-server returned invalid JSON") from exc
-                if not isinstance(frame, dict):
-                    raise ReleaseError("codex app-server returned non-object frame")
-                if "id" not in frame and isinstance(frame.get("method"), str):
-                    continue
-                if frame.get("error") is not None:
-                    raise ReleaseError(f"codex app-server rejected request: {frame.get('error')}")
-                if frame.get("id") != expected_id or not isinstance(frame.get("result"), dict):
-                    raise ReleaseError("codex app-server returned unexpected response frame")
-                return frame["result"]
-            remaining = deadline - time.monotonic()
-            if remaining <= 0 or not sel.get_map():
-                raise ReleaseError(f"command timed out after {timeout}s: {codex_bin} app-server --stdio")
-            events = sel.select(timeout=remaining)
-            if not events:
-                raise ReleaseError(f"command timed out after {timeout}s: {codex_bin} app-server --stdio")
-            for key, _ in events:
-                chunk = os.read(key.fd, 65536)
-                if not chunk:
-                    sel.unregister(key.fd)
-                    if key.data == "stdout":
-                        if stdout_buf.strip():
-                            raise ReleaseError("codex app-server exited with partial JSON line")
-                        raise ReleaseError("codex app-server closed stdout before responding")
-                    continue
-                if key.data == "stderr":
-                    stderr_bytes += len(chunk)
-                    if stderr_bytes > max_bytes:
-                        raise ReleaseError("codex app-server stderr exceeded limit")
-                else:
-                    stdout_bytes += len(chunk)
-                    if stdout_bytes > max_bytes:
-                        raise ReleaseError("codex app-server stdout exceeded limit")
-                    stdout_buf += chunk
-
-    try:
-        send({"id": 1, "method": "initialize", "params": {"clientInfo": {"name": "opl_package_release", "version": "1"}}})
-        read_response(1)
-        send({"method": "initialized", "params": {}})
-        send({"id": 2, "method": "plugin/list", "params": {"marketplaceKinds": ["local"]}})
-        inventory = read_response(2)
-    finally:
-        sel.close()
-        for stream in (proc.stdin, proc.stdout, proc.stderr):
-            try:
-                stream.close()
-            except OSError:
-                pass
-        if proc.poll() is None:
-            proc.terminate()
-            try:
-                proc.wait(timeout=2)
-            except subprocess.TimeoutExpired:
-                proc.kill()
-                proc.wait()
-
-    marketplaces = inventory.get("marketplaces")
-    load_errors = inventory.get("marketplaceLoadErrors", [])
-    if not isinstance(marketplaces, list) or not isinstance(load_errors, list) or load_errors:
-        raise ReleaseError("Codex app-server plugin/list returned invalid marketplace inventory")
-    installed: list[dict[str, Any]] = []
-    for marketplace in marketplaces:
-        if not isinstance(marketplace, dict) or not isinstance(marketplace.get("plugins"), list):
-            raise ReleaseError("Codex app-server plugin/list returned invalid marketplace entry")
-        for plugin in marketplace["plugins"]:
-            if not isinstance(plugin, dict) or not isinstance(plugin.get("id"), str):
-                raise ReleaseError("Codex app-server plugin/list returned invalid plugin entry")
-            if plugin.get("installed") is not True:
-                continue
-            source = plugin.get("source") if isinstance(plugin.get("source"), dict) else {}
-            source_type = source.get("type")
-            installed.append(
-                {
-                    "pluginId": plugin["id"],
-                    "version": plugin.get("localVersion") or plugin.get("version"),
-                    "installed": True,
-                    "enabled": bool(plugin.get("enabled")),
-                    "source": {
-                        "source": source_type,
-                        "path": source.get("path") if source_type == "local" else None,
-                    },
-                }
-            )
-    return {"installed": installed}
-
-
-def plugin_entry(selector: str, codex_bin: str) -> dict[str, Any] | None:
-    try:
-        readback: Any = codex_local_plugin_list(codex_bin, timeout=15)
-    except ReleaseError:
-        readback = command_json([codex_bin, "plugin", "list", "--json"], timeout=15)
-    installed = readback.get("installed") if isinstance(readback, dict) else None
-    if not isinstance(installed, list):
-        raise ReleaseError("Codex plugin list has no installed array")
-    matches = [item for item in installed if isinstance(item, dict) and item.get("pluginId") == selector]
-    if len(matches) > 1:
-        raise ReleaseError(f"Codex reports duplicate configured plugin selector: {selector}")
-    return matches[0] if matches else None
-
-
-def installed_profile(entry: dict[str, Any] | None) -> tuple[str | None, bytes | None]:
-    source = entry.get("source") if isinstance(entry, dict) else None
-    source_path = source.get("path") if isinstance(source, dict) else None
-    if not isinstance(source_path, str):
-        return None, None
-    root = Path(source_path)
-    descriptor = read_json(root / "opl-package.json")
-    profile = descriptor.get("profile_surface")
-    runtime = profile.get("runtime_profile") if isinstance(profile, dict) else None
-    relative = runtime.get("source_path") if isinstance(runtime, dict) else None
-    if not isinstance(relative, str):
-        return None, None
-    path = root / relative
-    return str(path), path.read_bytes()
-
-
 def profile_delta(
     before: tuple[str | None, bytes | None],
     after: tuple[str | None, bytes | None],
@@ -1647,105 +1488,6 @@ def profile_delta(
         "default_profile_diff": diff or None,
         "automatic_write_performed": False,
     }
-
-
-def installed_package_evidence(
-    status: dict[str, Any], package: dict[str, Any]
-) -> dict[str, Any]:
-    package_id = package["package_id"]
-    carrier = status.get("configured_carrier")
-    native = status.get("installed_carrier_readback")
-    readiness = status.get("installed_readiness")
-    codex_surface = package.get("codex_surface", {})
-    headless = codex_surface.get("interaction_mode") == "headless_internal"
-    if (
-        status.get("package_id") != package_id
-        or status.get("installed_package_count") != 1
-        or not isinstance(native, dict)
-        or native.get("lifecycle_authority") != "carrier_owned"
-        or native.get("version") != package["version"]
-        or not isinstance(carrier, dict)
-        or carrier.get("package_id") != package_id
-        or carrier.get("status") != "installed"
-        or carrier.get("installed_version") != package["version"]
-        or carrier.get("enabled") is not (not headless)
-        or not isinstance(readiness, dict)
-        or readiness.get("installed") is not True
-        or readiness.get("physical_status") != "available"
-        or readiness.get("projection_callability", readiness.get("callability")) != "callable"
-    ):
-        raise ReleaseError(f"installed Package identity, version, exposure or callability is unverified: {package_id}")
-    source = carrier.get("plugin_source_path")
-    if not isinstance(source, str) or not source:
-        raise ReleaseError(f"installed Package has no source path: {package_id}")
-    root = Path(source).resolve()
-    descriptor = read_json(root / "opl-package.json")
-    if descriptor.get("package_id") != package_id or descriptor.get("version") != package["version"]:
-        raise ReleaseError(f"installed owner descriptor identity differs: {package_id}")
-    skills = package_skill_ids(package)
-    missing_skills = [skill for skill in skills if not (root / "skills" / skill / "SKILL.md").is_file()]
-    if missing_skills:
-        raise ReleaseError(f"installed Package is missing required Skills: {missing_skills}")
-    content_lock = package.get("content_lock")
-    content_digest = None
-    if isinstance(content_lock, dict):
-        if (
-            descriptor.get("content_lock") != content_lock
-            or content_lock.get("algorithm") != "sha256"
-            or content_lock.get("canonicalization") != "ordered_path_length_file_length_bytes"
-            or not isinstance(content_lock.get("paths"), list)
-        ):
-            raise ReleaseError(f"installed Package content lock differs: {package_id}")
-        def read_content(relative: str) -> bytes:
-            if not isinstance(relative, str) or not (root / relative).resolve().is_relative_to(root):
-                raise ReleaseError(f"installed Package content path is invalid: {package_id}")
-            try:
-                return (root / relative).read_bytes()
-            except OSError as exc:
-                raise ReleaseError(f"installed Package content is unavailable: {relative}") from exc
-
-        content_digest = package_content_digest(content_lock["paths"], read_content)
-        if content_digest != content_lock.get("digest"):
-            raise ReleaseError(f"installed Package content bytes differ from its lock: {package_id}")
-    return {
-        "package_id": package_id,
-        "version": descriptor["version"],
-        "source_path": str(root),
-        "interaction_mode": "headless_internal" if headless else "interactive",
-        "installed_readiness": readiness,
-        "installed_carrier_readback": native,
-        "content_digest": content_digest,
-        "required_skill_ids": skills,
-        "missing_skill_ids": missing_skills,
-    }
-
-
-def package_status(
-    args: argparse.Namespace, package_id: str, *, env: dict[str, str] | None = None,
-) -> dict[str, Any]:
-    readback = command_json(
-        [args.opl_bin, "packages", "status", "--package-id", package_id, "--json"],
-        timeout=args.timeout,
-        **({"env": env} if env is not None else {}),
-    )
-    surface = readback.get("opl_agent_package_status") if isinstance(readback, dict) else None
-    if not isinstance(surface, dict) or surface.get("package_id") != package_id:
-        raise ReleaseError(f"Framework Package status returned no matching status surface: {package_id}")
-    return surface
-
-
-def package_action(
-    args: argparse.Namespace, action: str, package_id: str, *, env: dict[str, str] | None = None,
-) -> dict[str, Any]:
-    readback = command_json(
-        [args.opl_bin, "packages", action, "--package-id", package_id, "--json"],
-        timeout=args.timeout,
-        **({"env": env} if env is not None else {}),
-    )
-    surface = readback.get(f"opl_agent_package_{action}") if isinstance(readback, dict) else None
-    if not isinstance(surface, dict):
-        raise ReleaseError(f"Framework Package {action} returned no action surface: {package_id}")
-    return surface
 
 
 def v2_profile_snapshot(installed: dict[str, Any] | None, profile: dict[str, Any] | None) -> tuple[str | None, bytes | None]:
@@ -1828,103 +1570,14 @@ def activate_v2_release(args, package, package_directory, catalog_commit):
 def activate(args: argparse.Namespace) -> dict[str, Any]:
     framework_root = Path(args.framework_root).resolve()
     catalog_root = catalog_checkout(args, framework_root)
-    catalog_commit = canonical_catalog_commit(catalog_root) if catalog_root else None
-    package_directory = catalog_root / "packages" if catalog_root else framework_root / LEGACY_PACKAGE_DIRECTORY
+    if catalog_root is None:
+        raise ReleaseError("Package activation requires the official Catalog checkout")
+    catalog_commit = canonical_catalog_commit(catalog_root)
+    package_directory = catalog_root / "packages"
     package = read_json(package_manifest_path(package_directory, args.package_id))
-    if "v2_release" in package:
-        return activate_v2_release(args, package, package_directory, catalog_commit)
-    # Keep the real Framework install and readback on the selected Package projection.
-    projection_env = {"env": {**os.environ, "OPL_PACKAGE_PROJECTION_DIR": str(package_directory)}} if catalog_root else {}
-    codex_surface = package.get("codex_surface")
-    carrier = codex_surface.get("configured_codex_plugin_carrier") if isinstance(codex_surface, dict) else None
-    selector = carrier.get("plugin_selector") if isinstance(carrier, dict) else None
-    if package.get("package_id") != args.package_id or not isinstance(selector, str) or "@" not in selector:
-        raise ReleaseError("Framework Package has no configured Codex plugin selector")
-    required_skills = package_skill_ids(package)
-    headless = codex_surface.get("interaction_mode") == "headless_internal"
-    has_profile = isinstance(package.get("profile_surface"), dict)
-    expected_version = str(package.get("version") or "")
-    before_entry = None if headless else plugin_entry(selector, args.codex_bin)
-    before_profile = installed_profile(before_entry) if has_profile else (None, None)
-    before_status = package_status(args, args.package_id, **projection_env)
-    lifecycle_action = "update" if isinstance(before_status.get("installed_carrier_readback"), dict) else "install"
-    update_surface = package_action(args, lifecycle_action, args.package_id, **projection_env)
-    after_entry = None if headless else plugin_entry(selector, args.codex_bin)
-    if not headless and (
-        not after_entry or after_entry.get("version") != expected_version or after_entry.get("enabled") is not True
-    ):
-        raise ReleaseError("installed Codex Plugin did not reach the expected enabled version")
-    status_surface = package_status(args, args.package_id, **projection_env)
-    installed = installed_package_evidence(status_surface, package)
-    dependency_evidence = []
-    dependencies = package.get("capability_dependencies", [])
-    for dependency in dependencies:
-        if not isinstance(dependency, dict) or dependency.get("required") is not True:
-            continue
-        dependency_id = dependency.get("package_id")
-        if not isinstance(dependency_id, str) or not dependency_id:
-            raise ReleaseError("required Package dependency has no package id")
-        provider_surface = package_status(args, dependency_id, **projection_env)
-        provider_install = None
-        if not isinstance(provider_surface.get("installed_carrier_readback"), dict):
-            provider_install = package_action(args, "install", dependency_id, **projection_env)
-            provider_surface = package_status(args, dependency_id, **projection_env)
-            status_surface = package_status(args, args.package_id, **projection_env)
-        dependency_readiness = status_surface.get("package_dependency_readiness")
-        rows = dependency_readiness.get("dependencies", []) if isinstance(dependency_readiness, dict) else []
-        matching = [row for row in rows if isinstance(row, dict) and row.get("package_id") == dependency_id]
-        if len(matching) != 1 or matching[0].get("status") != "current":
-            raise ReleaseError(f"required Package dependency is not callable for this consumer: {dependency_id}")
-        provider_carrier = provider_surface.get("configured_carrier")
-        provider_source = provider_carrier.get("plugin_source_path") if isinstance(provider_carrier, dict) else None
-        if not isinstance(provider_source, str) or not provider_source:
-            raise ReleaseError(f"required Package dependency has no installed source: {dependency_id}")
-        provider = read_json(Path(provider_source) / "opl-package.json")
-        if provider.get("package_id") != dependency_id or provider.get("version") != matching[0].get("installed_version"):
-            raise ReleaseError(f"installed dependency differs from the consumer binding: {dependency_id}")
-        dependency_evidence.append({
-            **installed_package_evidence(provider_surface, provider),
-            "consumer_binding": matching[0],
-            "package_install": provider_install,
-            "operational_ready": provider_surface.get("operational_ready"),
-        })
-    managed_policy = status_surface.get("managed_policy_currentness")
-    user_profile = Path(args.user_profile).expanduser().resolve()
-    profile = profile_delta(before_profile, installed_profile(after_entry), user_profile) if has_profile else None
-    return {
-        "action": "activate",
-        "status": "installed_and_read_back" if status_surface.get("operational_ready") is True
-        else "installed_with_readiness_debt",
-        "package_id": args.package_id,
-        "version": expected_version,
-        **({"catalog_source_commit": catalog_commit} if catalog_commit else {}),
-        "plugin_selector": selector,
-        "lifecycle_action": lifecycle_action,
-        "package_update": {
-            "status": update_surface.get("status"),
-            "target_version": update_surface.get("target_version"),
-            "observed_version": update_surface.get("observed_version"),
-            "release_catalog_digest": update_surface.get("release_catalog_digest"),
-        },
-        "package_status": {
-            "status": status_surface.get("status"),
-            "installed_package_count": status_surface.get("installed_package_count"),
-            "operational_ready": status_surface.get("operational_ready"),
-            "launch_state": status_surface.get("launch_state"),
-            "managed_policy_currentness": (
-                managed_policy.get("status") if isinstance(managed_policy, dict) else None
-            ),
-        },
-        "required_skill_ids": required_skills,
-        "missing_skill_ids": installed["missing_skill_ids"],
-        "installed_evidence": installed,
-        "package_dependency_readiness": status_surface.get("package_dependency_readiness"),
-        "installed_dependency_evidence": dependency_evidence,
-        "profile": profile,
-        "fresh_discovery_required": not headless and (
-            before_entry is None or before_entry.get("version") != expected_version
-        ),
-    }
+    if not isinstance(package.get("v2_release"), dict):
+        raise ReleaseError(f"No Catalog v2 release selected for Package: {args.package_id}")
+    return activate_v2_release(args, package, package_directory, catalog_commit)
 
 
 def parser() -> argparse.ArgumentParser:
@@ -1949,7 +1602,6 @@ def parser() -> argparse.ArgumentParser:
     activate_parser = commands.add_parser("activate", help="update the local carrier and read it back")
     activate_parser.add_argument("--package-id", required=True)
     activate_parser.add_argument("--framework-root", required=True)
-    activate_parser.add_argument("--codex-bin", default="codex")
     activate_parser.add_argument("--opl-bin", default="opl")
     activate_parser.add_argument("--user-profile", default="~/.codex/AGENTS.md")
     activate_parser.add_argument("--timeout", type=int, default=180)

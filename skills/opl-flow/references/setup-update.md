@@ -17,11 +17,11 @@ codex plugin list --json
 python3 scripts/opl_workflow.py status --instance <opl-instance>
 ```
 
-On v2, `pack inspect` reports the Framework install. Codex can still report an
-enabled native plugin from before the upgrade when Pack reports `PACK_NOT_FOUND`.
+On v2, `opl pack inspect opl-flow --json` reports the Framework install. Codex
+can still report an enabled native plugin when Pack reports `PACK_NOT_FOUND`.
 Fleet checks its capabilities against the installed Flow policy. Use the
-Package install entry when registering Flow with Framework. On a v1 carrier,
-read `opl packages status --package-id opl-flow --json` for its baseline projection.
+Framework v2 `opl pack install` / `opl pack ensure` / `opl pack inspect`
+entries when registering or verifying Flow with Framework.
 
 ## Setup
 

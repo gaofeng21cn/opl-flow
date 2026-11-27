@@ -104,7 +104,7 @@ REQUIRED_FILES = (
     "pyproject.toml",
     "uv.lock",
     "mcp.json",
-    "app-contribution-adapter.json",
+    "opl-package.json",
     "decision-dashboard/package.json",
     "decision-dashboard/build.mjs",
     "decision-dashboard/template.html",
@@ -210,6 +210,20 @@ def check_plugin_json(repo_root: Path) -> list[str]:
         entry.get("name") == package_name for entry in marketplace.get("plugins", [])
     ):
         errors.append("the Flow Package and marketplace must select the same Codex plugin")
+    handler = package_manifest.get("provides", {}).get("contribution_handler")
+    if handler != {
+        "kind": "cli",
+        "argv": ["python3", "./scripts/opl_app_contribution.py"],
+        "transport": "stdin_json_stdout_json",
+    }:
+        errors.append("the Flow Package must declare its Python contribution handler")
+    views = package_manifest.get("ui", {}).get("declarative", {}).get("views", [])
+    if not any(
+        view.get("id") == "opl-flow.decision.dashboard"
+        and view.get("data_ref") == "opl-flow.decision.v1#dashboard"
+        for view in views
+    ):
+        errors.append("the Flow Package must declare its Decision Dashboard view and data ref")
     policy = json.loads((repo_root / "contracts" / "workflow-policy.json").read_text(encoding="utf-8"))
     if manifest.get("version") != policy.get("package", {}).get("version"):
         errors.append("plugin version must match contracts/workflow-policy.json package.version")

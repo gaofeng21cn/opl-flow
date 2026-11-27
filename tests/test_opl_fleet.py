@@ -3312,118 +3312,6 @@ class CodexFleetTests(unittest.TestCase):
         self.assertEqual(actions, ["codex-bundled", "owner-skill", "upstream-skill"])
         command.assert_not_called()
 
-    def test_flow_experience_baseline_repair_runs_only_when_degraded(self) -> None:
-        current = {
-            "opl_agent_package_status": {
-                "experience_baseline": {
-                    "status": "current",
-                    "failure_ids": [],
-                    "repair_command": None,
-                }
-            }
-        }
-        with (
-            patch_fleet(
-                "run",
-                return_value=fleet.subprocess.CompletedProcess(
-                    [], 0, json.dumps(current), ""
-                ),
-            ) as command,
-        ):
-            result = fleet.reconcile_flow_experience_baseline(opl_command="/opt/opl")
-        self.assertEqual(result["status"], "current")
-        self.assertFalse(result["repair_attempted"])
-        command.assert_called_once_with(
-            ["/opt/opl", "packages", "status", "--package-id", "opl-flow", "--json"],
-            check=False,
-            timeout=60,
-        )
-
-    def test_flow_experience_baseline_non_actionable_status_stays_unavailable(self) -> None:
-        unavailable = {
-            "opl_agent_package_status": {
-                "experience_baseline": {
-                    "status": "unavailable",
-                    "failure_ids": ["fixture-skill"],
-                    "repair_command": None,
-                }
-            }
-        }
-        with patch_fleet(
-            "run",
-            return_value=fleet.subprocess.CompletedProcess(
-                [], 0, json.dumps(unavailable), ""
-            ),
-        ) as command:
-            result = fleet.reconcile_flow_experience_baseline(opl_command="/opt/opl")
-        self.assertEqual(result["status"], "unavailable")
-        self.assertFalse(result["repair_attempted"])
-        self.assertEqual(result["reason"], "experience_baseline_not_actionable")
-        command.assert_called_once()
-
-    def test_flow_experience_baseline_repair_converges_and_reads_back(self) -> None:
-        degraded = {
-            "opl_agent_package_status": {
-                "experience_baseline": {
-                    "status": "degraded",
-                    "failure_ids": ["fixture-skill"],
-                    "repair_command": "opl packages repair --package-id opl-flow",
-                }
-            }
-        }
-        current = {
-            "opl_agent_package_status": {
-                "experience_baseline": {
-                    "status": "current",
-                    "failure_ids": [],
-                    "repair_command": None,
-                }
-            }
-        }
-        responses = [
-            fleet.subprocess.CompletedProcess([], 0, json.dumps(degraded), ""),
-            fleet.subprocess.CompletedProcess([], 0, "{}", ""),
-            fleet.subprocess.CompletedProcess([], 0, json.dumps(current), ""),
-        ]
-        with (
-            patch_fleet("run", side_effect=responses) as command,
-        ):
-            result = fleet.reconcile_flow_experience_baseline(opl_command="/opt/opl")
-        self.assertEqual(result["status"], "repaired")
-        self.assertTrue(result["repair_attempted"])
-        self.assertEqual(result["failure_ids"], ["fixture-skill"])
-        self.assertEqual(
-            command.call_args_list[1],
-            mock.call(
-                ["/opt/opl", "packages", "repair", "--package-id", "opl-flow", "--json"],
-                check=False,
-                timeout=300,
-            ),
-        )
-
-    def test_flow_experience_baseline_repair_rejects_untrusted_command(self) -> None:
-        degraded = {
-            "opl_agent_package_status": {
-                "experience_baseline": {
-                    "status": "degraded",
-                    "failure_ids": ["fixture-skill"],
-                    "repair_command": "opl packages repair --package-id other-package",
-                }
-            }
-        }
-        with (
-            patch_fleet(
-                "run",
-                return_value=fleet.subprocess.CompletedProcess(
-                    [], 0, json.dumps(degraded), ""
-                ),
-            ) as command,
-        ):
-            result = fleet.reconcile_flow_experience_baseline(opl_command="/opt/opl")
-        self.assertEqual(result["status"], "repair_failed")
-        self.assertEqual(result["reason"], "repair_command_not_authorized")
-        command.assert_called_once()
-
     def test_fetch_skill_reference_accepts_current_schema(self) -> None:
         payload = {
             "schema": fleet.SKILL_REFERENCE_SCHEMA,
@@ -3539,7 +3427,6 @@ class CodexFleetTests(unittest.TestCase):
                     "ownership": "external",
                     "install": {
                         "kind": "opl-package",
-                        "command": "opl packages install opl-flow --json",
                     },
                     "skills": ["opl-flow"],
                 },
@@ -3553,7 +3440,7 @@ class CodexFleetTests(unittest.TestCase):
             actions = fleet.install_missing_owner_skills(reference)
         self.assertEqual(actions, [])
         command.assert_called_once_with(
-            ["opl", "packages", "install", "opl-flow", "--json"]
+            ["opl", "pack", "ensure", "opl-flow", "--json"]
         )
 
     def test_codex_plugin_skill_roots_reads_enabled_native_sources(self) -> None:
@@ -3797,7 +3684,6 @@ class CodexFleetTests(unittest.TestCase):
                     "ownership": "external",
                     "install": {
                         "kind": "opl-package",
-                        "command": "opl packages install opl-flow --json",
                     },
                     "skills": ["opl-flow"],
                 },
@@ -3821,7 +3707,7 @@ class CodexFleetTests(unittest.TestCase):
                 actions = fleet.install_missing_owner_skills(reference)
         self.assertEqual(actions, [])
         command.assert_called_once_with(
-            ["opl", "packages", "install", "opl-flow", "--json"]
+            ["opl", "pack", "ensure", "opl-flow", "--json"]
         )
 
     def test_macos_schedule_has_owner_tool_paths(self) -> None:

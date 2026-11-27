@@ -47,7 +47,7 @@ State: `approved_architecture_plan`
    - 宿主通过 `opld` 公开 RPC **`app.state.get`** 读取 `application_management` / 已安装启用 Package 状态投影：仅当用户已安装并启用 `opl-flow` Package 时注册或显示 `opl-flow` 侧栏入口；未安装 `opl-flow` 的普通用户完全不可见，也不启动任何后台轮询。
    - `opl-flow` 自身及关联舰队的安装、修复与同步统一使用 Framework v2 CLI **`opl pack ensure` / `opl pack sync`**（及只读诊断 `opl pack list` / `opl pack inspect`），**严禁依赖已删除的 v1 CLI 命令**。
 4. **控制面 RPC 与跳转**：
-   - 数据读写统一经 Framework `opld` 公开 RPC 边界流转：**`app.contribution.read`** 读取 `opl-flow.decision.v1#dashboard` 投影，**`app.action.execute`** 执行已投影动作（`send` / `approve` / `tick` / `service`），背后由 `app-contribution-adapter.json` 与 `opl_app_contribution.py` 承接；
+   - 数据读写统一经 Framework `opld` 公开 RPC 边界流转：**`app.contribution.read`** 读取 `opl-flow.decision.v1#dashboard` 投影，**`app.action.execute`** 执行已投影动作（`send` / `approve` / `tick` / `service`），背后由 `opl-package.json`（`provides.contribution_handler` + `ui.declarative`）与 `opl_app_contribution.py` 承接；
    - 点击“拉起新会话接管”或“跳转活跃会话”时，通过 Studio DSH 宿主桥接直接打开对应工作区的原生 Codex 会话或提示当前持有载体（AntiGravity / DSH）。
 
 ### 3.2 OPL DSH（`@one-person-lab/dsh-opl`）侧：轻量条件入口
@@ -82,12 +82,12 @@ OPL App 的「更多」菜单及文档统一采用**强场景化中文命名**�
 
 ## 5. 数据与动作契约增量清单
 
-现有 [app-contribution-adapter.json](../app-contribution-adapter.json) 与 [opl_app_contribution.py](../scripts/opl_app_contribution.py) 已提供以下稳定入口：
+现有 [opl-package.json](../opl-package.json)（`provides.contribution_handler` + `ui.declarative`）与 [opl_app_contribution.py](../scripts/opl_app_contribution.py) 已提供以下稳定入口：
 - 读：`opl-flow.decision.v1#dashboard`（已含 `service`、`counts`、`inbox`、`active_sessions`、`items`、`validation_errors`）
 - 写：`opl-flow.decision.v1#send`（支持 `executor: codex | antigravity | dsh`）、`opl-flow.decision.v1#approve`、`opl-flow.decision.v1#tick`，以及 CLI `service`（`up`/`down`）
 
-后续落地控制塔 UI 时，须在 `opl_app_contribution.py`、`opl_session_discovery.py`、`opl-package.json` 与 `app-contribution-adapter.json` 补齐以下**向后兼容的可选字段与动作**：
-1. **服务启停与派单契约对齐**：在 `app-contribution-adapter.json` 与 `opl-package.json` 补齐 `opl-flow.decision.v1#service`（`action: up | down`, `bridge: auto | codex | antigravity`, `confirmed: true`），同时在 `opl-flow.decision.v1#send` 的 schema 中显式声明 `executor`（`codex | antigravity | dsh`）与可选 `session_ref`，使控制塔与 `opld` `app.action.execute` 校验完全一致。
+后续落地控制塔 UI 时，须在 `opl_app_contribution.py`、`opl_session_discovery.py` 与 `opl-package.json` 补齐以下**向后兼容的可选字段与动作**：
+1. **服务启停与派单契约对齐**：在 `opl-package.json` 的 `ui.declarative` 声明与 `opl_app_contribution.py` 的输入校验补齐 `opl-flow.decision.v1#service`（`action: up | down`, `bridge: auto | codex | antigravity`, `confirmed: true`），同时在 `opl-flow.decision.v1#send` 的 schema 中显式声明 `executor`（`codex | antigravity | dsh`）与可选 `session_ref`，使控制塔与 `opld` `app.action.execute` 校验完全一致。
 2. **受信任本机跳转元数据与脱敏投影分口径**：默认读取保持严格脱敏（仅返回 `workspace_label` 与截断 `session_ref`，不暴露本机绝对路径与完整 ID）；仅当本机可信控制面传入 `include_local_navigation: true` 与 `host_carrier`（`codex | antigravity | dsh`）时，返回 `workspace_path`、`session_id` / `thread_id`、非正文只读标题与只读能力标记 `jump_mode`（`native_switch | launch_new | external_focus_only`），防止对跨宿主会话显示无效跳转按钮，且原始定位信息严禁进入日志、诊断或 Linear 投影。
 3. **条目载体徽标（只读）**：`items[]` 携带 `execution_carrier`、`preferred_adapter`、`bound_session_ref` 与（受信任本机模式下的）`jump_mode`，用于控制塔列表展示当前执行载体标签。
 4. **单源 UI 复用纪律**：OPL DSH（P3）通过轻量包装复用与标准决策看板一致的数据与展示模型，不复制第二套 Beads 状态或演进第三套平行看板逻辑。
@@ -98,7 +98,7 @@ OPL App 的「更多」菜单及文档统一采用**强场景化中文命名**�
 
 | 阶段 | 核心交付 | 验收门禁 |
 | :--- | :--- | :--- |
-| **P1 · 控制面契约补齐（`opl-flow`）** | `app-contribution-adapter.json` 补充 `opl-flow.decision.v1#service`；`opl_app_contribution.py` 补全 `active_sessions` 与 `items` 跳转元数据，保持与 `decision-dashboard` MCP Server 共用同一函数；对接 Framework v2 `opld` 公开 RPC（`app.contribution.read` / `app.action.execute`）与 `opl pack ensure` / `opl pack sync` | `scripts/verify.sh full` 全绿；单测验证未绑定实例时返回干净 `unavailable`，且不泄露凭据、私有正文或引用已删除的 v1 CLI |
+| **P1 · 控制面契约补齐（`opl-flow`）** | `opl-package.json` 补充 `opl-flow.decision.v1#service` 声明式动作；`opl_app_contribution.py` 补全 `active_sessions` 与 `items` 跳转元数据，保持与 `decision-dashboard` MCP Server 共用同一函数；对接 Framework v2 `opld` 公开 RPC（`app.contribution.read` / `app.action.execute`）与 `opl pack ensure` / `opl pack sync` | `scripts/verify.sh full` 全绿；单测验证未绑定实例时返回干净 `unavailable`，且不泄露凭据、私有正文或引用已删除的 v1 CLI |
 | **P2 · OPL App Tier 2 侧栏插件（`opl-studio` / `one-person-lab-app`）** | 在 Studio（DSH/Cordis）新增 `@gaofeng21cn/opl-flow-workbench`，注册 `sidebar.panellist`（`id: "opl-flow"`, 默认收于「更多」），经 `opld` 公开 RPC `app.state.get`、`app.contribution.read` 与 `app.action.execute` 实现条件显隐、总账看板、三载体活跃会话感知、快捷投递/批准/`tick`/启停，以及一键拉起或切换宿主原生 Codex 对话 | 通过 `plugin-conformance-gate`、`ui-contribution-composition`、light/dark 对比度及未安装 `opl-flow` 零露出回归测试 |
 | **P3 · OPL DSH 条件入口（`opl-dsh`）** | 在 `@one-person-lab/dsh-opl` 增加轻量实例探测与「更多」条件挂载，复用 `opl_app_contribution.py` 与标准界面，支持在 DSH 会话接力目标 | 未装 `opl-flow` 时零 UI/零报错/零后台进程；已绑定实例时通过隔离官方桌面资格验证（`qualify-official-runtime`） |
 | **P4 · 三层命名收敛与实机闭环验收** | 在 OPL App 统一落地「智能体协作 / OPL Flow 总控 / Superagent 工单台」中文命名与空态边界指引；完成同机 Codex + AntiGravity + OPL DSH 真机看板联动验证 | 在已安装态与未安装态双场景实机回读截图，确认防撞车提示、跨载体投递与归档回读一次闭环 |

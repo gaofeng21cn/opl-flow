@@ -36,14 +36,8 @@ class ProfileWriterTests(unittest.TestCase):
             "content": content, "expected_path": str(target / "AGENTS.md"), "expected_sha256": previous,
         })
 
-    def test_legacy_version_uses_previous_framework_writer(self):
-        success, calls, content, previous, _ = self.run_writer("0.3.27\n")
-        self.assertTrue(success)
-        self.assertEqual(calls[1].args[0][1:6], ["app", "action", "execute", "--action", "codex_user_instructions_set"])
-        self.assertEqual(json.loads(calls[1].args[0][7]), {"content": content, "expected_sha256": previous})
-
     def test_unrecognized_version_and_lost_write_never_fall_back(self):
-        for version in ("broken", '{"api_version":"3.0"}'):
+        for version in ("0.3.27", "broken", '{"api_version":"3.0"}'):
             success, calls, *_ = self.run_writer(version)
             self.assertFalse(success)
             self.assertEqual(len(calls), 1)

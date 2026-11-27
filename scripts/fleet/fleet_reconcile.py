@@ -411,21 +411,6 @@ def fetch_skill_reference(spec: dict[str, Any], revision: str) -> dict[str, Any]
         raise FleetError("owner skill reference is invalid")
     return payload
 
-def _flow_package_status(opl_command: str) -> tuple[dict[str, Any] | None, bool]:
-    result = run(
-        [opl_command, "packages", "status", "--package-id", "opl-flow", "--json"],
-        check=False,
-        timeout=60,
-    )
-    if result.returncode:
-        return None, fleet_flow_baseline.missing_namespace(result)
-    try:
-        payload = json.loads(result.stdout)
-    except json.JSONDecodeError:
-        return None, False
-    status = payload.get("opl_agent_package_status") if isinstance(payload, dict) else None
-    return (status if isinstance(status, dict) else None), False
-
 def reconcile_flow_experience_baseline(*, opl_command: str | None = None) -> dict[str, Any]:
     receipt: dict[str, Any] = {
         "surface_kind": "opl_flow_experience_baseline_reconcile.v1",
@@ -437,79 +422,38 @@ def reconcile_flow_experience_baseline(*, opl_command: str | None = None) -> dic
     resolved_opl_command = opl_command or shutil.which("opl")
     if not resolved_opl_command:
         return receipt
-    status, missing_namespace = _flow_package_status(resolved_opl_command)
-    if missing_namespace:
-        return fleet_flow_baseline.read_v2_baseline(resolved_opl_command, receipt, _plugin_skill_roots_from_payload)
-    if status is None:
-        return {**receipt, "reason": "package_status_unavailable"}
-    baseline = status.get("experience_baseline")
-    if not isinstance(baseline, dict):
-        return {**receipt, "reason": "experience_baseline_readback_missing"}
-    failure_ids = sorted({
-        str(item)
-        for item in baseline.get("failure_ids", [])
-        if isinstance(item, str) and item
-    })
-    baseline_status = baseline.get("status")
-    if baseline_status == "current":
-        return {
-            **receipt,
-            "status": "current",
-            "failure_ids": failure_ids,
-            "reason": None,
-        }
-    if baseline_status != "degraded":
-        return {
-            **receipt,
-            "failure_ids": failure_ids,
-            "reason": "experience_baseline_not_actionable",
-        }
-
-    repair_command = baseline.get("repair_command")
+    baseline = fleet_flow_baseline.read_v2_baseline(
+        resolved_opl_command, receipt, _plugin_skill_roots_from_payload,
+    )
+    # Ensure can restore Flow's carrier. The individual baseline tools and
+    # skills have their own lifecycle owners.
+    if not baseline.get("framework_managed") or baseline["reason"] not in {
+        "codex_plugin_missing_or_disabled",
+        "carrier_version_mismatch",
+    }:
+        return baseline
     try:
-        repair_parts = shlex.split(repair_command) if isinstance(repair_command, str) else []
-    except ValueError:
-        repair_parts = []
-    if repair_parts != ["opl", "packages", "repair", "--package-id", "opl-flow"]:
-        return {
-            **receipt,
-            "status": "repair_failed",
-            "failure_ids": failure_ids,
-            "reason": "repair_command_not_authorized",
-        }
-    repair = run(
-        [resolved_opl_command, *repair_parts[1:], "--json"],
-        check=False,
-        timeout=300,
+        repair = run(
+            [resolved_opl_command, "pack", "ensure", "opl-flow", "--json"],
+            check=False,
+            timeout=900,
+        )
+    except (OSError, subprocess.TimeoutExpired):
+        repair = None
+    verified = fleet_flow_baseline.read_v2_baseline(
+        resolved_opl_command, receipt, _plugin_skill_roots_from_payload,
     )
-    if repair.returncode:
+    if not verified.get("framework_managed") or verified["status"] == "unavailable":
         return {
-            **receipt,
+            **verified,
             "status": "repair_failed",
             "repair_attempted": True,
-            "failure_ids": failure_ids,
-            "reason": "repair_command_failed",
-        }
-    repaired_status, _ = _flow_package_status(resolved_opl_command)
-    repaired_baseline = (
-        repaired_status.get("experience_baseline")
-        if isinstance(repaired_status, dict)
-        else None
-    )
-    if not isinstance(repaired_baseline, dict) or repaired_baseline.get("status") != "current":
-        return {
-            **receipt,
-            "status": "repair_failed",
-            "repair_attempted": True,
-            "failure_ids": failure_ids,
-            "reason": "repair_readback_not_current",
+            "reason": "repair_command_failed" if repair is None or repair.returncode else "repair_readback_not_current",
         }
     return {
-        **receipt,
-        "status": "repaired",
+        **verified,
+        "status": "repaired" if verified["status"] == "current" else verified["status"],
         "repair_attempted": True,
-        "failure_ids": failure_ids,
-        "reason": None,
     }
 
 def _plugin_skill_roots_from_payload(payload: object) -> tuple[Path, ...]:
@@ -692,19 +636,17 @@ def install_missing_owner_skills(
         if not entry.get("required"):
             continue
         command: list[str] = []
-        owner_native_opl = False
+        install = entry.get("install", {})
+        owner_native_opl = entry["ownership"] != "codex" and install.get("kind") == "opl-package"
         plugin_skill_roots: tuple[Path, ...] = ()
-        if entry["ownership"] != "codex":
-            command = shlex.split(str(entry["install"]["command"]))
-            owner_native_opl = command == [
-                "opl",
-                "packages",
-                "install",
-                str(package),
-                "--json",
-            ]
-            if owner_native_opl:
-                plugin_skill_roots = codex_plugin_skill_roots()
+        if owner_native_opl:
+            # Resolve the declared Package ID through Framework's official lifecycle.
+            if len(package) > 128 or not re.fullmatch(r"[a-z0-9]+(?:-[a-z0-9]+)*", package):
+                raise FleetError(f"invalid owner Package ID: {package}")
+            command = ["opl", "pack", "ensure", package, "--json"]
+            plugin_skill_roots = codex_plugin_skill_roots()
+        elif entry["ownership"] != "codex":
+            command = shlex.split(str(install["command"]))
         missing = [
             name
             for name in entry["skills"]
@@ -712,7 +654,7 @@ def install_missing_owner_skills(
         ]
         if not missing:
             continue
-        if entry["ownership"] == "codex" or entry.get("install", {}).get("kind") in {
+        if entry["ownership"] == "codex" or install.get("kind") in {
             "codex-skill-installer",
             "skills-cli",
         }:

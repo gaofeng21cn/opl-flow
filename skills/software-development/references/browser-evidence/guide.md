@@ -23,8 +23,8 @@ Use ordered screenshots for discrete states or a browser without video.
 Store the recording under the repository's ignored browser-artifact directory. Keep
 dimensions and viewport stable. Require `ffmpeg` and `ffprobe`; report missing
 media binaries instead of installing them implicitly. When Flow is installed,
-use the Framework-projected repair action
-(`opl packages repair --package-id opl-flow`) only when installation or repair
+use the Framework v2 Package repair/sync flow
+(`opl pack ensure opl-flow --json` or `opl pack sync --json`) only when installation or repair
 is authorized; the managed `ffmpeg` capability is ready only when both binaries
 are callable.
 

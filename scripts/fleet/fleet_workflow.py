@@ -153,7 +153,11 @@ def apply_profile(content: str, expected_sha256: str | None) -> bool:
         return False
     target = common.effective_codex_home() / "AGENTS.md"
     environment = {**os.environ, "CODEX_HOME": str(target.parent)}
-    payload = {"content": content, "expected_sha256": expected_sha256}
+    payload = {
+        "content": content,
+        "expected_path": str(target),
+        "expected_sha256": expected_sha256,
+    }
     try:
         version = subprocess.run(
             [command, "--version", "--json"], env=environment, text=True,
@@ -161,22 +165,13 @@ def apply_profile(content: str, expected_sha256: str | None) -> bool:
         )
         if version.returncode != 0:
             return False
-        raw = version.stdout.strip()
-        if re.fullmatch(r"0\.\d+\.\d+(?:[-+][0-9A-Za-z.+-]+)?", raw):
-            # Legacy Framework reports a plain package version even with --json.
-            args = [command, "app", "action", "execute", "--action", "codex_user_instructions_set",
-                    "--payload", json.dumps(payload), "--json"]
-            applied = subprocess.run(args, env=environment, text=True, capture_output=True,
-                                     timeout=120, check=False)
-        else:
-            metadata = json.loads(raw)
-            if not isinstance(metadata, dict) or metadata.get("api_version") != "2.0":
-                return False
-            payload["expected_path"] = str(target)
-            applied = subprocess.run(
-                [command, "daemon", "apply-codex-profile", "--json"], input=json.dumps(payload),
-                env=environment, text=True, capture_output=True, timeout=120, check=False,
-            )
+        metadata = json.loads(version.stdout)
+        if not isinstance(metadata, dict) or metadata.get("api_version") != "2.0":
+            return False
+        applied = subprocess.run(
+            [command, "daemon", "apply-codex-profile", "--json"], input=json.dumps(payload),
+            env=environment, text=True, capture_output=True, timeout=120, check=False,
+        )
         # Caller reads back the selected file. Never retry an unknown write.
         return applied.returncode == 0
     except (OSError, ValueError, subprocess.TimeoutExpired):
