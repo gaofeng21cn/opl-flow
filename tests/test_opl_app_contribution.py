@@ -84,9 +84,12 @@ class OplAppContributionTests(unittest.TestCase):
                 self.assertEqual(response["schema_version"], "opl-package-app-contribution-response.v1")
                 self.assertEqual(response["ref"], action_ref)
                 self.assertEqual(response["error"]["code"], "confirmation_required")
+            service_unconfirmed = {"instance_path": tmp, "action": "up", "confirmed": False}
+            svc_denied = invoke({"operation": "execute", "ref": "opl-flow.decision.v1#service", "input": service_unconfirmed})
+            self.assertEqual(svc_denied["error"]["code"], "confirmation_required")
             for blocked in (
                 {"operation": "read", "ref": action_ref, "input": unconfirmed},
-                {"operation": "execute", "ref": "opl-flow.decision.v1#service", "input": {}},
+                {"operation": "execute", "ref": "opl-flow.decision.v1#unknown", "input": {}},
                 {"operation": "execute", "package_id": "other", "ref": action_ref, "input": {}},
                 {"operation": "execute", "dry_run": True, "ref": action_ref, "input": {}},
             ):
@@ -160,8 +163,85 @@ class OplAppContributionTests(unittest.TestCase):
             self.assertEqual(data["counts"]["pending_events"], 1)
             self.assertNotIn("service_path", data["service"])
             self.assertNotIn("log_dir", data["service"])
+            self.assertNotIn("workspace_path", data["inbox"]["active_sessions"][0])
+            self.assertNotIn("session_id", data["inbox"]["active_sessions"][0])
             self.assertNotIn("/Users/secret", json.dumps(resp, ensure_ascii=False))
             self.assertEqual(len(data["items"]), 3)
+
+    def test_dashboard_local_navigation_and_jump_mode_projection(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            instance = Path(tmp) / "opl-instance-demo"
+            instance.mkdir()
+            fake_svc = {"schema": "opl_router_service_status.v1", "platform": "Darwin", "label": "com.opl.demo", "installed": True, "running": True, "bridge": "auto"}
+            snap = _sample_snapshot()
+            snap["issues"][2]["metadata"]["execution_carrier"] = "codex"
+            snap["issues"][2]["metadata"]["workspace_path"] = "/Users/local/ws-three"
+            fake_sessions = {
+                "schema": "opl_local_sessions_snapshot.v1",
+                "observed_at": "2026-11-27T06:00:00Z",
+                "counts": {"total": 2, "active": 2, "bound": 1, "by_carrier": {"codex": 1, "antigravity": 0, "dsh": 1}},
+                "sessions": [
+                    {
+                        "session_id": "codex-thread-3",
+                        "session_ref": "codex:codex-thread-3",
+                        "carrier": "codex",
+                        "surface": "codex-cli",
+                        "harness": "codex",
+                        "model_label": "Codex",
+                        "cwd": "/Users/local/ws-three",
+                        "workspace_label": "ws-three",
+                        "status": "active",
+                        "updated_at": "2026-11-27T06:00:00Z",
+                        "bound_bead_id": "opl-3",
+                    },
+                    {
+                        "session_id": "dsh-sess-9",
+                        "session_ref": "dsh:dsh-sess-9",
+                        "carrier": "dsh",
+                        "surface": "dsh-desktop",
+                        "harness": "minimax-code",
+                        "model_label": "MiniMax-M3.1-Flash",
+                        "cwd": "/Users/local/ws-nine",
+                        "workspace_label": "ws-nine",
+                        "status": "active",
+                        "updated_at": "2026-11-27T06:00:00Z",
+                        "bound_bead_id": None,
+                    },
+                ],
+                "active_workspace_occupants": [],
+            }
+            with (
+                mock.patch.object(opl_workflow, "executable", return_value="bd"),
+                mock.patch.object(opl_workflow, "supervisor_snapshot", return_value=snap),
+                mock.patch.object(adapter.opl_service, "router_service_status", return_value=fake_svc),
+                mock.patch.object(adapter.opl_session_discovery, "discover_local_sessions", return_value=fake_sessions),
+            ):
+                codex_view = adapter.build_dashboard({
+                    "instance_path": str(instance),
+                    "include_local_navigation": True,
+                    "host_carrier": "codex",
+                })
+                dsh_view = adapter.build_dashboard({
+                    "instance_path": str(instance),
+                    "include_local_navigation": True,
+                    "host_carrier": "dsh",
+                })
+
+            codex_sess = {s["session_ref"]: s for s in codex_view["data"]["active_sessions"]["sessions"]}
+            self.assertEqual(codex_sess["codex:codex-thread-3"]["jump_mode"], "native_switch")
+            self.assertEqual(codex_sess["codex:codex-thread-3"]["thread_id"], "codex-thread-3")
+            self.assertEqual(codex_sess["codex:codex-thread-3"]["workspace_path"], "/Users/local/ws-three")
+            self.assertEqual(codex_sess["codex:codex-thread-3"]["title"], "进行中的重构任务")
+            self.assertEqual(codex_sess["dsh:dsh-sess-9"]["jump_mode"], "external_focus_only")
+            self.assertIsNone(codex_sess["dsh:dsh-sess-9"]["thread_id"])
+
+            codex_items = {row["bead_id"]: row for row in codex_view["data"]["items"]}
+            self.assertEqual(codex_items["opl-3"]["jump_mode"], "native_switch")
+            self.assertEqual(codex_items["opl-1"]["jump_mode"], "launch_new")
+
+            dsh_sess = {s["session_ref"]: s for s in dsh_view["data"]["active_sessions"]["sessions"]}
+            self.assertEqual(dsh_sess["dsh:dsh-sess-9"]["jump_mode"], "native_switch")
+            self.assertEqual(dsh_sess["codex:codex-thread-3"]["jump_mode"], "external_focus_only")
 
     def test_send_reply_and_create_and_confirmation_gates(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
@@ -233,7 +313,7 @@ class OplAppContributionTests(unittest.TestCase):
                 {"schema": "opl_execution_requirements.v1", "adapter": "local-antigravity"},
             )
 
-            # Send with executor=dsh injects local-dsh execution requirements
+            # Send with executor=dsh + session_ref binds execution_thread and execution_carrier
             with (
                 mock.patch.object(opl_workflow, "executable", return_value="bd"),
                 mock.patch.object(
@@ -243,13 +323,15 @@ class OplAppContributionTests(unittest.TestCase):
                 ) as mocked_intake_dsh,
             ):
                 created_dsh = adapter.action_send(
-                    {"instance_path": str(instance), "message": "Verify DSH", "executor": "dsh"}
+                    {"instance_path": str(instance), "message": "Verify DSH", "executor": "dsh", "session_ref": "dsh:hs-1"}
                 )
             self.assertTrue(created_dsh["ok"])
             self.assertEqual(
                 mocked_intake_dsh.call_args.kwargs["requirements"],
                 {"schema": "opl_execution_requirements.v1", "adapter": "local-dsh"},
             )
+            self.assertEqual(mocked_intake_dsh.call_args.kwargs["execution_thread"], "dsh:hs-1")
+            self.assertEqual(mocked_intake_dsh.call_args.kwargs["execution_carrier"], "dsh")
 
             # Service action=up without bridge defaults to auto
             with (
@@ -310,6 +392,12 @@ class OplAppContributionTests(unittest.TestCase):
         self.assertEqual(pkg["provides"]["contribution_handler"]["argv"], ["python3", "./scripts/opl_app_contribution.py"])
         self.assertIn("opl-flow.decision.v1#dashboard", contrib_adapter["reads"])
         self.assertIn("opl-flow.decision.v1#approve", contrib_adapter["actions"])
+        self.assertIn("opl-flow.decision.v1#service", contrib_adapter["actions"])
+        self.assertIn("executor", contrib_adapter["actions"]["opl-flow.decision.v1#send"]["input_schema"]["properties"])
+        self.assertIn("session_ref", contrib_adapter["actions"]["opl-flow.decision.v1#send"]["input_schema"]["properties"])
+        self.assertIn("include_local_navigation", contrib_adapter["reads"]["opl-flow.decision.v1#dashboard"]["input_schema"]["properties"])
+        action_ids = [a["id"] for a in pkg["ui"]["declarative"]["views"][0]["actions"]]
+        self.assertIn("opl-flow.router.service", action_ids)
 
         html = (REPO_ROOT / "decision-dashboard/index.html").read_text(encoding="utf-8")
         self.assertLess(len(html.encode("utf-8")), 8 * 1024 * 1024)

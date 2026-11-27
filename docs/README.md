@@ -10,6 +10,7 @@ documentation explains those authorities.
 | --- | --- |
 | [README](../README.md) / [中文](../README.zh-CN.md) | Paired product introduction and entry points |
 | [Workflow architecture](reusable-workflow-architecture.md) | Flow, Ledger, private Instance, and external owner boundaries |
+| [Flow workbench plugin plan](opl-flow-workbench-plugin-plan.md) | OPL App / OPL DSH sidebar 「More」 control-tower plugin design, 3-layer mental model, and rollout plan |
 | [OPL Flow whitepaper (Chinese)](whitepapers/opl-flow-whitepaper.md) | Product philosophy and the Router, Worker, Fleet, and Ledger coordination model |
 | [Capability governance](capability-governance.md) | Profile, capability composition, and executor compatibility through Framework and App |
 | [New machine setup](new-machine-codex-setup.md) | Install, initialize, update, and verify a machine |
