@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import subprocess
 from pathlib import Path
 import tempfile
 import unittest
@@ -10,6 +11,45 @@ from unittest import mock
 from tests.test_opl_fleet import fictional_registry, fleet, git
 from fleet import fleet_common as common
 from fleet import fleet_workflow as workflow
+
+
+class ProfileWriterTests(unittest.TestCase):
+    def run_writer(self, version, *, fail=False):
+        target = Path("/temporary/fleet-codex")
+        previous = "a" * 64
+        content = "Reviewed Profile.\n"
+        replies = [subprocess.CompletedProcess([], 0, stdout=version),
+                   subprocess.TimeoutExpired("opl", 120) if fail else subprocess.CompletedProcess([], 0)]
+        with (mock.patch.object(workflow.shutil, "which", return_value="/bin/opl"),
+              mock.patch.object(common, "effective_codex_home", return_value=target),
+              mock.patch.object(workflow.subprocess, "run", side_effect=replies) as run):
+            success = workflow.apply_profile(content, previous)
+        return success, run.call_args_list, content, previous, target
+
+    def test_v2_uses_stdin_and_binds_reviewed_target(self):
+        success, calls, content, previous, target = self.run_writer('{"api_version":"2.0"}')
+        self.assertTrue(success)
+        self.assertEqual(calls[0].args[0], ["/bin/opl", "--version", "--json"])
+        self.assertEqual(calls[1].args[0], ["/bin/opl", "daemon", "apply-codex-profile", "--json"])
+        self.assertEqual(calls[1].kwargs["env"]["CODEX_HOME"], str(target))
+        self.assertEqual(json.loads(calls[1].kwargs["input"]), {
+            "content": content, "expected_path": str(target / "AGENTS.md"), "expected_sha256": previous,
+        })
+
+    def test_legacy_version_uses_previous_framework_writer(self):
+        success, calls, content, previous, _ = self.run_writer("0.3.27\n")
+        self.assertTrue(success)
+        self.assertEqual(calls[1].args[0][1:6], ["app", "action", "execute", "--action", "codex_user_instructions_set"])
+        self.assertEqual(json.loads(calls[1].args[0][7]), {"content": content, "expected_sha256": previous})
+
+    def test_unrecognized_version_and_lost_write_never_fall_back(self):
+        for version in ("broken", '{"api_version":"3.0"}'):
+            success, calls, *_ = self.run_writer(version)
+            self.assertFalse(success)
+            self.assertEqual(len(calls), 1)
+        success, calls, *_ = self.run_writer('{"api_version":"2.0"}', fail=True)
+        self.assertFalse(success)
+        self.assertEqual(len(calls), 2)
 
 
 class FleetWorkflowTests(unittest.TestCase):
@@ -196,6 +236,18 @@ class FleetWorkflowTests(unittest.TestCase):
         (self.control / "nodes.json").write_text(json.dumps(self.registry))
         with self.assertRaisesRegex(fleet.FleetError, "not current on Instance main"):
             workflow.record_projection(self.revision, source_sha256=common.sha256_file(self.agents))
+
+    def test_completed_write_with_lost_response_is_confirmed_from_reviewed_file(self):
+        def write_without_ack(content, expected):
+            self.apply(content, expected)
+            return False
+        self.writer.side_effect = write_without_ack
+        result = workflow.reconcile_workflow()
+        self.assertEqual(result["state"], "CURRENT")
+        self.assertEqual(result["reason"], "reviewed_profile_confirmed_after_writer_error")
+        self.assertNotIn("writer", result)
+        self.assertFalse(workflow.reconcile_workflow()["changed"])
+        self.writer.assert_called_once()
 
     def test_writer_failure_cannot_claim_delivery(self):
         self.writer.side_effect = lambda *_: False
