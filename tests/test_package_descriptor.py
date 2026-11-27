@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import json
-import re
 import unittest
 from pathlib import Path, PurePosixPath
 
@@ -34,65 +33,28 @@ class PackageDescriptorTests(unittest.TestCase):
         self.policy = load_json(REPO_ROOT / "contracts" / "workflow-policy.json")
 
     def test_descriptor_declares_the_workflow_profile_owner_boundary(self) -> None:
-        codex_surface = self.manifest["codex_surface"]
-        profile_surface = self.manifest["profile_surface"]
-        managed_policy_surface = self.manifest["managed_policy_surface"]
+        identity = self.manifest["identity"]
+        self.assertEqual(self.manifest["schema_version"], "opl.package.v2")
+        self.assertEqual(identity["id"], self.policy["package"]["id"])
+        self.assertEqual(identity["intent"], "extension")
+        self.assertEqual(identity["version"], self.policy["package"]["version"])
+        self.assertEqual(identity["version"], self.plugin["version"])
+        self.assertEqual(self.manifest["host_hints"]["codex"]["plugin_name"], self.plugin["name"])
+        self.assertEqual(self.manifest["distribution"]["oci"].rsplit("/", 1)[-1], identity["id"])
+        self.assertTrue(repository_file(identity["icon"]).is_file())
 
-        self.assertEqual(self.manifest["surface_kind"], "opl_workflow_profile_package_manifest.v1")
-        self.assertEqual(self.manifest["package_id"], "opl-flow")
-        self.assertEqual(self.manifest["package_role"], "workflow_profile")
-        self.assertEqual(
-            self.manifest["carrier_source_role"],
-            "codex_plugin_default_carrier_not_package_truth",
-        )
-        self.assertIsInstance(codex_surface, dict)
-        self.assertIsInstance(profile_surface, dict)
-        self.assertIsInstance(managed_policy_surface, dict)
-        self.assertEqual(codex_surface["plugin_id"], self.plugin["name"])
-        self.assertEqual(
-            codex_surface["required_skill_ids"],
-            [
-                "opl-flow",
-                "software-development",
-                "manage-codex-tasks",
-            ],
-        )
-        self.assertEqual(profile_surface["existing_profile_policy"], "semantic_merge_required")
-        self.assertEqual(
-            profile_surface["runtime_profile"],
-            {"source_path": "templates/AGENTS.md", "target_id": "user_agents_profile"},
-        )
-        self.assertEqual(
-            profile_surface["authoring_sources"],
-            [{"source_path": "templates/TASTE.md", "target_id": "user_taste_source"}],
-        )
-        self.assertEqual(managed_policy_surface["policy_kind"], "opl_flow_workflow_policy")
+    def test_profile_and_three_router_skills_are_deliverable(self) -> None:
+        skills = self.manifest["provides"]["skills"]
+        self.assertCountEqual([skill["id"] for skill in skills], ["opl-flow", "software-development", "manage-codex-tasks"])
+        for skill in skills:
+            self.assertEqual(skill["exposure"], "default")
+            self.assertTrue((repository_file(skill["path"]) / "SKILL.md").is_file())
 
-    def test_descriptor_versions_and_paths_are_real(self) -> None:
-        codex_surface = self.manifest["codex_surface"]
-        profile_surface = self.manifest["profile_surface"]
-        managed_policy_surface = self.manifest["managed_policy_surface"]
-        self.assertIsInstance(codex_surface, dict)
-        self.assertIsInstance(profile_surface, dict)
-        self.assertIsInstance(managed_policy_surface, dict)
-
-        package = self.policy["package"]
-        self.assertIsInstance(package, dict)
-        self.assertEqual(self.manifest["version"], self.plugin["version"])
-        self.assertEqual(self.manifest["version"], package["version"])
-        self.assertEqual(codex_surface["plugin_payload_manifest_url"], "opl-package.json")
-        self.assertNotIn("source_commit", self.manifest)
-        self.assertNotIn("carrier_source_commit", codex_surface)
-
-        references = [
-            str(codex_surface["plugin_payload_manifest_url"]),
-            str(profile_surface["runtime_profile"]["source_path"]),
-            *(str(entry["source_path"]) for entry in profile_surface["authoring_sources"]),
-            *(str(entry) for entry in profile_surface["merge_context_paths"]),
-            str(managed_policy_surface["source_path"]),
-            str(managed_policy_surface["schema_path"]),
-        ]
-        self.assertTrue(all(repository_file(reference).is_file() for reference in references))
+        profile = load_json(REPO_ROOT / "profile" / "manifest.json")
+        paths = [profile["runtime_profile"]["path"], profile["authoring_source"]["path"],
+                 *(module["path"] for module in profile["modules"])]
+        self.assertTrue(all(repository_file(item).is_file() for item in paths))
+        self.assertTrue((REPO_ROOT / "contracts" / self.policy["$schema"]).is_file())
 
     def test_descriptor_does_not_recreate_private_lifecycle_authority(self) -> None:
         forbidden_fields = {
@@ -106,8 +68,7 @@ class PackageDescriptorTests(unittest.TestCase):
             "source_commit",
         }
         self.assertTrue(forbidden_fields.isdisjoint(self.manifest))
-        self.assertNotIn("carrier_source_commit", self.manifest["codex_surface"])
-        self.assertEqual(self.manifest["capability_dependencies"], [])
+        self.assertEqual(self.manifest["dependencies"].get("packages", []), [])
 
 
 if __name__ == "__main__":

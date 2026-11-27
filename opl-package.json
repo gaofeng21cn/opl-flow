@@ -1,155 +1,182 @@
 {
-  "surface_kind": "opl_workflow_profile_package_manifest.v1",
-  "package_id": "opl-flow",
-  "display_name": "OPL Flow",
-  "publisher": "one-person-lab",
-  "version": "0.1.93",
-  "source": "first_party",
-  "source_repo": "https://github.com/gaofeng21cn/opl-flow.git",
-  "package_role": "workflow_profile",
-  "carrier_source_role": "codex_plugin_default_carrier_not_package_truth",
-  "codex_surface": {
-    "plugin_id": "opl-flow",
-    "plugin_payload_manifest_url": "opl-package.json",
-    "configured_codex_plugin_carrier": {
-      "kind": "codex_plugin_manager",
-      "plugin_selector": "opl-flow@opl-flow",
-      "executor_route": "codex_cli",
-      "marketplace_source": "gaofeng21cn/opl-flow",
-      "publication_ref": "ghcr.io/gaofeng21cn/one-person-lab-packages/opl-flow:latest-stable"
-    },
-    "required_skill_ids": [
-      "opl-flow",
-      "software-development",
-      "manage-codex-tasks"
-    ],
-    "app_contribution_abi": {
-      "schema_version": "opl-package-app-contribution-cli.v1",
-      "transport": "stdin_json_stdout_json",
-      "argv": [
-        "opl",
-        "app",
-        "contribution",
-        "adapter",
-        "--stdin"
-      ],
-      "request_schema": "opl-package-app-contribution-request.v1",
-      "response_schema": "opl-package-app-contribution-response.v1"
-    },
-    "app_contribution_adapter": {
-      "manifest": "app-contribution-adapter.json"
-    }
-  },
-  "profile_surface": {
-    "runtime_profile": {
-      "source_path": "templates/AGENTS.md",
-      "target_id": "user_agents_profile"
-    },
-    "authoring_sources": [
-      {
-        "source_path": "templates/TASTE.md",
-        "target_id": "user_taste_source"
-      }
-    ],
-    "merge_context_paths": [
-      "profile/manifest.json",
-      "profile/modules/01-user-preferences.md",
-      "templates/TASTE.md"
-    ],
-    "existing_profile_policy": "semantic_merge_required"
-  },
-  "managed_policy_surface": {
-    "policy_kind": "opl_flow_workflow_policy",
-    "source_path": "contracts/workflow-policy.json",
-    "schema_path": "contracts/workflow-policy.schema.json"
-  },
-  "capability_dependencies": [],
-  "presentation": {
-    "display_name_i18n": {
+  "schema_version": "opl.package.v2",
+  "identity": {
+    "id": "opl-flow",
+    "version": "0.1.93",
+    "intent": "extension",
+    "name": {
       "zh-CN": "OPL Flow",
       "en-US": "OPL Flow"
     },
-    "description_i18n": {
+    "summary": {
       "zh-CN": "建立统一的 Codex 使用基线，协调跨任务、仓库与机器的持续工作。",
       "en-US": "OPL Flow establishes the Codex experience baseline and coordinates durable work across tasks, repositories, and machines."
     },
-    "session_routing_summary_i18n": {
+    "description": {
+      "zh-CN": "按需提供 OPL 产品运行、软件开发和 Codex 任务协调三个入口，通过 Fleet 和 Ledger 延续跨机器工作。",
+      "en-US": "OPL Flow exposes three focused routers for OPL product operations, non-trivial software development, and native Codex task management. Routers manage attention, Workers carry bounded execution, Fleet provides continuity and capacity, and the Ledger remains the single durable task truth. Specialized guides remain bundled and load only through the selected router. Framework and Codex own installation and Profile materialization; explicit $opl-flow start idempotently binds the Ledger through native owner APIs and fresh readback."
+    },
+    "publisher": "one-person-lab",
+    "license": "Apache-2.0",
+    "icon": "assets/branding/opl-flow-logo.png",
+    "repository": "https://github.com/gaofeng21cn/opl-flow",
+    "homepage": "https://github.com/gaofeng21cn/opl-flow",
+    "keywords": [
+      "codex",
+      "workflow",
+      "opl",
+      "agents"
+    ],
+    "routing_summary": {
       "zh-CN": "建立统一的 Codex 使用基线，协调跨任务、仓库与机器的持续工作。",
       "en-US": "OPL Flow establishes the Codex experience baseline and coordinates durable work across tasks, repositories, and machines."
     },
-    "home_shortcuts": [],
-    "software_type": "extension",
-    "icon_ref": "assets/branding/opl-flow-logo.png",
-    "miniapp": {
-      "presentation_mode": "dedicated_app",
-      "entry_kind": "product_entry",
-      "direct_entry": true,
-      "entry_view_id": "opl-flow.decision.dashboard",
-      "dedicated_resource_uri": "ui://opl-flow/decision-dashboard.html"
-    }
+    "default_prompts": [
+      "Use $opl-flow doctor to check my Codex baseline, or $opl-flow start for idempotent Ledger onboarding."
+    ]
   },
-  "app_contributions": {
-    "schema_version": "opl-app-contributions.v1",
-    "views": [
+  "dependencies": {
+    "opl_base": "^2.0.0",
+    "runtimes": [
       {
-        "view_id": "opl-flow.decision.dashboard",
-        "view_type": "task_board",
-        "title_i18n": {
-          "zh-CN": "决策看板",
-          "en-US": "Decision Dashboard"
-        },
-        "data_ref": "opl-flow.decision.v1#dashboard",
-        "command_ids": [
-          "opl-flow.objective.send",
-          "opl-flow.objective.approve",
-          "opl-flow.router.tick"
-        ],
-        "empty_state_i18n": {
-          "zh-CN": "当前暂无需要拍板或运行中的目标",
-          "en-US": "No objectives currently require action or are active"
-        }
-      }
-    ],
-    "commands": [
-      {
-        "command_id": "opl-flow.objective.send",
-        "label_i18n": {
-          "zh-CN": "投递任务或回复",
-          "en-US": "Send task or reply"
-        },
-        "action_ref": "opl-flow.decision.v1#send",
-        "confirmation_required": true
+        "name": "python",
+        "version": ">=3.12"
       },
       {
-        "command_id": "opl-flow.objective.approve",
-        "label_i18n": {
-          "zh-CN": "批准归档",
-          "en-US": "Approve archive"
-        },
-        "action_ref": "opl-flow.decision.v1#approve",
-        "confirmation_required": true
-      },
-      {
-        "command_id": "opl-flow.router.tick",
-        "label_i18n": {
-          "zh-CN": "推进一轮调度",
-          "en-US": "Run router tick"
-        },
-        "action_ref": "opl-flow.decision.v1#tick",
-        "confirmation_required": true
-      }
-    ],
-    "badges": [],
-    "ui": [
-      {
-        "contribution_id": "opl-flow.decision.dashboard",
-        "slot": "runtime.detail",
-        "contribution_kind": "view",
-        "trust_tier": "declarative",
-        "scope": "root",
-        "sort_order": 200,
-        "view_id": "opl-flow.decision.dashboard"
+        "name": "node",
+        "version": ">=20"
       }
     ]
+  },
+  "provides": {
+    "skills": [
+      {
+        "id": "opl-flow",
+        "path": "./skills/opl-flow",
+        "exposure": "default"
+      },
+      {
+        "id": "software-development",
+        "path": "./skills/software-development",
+        "exposure": "default"
+      },
+      {
+        "id": "manage-codex-tasks",
+        "path": "./skills/manage-codex-tasks",
+        "exposure": "default"
+      }
+    ],
+    "mcp_servers": [
+      {
+        "id": "decision-dashboard",
+        "transport": "stdio",
+        "command": "node",
+        "args": [
+          "./decision-dashboard/server.bundle.mjs"
+        ]
+      }
+    ],
+    "contribution_handler": {
+      "kind": "cli",
+      "argv": [
+        "python3",
+        "./scripts/opl_app_contribution.py"
+      ],
+      "transport": "stdin_json_stdout_json"
+    }
+  },
+  "ui": {
+    "declarative": {
+      "views": [
+        {
+          "id": "opl-flow.decision.dashboard",
+          "view_type": "list_detail",
+          "slot": "runtime.detail",
+          "title": {
+            "zh-CN": "决策看板",
+            "en-US": "Decision Dashboard"
+          },
+          "data_ref": "opl-flow.decision.v1#dashboard",
+          "empty_state": {
+            "zh-CN": "当前暂无需要拍板或运行中的目标",
+            "en-US": "No objectives currently require action or are active"
+          },
+          "actions": [
+            {
+              "id": "opl-flow.objective.send",
+              "label": {
+                "zh-CN": "投递任务或回复",
+                "en-US": "Send task or reply"
+              },
+              "action_ref": "opl-flow.decision.v1#send",
+              "confirm": true,
+              "effect_timing": "immediate"
+            },
+            {
+              "id": "opl-flow.objective.approve",
+              "label": {
+                "zh-CN": "批准归档",
+                "en-US": "Approve archive"
+              },
+              "action_ref": "opl-flow.decision.v1#approve",
+              "confirm": true,
+              "effect_timing": "immediate"
+            },
+            {
+              "id": "opl-flow.router.tick",
+              "label": {
+                "zh-CN": "推进一轮调度",
+                "en-US": "Run router tick"
+              },
+              "action_ref": "opl-flow.decision.v1#tick",
+              "confirm": true,
+              "effect_timing": "immediate"
+            }
+          ],
+          "sort_order": 200
+        }
+      ]
+    },
+    "mcp_apps": [
+      {
+        "id": "opl-flow.workbench",
+        "title": {
+          "zh-CN": "OPL Flow",
+          "en-US": "OPL Flow"
+        },
+        "mcp_server_id": "decision-dashboard",
+        "resource_uri": "ui://opl-flow/decision-dashboard.html",
+        "host_capabilities": [
+          "theme_sync"
+        ]
+      }
+    ]
+  },
+  "distribution": {
+    "oci": "ghcr.io/gaofeng21cn/one-person-lab-packages/opl-flow",
+    "visibility": "public"
+  },
+  "host_hints": {
+    "codex": {
+      "sync_enabled": true,
+      "plugin_name": "opl-flow",
+      "category": "Developer Tools",
+      "capabilities": [
+        "workflow",
+        "preferences",
+        "codex-experience-baseline",
+        "model-recommendation",
+        "capability-management",
+        "task-coordination",
+        "document-governance",
+        "progressive-workflow-routing",
+        "durable-ledger",
+        "dashboard-onboarding",
+        "hourly-supervision",
+        "linear-ledger-projection",
+        "multi-machine-fleet",
+        "codegraph-bootstrap"
+      ]
+    }
   }
 }

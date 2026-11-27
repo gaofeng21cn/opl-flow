@@ -197,13 +197,11 @@ def check_plugin_json(repo_root: Path) -> list[str]:
     package_manifest = json.loads((repo_root / "opl-package.json").read_text(encoding="utf-8"))
     if marketplace.get("name") != "opl-flow":
         errors.append("marketplace name must be opl-flow")
-    selector = (
-        package_manifest.get("codex_surface", {})
-        .get("configured_codex_plugin_carrier", {})
-        .get("plugin_selector")
-    )
-    if selector != "opl-flow@opl-flow":
-        errors.append("package carrier selector must be opl-flow@opl-flow")
+    package_name = package_manifest.get("host_hints", {}).get("codex", {}).get("plugin_name")
+    if package_name != manifest.get("name") or not any(
+        entry.get("name") == package_name for entry in marketplace.get("plugins", [])
+    ):
+        errors.append("the Flow Package and marketplace must select the same Codex plugin")
     policy = json.loads((repo_root / "contracts" / "workflow-policy.json").read_text(encoding="utf-8"))
     if manifest.get("version") != policy.get("package", {}).get("version"):
         errors.append("plugin version must match contracts/workflow-policy.json package.version")

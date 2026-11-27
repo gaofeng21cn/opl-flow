@@ -457,9 +457,44 @@ def _read_stdin_json() -> dict[str, Any]:
     return parsed
 
 
+def framework_contribution(request: dict[str, Any]) -> dict[str, Any]:
+    operation = request.get("operation")
+    ref = request.get("ref", request.get("action_id"))
+    receipt = {
+        "schema_version": "opl-package-app-contribution-response.v1",
+        "package_id": "opl-flow",
+        "operation": operation,
+        "ref": ref,
+    }
+    try:
+        if request.get("schema_version") != "opl-package-app-contribution-request.v1" or request.get("package_id") != "opl-flow":
+            raise ValueError("请求未绑定 OPL Flow Package。")
+        if "ref" in request and "action_id" in request and request["ref"] != request["action_id"]:
+            raise ValueError("请求包含不一致的动作标识。")
+        if operation == "read" and ref == DASHBOARD_REF:
+            handler = build_dashboard
+        elif operation == "execute" and isinstance(ref, str):
+            handler = {
+                "opl-flow.decision.v1#send": action_send,
+                "opl-flow.decision.v1#approve": action_approve,
+                "opl-flow.decision.v1#tick": action_tick,
+            }.get(ref)
+            if handler is None or request.get("dry_run", False) is not False:
+                raise ValueError("请求未指定可执行的看板动作。")
+        else:
+            raise ValueError("请求未指定已声明的看板视图或动作。")
+        field = "input" if "ref" in request else "payload"
+        data = request.get(field)
+        if not isinstance(data, dict):
+            raise ValueError("看板输入必须为 JSON 对象。")
+    except ValueError as exc:
+        return {**receipt, "ok": False, "state": "error", "error": {"code": "invalid_request", "message": str(exc)}}
+    return {**receipt, **handler(data)}
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("operation", choices=("dashboard", "send", "approve", "tick", "service"))
+    parser.add_argument("operation", nargs="?", choices=("dashboard", "send", "approve", "tick", "service"))
     args = parser.parse_args(argv)
     try:
         payload = _read_stdin_json()
@@ -472,6 +507,9 @@ def main(argv: list[str] | None = None) -> int:
         )
         return 1
 
+    if args.operation is None:
+        print(json.dumps(framework_contribution(payload), ensure_ascii=False))
+        return 0
     handlers = {
         "dashboard": build_dashboard,
         "send": action_send,

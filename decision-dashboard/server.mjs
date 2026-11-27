@@ -22,9 +22,8 @@ function readPackageVersion() {
   for (const candidate of [resolve(packageRoot, 'opl-package.json'), resolve(root, 'package.json')]) {
     try {
       const parsed = JSON.parse(readFileSync(candidate, 'utf8'));
-      if (typeof parsed?.version === 'string' && parsed.version.trim()) {
-        return parsed.version.trim();
-      }
+      const version = parsed.identity?.version ?? parsed.version;
+      if (typeof version === 'string' && version.trim()) return version.trim();
     } catch {}
   }
   return '0.1.82';
@@ -207,7 +206,9 @@ export function createMcpServer({
     { _meta: resourceMeta },
     async () => {
       const targetHtml = process.env.OPL_FLOW_DASHBOARD_HTML || htmlPath;
-      const html = await readFile(targetHtml, 'utf8');
+      const html = (await readFile(targetHtml, 'utf8')).replace(
+        '"__OPL_FLOW_INSTALLED_VERSION__"', JSON.stringify(SERVER_VERSION),
+      );
       return {
         contents: [
           {

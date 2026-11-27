@@ -11,6 +11,23 @@
   ],
   "version_files": [
     {
+      "path": "contracts/workflow-policy.json",
+      "kind": "json",
+      "field": "package.version"
+    },
+    {
+      "path": ".codex-plugin/plugin.json",
+      "kind": "json"
+    },
+    {
+      "path": "plugin.json",
+      "kind": "json"
+    },
+    {
+      "path": "pyproject.toml",
+      "kind": "toml_project"
+    },
+    {
       "path": "decision-dashboard/package.json",
       "kind": "json"
     },
