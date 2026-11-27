@@ -369,6 +369,29 @@ class PackageReleaseTests(unittest.TestCase):
                 self.assertFalse(output.exists())
                 self.assertEqual(baseline, (package_path.read_bytes(), allowlist_path.read_bytes()))
 
+    def test_prepare_v2_stage_delegates_to_the_framework_and_keeps_legacy_projection(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            args, _, previous, allowlist = self.prepare_fixture(Path(temporary))
+            catalog = Path(temporary) / "catalog"
+            manifest = catalog / "packages" / "agents" / previous.name
+            manifest.parent.mkdir(parents=True)
+            manifest.write_bytes(previous.read_bytes())
+            (catalog / "allowlists").mkdir()
+            (catalog / "allowlists" / allowlist.name).write_bytes(allowlist.read_bytes())
+            args.catalog_root = str(catalog)
+            with (
+                patch.object(release, "canonical_catalog_commit", return_value="a" * 40),
+                patch.object(release, "root_v2_owner", return_value=("2.1.0", "b" * 40)) as read,
+                patch.object(release, "repo_slug", return_value=f"owner/{args.package_id}"),
+                patch.object(release, "command_json", return_value={"status": "projection_ready"}) as stage,
+            ):
+                self.assertEqual(release.prepare(args)["status"], "projection_ready")
+                read.assert_called_once_with(Path(args.owner_root).resolve(), args.package_id, require_tag=True)
+                command = stage.call_args.args[0]
+                self.assertEqual(command[1:3], ["-m", "package_release.v2_projection"])
+                self.assertEqual(command[command.index("--catalog-root") + 1], str(catalog.resolve()))
+                self.assertEqual(command[command.index("--source-commit") + 1], "b" * 40)
+
     def test_source_gate_requires_fresh_clean_canonical_commit_without_tags(self) -> None:
         root = Path("/fixture/owner")
         manifest = {"package_id": "example", "version": "1.2.3", "codex_surface": {"plugin_id": "example"}}
@@ -1098,6 +1121,17 @@ jobs:
         self.assertEqual(len([call for call in self.calls if call[:2] == ["cosign", "verify-attestation"]]), 2)
         self.assertEqual(result["status"], "published_and_verified")
         self.assertEqual(result["digest"], self.digest)
+
+    def test_publish_selects_v2_release_while_legacy_version_remains_available(self) -> None:
+        args = self.fixture()
+        self.package["v2_release"] = {"version": "1.2.4", "source_commit": "d" * 40}
+        self.receipt["package"].update(version="1.2.4", owner_source_commit="d" * 40)
+        self.receipt["immutable"]["ref"] = f"{self.image}:1.2.4"
+        path = release.package_manifest_path(self.root / release.LEGACY_PACKAGE_DIRECTORY, args.package_id)
+        release.write_json(path, self.package)
+        result = self.publish(args)
+        self.assertEqual(result["version"], "1.2.4")
+        self.assertIn("expected_owner_source_commit=" + "d" * 40, self.dispatch())
 
     def test_catalog_publish_binds_the_same_revision_to_dispatch_and_receipt(self) -> None:
         catalog_commit = "e" * 40

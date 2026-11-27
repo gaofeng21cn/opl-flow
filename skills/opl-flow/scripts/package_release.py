@@ -235,6 +235,37 @@ def package_manifest_path(package_directory: Path, package_id: str) -> Path:
     return candidates[0]
 
 
+def root_v2_owner(owner_root: Path, package_id: str, *, require_tag: bool) -> tuple[str, str] | None:
+    manifest_path = owner_root / "opl-package.json"
+    if not manifest_path.is_file() or read_json(manifest_path).get("schema_version") != "opl.package.v2":
+        return None
+    commit = require_canonical_checkout(owner_root, "owner")
+    manifest = committed_json(owner_root, commit, "opl-package.json")
+    identity = manifest.get("identity")
+    if (
+        manifest.get("schema_version") != "opl.package.v2" or not isinstance(identity, dict)
+        or identity.get("id") != package_id or not re.fullmatch(r"\d+\.\d+\.\d+", str(identity.get("version", "")))
+    ):
+        raise ReleaseError("v2 Package identity differs from the requested owner or version")
+    version = identity["version"]
+    if require_tag:
+        require_release_tag(owner_root, commit, version)
+    return version, commit
+
+
+def require_release_tag(owner_root: Path, source_commit: str, version: str) -> None:
+    tag = f"v{version}"
+    if git_value(owner_root, "cat-file", "-t", f"refs/tags/{tag}") != "tag":
+        raise ReleaseError(f"owner release tag must be annotated: {tag}")
+    if git_value(owner_root, "rev-parse", f"{tag}^{{}}") != source_commit:
+        raise ReleaseError(f"owner release tag does not select HEAD: {tag}")
+
+
+def assert_checkout_unchanged(root: Path, commit: str, label: str) -> None:
+    if git_value(root, "status", "--porcelain") or git_value(root, "rev-parse", "HEAD") != commit:
+        raise ReleaseError(f"{label} checkout changed during source preparation")
+
+
 def require_owner_source(
     owner_root: Path, package_id: str, *, owner_manifest_ref: str,
     source_root: str, workflow_profile: bool = False, require_tag: bool = False,
@@ -250,11 +281,7 @@ def require_owner_source(
     if manifest.get("package_id") != package_id or not re.fullmatch(r"\d+\.\d+\.\d+", version):
         raise ReleaseError("owner opl-package.json has an invalid package id or stable SemVer")
     if require_tag:
-        tag = f"v{version}"
-        if git_value(owner_root, "cat-file", "-t", f"refs/tags/{tag}") != "tag":
-            raise ReleaseError(f"owner release tag must be annotated: {tag}")
-        if git_value(owner_root, "rev-parse", f"{tag}^{{}}") != source_commit:
-            raise ReleaseError(f"owner release tag does not select HEAD: {tag}")
+        require_release_tag(owner_root, source_commit, version)
     owner_identity = canonical.get("package") if workflow_profile else canonical
     if not isinstance(owner_identity, dict) or (
         owner_identity.get("package_id", owner_identity.get("id")) != package_id
@@ -390,6 +417,24 @@ def prepare(
     publication_source = previous.get("publication_source")
     if not isinstance(publication_source, dict):
         raise ReleaseError("Framework projection has no owner publication source")
+    v2 = root_v2_owner(owner_root, args.package_id, require_tag=not source_only)
+    if v2:
+        if not catalog_root:
+            raise ReleaseError("v2 Package publication requires the official Catalog")
+        version, commit = v2
+        if str(previous.get("source_repo", "")).removesuffix(".git") != f"https://github.com/{repo_slug(owner_root)}":
+            raise ReleaseError("Catalog source_repo does not match the v2 owner")
+        staged = command_json([
+            sys.executable, "-m", "package_release.v2_projection",
+            "--framework-root", str(framework_root), "--catalog-root", str(catalog_root),
+            "--owner-root", str(owner_root), "--package-id", args.package_id,
+            "--version", version, "--source-commit", commit,
+        ], cwd=framework_root / "scripts")
+        return {
+            **staged, "catalog_source_commit": catalog_commit,
+            "updated_files": [str(package_path), str(package_directory / "payloads" / f"{args.package_id}-{version}.json"),
+                              str(catalog_root / "catalog-index.json")],
+        }
     source_reader = require_owner_source if source_only else require_owner_release
     owner_manifest, version, source_commit = source_reader(
         owner_root, args.package_id,
@@ -570,6 +615,39 @@ def prepare_source(args: argparse.Namespace) -> dict[str, Any]:
     output_root.parent.mkdir(parents=True, exist_ok=True)
     with tempfile.TemporaryDirectory(prefix=".opl-source-projection-", dir=output_root.parent) as temporary:
         staging = Path(temporary) / "projection"
+        v2 = root_v2_owner(owner_root, args.package_id, require_tag=False)
+        if v2:
+            version, commit = v2
+            if catalog_root:
+                registered = read_json(package_manifest_path(catalog_root / "packages", args.package_id))
+                if str(registered.get("source_repo", "")).removesuffix(".git") != f"https://github.com/{repo_slug(owner_root)}":
+                    raise ReleaseError("Catalog source_repo does not match the v2 owner")
+            built = command_json([
+                "node", "--conditions=opl-source", "--experimental-strip-types",
+                str(framework_root / "scripts/prepare-v2-package-publication.mjs"),
+                "--owner-root", str(owner_root), "--source-commit", commit, "--package-id", args.package_id,
+                "--package-version", version, "--output-directory", str(staging),
+            ], cwd=framework_root)
+            name = f"{args.package_id}-{version}.oplpack"
+            artifact = staging / name
+            if (
+                built.get("archive_path") != str(artifact) or built.get("source_commit") != commit
+                or built.get("package_id") != args.package_id or built.get("package_version") != version
+                or not artifact.is_file() or sha256_bytes(artifact.read_bytes()) != built.get("archive_sha256")
+            ):
+                raise ReleaseError("Framework v2 candidate readback differs from its exact owner source")
+            assert_checkout_unchanged(owner_root, commit, "owner")
+            assert_checkout_unchanged(framework_root, framework_commit, "Framework")
+            if catalog_root:
+                assert_checkout_unchanged(catalog_root, catalog_commit, "Catalog")
+            staging.rename(output_root)
+            return {
+                "action": "prepare-source", "status": "source_package_ready", "package_id": args.package_id,
+                "version": version, "owner_source_commit": commit, "framework_source_commit": framework_commit,
+                **({"catalog_source_commit": catalog_commit} if catalog_commit else {}),
+                "archive_path": str(output_root / name), "archive_sha256": built["archive_sha256"],
+                "content_digest": built["content_digest"], "publication_performed": False, "native_carrier_mutation": False,
+            }
         # Export a complete immutable baseline for dependency resolution.
         source_directories = {"packages": "packages", "allowlists": "allowlists"} if catalog_root else {
             LEGACY_PACKAGE_DIRECTORY: "packages",
@@ -593,15 +671,10 @@ def prepare_source(args: argparse.Namespace) -> dict[str, Any]:
                     raise ReleaseError("Package projection snapshot file is unreadable")
                 target.write_bytes(stream.read())
         result = prepare(args, source_only=True, projection_root=staging)
-        if (git_value(owner_root, "status", "--porcelain")
-                or git_value(owner_root, "rev-parse", "HEAD") != result["owner_source_commit"]):
-            raise ReleaseError("owner checkout changed during source preparation")
-        if (git_value(framework_root, "status", "--porcelain")
-                or git_value(framework_root, "rev-parse", "HEAD") != framework_commit):
-            raise ReleaseError("Framework checkout changed during source preparation")
-        if catalog_root and (git_value(catalog_root, "status", "--porcelain")
-                             or git_value(catalog_root, "rev-parse", "HEAD") != catalog_commit):
-            raise ReleaseError("Catalog checkout changed during source preparation")
+        assert_checkout_unchanged(owner_root, result["owner_source_commit"], "owner")
+        assert_checkout_unchanged(framework_root, framework_commit, "Framework")
+        if catalog_root:
+            assert_checkout_unchanged(catalog_root, catalog_commit, "Catalog")
         package_path = package_manifest_path(staging / "packages", args.package_id)
         package = read_json(package_path)
         carrier = package["codex_surface"].get("configured_codex_plugin_carrier", {})
@@ -1030,6 +1103,8 @@ def private_publication_target(
     if catalog_commit and "expected_catalog_source_commit" in optional_inputs:
         return {**target, "catalog_commit": catalog_commit}
 
+    if package.get("v2_release") is not None:
+        raise ReleaseError("v2 private publication requires a publisher that accepts the Catalog commit")
     manifest_ref = f"{LEGACY_PACKAGE_DIRECTORY}/{package['package_id']}.json"
     pinned = committed_json(framework_root, framework_commit, manifest_ref)
     def release_identity(manifest: dict[str, Any]) -> dict[str, Any]:
@@ -1185,8 +1260,18 @@ def publish(args: argparse.Namespace) -> dict[str, Any]:
     codex_surface = package.get("codex_surface")
     if not isinstance(codex_surface, dict):
         raise ReleaseError("Framework package projection has no codex_surface")
-    version = str(package.get("version") or "")
-    owner_commit = str(codex_surface.get("carrier_source_commit") or "")
+    release = package.get("v2_release")
+    if release is None:
+        version = str(package.get("version") or "")
+        owner_commit = str(codex_surface.get("carrier_source_commit") or "")
+    elif (
+        isinstance(release, dict)
+        and re.fullmatch(r"\d+\.\d+\.\d+", str(release.get("version", "")))
+        and re.fullmatch(r"[0-9a-f]{40}", str(release.get("source_commit", "")))
+    ):
+        version, owner_commit = release["version"], release["source_commit"]
+    else:
+        raise ReleaseError("Catalog v2 release has an invalid Package version or owner commit")
     carrier = codex_surface.get("configured_codex_plugin_carrier")
     publication_ref = carrier.get("publication_ref") if isinstance(carrier, dict) else None
     if not isinstance(publication_ref, str) or not publication_ref.endswith(":latest-stable"):

@@ -73,7 +73,13 @@ Set `OPL_CATALOG_ROOT` to reuse the same checkout across actions. The tool also
 discovers `opl-catalog` beside the Framework checkout. Historical Framework
 checkouts with embedded projections can still run without a Catalog checkout.
 
-Choose a new output root outside the source trees. The command exports the
+With a root `opl.package.v2` descriptor, Framework builds one verified
+`.oplpack` from the exact owner commit in the new output root. Read
+`archive_path`, `archive_sha256` and `content_digest` from the result.
+An authorized `opl pack install <archive_path> --json` installs these local
+bytes. Check the installed identity and version with `opl pack inspect <id> --json`.
+
+For a legacy Package, choose a new output root outside the source trees. The command exports the
 committed Catalog baseline for dependency resolution,
 updates only the selected Package, and atomically creates `packages/` and `allowlists/` below
 that root. Each invocation produces a complete independent set. For several
@@ -125,6 +131,10 @@ the central projection. Explicit owner presentation fields replace inherited
 values, including empty values, without merging nested values. The required
 `software_type` follows the Catalog category and accepts the legacy owner
 value `capability` during migration.
+For a v2 owner, Framework writes the Catalog `v2_release` selection and its
+immutable payload metadata. The earlier carrier projection continues to describe
+its original version. Publishing selects the v2 version and owner commit.
+
 A missing owner `source_repo` does not waive
 the binding between origin, Catalog projection and payload allowlist. Existing
 same-version payload bytes remain immutable. Review and absorb the generated
