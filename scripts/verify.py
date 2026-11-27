@@ -135,6 +135,7 @@ CORE_TEST_MODULES = (
     "tests/test_opl_service_and_ux.py",
     "tests/test_opl_app_contribution.py",
     "tests/test_opl_fleet.py",
+    "tests/test_fleet_flow_baseline.py",
     "tests/test_fleet_workflow.py",
     "tests/test_fleet_adapter.py",
     "tests/test_fleet_attempts_queue.py",

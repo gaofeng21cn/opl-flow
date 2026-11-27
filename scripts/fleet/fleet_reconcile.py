@@ -24,7 +24,7 @@ except ModuleNotFoundError:  # pragma: no cover - Python < 3.11 degrades safely.
     tomllib = None
 from fleet_inventory import collect_inventory, validate_inventory
 from pydantic import BaseModel, ConfigDict, Field, StrictStr, field_validator
-from . import fleet_common
+from . import fleet_common, fleet_flow_baseline
 from .fleet_common import CONFIG_PATH, FLOW_ROOT, FleetError, NODE_ID_PATTERN, PET_FILES, RECEIPT_FIELDS, REPORT_FIELDS, REPOSITORY_FETCH_TIMEOUT_SECONDS, RUNNER_PATH, SKILL_REFERENCE_SCHEMA, STATE_ROOT, _INSTANCE_OWNER, atomic_json, effective_codex_home, node_identity, normalize_node_id, read_json, run, sha256_file, utc_now
 
 
@@ -411,20 +411,20 @@ def fetch_skill_reference(spec: dict[str, Any], revision: str) -> dict[str, Any]
         raise FleetError("owner skill reference is invalid")
     return payload
 
-def _flow_package_status(opl_command: str) -> dict[str, Any] | None:
+def _flow_package_status(opl_command: str) -> tuple[dict[str, Any] | None, bool]:
     result = run(
         [opl_command, "packages", "status", "--package-id", "opl-flow", "--json"],
         check=False,
         timeout=60,
     )
     if result.returncode:
-        return None
+        return None, fleet_flow_baseline.missing_namespace(result)
     try:
         payload = json.loads(result.stdout)
     except json.JSONDecodeError:
-        return None
+        return None, False
     status = payload.get("opl_agent_package_status") if isinstance(payload, dict) else None
-    return status if isinstance(status, dict) else None
+    return (status if isinstance(status, dict) else None), False
 
 def reconcile_flow_experience_baseline(*, opl_command: str | None = None) -> dict[str, Any]:
     receipt: dict[str, Any] = {
@@ -437,7 +437,9 @@ def reconcile_flow_experience_baseline(*, opl_command: str | None = None) -> dic
     resolved_opl_command = opl_command or shutil.which("opl")
     if not resolved_opl_command:
         return receipt
-    status = _flow_package_status(resolved_opl_command)
+    status, missing_namespace = _flow_package_status(resolved_opl_command)
+    if missing_namespace:
+        return fleet_flow_baseline.read_v2_baseline(resolved_opl_command, receipt, _plugin_skill_roots_from_payload)
     if status is None:
         return {**receipt, "reason": "package_status_unavailable"}
     baseline = status.get("experience_baseline")
@@ -488,7 +490,7 @@ def reconcile_flow_experience_baseline(*, opl_command: str | None = None) -> dic
             "failure_ids": failure_ids,
             "reason": "repair_command_failed",
         }
-    repaired_status = _flow_package_status(resolved_opl_command)
+    repaired_status, _ = _flow_package_status(resolved_opl_command)
     repaired_baseline = (
         repaired_status.get("experience_baseline")
         if isinstance(repaired_status, dict)
