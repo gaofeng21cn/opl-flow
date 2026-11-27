@@ -70,7 +70,7 @@ wheels = [
 
 [[package]]
 name = "opl-flow"
-version = "0.1.96"
+version = "0.1.97"
 source = { virtual = "." }
 dependencies = [
     { name = "filelock" },
