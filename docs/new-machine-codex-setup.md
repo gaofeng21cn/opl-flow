@@ -6,13 +6,16 @@ the commands and fresh carrier/executor readback establish machine state.
 
 ## Install And Discover
 
-For an existing Framework installation:
+On Framework v2, set `FLOW_SOURCE` to the absolute path of the reviewed
+Flow checkout containing a v2 manifest, then install and verify it.
 
 ```bash
-opl packages install opl-flow --json
+opl pack inspect "$FLOW_SOURCE" --json
+opl pack install "$FLOW_SOURCE" --json
+opl pack inspect opl-flow --json
 ```
 
-The public native Codex Plugin entry is:
+For a native Codex installation, use the public plugin entry instead.
 
 ```bash
 codex plugin marketplace add gaofeng21cn/opl-flow
@@ -89,8 +92,8 @@ Ledger. It does not run `start` or force nodes to match an older controller.
 Read the applicable layers separately:
 
 ```bash
-opl packages list --json
-opl packages status --package-id opl-flow --json
+opl pack list --json
+opl pack inspect opl-flow --json
 codex plugin list --json
 python3 scripts/opl_workflow.py status --instance <opl-instance>
 ```

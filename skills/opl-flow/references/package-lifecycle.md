@@ -9,14 +9,24 @@ Carrier     = local install/update/remove and physical readback
 Executor    = discovery and callability of installed capabilities
 ```
 
-Normal user actions use Framework:
+Framework v2 accepts a Package source on install and update. For a reviewed
+Flow checkout containing the v2 `opl-package.json`, set `FLOW_SOURCE` to its
+absolute directory and run the applicable action.
 
 ```bash
-opl packages install opl-flow --json
-opl packages update opl-flow --json
-opl packages repair --package-id opl-flow --json
-opl packages status --package-id opl-flow --json
+opl pack inspect "$FLOW_SOURCE" --json
+opl pack install "$FLOW_SOURCE" --json
+opl pack update opl-flow --source "$FLOW_SOURCE" --json
+opl pack inspect opl-flow --json
+codex plugin list --json
 ```
+
+Install on a new node and use update for an existing Pack install. Verify the
+Package ID, enabled state, version, and native plugin registration. The
+configured release channel can also supply a compatible v2 artifact. A
+previously installed native plugin remains discoverable in Codex while
+Framework's registry is empty. On Framework v1, use the `opl packages`
+install, update, repair, and status commands.
 
 Repository source verification does not install the Package or prove currentness.
 

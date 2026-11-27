@@ -180,16 +180,9 @@ For `~/.codex/AGENTS.md`:
 6. compare the target hash immediately before apply;
 7. validate and atomically replace, or leave the original untouched.
 
-Framework owns these guarded Profile mutations:
-
-```bash
-opl packages install opl-flow --json
-opl packages update opl-flow --json
-opl packages repair --package-id opl-flow --json
-opl packages status --package-id opl-flow --json
-```
-
-The carrier must not overwrite an unknown existing Profile.
+Use the [setup and update procedure](setup-update.md) to check the installed
+Flow Package and its native carrier. Fleet applies a reviewed Profile through
+the Framework writer and reads the target back before reporting success.
 
 ## Capability Routing
 

@@ -7,20 +7,25 @@ explicit `$opl-flow start` owner-API route or create its state.
 
 ## Inspect First
 
-Read the configured carrier and Framework projection, then run the combined
-workflow readback when an Instance is known:
+Check the Framework API version and the two installed views. Run the workflow
+readback when an Instance is configured.
 
 ```bash
-opl packages status --package-id opl-flow --json
+opl --version --json
+opl pack inspect opl-flow --json
+codex plugin list --json
 python3 scripts/opl_workflow.py status --instance <opl-instance>
 ```
 
-Distinguish Flow package availability, experience-baseline degradation,
-specialized capability absence, Profile state, Ledger state, and Fleet state.
+On v2, `pack inspect` reports the Framework install. Codex can still report an
+enabled native plugin from before the upgrade when Pack reports `PACK_NOT_FOUND`.
+Fleet checks its capabilities against the installed Flow policy. Use the
+Package install entry when registering Flow with Framework. On a v1 carrier,
+read `opl packages status --package-id opl-flow --json` for its baseline projection.
 
 ## Setup
 
-1. Install or repair Flow through the current Framework/package action.
+1. With Framework v2, install the selected Flow Package through the [Package lifecycle](package-lifecycle.md) procedure and confirm its installed identity.
 2. Prepare the user Profile. Apply only a reviewed semantic-merge packet when
    existing content is not a known Flow-owned revision.
 3. Repair the declared experience baseline from each component owner's source.
@@ -33,8 +38,8 @@ specialized capability absence, Profile state, Ledger state, and Fleet state.
 
 ## Update
 
-1. Update Flow with `opl packages update opl-flow --json`.
-2. Let Framework perform source-aware legacy migration and baseline repair.
+1. Use `opl pack update opl-flow --source <source> --json` with the verified v2 Package source. Read back the installed version and the Codex carrier.
+2. Review the baseline report and repair any missing capability through its owner.
 3. Update Beads, non-development OPL Skills, and Fleet components only through
    their owners when the requested environment uses them.
 4. Pull Dolt before Ledger mutation; push only after a coherent mutation.
