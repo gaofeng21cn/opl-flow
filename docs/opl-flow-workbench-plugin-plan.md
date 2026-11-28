@@ -42,7 +42,7 @@ State: `approved_architecture_plan`
 1. **扩展包形态与宿主边界**：严格遵循 Framework v2 架构（见 `one-person-lab/docs/architecture.md` 与 `status.md`）——由 **Studio（DSH/Cordis）**承载交互界面与插件组合，**Framework `opld`** 仅通过公开本地 JSON-RPC 提供状态投影与动作执行。在 `opl-studio/plugins/extensions/` 新增标准 Tier 2 DSH Client 插件 `@gaofeng21cn/opl-flow-workbench`（包裹 `PluginErrorBoundary`，仅消费公开 `@gaofeng21cn/opl-plugin-ui-kit` 与受控宿主投影，零 `vendor/` 相对直连）。
 2. **侧栏注册与默认收纳**：
    - 向 `sidebar.panellist` 注册 `id: "opl-flow"`、`order: 34`（位于 `workspace`/`schedules` 与 `teams`/`superagent` 邻近区间），显示名 `OPL Flow 总控` / `OPL Flow`。
-   - 纳入 `app-product-profile.json` 的 `default_unpinned_panel_ids`，**默认折叠于侧栏「更多」菜单**，不影响首页主侧栏默认的 4 个固定入口（应用管理、运行状态、资料空间、工作区）；用户若重度使用，可点击「更多」里的图钉一键置顶。
+   - 纳入 `app-product-profile.json` 的 `default_unpinned_panel_ids`，**默认折叠于侧栏「更多」菜单**，不影响首页主侧栏默认的 4 个固定入口（软件中心、运行状态、资料空间、工作区）；用户若重度使用，可点击「更多」里的图钉一键置顶。
 3. **条件显隐原则（零打扰）与生命周期命令**：
    - 宿主通过 `opld` 公开 RPC **`app.state.get`** 读取 `application_management` / 已安装启用 Package 状态投影：仅当用户已安装并启用 `opl-flow` Package 时注册或显示 `opl-flow` 侧栏入口；未安装 `opl-flow` 的普通用户完全不可见，也不启动任何后台轮询。
    - `opl-flow` 自身及关联舰队的安装、修复与同步统一使用 Framework v2 CLI **`opl pack ensure` / `opl pack sync`**（及只读诊断 `opl pack list` / `opl pack inspect`），**严禁依赖已删除的 v1 CLI 命令**。
