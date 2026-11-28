@@ -4,7 +4,7 @@
 
 发布日期：2026-11-02
 
-最近修订：2026-11-24
+最近修订：2026-11-28
 
 适用对象：希望理解 OPL Flow 工作方式的用户、合作者与开发者。
 
@@ -32,7 +32,7 @@ OPL Flow 要解决的就是这层协调成本。它提高任务的均一化、�
 
 “自动化投递”则是让系统在已有授权内承担日常协调：把新工作交给合适的执行者，把补充要求交给当前负责人，把等待条件恢复后的任务接回执行。需要用户决定时，系统交回一个具体的问题；其余已授权的工作继续向前。
 
-OPL Flow 是为 Codex 提供工作基线与持久协同能力的可选 Package。精简的用户 Profile、能力建议和可复用方法支持日常工作；需要长期推进时，Ledger 保存目标与进展；需要跨机器接力或受保护的计算资源时，Fleet 提供连续性和容量。用户可以从一台电脑上的一次任务开始，随着工作需要逐步使用这些能力。
+OPL Flow 是面向 Codex、AntiGravity 与 OPL DSH 等执行载体的工作基线与多载体协同 Package。精简的用户 Profile、能力建议和可复用方法支持日常工作；需要长期推进或双端交接时，Beads/Dolt 统一任务账本与零 Token 路由保存目标、分支认领与完成回执；需要跨机器接力或受保护的计算资源时，Fleet 提供连续性和容量。用户可以从一台电脑上的一次任务开始，随着工作需要逐步使用这些能力。
 
 ## 统一管理什么，自动推进什么
 
@@ -169,4 +169,6 @@ OPL Framework 提供通用运行能力，并负责 Package 安装、Profile 物�
 - [OPL App 白皮书](https://gaofeng21cn.github.io/one-person-lab/latest/whitepapers/opl-app-whitepaper.html)：极薄底座、平权插件生态与连续工作体验。
 - [OPL Cloud 白皮书](https://gaofeng21cn.github.io/one-person-lab/latest/whitepapers/opl-cloud-whitepaper.html)：在线工作空间、远端资源与对外服务。
 - [MAS 白皮书](https://gaofeng21cn.github.io/one-person-lab/latest/whitepapers/mas-whitepaper.html)：专业领域如何围绕同一研究目标持续推进。
+- [OPL Agent Apps 与 MiniApp 白皮书](https://gaofeng21cn.github.io/one-person-lab/latest/whitepapers/opl-miniapp-whitepaper.html)：能力包交互界面与 MiniApp 运行模型。
+- [OPL Capital Compass 白皮书](https://gaofeng21cn.github.io/one-person-lab/latest/whitepapers/opl-capital-compass-whitepaper.html)：垂直投研智能体领域的最佳实践。
 - [OPL Flow 文档索引](https://github.com/gaofeng21cn/opl-flow/blob/main/docs/README.md)：当前架构、安装与操作入口。

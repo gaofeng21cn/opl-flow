@@ -44,7 +44,7 @@ family publication workflow produce the canonical HTML and PDF together with
 the other OPL whitepapers. Preview from a workspace with a Framework checkout:
 
 ```bash
-node ../one-person-lab/scripts/run-domain-whitepaper.ts \
+node --experimental-strip-types ../one-person-lab/scripts/run-domain-whitepaper.ts \
   --repo-root . --profile contracts/whitepaper_profile.json
 ```
 
