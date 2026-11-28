@@ -333,9 +333,14 @@ else:
                 self.assertEqual(rc_up_default, 0)
                 up_default_payload = json.loads(buf.getvalue())
                 self.assertEqual(up_default_payload["bridge"], "auto")
-                default_plist = plistlib.loads(up_default_payload["definition"].encode("utf-8"))
-                self.assertIn("--bridge", default_plist["ProgramArguments"])
-                self.assertIn("auto", default_plist["ProgramArguments"])
+                self.assertIn("--bridge", up_default_payload["program_arguments"])
+                self.assertIn("auto", up_default_payload["program_arguments"])
+                if up_default_payload.get("platform") == "Darwin":
+                    default_plist = plistlib.loads(up_default_payload["definition"].encode("utf-8"))
+                    self.assertIn("--bridge", default_plist["ProgramArguments"])
+                    self.assertIn("auto", default_plist["ProgramArguments"])
+                else:
+                    self.assertIn("--bridge auto", up_default_payload["definition"])
 
                 # up --bridge antigravity --dry-run --json prints bridge=antigravity
                 buf = io.StringIO()
