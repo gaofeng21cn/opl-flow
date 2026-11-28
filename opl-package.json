@@ -2,7 +2,7 @@
   "schema_version": "opl.package.v2",
   "identity": {
     "id": "opl-flow",
-    "version": "0.1.97",
+    "version": "0.1.98",
     "intent": "extension",
     "name": {
       "zh-CN": "OPL Flow",
